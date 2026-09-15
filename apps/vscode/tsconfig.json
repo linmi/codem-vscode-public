@@ -15,12 +15,7 @@
     // "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
     // "noUnusedParameters": true,  /* Report errors on unused parameters. */
   },
-  "include": [
-    "src/extension.ts",
-    "src/CodeMProvider.ts",
-    "src/services/app-server/**/*.ts",
-    "src/shared/codem-webview.ts"
-  ],
+  "include": ["src/**/*"],
   "exclude": [
     "webview-ui",
     "src/**/__tests__/**",

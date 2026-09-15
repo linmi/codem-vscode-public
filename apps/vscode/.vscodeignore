@@ -41,5 +41,5 @@ dist/**/*.d.mts
 # builds and may inject a dev-only bwrap fallback (see ServerManager.localCli).
 bin/.cli-version
 
-# Legacy notification audio is not consumed by the App Server-only entry.
-audio-wav/**
+# Include WAV assets used by extension-host notification playback
+!audio-wav/**

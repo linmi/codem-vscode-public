@@ -58,7 +58,101 @@ describe("AppServerHost", () => {
       events.flatMap((event) => (event.type === "text-delta" ? [event.delta] : [])),
       ["Done"],
     )
+    assert.deepEqual(
+      events.flatMap((event) => (event.type === "item-output-delta" ? [event.delta] : [])),
+      ["running pwd"],
+    )
+    assert.equal(events.filter((event) => event.type === "tool-guard").length, 1)
+    assert.deepEqual(
+      events.flatMap((event) => (event.type === "file-diff" ? [event.diff] : [])),
+      [
+        {
+          source: { kind: "tool", toolCallId: "call-1" },
+          path: "src/example.ts",
+          changeType: "modified",
+          stats: { linesAdded: 1, linesRemoved: 0 },
+          preview: {
+            kind: "complete",
+            hunks: [
+              {
+                oldStart: 1,
+                oldCount: 1,
+                newStart: 1,
+                newCount: 2,
+                lines: [
+                  { kind: "context", oldLine: 1, newLine: 1, text: "const before = true" },
+                  { kind: "insert", oldLine: null, newLine: 2, text: "const after = true" },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    )
+    assert.equal(events.filter((event) => event.type === "hook-completed").length, 1)
+    assert.deepEqual(
+      events.flatMap((event) => (event.type === "background-wake" ? [`${event.phase}:${event.taskId}`] : [])),
+      ["queued:task-1", "started:task-1"],
+    )
+    assert.equal(events.filter((event) => event.type === "diff-updated").length, 1)
+    assert.equal(
+      events.filter(
+        (event) => event.type === "item-completed" && event.item.id === "snapshot-only",
+      ).length,
+      1,
+    )
     assert.equal(events.filter((event) => event.type === "turn-completed").length, 1)
+
+    assert.deepEqual(await host.readThread(fixture.root, threadId), {
+      id: "thread-1",
+      cwd: fixture.root,
+      archived: false,
+      model: "codem/auto",
+      profile: "default",
+      startedAt: "2026-09-15T00:00:00.000Z",
+      status: "idle",
+    })
+    assert.deepEqual(await host.listTurns(fixture.root, threadId, { limit: 20, sortDirection: "asc" }), {
+      entries: [
+        {
+          id: "turn-1",
+          input: "Build it",
+          submissionId: "submission-1",
+          startedAt: "2026-09-15T00:00:01.000Z",
+          completedAt: "2026-09-15T00:00:02.000Z",
+          status: "completed",
+          itemsView: "summary",
+        },
+      ],
+      nextCursor: null,
+      total: 1,
+    })
+    assert.deepEqual(await host.listItems(fixture.root, threadId, { turnId, limit: 50, sortDirection: "asc" }), {
+      entries: [
+        {
+          id: "item-1",
+          type: "agentMessage",
+          turnId: "turn-1",
+          submissionId: "submission-1",
+          recordSeq: 1,
+          status: "completed",
+          callId: null,
+          toolName: null,
+          input: null,
+          text: "Done",
+          summary: "",
+          output: "",
+          label: "agentMessage",
+          isError: false,
+          subagentId: null,
+          subagentKind: null,
+          replaced: null,
+          kept: null,
+        },
+      ],
+      nextCursor: null,
+      total: 1,
+    })
 
     await host.unsubscribeThread(fixture.root, threadId)
     await host.resumeThread(fixture.root, threadId, {
@@ -72,7 +166,7 @@ describe("AppServerHost", () => {
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line) as Record<string, unknown>)
-    assert.deepEqual(captured[0]?.argv, ["--final-answer-tool", "app-server", "app-server"])
+    assert.deepEqual(captured[0]?.argv, ["--final-answer-tool", "app-server"])
     assert.deepEqual((captured[0]?.environment as Record<string, unknown>).credentialHost, [
       "/bin/true",
       "__host-serve",
@@ -138,11 +232,28 @@ lines.on("line", (line) => {
   if (frame.method === "initialize") return send({ jsonrpc: "2.0", id: frame.id, result: { protocolVersion: 1, agentInfo: { version: "0.8.37+1.gfixture" }, capabilities: ${JSON.stringify(capabilities)} } })
   if (frame.method === "thread/start") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1" } } })
   if (frame.method === "thread/resume") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: frame.params.threadId } } })
+  if (frame.method === "thread/read") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), archived: false, model: "codem/auto", profile: "default", startedAt: "2026-09-15T00:00:00.000Z", status: "idle" } } })
+  if (frame.method === "thread/turns/list") return send({ jsonrpc: "2.0", id: frame.id, result: { turns: [{ id: "turn-1", input: "Build it", submissionId: "submission-1", startedAt: "2026-09-15T00:00:01.000Z", completedAt: "2026-09-15T00:00:02.000Z", status: "completed", itemsView: "summary" }], nextCursor: null, total: 1 } })
+  if (frame.method === "thread/items/list") return send({ jsonrpc: "2.0", id: frame.id, result: { items: [{ id: "item-1", type: "agentMessage", turnId: "turn-1", submissionId: "submission-1", recordSeq: 1, status: "completed", text: "Done" }], nextCursor: null, total: 1 } })
   if (frame.method === "turn/start") {
     send({ jsonrpc: "2.0", method: "turn/started", params: { threadId: frame.params.threadId, turn: { id: "turn-1" } } })
     send({ jsonrpc: "2.0", id: frame.id, result: { turn: { id: "turn-1" } } })
+    send({ jsonrpc: "2.0", method: "item/started", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "tool-1", type: "commandExecution", status: "inProgress", tool: "run_bash", callId: "call-1", arguments: { command: "pwd" } } } })
+    send({ jsonrpc: "2.0", method: "item/commandExecution/outputDelta", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "tool-1", delta: "running pwd" } })
+    send({ jsonrpc: "2.0", method: "item/toolCall/guardUpdated", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "tool-1", callId: "call-1", guard: { tool: "run_bash", status: "pass", reason: "ok", rawResultBytes: null, returnedResultBytes: 11, formattedCapBytes: null, globalBackstopApplied: false, suggestion: null } } })
+    const diff = JSON.stringify({ tool_call_id: "call-1", path: "src/example.ts", change_type: "modified", is_binary: false, truncated: false, stats: { lines_added: 1, lines_removed: 0 }, hunks: [{ old_start: 1, old_count: 1, new_start: 1, new_count: 2, lines: [{ kind: "context", old_line: 1, new_line: 1, text: "const before = true" }, { kind: "insert", old_line: null, new_line: 2, text: "const after = true" }] }], raw_unified: null })
+    const split = Math.floor(diff.length / 2)
+    send({ jsonrpc: "2.0", method: "item/fileChange/delta", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "diff-1", callId: "call-1", sequence: 0, delta: diff.slice(0, split), encoding: "json", complete: false } })
+    send({ jsonrpc: "2.0", method: "item/fileChange/delta", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "diff-1", callId: "call-1", sequence: 1, delta: diff.slice(split), encoding: "json", complete: true } })
+    send({ jsonrpc: "2.0", method: "item/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "tool-1", type: "commandExecution", status: "completed", callId: "call-1", summary: "exit 0", output: "/workspace", isError: false } } })
+    send({ jsonrpc: "2.0", method: "hook/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", run: { event: "PostToolUse", tool: "run_bash", command: "check.sh", outcome: "success", reason: "ok", elapsedMs: 12 } } })
+    send({ jsonrpc: "2.0", method: "backgroundTask/wakeQueued", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-1" } })
+    send({ jsonrpc: "2.0", method: "backgroundTask/wakeStarted", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-1" } })
+    send({ jsonrpc: "2.0", method: "turn/diff/updated", params: { threadId: frame.params.threadId, turnId: "turn-1", diff: [{ path: "src/example.ts", linesAdded: 1, linesRemoved: 0 }] } })
+    send({ jsonrpc: "2.0", method: "item/started", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "item-1", type: "agentMessage", status: "inProgress" } } })
     send({ jsonrpc: "2.0", method: "item/agentMessage/delta", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "item-1", delta: "Done" } })
-    return send({ jsonrpc: "2.0", method: "turn/completed", params: { threadId: frame.params.threadId, turn: { id: "turn-1", status: "completed", stopReason: "end_turn", error: null } } })
+    send({ jsonrpc: "2.0", method: "item/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "item-1", type: "agentMessage", status: "completed", text: "Done" } } })
+    return send({ jsonrpc: "2.0", method: "turn/completed", params: { threadId: frame.params.threadId, turn: { id: "turn-1", status: "completed", stopReason: "end_turn", error: null, items: [{ id: "snapshot-only", type: "toolCall", status: "interrupted", tool: "read_file", callId: "call-snapshot", summary: "Turn ended" }] } } })
   }
   send({ jsonrpc: "2.0", id: frame.id, result: {} })
 })

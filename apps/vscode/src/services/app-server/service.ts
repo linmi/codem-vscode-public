@@ -3,6 +3,7 @@ import {
   AppServerHost,
   resolveBundledAppServerRuntime,
   type AppServerHostEvent,
+  type AppServerPromptAttachment,
   type AppServerInteractionResponse,
   type AppServerThreadSettings,
   type AppServerThreadSummary,
@@ -67,9 +68,53 @@ export class CodeMAppServerService implements vscode.Disposable {
     return this.host.listThreads(cwd)
   }
 
-  startTurn(cwd: string, threadId: string, submissionId: string, text: string): Promise<string> {
+  readThread(cwd: string, threadId: string) {
     requireTrustedWorkspace()
-    return this.host.startTurn({ cwd, threadId, submissionId, text })
+    return this.host.readThread(cwd, threadId)
+  }
+
+  listTurns(
+    cwd: string,
+    threadId: string,
+    options?: { readonly cursor?: string; readonly limit?: number; readonly sortDirection?: "asc" | "desc" },
+  ) {
+    requireTrustedWorkspace()
+    return this.host.listTurns(cwd, threadId, options)
+  }
+
+  listItems(
+    cwd: string,
+    threadId: string,
+    options?: {
+      readonly turnId?: string
+      readonly cursor?: string
+      readonly limit?: number
+      readonly sortDirection?: "asc" | "desc"
+    },
+  ) {
+    requireTrustedWorkspace()
+    return this.host.listItems(cwd, threadId, options)
+  }
+
+  listModels(cwd: string) {
+    requireTrustedWorkspace()
+    return this.host.listModels(cwd)
+  }
+
+  listSkills(cwd: string, threadId?: string) {
+    requireTrustedWorkspace()
+    return this.host.listSkills(cwd, threadId)
+  }
+
+  startTurn(
+    cwd: string,
+    threadId: string,
+    submissionId: string,
+    text: string,
+    attachments?: readonly AppServerPromptAttachment[],
+  ): Promise<string> {
+    requireTrustedWorkspace()
+    return this.host.startTurn({ cwd, threadId, submissionId, text, attachments })
   }
 
   interrupt(cwd: string, threadId: string): Promise<void> {

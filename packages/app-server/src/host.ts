@@ -1,5 +1,14 @@
 import { isAbsolute } from "node:path"
 import { startAppServerConnection, type AppServerConnection, type AppServerProcessExit } from "./connection.ts"
+import {
+  mergeAppServerItems,
+  parseAppServerFileDiff,
+  parseAppServerItem,
+  parseAppServerToolGuard,
+  type AppServerFileDiff,
+  type AppServerItem,
+  type AppServerToolGuard,
+} from "./items.ts"
 import type { AppServerNotification, AppServerRequest, JsonObject } from "./rpc.ts"
 import type { AppServerRuntime } from "./runtime.ts"
 
@@ -8,7 +17,6 @@ const SESSION_SOURCE_ENV = "CODEM_SESSION_SOURCE"
 
 export type AppServerPermissionMode = "default" | "auto" | "yolo"
 export type AppServerWorkMode = "default" | "plan"
-export type AppServerItemStatus = "inProgress" | "completed" | "failed" | "declined" | "interrupted"
 
 export interface AppServerMcpServer {
   readonly type: "stdio"
@@ -50,6 +58,38 @@ export interface AppServerThreadSummary {
   readonly preview: string
   readonly startedAt: string
   readonly turnCount: number
+}
+
+export interface AppServerThreadDetail {
+  readonly id: string
+  readonly cwd: string
+  readonly archived: boolean
+  readonly model: string
+  readonly profile: string
+  readonly startedAt: string
+  readonly status: string
+}
+
+export interface AppServerTurnSummary {
+  readonly id: string
+  readonly input: string
+  readonly submissionId: string | null
+  readonly startedAt: string
+  readonly completedAt: string | null
+  readonly status: string | null
+  readonly itemsView: string | null
+}
+
+export interface AppServerHistoryItem extends AppServerItem {
+  readonly turnId: string | null
+  readonly submissionId: string | null
+  readonly recordSeq: number | null
+}
+
+export interface AppServerHistoryPage<Entry> {
+  readonly entries: readonly Entry[]
+  readonly nextCursor: string | null
+  readonly total: number
 }
 
 export interface AppServerModelSummary {
@@ -197,19 +237,63 @@ export type AppServerHostEvent =
       readonly type: "item-started"
       readonly threadId: string
       readonly turnId: string
-      readonly itemId: string
-      readonly itemType: string
-      readonly label: string
+      readonly item: AppServerItem
     }
   | {
       readonly type: "item-completed"
       readonly threadId: string
       readonly turnId: string
+      readonly item: AppServerItem
+    }
+  | {
+      readonly type: "item-output-delta"
+      readonly threadId: string
+      readonly turnId: string
       readonly itemId: string
-      readonly itemType: string
-      readonly status: AppServerItemStatus
-      readonly text: string
-      readonly summary: string
+      readonly toolCallId: string
+      readonly delta: string
+    }
+  | {
+      readonly type: "tool-guard"
+      readonly threadId: string
+      readonly turnId: string
+      readonly itemId: string
+      readonly guard: AppServerToolGuard
+    }
+  | {
+      readonly type: "file-diff"
+      readonly threadId: string
+      readonly turnId: string
+      readonly itemId: string
+      readonly diff: AppServerFileDiff
+    }
+  | {
+      readonly type: "hook-completed"
+      readonly threadId: string
+      readonly turnId: string
+      readonly eventName: string
+      readonly toolName: string
+      readonly command: string
+      readonly outcome: string
+      readonly reason: string
+      readonly elapsedMs: number
+    }
+  | {
+      readonly type: "background-wake"
+      readonly threadId: string
+      readonly turnId: string
+      readonly phase: "queued" | "started"
+      readonly taskId: string
+    }
+  | {
+      readonly type: "diff-updated"
+      readonly threadId: string
+      readonly turnId: string
+      readonly files: readonly {
+        readonly path: string
+        readonly linesAdded: number
+        readonly linesRemoved: number
+      }[]
     }
   | {
       readonly type: "plan-updated"
@@ -264,6 +348,7 @@ export type AppServerHostEvent =
       readonly error: string | null
     }
   | { readonly type: "control-changed"; readonly threadId: string | null; readonly method: string }
+  | { readonly type: "authentication-invalidated"; readonly message: string }
   | { readonly type: "protocol-error"; readonly cwd: string; readonly message: string }
 
 export interface AppServerHostOptions {
@@ -297,9 +382,19 @@ interface ActiveSideQuestion {
 
 interface ActiveTurn {
   readonly submissionId: string | null
+  readonly items: Map<string, AppServerItem>
+  readonly completedItems: Set<string>
+  readonly fileDiffs: Map<string, AppServerFileDiffBuffer>
   turnId: string | null
   startedEmitted: boolean
   terminal: boolean
+}
+
+interface AppServerFileDiffBuffer {
+  readonly callId: string
+  readonly backgroundTaskId: string | null
+  nextSequence: number
+  readonly chunks: string[]
 }
 
 interface PendingInteraction {
@@ -384,7 +479,7 @@ export class AppServerHost {
     const submissionId = exactNonBlankString(input.submissionId, "turn/start submissionId")
     const attachments = input.attachments ?? []
     validateAttachments(attachments)
-    const active: ActiveTurn = { submissionId, turnId: null, startedEmitted: false, terminal: false }
+    const active: ActiveTurn = createActiveTurn(submissionId)
     thread.activeTurn = active
     try {
       const result = objectValue(
@@ -587,6 +682,73 @@ export class AppServerHost {
     }
   }
 
+  async readThread(cwd: string, threadId: string): Promise<AppServerThreadDetail> {
+    const connection = await this.connection(cwd)
+    const result = objectValue(
+      await connection.connection.request("thread/read", { threadId: nonBlankString(threadId, "thread/read threadId") }),
+      "thread/read result",
+    )
+    const thread = objectValue(result.thread, "thread/read thread")
+    const detail: AppServerThreadDetail = {
+      id: nonBlankString(thread.id, "thread/read thread.id"),
+      cwd: nonBlankString(thread.cwd, "thread/read thread.cwd"),
+      archived: booleanValue(thread.archived, "thread/read thread.archived"),
+      model: nonBlankString(thread.model, "thread/read thread.model"),
+      profile: nonBlankString(thread.profile, "thread/read thread.profile"),
+      startedAt: nonBlankString(thread.startedAt, "thread/read thread.startedAt"),
+      status: nonBlankString(thread.status, "thread/read thread.status"),
+    }
+    if (detail.id !== threadId) throw new Error(`CodeM thread/read returned ${detail.id}, expected ${threadId}`)
+    if (detail.cwd !== cwd) throw new Error(`CodeM thread ${threadId} belongs to another workspace`)
+    return detail
+  }
+
+  async listTurns(
+    cwd: string,
+    threadId: string,
+    options: { readonly cursor?: string; readonly limit?: number; readonly sortDirection?: "asc" | "desc" } = {},
+  ): Promise<AppServerHistoryPage<AppServerTurnSummary>> {
+    const connection = await this.connection(cwd)
+    const result = objectValue(
+      await connection.connection.request("thread/turns/list", historyParameters(threadId, options)),
+      "thread/turns/list result",
+    )
+    return {
+      entries: arrayValue(result.turns, "thread/turns/list turns").map((entry, index) =>
+        turnSummary(entry, `thread/turns/list turns[${index}]`),
+      ),
+      nextCursor: nullableString(result.nextCursor, "thread/turns/list nextCursor"),
+      total: nonNegativeInteger(result.total, "thread/turns/list total"),
+    }
+  }
+
+  async listItems(
+    cwd: string,
+    threadId: string,
+    options: {
+      readonly turnId?: string
+      readonly cursor?: string
+      readonly limit?: number
+      readonly sortDirection?: "asc" | "desc"
+    } = {},
+  ): Promise<AppServerHistoryPage<AppServerHistoryItem>> {
+    const connection = await this.connection(cwd)
+    const result = objectValue(
+      await connection.connection.request("thread/items/list", {
+        ...historyParameters(threadId, options),
+        ...(options.turnId ? { turnId: nonBlankString(options.turnId, "thread/items/list turnId") } : {}),
+      }),
+      "thread/items/list result",
+    )
+    return {
+      entries: arrayValue(result.items, "thread/items/list items").map((entry, index) =>
+        historyItem(entry, `thread/items/list items[${index}]`),
+      ),
+      nextCursor: nullableString(result.nextCursor, "thread/items/list nextCursor"),
+      total: nonNegativeInteger(result.total, "thread/items/list total"),
+    }
+  }
+
   async listModels(
     cwd: string,
   ): Promise<{ readonly activeModel: string; readonly models: readonly AppServerModelSummary[] }> {
@@ -688,7 +850,7 @@ export class AppServerHost {
   ): Promise<string> {
     const thread = this.requireThread(cwd, threadId)
     if (thread.activeTurn || thread.sideQuestion) throw new Error(`CodeM thread ${threadId} is already active`)
-    const active: ActiveTurn = { submissionId: null, turnId: null, startedEmitted: false, terminal: false }
+    const active: ActiveTurn = createActiveTurn(null)
     thread.activeTurn = active
     try {
       const result = objectValue(await thread.connection.connection.request(method, { threadId }), `${method} result`)
@@ -726,7 +888,7 @@ export class AppServerHost {
       runtime: this.options.runtime,
       workingDirectory: cwd,
       clientInfo: this.options.clientInfo,
-      arguments: ["--final-answer-tool", "app-server"],
+      arguments: ["--final-answer-tool"],
       environment: appServerHostEnvironment(this.options.runtime, this.options.environment),
       onNotification: (notification) => {
         if (state) this.handleNotification(state, notification)
@@ -802,6 +964,13 @@ export class AppServerHost {
       if (message) this.emit({ type: "warning", threadId, message })
       return
     }
+    if (frame.method === "auth/invalidated") {
+      this.emit({
+        type: "authentication-invalidated",
+        message: optionalString(frame.params.message) ?? "CodeM authentication is no longer valid",
+      })
+      return
+    }
     if (frame.method === "skills/changed") {
       this.emit({ type: "control-changed", threadId, method: frame.method })
       return
@@ -868,6 +1037,66 @@ export class AppServerHost {
       this.handleItem(thread, turnId, frame)
       return
     }
+    if (
+      frame.method === "item/commandExecution/outputDelta" ||
+      frame.method === "item/subagent/progress" ||
+      frame.method === "item/toolCall/progress"
+    ) {
+      this.handleItemOutput(thread, active, turnId, frame)
+      return
+    }
+    if (frame.method === "item/toolCall/guardUpdated") {
+      const itemId = nonBlankString(frame.params.itemId, `${frame.method} itemId`)
+      this.emit({
+        type: "tool-guard",
+        threadId: thread.id,
+        turnId,
+        itemId,
+        guard: parseAppServerToolGuard(frame.params.guard, frame.params.callId, `${frame.method} guard`),
+      })
+      return
+    }
+    if (frame.method === "item/fileChange/delta") {
+      this.handleFileDiff(thread, active, turnId, frame.params)
+      return
+    }
+    if (frame.method === "hook/completed") {
+      const run = objectValue(frame.params.run, "hook/completed run")
+      this.emit({
+        type: "hook-completed",
+        threadId: thread.id,
+        turnId,
+        eventName: nonBlankString(run.event, "hook/completed run.event"),
+        toolName: nonBlankString(run.tool, "hook/completed run.tool"),
+        command: nonBlankString(run.command, "hook/completed run.command"),
+        outcome: nonBlankString(run.outcome, "hook/completed run.outcome"),
+        reason: stringValue(run.reason, "hook/completed run.reason"),
+        elapsedMs: nonNegativeNumber(run.elapsedMs, "hook/completed run.elapsedMs"),
+      })
+      return
+    }
+    if (frame.method === "backgroundTask/wakeQueued" || frame.method === "backgroundTask/wakeStarted") {
+      this.emit({
+        type: "background-wake",
+        threadId: thread.id,
+        turnId,
+        phase: frame.method === "backgroundTask/wakeQueued" ? "queued" : "started",
+        taskId: nonBlankString(frame.params.taskId, `${frame.method} taskId`),
+      })
+      return
+    }
+    if (frame.method === "turn/diff/updated") {
+      const files = arrayValue(frame.params.diff, "turn/diff/updated diff").map((entry, index) => {
+        const file = objectValue(entry, `turn/diff/updated diff[${index}]`)
+        return {
+          path: nonBlankString(file.path, `turn/diff/updated diff[${index}].path`),
+          linesAdded: nonNegativeInteger(file.linesAdded, `turn/diff/updated diff[${index}].linesAdded`),
+          linesRemoved: nonNegativeInteger(file.linesRemoved, `turn/diff/updated diff[${index}].linesRemoved`),
+        }
+      })
+      this.emit({ type: "diff-updated", threadId: thread.id, turnId, files })
+      return
+    }
     if (frame.method === "turn/plan/updated") {
       const plan = arrayValue(frame.params.plan, "turn/plan/updated plan").map((entry, index) => {
         const item = objectValue(entry, `turn/plan/updated plan[${index}]`)
@@ -881,29 +1110,89 @@ export class AppServerHost {
   }
 
   private handleItem(thread: ThreadState, turnId: string, frame: AppServerNotification): void {
-    const item = objectValue(frame.params.item, `${frame.method} item`)
-    const itemId = nonBlankString(item.id, `${frame.method} item.id`)
-    const itemType = nonBlankString(item.type, `${frame.method} item.type`)
+    const active = thread.activeTurn
+    if (!active) return
+    const item = parseAppServerItem(frame.params.item, `${frame.method} item`)
     if (frame.method === "item/started") {
-      this.emit({
-        type: "item-started",
-        threadId: thread.id,
-        turnId,
-        itemId,
-        itemType,
-        label: optionalString(item.tool) ?? optionalString(item.label) ?? itemType,
-      })
+      if (active.completedItems.has(item.id)) return
+      const existing = active.items.get(item.id)
+      if (existing) {
+        mergeAppServerItems(existing, item)
+        return
+      }
+      active.items.set(item.id, item)
+      this.emit({ type: "item-started", threadId: thread.id, turnId, item })
       return
     }
+    this.completeItem(thread, active, turnId, item)
+  }
+
+  private completeItem(thread: ThreadState, active: ActiveTurn, turnId: string, item: AppServerItem): void {
+    if (active.completedItems.has(item.id)) return
+    const completed = mergeAppServerItems(active.items.get(item.id), item)
+    if (!active.items.has(item.id) && completed.toolName) {
+      this.emit({ type: "item-started", threadId: thread.id, turnId, item: completed })
+    }
+    active.items.delete(item.id)
+    active.completedItems.add(item.id)
+    this.emit({ type: "item-completed", threadId: thread.id, turnId, item: completed })
+  }
+
+  private handleItemOutput(
+    thread: ThreadState,
+    active: ActiveTurn,
+    turnId: string,
+    frame: AppServerNotification,
+  ): void {
+    const itemId = nonBlankString(frame.params.itemId, `${frame.method} itemId`)
+    const item = active.items.get(itemId)
+    const toolCallId = optionalString(frame.params.callId) ?? item?.callId
+    if (!toolCallId) throw new Error(`CodeM ${frame.method} has no correlated tool call`)
+    const delta =
+      frame.method === "item/subagent/progress"
+        ? nonBlankString(frame.params.note, `${frame.method} note`)
+        : frame.method === "item/toolCall/progress"
+          ? stringValue(frame.params.message, `${frame.method} message`)
+          : notificationDelta(frame.params, frame.method)
+    if (!delta) return
+    this.emit({ type: "item-output-delta", threadId: thread.id, turnId, itemId, toolCallId, delta })
+  }
+
+  private handleFileDiff(thread: ThreadState, active: ActiveTurn, turnId: string, params: JsonObject): void {
+    const itemId = nonBlankString(params.itemId, "item/fileChange/delta itemId")
+    if (active.completedItems.has(itemId)) throw new Error(`CodeM file diff ${itemId} continued after completion`)
+    const callId = nonBlankString(params.callId, "item/fileChange/delta callId")
+    const backgroundTaskId = nullableNonBlankString(params.backgroundTaskId, "item/fileChange/delta backgroundTaskId")
+    const sequence = nonNegativeInteger(params.sequence, "item/fileChange/delta sequence")
+    const delta = stringValue(params.delta, "item/fileChange/delta delta")
+    if (params.encoding !== "json") throw new Error("CodeM item/fileChange/delta encoding must be json")
+    const complete = booleanValue(params.complete, "item/fileChange/delta complete")
+    const existing = active.fileDiffs.get(itemId)
+    if (existing && (existing.callId !== callId || existing.backgroundTaskId !== backgroundTaskId)) {
+      throw new Error(`CodeM file diff ${itemId} changed correlation identity`)
+    }
+    const buffer = existing ?? { callId, backgroundTaskId, nextSequence: 0, chunks: [] }
+    if (sequence !== buffer.nextSequence) {
+      throw new Error(`CodeM file diff ${itemId} expected sequence ${buffer.nextSequence}, received ${sequence}`)
+    }
+    buffer.chunks.push(delta)
+    buffer.nextSequence += 1
+    active.fileDiffs.set(itemId, buffer)
+    if (!complete) return
+    let decoded: unknown
+    try {
+      decoded = JSON.parse(buffer.chunks.join(""))
+    } catch (error: unknown) {
+      throw new Error(`CodeM file diff ${itemId} contained invalid JSON`, { cause: error })
+    }
+    active.fileDiffs.delete(itemId)
+    active.completedItems.add(itemId)
     this.emit({
-      type: "item-completed",
+      type: "file-diff",
       threadId: thread.id,
       turnId,
       itemId,
-      itemType,
-      status: itemStatus(item.status, item.isError),
-      text: optionalString(item.text) ?? "",
-      summary: boundedText(item.summary ?? item.output ?? ""),
+      diff: parseAppServerFileDiff(decoded, callId, backgroundTaskId, `file diff ${itemId}`),
     })
   }
 
@@ -913,6 +1202,13 @@ export class AppServerHost {
     const completedId = responseTurnId(turn, "turn/completed")
     if (completedId !== turnId)
       throw new Error(`CodeM turn/completed changed turn identity from ${turnId} to ${completedId}`)
+    if (Array.isArray(turn.items)) {
+      for (const value of turn.items) {
+        const item = parseAppServerItem(value, "turn/completed item")
+        if (active.completedItems.has(item.id)) continue
+        this.completeItem(thread, active, turnId, item)
+      }
+    }
     active.terminal = true
     const status = nonBlankString(turn.status, "turn/completed status")
     const stopReason = nonBlankString(turn.stopReason, "turn/completed stopReason")
@@ -1311,6 +1607,49 @@ function threadSummary(value: unknown, cwd: string, label: string): AppServerThr
   }
 }
 
+function historyParameters(
+  threadId: string,
+  options: { readonly cursor?: string; readonly limit?: number; readonly sortDirection?: "asc" | "desc" },
+): JsonObject {
+  const id = nonBlankString(threadId, "history threadId")
+  if (options.limit !== undefined && (!Number.isInteger(options.limit) || options.limit <= 0)) {
+    throw new Error("CodeM history limit must be a positive integer")
+  }
+  if (options.sortDirection !== undefined && options.sortDirection !== "asc" && options.sortDirection !== "desc") {
+    throw new Error(`CodeM history sort direction is invalid: ${String(options.sortDirection)}`)
+  }
+  return {
+    threadId: id,
+    ...(options.cursor ? { cursor: nonBlankString(options.cursor, "history cursor") } : {}),
+    ...(options.limit === undefined ? {} : { limit: options.limit }),
+    ...(options.sortDirection === undefined ? {} : { sortDirection: options.sortDirection }),
+  }
+}
+
+function turnSummary(value: unknown, label: string): AppServerTurnSummary {
+  const turn = objectValue(value, label)
+  return {
+    id: nonBlankString(turn.id, `${label}.id`),
+    input: stringValue(turn.input, `${label}.input`),
+    submissionId: nullableString(turn.submissionId, `${label}.submissionId`),
+    startedAt: nonBlankString(turn.startedAt, `${label}.startedAt`),
+    completedAt: nullableString(turn.completedAt, `${label}.completedAt`),
+    status: nullableString(turn.status, `${label}.status`),
+    itemsView: nullableString(turn.itemsView, `${label}.itemsView`),
+  }
+}
+
+function historyItem(value: unknown, label: string): AppServerHistoryItem {
+  const item = objectValue(value, label)
+  const projected = parseAppServerItem(item, label)
+  return {
+    ...projected,
+    turnId: nullableString(item.turnId, `${label}.turnId`),
+    submissionId: nullableString(item.submissionId, `${label}.submissionId`),
+    recordSeq: nullableNonNegativeInteger(item.recordSeq, `${label}.recordSeq`),
+  }
+}
+
 function responseTurnId(turn: JsonObject, label: string): string {
   const standard = optionalString(turn.id)
   const legacy = optionalString(turn.turnId)
@@ -1335,16 +1674,16 @@ function notificationDelta(params: JsonObject, label: string): string {
   return nonBlankString(delta ?? legacy, `${label} delta`)
 }
 
-function itemStatus(value: unknown, isError: unknown): AppServerItemStatus {
-  if (
-    value === "inProgress" ||
-    value === "completed" ||
-    value === "failed" ||
-    value === "declined" ||
-    value === "interrupted"
-  )
-    return value
-  return isError === true ? "failed" : "completed"
+function createActiveTurn(submissionId: string | null): ActiveTurn {
+  return {
+    submissionId,
+    items: new Map(),
+    completedItems: new Set(),
+    fileDiffs: new Map(),
+    turnId: null,
+    startedEmitted: false,
+    terminal: false,
+  }
 }
 
 function validateThreadSettings(cwd: string, settings: AppServerThreadSettings): void {
@@ -1455,6 +1794,18 @@ function nonNegativeInteger(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0)
     throw new Error(`CodeM ${label} must be a non-negative integer`)
   return value
+}
+
+function nonNegativeNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new Error(`CodeM ${label} must be a non-negative number`)
+  }
+  return value
+}
+
+function nullableNonBlankString(value: unknown, label: string): string | null {
+  if (value === null || value === undefined) return null
+  return nonBlankString(value, label)
 }
 
 function nullableNonNegativeInteger(value: unknown, label: string): number | null {

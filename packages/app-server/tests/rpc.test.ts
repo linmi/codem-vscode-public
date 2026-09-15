@@ -242,6 +242,10 @@ function createPeer(options: { readonly notifications?: AppServerNotification[] 
 function fakeCoreSource(): string {
   const capabilities = completeCapabilities()
   return `#!/usr/bin/env node
+if (process.argv.slice(2).join(" ") !== "app-server") {
+  process.stderr.write("unexpected arguments: " + process.argv.slice(2).join(" ") + "\\n")
+  process.exit(2)
+}
 const readline = require("node:readline")
 const input = readline.createInterface({ input: process.stdin })
 input.on("line", (line) => {
