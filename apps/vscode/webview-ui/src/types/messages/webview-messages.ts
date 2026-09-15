@@ -1437,15 +1437,6 @@ export interface RequestModelUsageMessage {
   type: "requestModelUsage"
 }
 
-export interface PersistModelSelectorExpandedRequest {
-  type: "persistModelSelectorExpanded"
-  value: boolean
-}
-
-export interface RequestModelSelectorExpandedMessage {
-  type: "requestModelSelectorExpanded"
-}
-
 export interface ToggleFavoriteRequest {
   type: "toggleFavorite"
   action: "add" | "remove"
@@ -1752,8 +1743,6 @@ export type WebviewMessage =
   | RequestRecentsMessage
   | RecordModelUsageMessage
   | RequestModelUsageMessage
-  | PersistModelSelectorExpandedRequest
-  | RequestModelSelectorExpandedMessage
   | ToggleFavoriteRequest
   | RequestFavoritesMessage
   | PersistModelSelectionRequest

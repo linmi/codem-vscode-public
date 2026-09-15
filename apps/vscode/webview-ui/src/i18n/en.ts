@@ -246,10 +246,9 @@ export const dict = {
 
   "error.startup.title": "Server connection failed",
 
-  "error.paidModel.title": "You need to sign in to use this model",
-  "error.paidModel.description":
-    "Sign in or create an account to access over 500 models, use credits at cost, or bring your own key.",
-  "error.paidModel.action": "Sign In",
+  "error.paidModel.title": "Sign in to continue",
+  "error.paidModel.description": "Sign in or create a CodeM account to continue.",
+  "error.paidModel.action": "Sign in to CodeM",
   "error.promotionLimit.title": "You need to sign up to keep going",
   "error.promotionLimit.description":
     "Sign up for free to continue and explore 500 other models. Takes 2 minutes, no credit card required. Or come back later.",
@@ -516,7 +515,7 @@ export const dict = {
   "session.tab.worktree": "Worktree",
   "session.cloud.repoOnly": "Only this repository",
   "session.cloud.import": "Import session",
-  "feedback.button": "Feedback & Support",
+  "community.button": "Join the Community",
   "feedback.dialog.message": "We'd love to hear your feedback or help with any issues you're experiencing.",
   "feedback.dialog.github": "Report an issue on GitHub",
   "feedback.dialog.discord": "Join our Discord community",

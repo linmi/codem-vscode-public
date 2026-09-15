@@ -1,6 +1,8 @@
 import * as vscode from "vscode"
 import { KiloProvider } from "./KiloProvider"
 import type { KiloConnectionService } from "./services/cli-backend"
+import type { CodeMAuthenticationService } from "./services/app-server/authentication"
+import type { CodeMAppServerService } from "./services/app-server/service"
 
 /**
  * Opens a read-only editor panel to view a sub-agent session.
@@ -19,6 +21,8 @@ export class SubAgentViewerProvider implements vscode.Disposable {
     private readonly extensionUri: vscode.Uri,
     private readonly connectionService: KiloConnectionService,
     private readonly context: vscode.ExtensionContext,
+    private readonly authentication: CodeMAuthenticationService,
+    private readonly appServer: CodeMAppServerService,
   ) {}
 
   openPanel(sessionID: string, title?: string, directory?: string): void {
@@ -43,6 +47,8 @@ export class SubAgentViewerProvider implements vscode.Disposable {
     }
 
     const provider = new KiloProvider(this.extensionUri, this.connectionService, this.context, {
+      authentication: this.authentication,
+      appServer: this.appServer,
       hideTopBar: true,
       tabTitle: (title) => {
         panel.title = title

@@ -12,7 +12,6 @@ import {
   isFree,
   isAuto,
   autoSummary,
-  autoChoices,
   rankModelSearch,
   mostUsedModels,
 } from "../../webview-ui/src/components/shared/model-selector-utils"
@@ -124,55 +123,6 @@ describe("isAuto", () => {
     expect(isAuto({ providerID: KILO_GATEWAY_ID, id: "auto-small" })).toBe(true)
     expect(isAuto({ providerID: "anthropic", id: "kilo-auto/efficient" })).toBe(false)
     expect(isAuto({ providerID: KILO_GATEWAY_ID, id: "anthropic/claude-sonnet" })).toBe(false)
-  })
-})
-
-describe("autoChoices", () => {
-  it("uses backend Auto routes and resolves names when available", () => {
-    expect(
-      autoChoices(
-        {
-          providerID: KILO_GATEWAY_ID,
-          id: "kilo-auto/efficient",
-          autoRouting: { models: ["provider/model", "missing/model"] },
-        },
-        [{ id: "provider/model", name: "Provider: Model" }],
-      ),
-    ).toEqual([
-      { id: "provider/model", name: "Model" },
-      { id: "missing/model", name: "missing/model" },
-    ])
-  })
-
-  it("shows routes for any Auto model when present", () => {
-    expect(
-      autoChoices(
-        {
-          providerID: KILO_GATEWAY_ID,
-          id: "kilo-auto/frontier",
-          autoRouting: { models: ["provider/model"] },
-        },
-        [{ id: "provider/model", name: "Provider: Model" }],
-      ),
-    ).toEqual([{ id: "provider/model", name: "Model" }])
-    expect(
-      autoChoices({
-        providerID: KILO_GATEWAY_ID,
-        id: "kilo-auto/free",
-        autoRouting: { models: ["provider/model"] },
-      }),
-    ).toEqual([{ id: "provider/model", name: "provider/model" }])
-  })
-
-  it("ignores missing routes and non-Auto models", () => {
-    expect(autoChoices({ providerID: KILO_GATEWAY_ID, id: "kilo-auto/efficient" })).toEqual([])
-    expect(
-      autoChoices({
-        providerID: KILO_GATEWAY_ID,
-        id: "anthropic/claude-sonnet",
-        autoRouting: { models: ["provider/model"] },
-      }),
-    ).toEqual([])
   })
 })
 

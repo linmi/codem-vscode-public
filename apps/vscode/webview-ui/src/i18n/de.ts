@@ -259,10 +259,9 @@ export const dict = {
 
   "error.startup.title": "Serververbindung fehlgeschlagen",
 
-  "error.paidModel.title": "Du musst dich anmelden, um dieses Modell zu nutzen",
-  "error.paidModel.description":
-    "Melde dich an oder erstelle ein Konto, um auf über 500 Modelle zuzugreifen, Credits zum Selbstkostenpreis zu nutzen oder deinen eigenen Schlüssel mitzubringen.",
-  "error.paidModel.action": "Anmelden",
+  "error.paidModel.title": "Melde dich an, um fortzufahren",
+  "error.paidModel.description": "Melde dich an oder erstelle ein CodeM-Konto, um fortzufahren.",
+  "error.paidModel.action": "Bei CodeM anmelden",
   "error.promotionLimit.title": "Du musst dich registrieren, um weiterzumachen",
   "error.promotionLimit.description":
     "Registriere dich kostenlos, um weiterzumachen und über 500 Modelle zu entdecken. Dauert 2 Minuten, keine Kreditkarte nötig. Oder komm später wieder.",
@@ -616,7 +615,6 @@ export const dict = {
   "session.tab.worktree": "Arbeitsbaum",
   "session.cloud.repoOnly": "Nur dieses Repository",
   "session.cloud.import": "Aus der Cloud importieren",
-  "feedback.button": "Feedback & Support",
   "feedback.dialog.message": "Wir würden uns freuen, Ihr Feedback zu hören oder Ihnen bei Problemen zu helfen.",
   "feedback.dialog.github": "Ein Problem auf GitHub melden",
   "feedback.dialog.discord": "Unserer Discord-Community beitreten",

@@ -249,10 +249,9 @@ export const dict = {
 
   "error.startup.title": "اتصال به سرور ناموفق بود",
 
-  "error.paidModel.title": "برای استفاده از این مدل باید وارد شوید",
-  "error.paidModel.description":
-    "برای دسترسی به بیش از ۵۰۰ مدل، استفاده از اعتبار با هزینه واقعی یا استفاده از کلید خودتان، وارد شوید یا حساب کاربری بسازید.",
-  "error.paidModel.action": "ورود",
+  "error.paidModel.title": "برای ادامه وارد شوید",
+  "error.paidModel.description": "برای ادامه وارد شوید یا یک حساب CodeM بسازید.",
+  "error.paidModel.action": "ورود به CodeM",
   "error.promotionLimit.title": "برای ادامه باید ثبت‌نام کنید",
   "error.promotionLimit.description":
     "برای ادامه و دسترسی به ۵۰۰ مدل دیگر، رایگان ثبت‌نام کنید. تنها ۲ دقیقه طول می‌کشد و نیازی به کارت اعتباری نیست. یا بعداً برگردید.",
@@ -521,7 +520,6 @@ export const dict = {
   "session.tab.worktree": "Worktree",
   "session.cloud.repoOnly": "فقط این مخزن",
   "session.cloud.import": "وارد کردن جلسه",
-  "feedback.button": "بازخورد و پشتیبانی",
   "feedback.dialog.message": "خوشحال می‌شویم نظرات شما را بشنویم یا در رفع مشکلاتتان کمک کنیم.",
   "feedback.dialog.github": "گزارش مشکل در GitHub",
   "feedback.dialog.discord": "پیوستن به جامعه Discord ما",

@@ -250,10 +250,9 @@ export const dict = {
 
   "error.startup.title": "Sunucu bağlantısı başarısız",
 
-  "error.paidModel.title": "Bu modeli kullanmak için giriş yapmalısınız",
-  "error.paidModel.description":
-    "500'den fazla modele erişmek, kredileri maliyetle kullanmak veya kendi anahtarınızı getirmek için giriş yapın ya da hesap oluşturun.",
-  "error.paidModel.action": "Giriş Yap",
+  "error.paidModel.title": "Devam etmek için giriş yapın",
+  "error.paidModel.description": "Devam etmek için giriş yapın veya bir CodeM hesabı oluşturun.",
+  "error.paidModel.action": "CodeM'de oturum aç",
   "error.promotionLimit.title": "Devam etmek için kayıt olmalısınız",
   "error.promotionLimit.description":
     "Devam etmek ve 500'den fazla modeli keşfetmek için ücretsiz kayıt olun. 2 dakika sürer, kredi kartı gerekmez. Ya da daha sonra gelin.",
@@ -554,7 +553,6 @@ export const dict = {
   "session.tab.worktree": "Çalışma ağacı",
   "session.cloud.repoOnly": "Yalnızca bu depo",
   "session.cloud.import": "Buluttan içe aktar",
-  "feedback.button": "Geri Bildirim ve Destek",
   "feedback.dialog.message":
     "Geri bildiriminizi almaktan veya yaşadığınız sorunlarda yardımcı olmaktan mutluluk duyarız.",
   "feedback.dialog.github": "GitHub'da sorun bildirin",

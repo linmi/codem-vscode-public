@@ -17,6 +17,8 @@ const SESSION_SOURCE_ENV = "CODEM_SESSION_SOURCE"
 
 export type AppServerPermissionMode = "default" | "auto" | "yolo"
 export type AppServerWorkMode = "default" | "plan"
+export const APP_SERVER_BUILTIN_INTELLIGENCE_TIERS = ["low", "medium", "high", "xhigh"] as const
+export type AppServerBuiltinIntelligence = (typeof APP_SERVER_BUILTIN_INTELLIGENCE_TIERS)[number]
 
 export interface AppServerMcpServer {
   readonly type: "stdio"
@@ -36,7 +38,7 @@ export interface AppServerThreadSettings {
 }
 
 export const DEFAULT_APP_SERVER_THREAD_SETTINGS: AppServerThreadSettings = Object.freeze({
-  model: "codem/auto",
+  model: "codem-router/auto",
   intelligence: "medium",
   permissionMode: "auto",
   workMode: "default",
@@ -282,7 +284,7 @@ export type AppServerHostEvent =
       readonly type: "background-wake"
       readonly threadId: string
       readonly turnId: string
-      readonly phase: "queued" | "started"
+      readonly phase: "queued" | "started" | "skipped"
       readonly taskId: string
     }
   | {
@@ -685,7 +687,9 @@ export class AppServerHost {
   async readThread(cwd: string, threadId: string): Promise<AppServerThreadDetail> {
     const connection = await this.connection(cwd)
     const result = objectValue(
-      await connection.connection.request("thread/read", { threadId: nonBlankString(threadId, "thread/read threadId") }),
+      await connection.connection.request("thread/read", {
+        threadId: nonBlankString(threadId, "thread/read threadId"),
+      }),
       "thread/read result",
     )
     const thread = objectValue(result.thread, "thread/read thread")
@@ -742,7 +746,7 @@ export class AppServerHost {
     )
     return {
       entries: arrayValue(result.items, "thread/items/list items").map((entry, index) =>
-        historyItem(entry, `thread/items/list items[${index}]`),
+        historyItem(entry, `thread/items/list items[${index}]`, options.turnId),
       ),
       nextCursor: nullableString(result.nextCursor, "thread/items/list nextCursor"),
       total: nonNegativeInteger(result.total, "thread/items/list total"),
@@ -1075,12 +1079,21 @@ export class AppServerHost {
       })
       return
     }
-    if (frame.method === "backgroundTask/wakeQueued" || frame.method === "backgroundTask/wakeStarted") {
+    if (
+      frame.method === "backgroundTask/wakeQueued" ||
+      frame.method === "backgroundTask/wakeStarted" ||
+      frame.method === "backgroundTask/wakeSkipped"
+    ) {
       this.emit({
         type: "background-wake",
         threadId: thread.id,
         turnId,
-        phase: frame.method === "backgroundTask/wakeQueued" ? "queued" : "started",
+        phase:
+          frame.method === "backgroundTask/wakeQueued"
+            ? "queued"
+            : frame.method === "backgroundTask/wakeStarted"
+              ? "started"
+              : "skipped",
         taskId: nonBlankString(frame.params.taskId, `${frame.method} taskId`),
       })
       return
@@ -1130,6 +1143,9 @@ export class AppServerHost {
   private completeItem(thread: ThreadState, active: ActiveTurn, turnId: string, item: AppServerItem): void {
     if (active.completedItems.has(item.id)) return
     const completed = mergeAppServerItems(active.items.get(item.id), item)
+    if (completed.toolName === "final_answer" && completed.status === "completed" && !completed.finalAnswer) {
+      throw new Error(`CodeM final_answer item ${completed.id} completed without structured input`)
+    }
     if (!active.items.has(item.id) && completed.toolName) {
       this.emit({ type: "item-started", threadId: thread.id, turnId, item: completed })
     }
@@ -1639,12 +1655,16 @@ function turnSummary(value: unknown, label: string): AppServerTurnSummary {
   }
 }
 
-function historyItem(value: unknown, label: string): AppServerHistoryItem {
+function historyItem(value: unknown, label: string, requestedTurnId?: string): AppServerHistoryItem {
   const item = objectValue(value, label)
   const projected = parseAppServerItem(item, label)
+  const returnedTurnId = nullableString(item.turnId, `${label}.turnId`)
+  if (requestedTurnId && returnedTurnId && returnedTurnId !== requestedTurnId) {
+    throw new Error(`CodeM App Server ${label}.turnId belongs to ${returnedTurnId}, expected ${requestedTurnId}`)
+  }
   return {
     ...projected,
-    turnId: nullableString(item.turnId, `${label}.turnId`),
+    turnId: returnedTurnId ?? requestedTurnId ?? null,
     submissionId: nullableString(item.submissionId, `${label}.submissionId`),
     recordSeq: nullableNonNegativeInteger(item.recordSeq, `${label}.recordSeq`),
   }

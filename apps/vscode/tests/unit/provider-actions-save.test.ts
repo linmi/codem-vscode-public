@@ -625,6 +625,45 @@ describe("fetchProviderData", () => {
     expect(result.authStates).toEqual({ kilo: "oauth" })
   })
 
+  it("presents the compatibility provider as CodeM with a working smart selection", async () => {
+    const client = {
+      provider: {
+        list: async () => ({
+          data: {
+            all: [
+              {
+                id: "kilo",
+                name: "Kilo Gateway",
+                source: "custom",
+                env: [],
+                models: {
+                  "kilo-auto/free": { id: "kilo-auto/free", name: "Auto Free", isFree: true },
+                  "kilo-auto/efficient": { id: "kilo-auto/efficient", name: "Auto Efficient" },
+                  "anthropic/claude": { id: "anthropic/claude", name: "Claude" },
+                },
+              },
+            ],
+            connected: ["kilo"],
+            default: { kilo: "kilo-auto/free" },
+          },
+        }),
+        auth: async () => ({ data: {} }),
+      },
+      kilo: {
+        authStatus: async () => ({ data: { authenticated: true, type: "oauth" } }),
+      },
+    } as unknown as Parameters<typeof fetchProviderData>[0]
+
+    const result = await fetchProviderData(client, "/tmp")
+    const provider = result.response.all[0]!
+
+    expect(provider.name).toBe("CodeM")
+    expect(provider.models["kilo-auto/free"]?.name).toBe("CodeM 智能选择")
+    expect(provider.models["kilo-auto/efficient"]?.name).toBe("CodeM Auto Efficient")
+    expect(provider.models["anthropic/claude"]?.name).toBe("Claude")
+    expect(result.response.default).toEqual({ kilo: "kilo-auto/free" })
+  })
+
   it("does not infer CodeM speech access without stored Gateway auth", async () => {
     const client = {
       provider: {

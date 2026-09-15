@@ -130,7 +130,7 @@ Before publishing this extension to the VS Code Marketplace or deploying to user
 
 ### Testing
 
-- [ ] **Test coverage** — Only one test file exists ([`extension.test.ts`](../src/test/extension.test.ts)). Add integration tests for: server lifecycle, SSE event routing, message send/receive, permission flow, session management
+- [ ] **Test coverage** — The original VS Code template smoke test was removed because it asserted only `Array.indexOf`; add real integration tests for server lifecycle, event routing, message send/receive, permission flow, and session management when those boundaries are migrated.
 - [ ] **Multi-theme visual check** — Verify the webview renders correctly in at least one light theme, one dark theme, and one high-contrast theme
 - [ ] **Multi-platform smoke test** — Test on macOS, Windows, and Linux. Particularly: CLI binary provisioning, path handling, `chmod`-based credential protection on Windows
 

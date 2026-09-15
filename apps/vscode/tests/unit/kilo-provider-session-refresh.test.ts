@@ -98,7 +98,6 @@ function createConnection(client: ReturnType<typeof createClient>) {
     onLanguageChanged: () => () => undefined,
     onProfileChanged: () => () => undefined,
     onFavoritesChanged: () => () => undefined,
-    onModelSelectorExpandedChanged: () => () => undefined,
     onClearPendingPrompts: () => () => undefined,
     registerDirectoryProvider: () => () => undefined,
     getServerInfo: () => ({ port: 12345 }),

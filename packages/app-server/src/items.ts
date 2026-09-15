@@ -10,19 +10,41 @@ export const APP_SERVER_ITEM_TYPES = [
   "webSearch",
   "contextCompaction",
   "toolCall",
+  "toolResult",
   "subagent",
 ] as const
 
-export const APP_SERVER_ITEM_STATUSES = [
-  "inProgress",
-  "completed",
-  "failed",
-  "declined",
-  "interrupted",
-] as const
+export const APP_SERVER_ITEM_STATUSES = ["inProgress", "completed", "failed", "declined", "interrupted"] as const
 
 export type AppServerItemType = (typeof APP_SERVER_ITEM_TYPES)[number]
 export type AppServerItemStatus = (typeof APP_SERVER_ITEM_STATUSES)[number]
+
+export type AppServerJsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | readonly AppServerJsonValue[]
+  | { readonly [key: string]: AppServerJsonValue }
+
+export interface AppServerFinalAnswerArtifact {
+  readonly kind: "file" | "image" | "chart" | "url"
+  readonly title: string
+  readonly source: string | null
+  readonly uri: string | null
+  readonly path: string | null
+  readonly filename: string | null
+  readonly alt: string | null
+  readonly mime: string | null
+  readonly spec: AppServerJsonValue
+}
+
+export interface AppServerFinalAnswer {
+  readonly status: "complete" | "partial" | "blocked"
+  readonly kind: "chat" | "task"
+  readonly summary: string
+  readonly artifacts: readonly AppServerFinalAnswerArtifact[]
+}
 
 /**
  * Stable CodeM projection of an App Server item. Dynamic tool arguments stay
@@ -45,6 +67,7 @@ export interface AppServerItem {
   readonly subagentKind: string | null
   readonly replaced: number | null
   readonly kept: number | null
+  readonly finalAnswer: AppServerFinalAnswer | null
 }
 
 export type AppServerFileChangeType =
@@ -111,17 +134,23 @@ export function parseAppServerItem(value: unknown, label: string): AppServerItem
   const type = enumValue(item.type, APP_SERVER_ITEM_TYPES, `${label}.type`)
   const status = enumValue(item.status, APP_SERVER_ITEM_STATUSES, `${label}.status`)
   const protocolTool = optionalString(item.tool)
-  const toolName =
-    protocolTool ?? (type === "subagent" ? "dispatch" : type === "contextCompaction" ? "compact" : null)
-  const callId = optionalString(item.callId) ?? optionalString(item.subagentId) ?? (toolName ? nonBlankString(item.id, `${label}.id`) : null)
+  const toolName = protocolTool ?? (type === "subagent" ? "dispatch" : type === "contextCompaction" ? "compact" : null)
+  const callId =
+    optionalString(item.callId) ??
+    optionalString(item.subagentId) ??
+    (toolName ? nonBlankString(item.id, `${label}.id`) : null)
   const input =
     objectOrNull(item.arguments, `${label}.arguments`) ??
     (type === "subagent"
       ? compactObject({ label: optionalString(item.label), kind: optionalString(item.subagentKind) })
       : type === "contextCompaction"
-        ? compactObject({ replaced: optionalNonNegativeInteger(item.replaced), kept: optionalNonNegativeInteger(item.kept) })
+        ? compactObject({
+            replaced: optionalNonNegativeInteger(item.replaced),
+            kept: optionalNonNegativeInteger(item.kept),
+          })
         : null)
   const isError = booleanOrDefault(item.isError, status === "failed")
+  const finalAnswer = toolName === "final_answer" && input ? parseFinalAnswer(input, `${label}.arguments`) : null
   return {
     id: nonBlankString(item.id, `${label}.id`),
     type,
@@ -138,6 +167,7 @@ export function parseAppServerItem(value: unknown, label: string): AppServerItem
     subagentKind: optionalString(item.subagentKind),
     replaced: optionalNonNegativeInteger(item.replaced),
     kept: optionalNonNegativeInteger(item.kept),
+    finalAnswer,
   }
 }
 
@@ -159,6 +189,38 @@ export function mergeAppServerItems(started: AppServerItem | undefined, complete
     subagentKind: completed.subagentKind ?? started.subagentKind,
     replaced: completed.replaced ?? started.replaced,
     kept: completed.kept ?? started.kept,
+    finalAnswer: completed.finalAnswer ?? started.finalAnswer,
+  }
+}
+
+function parseFinalAnswer(value: Readonly<JsonObject> | null, label: string): AppServerFinalAnswer {
+  const answer = objectValue(value, label)
+  requireOnlyFields(answer, ["status", "kind", "summary", "artifacts"], label)
+  const status =
+    answer.status === undefined
+      ? "complete"
+      : enumValue(answer.status, ["complete", "partial", "blocked"] as const, `${label}.status`)
+  const kind = answer.kind === "chat" ? "chat" : "task"
+  const summary = nonBlankString(answer.summary, `${label}.summary`)
+  const artifacts = (answer.artifacts === undefined ? [] : arrayValue(answer.artifacts, `${label}.artifacts`)).map(
+    (artifact, index) => parseFinalAnswerArtifact(artifact, `${label}.artifacts[${index}]`),
+  )
+  return { status, kind, summary, artifacts }
+}
+
+function parseFinalAnswerArtifact(value: unknown, label: string): AppServerFinalAnswerArtifact {
+  const artifact = objectValue(value, label)
+  requireOnlyFields(artifact, ["kind", "title", "source", "uri", "path", "filename", "alt", "mime", "spec"], label)
+  return {
+    kind: enumValue(artifact.kind, ["file", "image", "chart", "url"] as const, `${label}.kind`),
+    title: stringValue(artifact.title, `${label}.title`),
+    source: nullableOptionalString(artifact.source, `${label}.source`),
+    uri: nullableOptionalString(artifact.uri, `${label}.uri`),
+    path: nullableOptionalString(artifact.path, `${label}.path`),
+    filename: nullableOptionalString(artifact.filename, `${label}.filename`),
+    alt: nullableOptionalString(artifact.alt, `${label}.alt`),
+    mime: nullableOptionalString(artifact.mime, `${label}.mime`),
+    spec: jsonValue(artifact.spec, `${label}.spec`),
   }
 }
 
@@ -224,9 +286,7 @@ export function parseAppServerFileDiff(
           ? { kind: "raw-partial", text: rawUnified }
           : { kind: "omitted" }
   return {
-    source: backgroundTaskId
-      ? { kind: "background-tool", backgroundTaskId, toolCallId }
-      : { kind: "tool", toolCallId },
+    source: backgroundTaskId ? { kind: "background-tool", backgroundTaskId, toolCallId } : { kind: "tool", toolCallId },
     path: nonBlankString(persisted.path, `${label}.path`),
     changeType: enumValue(
       persisted.change_type,
@@ -335,6 +395,27 @@ function stringValue(value: unknown, label: string): string {
 function nullableString(value: unknown, label: string): string | null {
   if (value === undefined || value === null) return null
   return stringValue(value, label)
+}
+
+function nullableOptionalString(value: unknown, label: string): string | null {
+  return value === undefined || value === null ? null : stringValue(value, label)
+}
+
+function requireOnlyFields(value: JsonObject, allowedFields: readonly string[], label: string): void {
+  const allowed = new Set(allowedFields)
+  const unexpected = Object.keys(value).filter((field) => !allowed.has(field))
+  if (unexpected.length > 0) {
+    throw new Error(`CodeM App Server ${label} has unsupported fields: ${unexpected.join(", ")}`)
+  }
+}
+
+function jsonValue(value: unknown, label: string): AppServerJsonValue {
+  if (value === undefined || value === null) return null
+  if (typeof value === "string" || typeof value === "boolean") return value
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (Array.isArray(value)) return value.map((entry, index) => jsonValue(entry, `${label}[${index}]`))
+  const object = objectValue(value, label)
+  return Object.fromEntries(Object.entries(object).map(([key, entry]) => [key, jsonValue(entry, `${label}.${key}`)]))
 }
 
 function booleanValue(value: unknown, label: string): boolean {

@@ -154,8 +154,7 @@ describe("Extension — package.json command sync", () => {
     expect(
       pkg.contributes?.keybindings?.some(
         (item: { command: string }) =>
-          item.command === "codem.agentManager.newTerminal" ||
-          item.command === "codem.agentManager.newMainTerminal",
+          item.command === "codem.agentManager.newTerminal" || item.command === "codem.agentManager.newMainTerminal",
       ),
     ).toBe(false)
   })
@@ -324,7 +323,9 @@ describe("Extension — Agent Manager remote wiring", () => {
   const host = fs.readFileSync(VSCODE_HOST_FILE, "utf-8")
 
   it("passes the shared remote service to Agent Manager", () => {
-    expect(ext).toContain("new VscodeHost(context.extensionUri, connectionService, context, remoteService, controls)")
+    expect(ext).toMatch(
+      /new VscodeHost\(\s*context\.extensionUri,\s*connectionService,\s*context,\s*remoteService,\s*controls,\s*codeMAuthentication,\s*codeMAppServer,\s*\)/,
+    )
   })
 
   it("wires the remote service before attaching the Agent Manager webview", () => {

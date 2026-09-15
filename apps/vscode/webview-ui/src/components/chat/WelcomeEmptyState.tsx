@@ -1,11 +1,12 @@
 import { type Component, type JSX, For, Show } from "solid-js"
 import { Icon } from "@kilocode/kilo-ui/icon"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
 import { useSession } from "../../context/session"
 import { useLanguage } from "../../context/language"
+import { useVSCode } from "../../context/vscode"
 import { recentSessions } from "../../context/session-utils"
 import { formatRelativeDate } from "../../utils/date"
-import { FeedbackDialog } from "./FeedbackDialog"
+
+const COMMUNITY_URL = "https://example.invalid/join-chatjdeec-7f17-4869-a491-59d27094164f"
 
 interface WelcomeEmptyStateProps {
   onSelectSession?: (id: string) => void
@@ -26,7 +27,7 @@ export const CodeMLogo = () => {
 export const WelcomeEmptyState: Component<WelcomeEmptyStateProps> = (props) => {
   const session = useSession()
   const language = useLanguage()
-  const dialog = useDialog()
+  const vscode = useVSCode()
   const recent = () => recentSessions(session.sessions())
 
   return (
@@ -54,9 +55,12 @@ export const WelcomeEmptyState: Component<WelcomeEmptyStateProps> = (props) => {
           </Show>
         </div>
       </Show>
-      <button class="feedback-button" onClick={() => dialog.show(() => <FeedbackDialog />)}>
+      <button
+        class="community-button"
+        onClick={() => vscode.postMessage({ type: "openExternal", url: COMMUNITY_URL })}
+      >
         <Icon name="bubble-5" size="small" />
-        {language.t("feedback.button")}
+        {language.t("community.button")}
       </button>
       {props.footer}
     </div>

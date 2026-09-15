@@ -12,26 +12,10 @@ export { KILO_GATEWAY_ID, PROVIDER_ORDER }
 export const KILO_AUTO_SMALL_IDS = new Set(["kilo-auto/small", "auto-small"])
 const AUTO_FALLBACK = "Routes requests automatically."
 
-interface Choice {
-  id: string
-  name: string
-}
-
 export function isAuto(model: Pick<EnrichedModel, "providerID" | "id">): boolean {
   return (
     model.providerID === KILO_GATEWAY_ID && (model.id.startsWith("kilo-auto/") || KILO_AUTO_SMALL_IDS.has(model.id))
   )
-}
-
-export function autoChoices(
-  model: Pick<EnrichedModel, "providerID" | "id" | "autoRouting">,
-  catalog: readonly Pick<EnrichedModel, "id" | "name">[] = [],
-): readonly Choice[] {
-  if (!isAuto(model)) return []
-  const ids = model.autoRouting?.models
-  if (!ids?.length) return []
-  const names = new Map(catalog.map((item) => [item.id, stripSubProviderPrefix(sanitizeName(item.name))]))
-  return ids.map((id) => ({ id, name: names.get(id) ?? id }))
 }
 
 export function autoSummary(model: Pick<EnrichedModel, "options">): string {
@@ -210,8 +194,8 @@ export function sanitizeName(name: string): string {
 export function stripSubProviderPrefix(name: string): string {
   const colon = name.indexOf(": ")
   if (colon < 0) return name
-  const prefix = name.slice(0, colon)
-  if (prefix.toLowerCase() === KILO_GATEWAY_ID) return name
+  const prefix = name.slice(0, colon).toLowerCase()
+  if (prefix === KILO_GATEWAY_ID || prefix === "codem") return name
   return name.slice(colon + 2)
 }
 

@@ -31,6 +31,7 @@ import { createGitExecutable } from "./util/git-executable"
 import { isCursorHost } from "./utils"
 import { sameDirectory } from "./kilo-provider-utils"
 import { CodeMAuthenticationService } from "./services/app-server/authentication"
+import { CodeMAppServerService } from "./services/app-server/service"
 
 let agentManager: AgentManagerProvider | undefined
 let caffeination: CaffeinationService | undefined
@@ -60,11 +61,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const telemetry = TelemetryProxy.getInstance()
   const codeMAuthentication = new CodeMAuthenticationService(context)
+  const codeMAppServer = new CodeMAppServerService(context, codeMAuthentication)
   context.subscriptions.push(
     codeMAuthentication,
+    codeMAppServer,
     vscode.commands.registerCommand("codem.signIn", () => codeMAuthentication.signIn()),
     vscode.commands.registerCommand("codem.signOut", () => codeMAuthentication.signOut()),
     vscode.commands.registerCommand("codem.refreshAuthentication", () => codeMAuthentication.refresh()),
+    vscode.commands.registerCommand("codem.cancelSignIn", () => codeMAuthentication.cancelSignIn()),
   )
   void codeMAuthentication.initialize().catch((error: unknown) => {
     console.warn(
@@ -147,6 +151,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Create the provider with shared service
   const provider = new KiloProvider(context.extensionUri, connectionService, context, {
+    authentication: codeMAuthentication,
+    appServer: codeMAppServer,
     focusContext: "codem.sidebarFocused",
   })
   provider.setRemoteService(remoteService)
@@ -244,7 +250,15 @@ export async function activate(context: vscode.ExtensionContext) {
     log: (message) => console.warn(`[CodeM New] ${message}`),
   })
   const binary = process.platform === "win32" ? await git() : git
-  const agentManagerHost = new VscodeHost(context.extensionUri, connectionService, context, remoteService, controls)
+  const agentManagerHost = new VscodeHost(
+    context.extensionUri,
+    connectionService,
+    context,
+    remoteService,
+    controls,
+    codeMAuthentication,
+    codeMAppServer,
+  )
   const agentManagerProvider = new AgentManagerProvider(agentManagerHost, connectionService, binary, browserBroker)
   agentManagerProvider.onPanelVisibilityChange((visible) => remember({ agentManager: visible }))
   agentManager = agentManagerProvider
@@ -337,6 +351,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const attach = (panel: vscode.WebviewPanel) => {
     const tabProvider = new KiloProvider(context.extensionUri, connectionService, context, {
+      authentication: codeMAuthentication,
+      appServer: codeMAppServer,
       tabTitle: panelTitleHandler(panel),
       topBarSurface: "tab",
     })
@@ -400,14 +416,25 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(diffVirtualProvider)
 
   // Create standalone editor providers (open in editor area, not sidebar)
-  const settingsEditorProvider = new SettingsEditorProvider(context.extensionUri, connectionService, context, {
-    ...agentManagerProvider.settings,
-  })
+  const settingsEditorProvider = new SettingsEditorProvider(
+    context.extensionUri,
+    connectionService,
+    context,
+    codeMAuthentication,
+    codeMAppServer,
+    { ...agentManagerProvider.settings },
+  )
   settingsEditorProvider.setRemoteService(remoteService)
   context.subscriptions.push(settingsEditorProvider)
 
   // Create sub-agent viewer provider (read-only editor panel for sub-agent sessions)
-  const subAgentViewerProvider = new SubAgentViewerProvider(context.extensionUri, connectionService, context)
+  const subAgentViewerProvider = new SubAgentViewerProvider(
+    context.extensionUri,
+    connectionService,
+    context,
+    codeMAuthentication,
+    codeMAppServer,
+  )
   context.subscriptions.push(subAgentViewerProvider)
 
   // Register serializers so standalone panels restore on restart

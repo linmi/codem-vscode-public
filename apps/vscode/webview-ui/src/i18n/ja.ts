@@ -251,10 +251,9 @@ export const dict = {
 
   "error.startup.title": "サーバー接続に失敗しました",
 
-  "error.paidModel.title": "このモデルを使用するにはサインインが必要です",
-  "error.paidModel.description":
-    "サインインまたはアカウントを作成して、500以上のモデルにアクセスし、原価でクレジットを使用するか、独自のキーを持ち込みましょう。",
-  "error.paidModel.action": "サインイン",
+  "error.paidModel.title": "続行するにはサインインしてください",
+  "error.paidModel.description": "CodeM アカウントでサインインするか、新規登録して続行してください。",
+  "error.paidModel.action": "CodeM にサインイン",
   "error.promotionLimit.title": "続けるにはサインアップが必要です",
   "error.promotionLimit.description":
     "無料でサインアップして、500以上のモデルを探索しましょう。2分で完了、クレジットカード不要。または後でお戻りください。",
@@ -600,7 +599,6 @@ export const dict = {
   "session.tab.worktree": "ワークツリー",
   "session.cloud.repoOnly": "このリポジトリのみ",
   "session.cloud.import": "クラウドからインポート",
-  "feedback.button": "フィードバック & サポート",
   "feedback.dialog.message": "フィードバックをお聞かせいただくか、問題がある場合はお気軽にご相談ください。",
   "feedback.dialog.github": "GitHubで問題を報告する",
   "feedback.dialog.discord": "Discordコミュニティに参加する",

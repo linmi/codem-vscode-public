@@ -1684,7 +1684,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         <ModelSelectorBase
           value={null}
           trigger={MENTION_MODEL_TRIGGER}
-          collapsed
           onSelect={(providerID, modelID) => {
             if (providerID && modelID) mention.selectModelReference(providerID, modelID, adjustHeight)
           }}

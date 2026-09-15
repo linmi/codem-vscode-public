@@ -244,10 +244,9 @@ export const dict = {
 
   "error.startup.title": "فشل الاتصال بالخادم",
 
-  "error.paidModel.title": "يجب عليك تسجيل الدخول لاستخدام هذا النموذج",
-  "error.paidModel.description":
-    "سجّل الدخول أو أنشئ حسابًا للوصول إلى أكثر من 500 نموذج، واستخدم الرصيد بسعر التكلفة، أو استخدم مفتاحك الخاص.",
-  "error.paidModel.action": "تسجيل الدخول",
+  "error.paidModel.title": "سجّل الدخول للمتابعة",
+  "error.paidModel.description": "سجّل الدخول أو أنشئ حساب CodeM للمتابعة.",
+  "error.paidModel.action": "تسجيل الدخول إلى CodeM",
   "error.promotionLimit.title": "يجب عليك التسجيل للمتابعة",
   "error.promotionLimit.description":
     "سجّل مجانًا للمتابعة واستكشاف أكثر من 500 نموذج. يستغرق دقيقتين، بدون بطاقة ائتمان. أو عُد لاحقًا.",
@@ -553,7 +552,6 @@ export const dict = {
   "session.tab.worktree": "شجرة العمل",
   "session.cloud.repoOnly": "هذا المستودع فقط",
   "session.cloud.import": "استيراد من السحابة",
-  "feedback.button": "التغذية الراجعة والدعم",
   "feedback.dialog.message": "يسعدنا سماع تعليقاتك أو مساعدتك في حل أي مشكلات تواجهها.",
   "feedback.dialog.github": "الإبلاغ عن مشكلة على GitHub",
   "feedback.dialog.discord": "الانضمام إلى مجتمع Discord",

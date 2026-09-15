@@ -110,6 +110,10 @@ export class CodeMAuthenticationService implements vscode.Disposable {
     return status
   }
 
+  async cancelSignIn(): Promise<void> {
+    await this.login?.cancel()
+  }
+
   dispose(): void {
     void this.login?.cancel()
     this.changes.dispose()

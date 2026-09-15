@@ -92,13 +92,11 @@ describe("AppServerHost", () => {
     assert.equal(events.filter((event) => event.type === "hook-completed").length, 1)
     assert.deepEqual(
       events.flatMap((event) => (event.type === "background-wake" ? [`${event.phase}:${event.taskId}`] : [])),
-      ["queued:task-1", "started:task-1"],
+      ["queued:task-1", "started:task-1", "skipped:task-2"],
     )
     assert.equal(events.filter((event) => event.type === "diff-updated").length, 1)
     assert.equal(
-      events.filter(
-        (event) => event.type === "item-completed" && event.item.id === "snapshot-only",
-      ).length,
+      events.filter((event) => event.type === "item-completed" && event.item.id === "snapshot-only").length,
       1,
     )
     assert.equal(events.filter((event) => event.type === "turn-completed").length, 1)
@@ -148,10 +146,32 @@ describe("AppServerHost", () => {
           subagentKind: null,
           replaced: null,
           kept: null,
+          finalAnswer: null,
+        },
+        {
+          id: "result-1",
+          type: "toolResult",
+          turnId: "turn-1",
+          submissionId: null,
+          recordSeq: 2,
+          status: "completed",
+          callId: "call-1",
+          toolName: null,
+          input: null,
+          text: "",
+          summary: "",
+          output: "Done",
+          label: "toolResult",
+          isError: false,
+          subagentId: null,
+          subagentKind: null,
+          replaced: null,
+          kept: null,
+          finalAnswer: null,
         },
       ],
       nextCursor: null,
-      total: 1,
+      total: 2,
     })
 
     await host.unsubscribeThread(fixture.root, threadId)
@@ -174,6 +194,7 @@ describe("AppServerHost", () => {
     const start = captured.find((entry) => entry.method === "thread/start")?.params as Record<string, unknown>
     assert.equal(start.permissionMode, "auto")
     assert.equal(start.executionMode, "default")
+    assert.deepEqual(start.extensions, { codem: { intelligence: "medium" } })
     const resume = captured.find((entry) => entry.method === "thread/resume")?.params as Record<string, unknown>
     assert.equal("permissionMode" in resume, false)
     assert.equal("executionMode" in resume, false)
@@ -234,7 +255,7 @@ lines.on("line", (line) => {
   if (frame.method === "thread/resume") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: frame.params.threadId } } })
   if (frame.method === "thread/read") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), archived: false, model: "codem/auto", profile: "default", startedAt: "2026-09-15T00:00:00.000Z", status: "idle" } } })
   if (frame.method === "thread/turns/list") return send({ jsonrpc: "2.0", id: frame.id, result: { turns: [{ id: "turn-1", input: "Build it", submissionId: "submission-1", startedAt: "2026-09-15T00:00:01.000Z", completedAt: "2026-09-15T00:00:02.000Z", status: "completed", itemsView: "summary" }], nextCursor: null, total: 1 } })
-  if (frame.method === "thread/items/list") return send({ jsonrpc: "2.0", id: frame.id, result: { items: [{ id: "item-1", type: "agentMessage", turnId: "turn-1", submissionId: "submission-1", recordSeq: 1, status: "completed", text: "Done" }], nextCursor: null, total: 1 } })
+  if (frame.method === "thread/items/list") return send({ jsonrpc: "2.0", id: frame.id, result: { items: [{ id: "item-1", type: "agentMessage", submissionId: "submission-1", recordSeq: 1, status: "completed", text: "Done" }, { id: "result-1", type: "toolResult", callId: "call-1", recordSeq: 2, status: "completed", output: "Done" }], nextCursor: null, total: 2 } })
   if (frame.method === "turn/start") {
     send({ jsonrpc: "2.0", method: "turn/started", params: { threadId: frame.params.threadId, turn: { id: "turn-1" } } })
     send({ jsonrpc: "2.0", id: frame.id, result: { turn: { id: "turn-1" } } })
@@ -249,11 +270,12 @@ lines.on("line", (line) => {
     send({ jsonrpc: "2.0", method: "hook/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", run: { event: "PostToolUse", tool: "run_bash", command: "check.sh", outcome: "success", reason: "ok", elapsedMs: 12 } } })
     send({ jsonrpc: "2.0", method: "backgroundTask/wakeQueued", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-1" } })
     send({ jsonrpc: "2.0", method: "backgroundTask/wakeStarted", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-1" } })
+    send({ jsonrpc: "2.0", method: "backgroundTask/wakeSkipped", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-2" } })
     send({ jsonrpc: "2.0", method: "turn/diff/updated", params: { threadId: frame.params.threadId, turnId: "turn-1", diff: [{ path: "src/example.ts", linesAdded: 1, linesRemoved: 0 }] } })
     send({ jsonrpc: "2.0", method: "item/started", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "item-1", type: "agentMessage", status: "inProgress" } } })
     send({ jsonrpc: "2.0", method: "item/agentMessage/delta", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "item-1", delta: "Done" } })
     send({ jsonrpc: "2.0", method: "item/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "item-1", type: "agentMessage", status: "completed", text: "Done" } } })
-    return send({ jsonrpc: "2.0", method: "turn/completed", params: { threadId: frame.params.threadId, turn: { id: "turn-1", status: "completed", stopReason: "end_turn", error: null, items: [{ id: "snapshot-only", type: "toolCall", status: "interrupted", tool: "read_file", callId: "call-snapshot", summary: "Turn ended" }] } } })
+    return send({ jsonrpc: "2.0", method: "turn/completed", params: { threadId: frame.params.threadId, turn: { id: "turn-1", status: "completed", stopReason: "end_turn", error: null, items: [{ id: "snapshot-only", type: "toolCall", status: "interrupted", tool: "read_file", callId: "call-snapshot", summary: "Turn ended" }, { id: "snapshot-result", type: "toolResult", status: "completed", callId: "call-snapshot", output: "Done" }] } } })
   }
   send({ jsonrpc: "2.0", id: frame.id, result: {} })
 })

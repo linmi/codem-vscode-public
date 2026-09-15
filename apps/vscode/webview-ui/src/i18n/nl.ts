@@ -254,10 +254,9 @@ export const dict = {
 
   "error.startup.title": "Serververbinding mislukt",
 
-  "error.paidModel.title": "Je moet inloggen om dit model te gebruiken",
-  "error.paidModel.description":
-    "Log in of maak een account aan om toegang te krijgen tot meer dan 500 modellen, credits tegen kostprijs te gebruiken, of je eigen sleutel mee te nemen.",
-  "error.paidModel.action": "Inloggen",
+  "error.paidModel.title": "Log in om door te gaan",
+  "error.paidModel.description": "Log in of maak een CodeM-account aan om door te gaan.",
+  "error.paidModel.action": "Inloggen bij CodeM",
   "error.promotionLimit.title": "Je moet je registreren om door te gaan",
   "error.promotionLimit.description":
     "Registreer je gratis om door te gaan en 500 andere modellen te ontdekken. Duurt 2 minuten, geen creditcard vereist. Of kom later terug.",
@@ -558,7 +557,6 @@ export const dict = {
   "session.tab.worktree": "Werkboom",
   "session.cloud.repoOnly": "Alleen deze repository",
   "session.cloud.import": "Importeer uit de cloud",
-  "feedback.button": "Feedback & Ondersteuning",
   "feedback.dialog.message": "We horen graag uw feedback of helpen met eventuele problemen die u ervaart.",
   "feedback.dialog.github": "Meld een probleem op GitHub",
   "feedback.dialog.discord": "Word lid van onze Discord community",

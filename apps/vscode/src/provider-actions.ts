@@ -12,6 +12,9 @@ import {
 import { isCustomProviderPackage, KILO_AUTO, KILO_PROVIDER_ID, parseModelString } from "./shared/provider-model"
 import { configFeatures, serverFeatures } from "./features"
 
+const CODEM_PROVIDER_DISPLAY_NAME = "CodeM"
+const CODEM_SMART_MODEL_DISPLAY_NAME = "CodeM 智能选择"
+
 /**
  * Compute the default model selection from CLI config, VS Code settings, or hardcoded fallback.
  * Pure function — takes cachedConfig and vscode settings as parameters.
@@ -50,6 +53,31 @@ function same(a: unknown, b: unknown): boolean {
   return akeys.every((key, index) => key === bkeys[index] && same(a[key], b[key]))
 }
 
+/**
+ * Keep imported provider/model ids intact because the compatibility backend
+ * still consumes them, but never expose that migration vocabulary as the
+ * product identity in the mature Webview.
+ */
+export function presentCodeMProvider<T extends { id: string; models: Record<string, unknown>; name?: string }>(
+  provider: T,
+): T {
+  if (provider.id !== KILO_PROVIDER_ID) return provider
+  const models = Object.fromEntries(
+    Object.entries(provider.models).map(([id, value]) => {
+      if (!record(value)) return [id, value]
+      if (id === KILO_AUTO.modelID) {
+        return [id, { ...value, name: CODEM_SMART_MODEL_DISPLAY_NAME }]
+      }
+      const name = typeof value.name === "string" ? value.name.trim() : ""
+      if (id.startsWith("kilo-auto/") && name && !name.startsWith("CodeM")) {
+        return [id, { ...value, name: `CodeM ${name}` }]
+      }
+      return [id, value]
+    }),
+  )
+  return { ...provider, name: CODEM_PROVIDER_DISPLAY_NAME, models } as T
+}
+
 /** Fetch provider availability and authentication state without exposing stored credentials. */
 export async function fetchProviderData(client: KiloClient, dir: string) {
   const authRequest =
@@ -83,10 +111,10 @@ export async function fetchProviderData(client: KiloClient, dir: string) {
       const baseURL = options && typeof options.baseURL === "string" ? options.baseURL : undefined
       if (baseURL) storedKeys[raw.id] = { key: raw.key, baseURL }
     }
-    if (!("key" in raw)) return item
+    if (!("key" in raw)) return presentCodeMProvider(item)
     const next = { ...raw }
     delete next.key
-    return next as (typeof response.all)[number]
+    return presentCodeMProvider(next as (typeof response.all)[number])
   })
   delete authStates[KILO_PROVIDER_ID]
   if (kiloAuth?.authenticated && kiloAuth.type) authStates[KILO_PROVIDER_ID] = kiloAuth.type

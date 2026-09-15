@@ -252,10 +252,9 @@ export const dict = {
 
   "error.startup.title": "Błąd połączenia z serwerem",
 
-  "error.paidModel.title": "Musisz się zalogować, aby użyć tego modelu",
-  "error.paidModel.description":
-    "Zaloguj się lub utwórz konto, aby uzyskać dostęp do ponad 500 modeli, korzystać z kredytów po kosztach lub użyć własnego klucza.",
-  "error.paidModel.action": "Zaloguj się",
+  "error.paidModel.title": "Zaloguj się, aby kontynuować",
+  "error.paidModel.description": "Zaloguj się lub utwórz konto CodeM, aby kontynuować.",
+  "error.paidModel.action": "Zaloguj się do CodeM",
   "error.promotionLimit.title": "Musisz się zarejestrować, aby kontynuować",
   "error.promotionLimit.description":
     "Zarejestruj się za darmo, aby kontynuować i odkryć ponad 500 modeli. Zajmie to 2 minuty, bez karty kredytowej. Lub wróć później.",
@@ -563,7 +562,6 @@ export const dict = {
   "session.tab.worktree": "Drzewo robocze",
   "session.cloud.repoOnly": "Tylko to repozytorium",
   "session.cloud.import": "Importuj z chmury",
-  "feedback.button": "Opinie i wsparcie",
   "feedback.dialog.message": "Chętnie poznamy Twoją opinię lub pomożemy w przypadku problemów.",
   "feedback.dialog.github": "Zgłoś problem na GitHubie",
   "feedback.dialog.discord": "Dołącz do naszej społeczności Discord",

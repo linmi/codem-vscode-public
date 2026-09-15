@@ -251,10 +251,9 @@ export const dict = {
 
   "error.startup.title": "Serverforbindelse mislykkedes",
 
-  "error.paidModel.title": "Du skal logge ind for at bruge denne model",
-  "error.paidModel.description":
-    "Log ind eller opret en konto for at få adgang til over 500 modeller, brug kreditter til kostpris, eller medbring din egen nøgle.",
-  "error.paidModel.action": "Log ind",
+  "error.paidModel.title": "Log ind for at fortsætte",
+  "error.paidModel.description": "Log ind eller opret en CodeM-konto for at fortsætte.",
+  "error.paidModel.action": "Log ind på CodeM",
   "error.promotionLimit.title": "Du skal tilmelde dig for at fortsætte",
   "error.promotionLimit.description":
     "Tilmeld dig gratis for at fortsætte og udforske over 500 modeller. Tager 2 minutter, intet kreditkort nødvendigt. Eller kom tilbage senere.",
@@ -605,7 +604,6 @@ export const dict = {
   "session.tab.worktree": "Arbejdstræ",
   "session.cloud.repoOnly": "Kun dette repository",
   "session.cloud.import": "Importér fra skyen",
-  "feedback.button": "Feedback & support",
   "feedback.dialog.message": "Vi vil gerne høre din feedback eller hjælpe med eventuelle problemer, du oplever.",
   "feedback.dialog.github": "Rapportér et problem på GitHub",
   "feedback.dialog.discord": "Deltag i vores Discord-fællesskab",

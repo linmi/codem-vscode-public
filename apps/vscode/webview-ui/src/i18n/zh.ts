@@ -241,9 +241,9 @@ export const dict = {
 
   "error.startup.title": "服务器连接失败",
 
-  "error.paidModel.title": "您需要登录才能使用此模型",
-  "error.paidModel.description": "登录或创建账户以访问500多个模型，按成本使用积分，或使用您自己的密钥。",
-  "error.paidModel.action": "登录",
+  "error.paidModel.title": "登录后继续",
+  "error.paidModel.description": "登录或注册 CodeM 账号以继续。",
+  "error.paidModel.action": "登录 CodeM",
   "error.promotionLimit.title": "您需要注册才能继续",
   "error.promotionLimit.description": "免费注册以继续探索500多个模型。只需2分钟，无需信用卡。或稍后再来。",
   "error.promotionLimit.action": "注册",
@@ -581,7 +581,6 @@ export const dict = {
   "session.tab.worktree": "工作树",
   "session.cloud.repoOnly": "仅此仓库",
   "session.cloud.import": "从云端导入",
-  "feedback.button": "反馈与支持",
   "feedback.dialog.message": "我们很乐意听取您的反馈，或帮助解决您遇到的任何问题。",
   "feedback.dialog.github": "在 GitHub 上报告问题",
   "feedback.dialog.discord": "加入我们的 Discord 社区",

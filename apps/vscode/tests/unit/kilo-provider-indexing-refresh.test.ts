@@ -532,7 +532,6 @@ describe("KiloProvider indexing refresh", () => {
       onLanguageChanged: subscribe,
       onProfileChanged: subscribe,
       onFavoritesChanged: subscribe,
-      onModelSelectorExpandedChanged: subscribe,
       onClearPendingPrompts: subscribe,
       registerDirectoryProvider: subscribe,
     })

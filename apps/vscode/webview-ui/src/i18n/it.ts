@@ -195,10 +195,9 @@ export const dict = {
   "mcp.status.needs_registration": "richiede registrazione client",
   "mcp.status.disabled": "disabilitato",
   "error.startup.title": "Connessione al server non riuscita",
-  "error.paidModel.title": "Devi accedere per usare questo modello",
-  "error.paidModel.description":
-    "Accedi o crea un account per usare oltre 500 modelli, usare crediti al costo o portare la tua chiave.",
-  "error.paidModel.action": "Accedi",
+  "error.paidModel.title": "Accedi per continuare",
+  "error.paidModel.description": "Accedi o crea un account CodeM per continuare.",
+  "error.paidModel.action": "Accedi a CodeM",
   "error.promotionLimit.title": "Devi registrarti per continuare",
   "error.promotionLimit.description":
     "Registrati gratis per continuare ed esplorare altri 500 modelli. Richiede 2 minuti, senza carta di credito. Oppure torna più tardi.",
@@ -450,7 +449,6 @@ export const dict = {
   "session.tab.worktree": "Albero di lavoro",
   "session.cloud.repoOnly": "Solo questa repository",
   "session.cloud.import": "Importa sessione",
-  "feedback.button": "Feedback e supporto",
   "feedback.dialog.message": "Ci piacerebbe ricevere feedback o aiutarti con eventuali problemi.",
   "feedback.dialog.github": "Segnala un problema su GitHub",
   "feedback.dialog.discord": "Entra nella community Discord",

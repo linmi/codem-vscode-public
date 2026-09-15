@@ -249,10 +249,9 @@ export const dict = {
 
   "error.startup.title": "การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว",
 
-  "error.paidModel.title": "คุณต้องเข้าสู่ระบบเพื่อใช้โมเดลนี้",
-  "error.paidModel.description":
-    "เข้าสู่ระบบหรือสร้างบัญชีเพื่อเข้าถึงโมเดลกว่า 500 รายการ ใช้เครดิตในราคาทุน หรือใช้คีย์ของคุณเอง",
-  "error.paidModel.action": "เข้าสู่ระบบ",
+  "error.paidModel.title": "เข้าสู่ระบบเพื่อดำเนินการต่อ",
+  "error.paidModel.description": "เข้าสู่ระบบหรือสร้างบัญชี CodeM เพื่อดำเนินการต่อ",
+  "error.paidModel.action": "เข้าสู่ระบบ CodeM",
   "error.promotionLimit.title": "คุณต้องสมัครสมาชิกเพื่อดำเนินการต่อ",
   "error.promotionLimit.description":
     "สมัครฟรีเพื่อดำเนินการต่อและสำรวจโมเดลกว่า 500 รายการ ใช้เวลา 2 นาที ไม่ต้องใช้บัตรเครดิต หรือกลับมาทีหลัง",
@@ -598,7 +597,6 @@ export const dict = {
   "session.tab.worktree": "เวิร์กทรี Git",
   "session.cloud.repoOnly": "เฉพาะรีโพซิทอรีนี้",
   "session.cloud.import": "นำเข้าจากคลาวด์",
-  "feedback.button": "ข้อเสนอแนะและการสนับสนุน",
   "feedback.dialog.message": "เรายินดีรับฟังข้อเสนอแนะของคุณหรือช่วยแก้ไขปัญหาที่คุณพบ",
   "feedback.dialog.github": "รายงานปัญหาบน GitHub",
   "feedback.dialog.discord": "เข้าร่วมชุมชน Discord ของเรา",

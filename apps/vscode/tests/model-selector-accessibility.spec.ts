@@ -54,57 +54,8 @@ test("model selector exposes combobox relationships and active option movement",
   await combobox.press("ArrowDown")
   await expect(combobox).toBeFocused()
   await expect(combobox).toHaveAttribute("aria-activedescendant", await bravo.getAttribute("id"))
-
-  const collapse = page.getByRole("button", { name: "Collapse", exact: true })
-  const controls = await collapse.getAttribute("aria-controls")
-  const preview = page.locator(`[id="${controls}"]`)
-  await expect(collapse).toHaveAttribute("aria-expanded", "true")
-  await expect(preview).toHaveAttribute("aria-hidden", "false")
-  await expect(preview.getByRole("button", { name: "Add to favorites" })).toBeVisible()
-  const listBeforePreview = await tree.evaluate((el, id) => {
-    const node = document.getElementById(id!)
-    return !!node && !!(el.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)
-  }, controls)
-  const treeBox = await tree.boundingBox()
-  const previewBox = await preview.boundingBox()
-  expect(listBeforePreview).toBe(true)
-  expect(previewBox!.y).toBeLessThan(treeBox!.y)
-  await collapse.click()
-  const expand = page.getByRole("button", { name: "Expand" })
-  await expect(expand).toHaveAttribute("aria-controls", controls!)
-  await expect(expand).toHaveAttribute("aria-expanded", "false")
-  await expect(preview).toHaveAttribute("aria-hidden", "true")
-  await expect(preview.locator("button, a, [tabindex]")).toHaveCount(0)
-})
-
-test("auto efficient details show server description and model choices", async ({ page }) => {
-  await load(page, "shared--model-selector-accessible")
-
-  await page.getByRole("button", { name: "Review model: Alpha" }).click()
-  await page.getByRole("treeitem", { name: /CodeM Auto Efficient/ }).click()
-
-  const preview = page.locator(".model-selector-preview")
-  await expect(preview).toContainText(
-    "Routes each request to the cheapest model that gets the job done, based on continuously benchmarked accuracy and cost.",
-  )
-  await expect(preview).toContainText("Model choices")
-  await expect(preview).toContainText("google/gemini-2.5-flash")
-  await expect(preview).toContainText("anthropic/claude-sonnet-4.6")
-  await expect(preview).not.toContainText("openai/gpt-5.5")
-})
-
-test("auto frontier details show model choices when routes are present", async ({ page }) => {
-  await load(page, "shared--model-selector-accessible")
-
-  await page.getByRole("button", { name: "Review model: Alpha" }).click()
-  await page.getByRole("treeitem", { name: /CodeM Auto Frontier/ }).click()
-
-  const preview = page.locator(".model-selector-preview")
-  await expect(preview).toContainText("Routes each request to the strongest available models.")
-  await expect(preview).toContainText("Model choices")
-  await expect(preview).toContainText("openai/gpt-5.5")
-  await expect(preview).toContainText("anthropic/claude-opus-4.6")
-  await expect(preview).not.toContainText("google/gemini-2.5-flash")
+  await expect(page.getByRole("button", { name: "Expand", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Collapse", exact: true })).toHaveCount(0)
 })
 
 test("search uses a flat relevance-ranked result list with provider labels", async ({ page }) => {
@@ -176,24 +127,6 @@ test("active descendant always identifies a visible tree item", async ({ page })
     "aria-activedescendant",
     await page.getByRole("treeitem", { name: "Use default model" }).getAttribute("id"),
   )
-})
-
-test("expanded preview waits for explicit pointer selection", async ({ page }) => {
-  await load(page, "shared--model-selector-accessible")
-
-  await page.getByRole("button", { name: "Review model: Alpha" }).click()
-  await expect(page.locator(".model-selector-preview")).toContainText("Alpha")
-  await page.getByRole("treeitem", { name: "Bravo" }).hover()
-  await page.waitForTimeout(250)
-  await expect(page.locator(".model-selector-preview")).toContainText("Alpha")
-  await page.getByRole("treeitem", { name: "Bravo" }).click()
-
-  await expect(page.getByTestId("model-selector-value")).toHaveText("alpha")
-  await expect(page.getByRole("combobox", { name: "Review model: Alpha. Search models" })).toBeVisible()
-  await expect(page.locator(".model-selector-preview")).toContainText("Bravo")
-
-  await page.getByRole("button", { name: "Select: Bravo" }).click()
-  await expect(page.getByTestId("model-selector-value")).toHaveText("bravo")
 })
 
 test("selected favorite remains selected when its duplicate group is collapsed", async ({ page }) => {
@@ -325,42 +258,33 @@ test("variant picker focuses the selected effort as it opens", async ({ page }) 
   await expect(page.locator(".thinking-selector-item.selected")).toBeFocused()
 })
 
-for (const picker of ["model", "variant"]) {
-  test(`${picker} picker keeps focus during automatic prompt restoration`, async ({ page }) => {
-    await load(page, "prompt-input--with-thinking-420")
+test("variant picker keeps focus during automatic prompt restoration", async ({ page }) => {
+  await load(page, "prompt-input--with-thinking-420")
 
-    const trigger = page.getByRole("button", {
-      name: picker === "model" ? /^Select model:/ : "Medium",
-      exact: picker === "variant",
-    })
-    const prompt = page.locator("textarea.prompt-input")
-    await prompt.evaluate((el) => el.setAttribute("aria-disabled", "false"))
-    const popup = page.locator(".popup-selector[data-expanded]")
-    await trigger.click()
-    const choice =
-      picker === "model"
-        ? popup.locator(".model-selector-search-wrapper button")
-        : popup.locator(".thinking-selector-item.selected")
-    if (picker === "model") await popup.getByRole("combobox").press("Tab")
-    await expect(choice).toBeFocused()
-    await prompt.hover()
-    await expect(popup).toBeVisible()
+  const trigger = page.getByRole("button", { name: "Medium", exact: true })
+  const prompt = page.locator("textarea.prompt-input")
+  await prompt.evaluate((el) => el.setAttribute("aria-disabled", "false"))
+  const popup = page.locator(".popup-selector[data-expanded]")
+  await trigger.click()
+  const choice = popup.locator(".thinking-selector-item.selected")
+  await expect(choice).toBeFocused()
+  await prompt.hover()
+  await expect(popup).toBeVisible()
 
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("focusPrompt", { detail: { restore: true } })))
-    await page.waitForTimeout(100)
-    await expect(popup).toBeVisible()
-    await expect(choice).toBeFocused()
-    await choice.press("Escape")
-    await expect(popup).toBeHidden()
-    await expect(prompt).toBeFocused()
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("focusPrompt", { detail: { restore: true } })))
+  await page.waitForTimeout(100)
+  await expect(popup).toBeVisible()
+  await expect(choice).toBeFocused()
+  await choice.press("Escape")
+  await expect(popup).toBeHidden()
+  await expect(prompt).toBeFocused()
 
-    await trigger.click()
-    await expect(popup).toBeVisible()
-    await prompt.click()
-    await expect(popup).toBeHidden()
-    await expect(prompt).toBeFocused()
-  })
-}
+  await trigger.click()
+  await expect(popup).toBeVisible()
+  await prompt.click()
+  await expect(popup).toBeHidden()
+  await expect(prompt).toBeFocused()
+})
 
 test("slash mode picker Escape returns focus to the prompt", async ({ page }) => {
   await load(page, "prompt-input--default-420")
@@ -377,15 +301,10 @@ test("slash mode picker Escape returns focus to the prompt", async ({ page }) =>
   await expect(prompt).toBeFocused()
 })
 
-test("chat picker Escape returns focus to the prompt", async ({ page }) => {
+test("single-model chat hides the model selector", async ({ page }) => {
   await load(page, "prompt-input--default-420")
 
-  await page.getByRole("button", { name: /^Select model:/ }).click()
-  const combobox = page.getByRole("combobox", { name: /^Select model:.*Search models$/ })
-  await expect(combobox).toBeFocused()
-  await combobox.press("Escape")
-
-  await expect(page.locator("textarea.prompt-input")).toBeFocused()
+  await expect(page.getByRole("button", { name: /^Select model:/ })).toHaveCount(0)
 })
 
 test("slash model picker Escape returns focus to the prompt", async ({ page }) => {

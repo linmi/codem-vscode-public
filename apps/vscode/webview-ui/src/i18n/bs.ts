@@ -252,10 +252,9 @@ export const dict = {
 
   "error.startup.title": "Povezivanje sa serverom nije uspjelo",
 
-  "error.paidModel.title": "Morate se prijaviti da biste koristili ovaj model",
-  "error.paidModel.description":
-    "Prijavite se ili kreirajte račun za pristup preko 500 modela, koristite kredite po cijeni koštanja ili donesite vlastiti ključ.",
-  "error.paidModel.action": "Prijava",
+  "error.paidModel.title": "Prijavite se za nastavak",
+  "error.paidModel.description": "Prijavite se ili kreirajte CodeM račun za nastavak.",
+  "error.paidModel.action": "Prijava u CodeM",
   "error.promotionLimit.title": "Morate se registrovati da biste nastavili",
   "error.promotionLimit.description":
     "Registrujte se besplatno da nastavite i istražite preko 500 modela. Traje 2 minute, bez kreditne kartice. Ili se vratite kasnije.",
@@ -608,7 +607,6 @@ export const dict = {
   "session.tab.worktree": "Radno stablo",
   "session.cloud.repoOnly": "Samo ovaj repozitorij",
   "session.cloud.import": "Uvezi iz oblaka",
-  "feedback.button": "Povratne informacije i podrška",
   "feedback.dialog.message": "Voljeli bismo čuti vaše povratne informacije ili pomoći s problemima koje doživljavate.",
   "feedback.dialog.github": "Prijavite problem na GitHubu",
   "feedback.dialog.discord": "Pridružite se našoj Discord zajednici",

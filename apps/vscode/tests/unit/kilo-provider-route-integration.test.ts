@@ -77,7 +77,6 @@ function mockConnection(getImpl?: (p: SessionGetParams) => Promise<unknown>, vcs
       onLanguageChanged: () => () => undefined,
       onProfileChanged: () => () => undefined,
       onFavoritesChanged: () => () => undefined,
-      onModelSelectorExpandedChanged: () => () => undefined,
       onClearPendingPrompts: () => () => undefined,
       registerDirectoryProvider: () => () => undefined,
       unregisterVisible: () => undefined,

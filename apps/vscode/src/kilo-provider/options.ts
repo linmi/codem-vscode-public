@@ -1,9 +1,15 @@
 import type { ProjectRouteService } from "../agent-manager/project/route"
 import type { SettingsHandler } from "../agent-manager/project/settings"
+import type { CodeMAuthenticationService } from "../services/app-server/authentication"
+import type { CodeMAppServerService } from "../services/app-server/service"
 
 export type AgentManagerSettingsHandler = SettingsHandler
 
 export type KiloProviderOptions = {
+  /** CodeM credential broker shared by every mature Webview surface. */
+  authentication?: CodeMAuthenticationService
+  /** CodeM Core transport used by the mature chat bridge. */
+  appServer?: CodeMAppServerService
   /** Context key updated from focus events reported by this provider's webview. */
   focusContext?: string
   /** Context keys updated by Agent Manager prompt and terminal focus events. */

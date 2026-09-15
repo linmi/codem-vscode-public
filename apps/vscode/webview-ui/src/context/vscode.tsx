@@ -38,8 +38,6 @@ interface VSCodeContextValue {
   setState: <T>(state: T) => void
   sidebarSide: () => "left" | "right" | undefined
   active: () => boolean
-  getModelSelectorExpanded: () => boolean
-  setModelSelectorExpanded: (value: boolean) => void
 }
 
 const VSCodeContext = createContext<VSCodeContextValue>()
@@ -67,11 +65,6 @@ export const VSCodeProvider: ParentComponent = (props) => {
     window.addEventListener("pointermove", position, true)
   }
 
-  // Model-selector expand/collapse preference. Stored in extension globalState
-  // so it is shared across webviews (sidebar + agent-manager panel); a local
-  // signal mirrors it for synchronous reads.
-  const [expanded, setExpanded] = createSignal(true)
-
   // Listen for messages from the extension
   const messageListener = (event: MessageEvent) => {
     const message = event.data as ExtensionMessage
@@ -96,10 +89,8 @@ export const VSCodeProvider: ParentComponent = (props) => {
   window.addEventListener("blur", reportFocus)
   reportFocus()
   handlers.add((message) => {
-    if (message?.type === "modelSelectorExpandedLoaded") setExpanded(message.value)
     if (message?.type === "webviewActiveChanged") setActive(message.active)
   })
-  api.postMessage({ type: "requestModelSelectorExpanded" })
 
   onCleanup(() => {
     release()
@@ -124,11 +115,6 @@ export const VSCodeProvider: ParentComponent = (props) => {
     setState: <T,>(state: T) => api.setState(state),
     sidebarSide: side,
     active,
-    getModelSelectorExpanded: expanded,
-    setModelSelectorExpanded: (value: boolean) => {
-      setExpanded(value)
-      api.postMessage({ type: "persistModelSelectorExpanded", value })
-    },
   }
 
   return (

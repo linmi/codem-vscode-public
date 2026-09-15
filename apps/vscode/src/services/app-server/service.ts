@@ -45,27 +45,46 @@ export class CodeMAppServerService implements vscode.Disposable {
       },
       onStderr: (_cwd, text) => this.output.append(text),
     })
-    host.onEvent((event) => this.events.fire(event))
+    host.onEvent((event) => {
+      this.events.fire(event)
+      if (event.type === "authentication-invalidated") {
+        void this.authentication.refresh().catch((error: unknown) => {
+          this.output.error(`Could not refresh CodeM authentication: ${errorMessage(error)}`)
+        })
+      }
+    })
     return host
   }
 
-  startThread(cwd: string): Promise<string> {
+  prepareConnection(cwd: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host.startThread(cwd, threadSettings())
+    return this.host.prepareConnection(cwd)
   }
 
-  resumeThread(cwd: string, threadId: string): Promise<void> {
+  async startThread(cwd: string, requestedModel?: string, intelligence?: string): Promise<string> {
     requireTrustedWorkspace()
-    return this.host.resumeThread(cwd, threadId, threadSettings())
+    const model = await this.resolveModel(cwd, requestedModel)
+    return this.host.startThread(cwd, threadSettings(model, intelligence))
   }
 
-  listThreads(cwd: string): Promise<{
+  async resumeThread(cwd: string, threadId: string, requestedModel?: string, intelligence?: string): Promise<void> {
+    requireTrustedWorkspace()
+    const model = requestedModel
+      ? await this.resolveModel(cwd, requestedModel)
+      : exactText((await this.host.readThread(cwd, threadId)).model, "thread model")
+    return this.host.resumeThread(cwd, threadId, threadSettings(model, intelligence))
+  }
+
+  listThreads(
+    cwd: string,
+    cursor?: string,
+  ): Promise<{
     readonly threads: readonly AppServerThreadSummary[]
     readonly nextCursor: string | null
     readonly total: number
   }> {
     requireTrustedWorkspace()
-    return this.host.listThreads(cwd)
+    return this.host.listThreads(cwd, cursor)
   }
 
   readThread(cwd: string, threadId: string) {
@@ -101,6 +120,15 @@ export class CodeMAppServerService implements vscode.Disposable {
     return this.host.listModels(cwd)
   }
 
+  private async resolveModel(cwd: string, requestedModel?: string): Promise<string> {
+    const catalog = await this.host.listModels(cwd)
+    const model = requestedModel ? exactText(requestedModel, "model") : catalog.activeModel
+    if (!catalog.models.some((entry) => entry.id === model)) {
+      throw new Error(`CodeM model ${model} is not available from Core`)
+    }
+    return model
+  }
+
   listSkills(cwd: string, threadId?: string) {
     requireTrustedWorkspace()
     return this.host.listSkills(cwd, threadId)
@@ -117,8 +145,88 @@ export class CodeMAppServerService implements vscode.Disposable {
     return this.host.startTurn({ cwd, threadId, submissionId, text, attachments })
   }
 
+  steerTurn(cwd: string, threadId: string, submissionId: string, text: string): Promise<void> {
+    requireTrustedWorkspace()
+    return this.host.steerTurn({ cwd, threadId, submissionId, text })
+  }
+
+  compactThread(cwd: string, threadId: string): Promise<string> {
+    requireTrustedWorkspace()
+    return this.host.compactThread(cwd, threadId)
+  }
+
+  rewindThread(cwd: string, threadId: string): Promise<string> {
+    requireTrustedWorkspace()
+    return this.host.rewindThread(cwd, threadId)
+  }
+
   interrupt(cwd: string, threadId: string): Promise<void> {
+    requireTrustedWorkspace()
     return this.host.interruptTurn(cwd, threadId)
+  }
+
+  cancelBackgroundTask(cwd: string, threadId: string, taskId: string) {
+    requireTrustedWorkspace()
+    return this.host.cancelBackgroundTask(cwd, threadId, taskId)
+  }
+
+  startSideQuestion(cwd: string, threadId: string, operationId: string, question: string): Promise<string> {
+    requireTrustedWorkspace()
+    return this.host.startSideQuestion(cwd, threadId, operationId, question)
+  }
+
+  cancelSideQuestion(cwd: string, threadId: string, sideQuestionId: string): Promise<void> {
+    requireTrustedWorkspace()
+    return this.host.cancelSideQuestion(cwd, threadId, sideQuestionId)
+  }
+
+  readModes(cwd: string, threadId: string) {
+    requireTrustedWorkspace()
+    return this.host.readModes(cwd, threadId)
+  }
+
+  setModes(input: {
+    readonly cwd: string
+    readonly threadId: string
+    readonly expectedRevision: number
+    readonly permissionMode?: "default" | "auto" | "yolo"
+    readonly workMode?: "normal" | "plan"
+  }) {
+    requireTrustedWorkspace()
+    return this.host.setModes(input)
+  }
+
+  renameThread(cwd: string, threadId: string, name: string): Promise<void> {
+    requireTrustedWorkspace()
+    return this.host
+      .control(cwd, "thread/name/set", { threadId, name: exactText(name, "thread name") })
+      .then(() => undefined)
+  }
+
+  archiveThread(cwd: string, threadId: string): Promise<void> {
+    requireTrustedWorkspace()
+    return this.host.control(cwd, "thread/archive", { threadId }).then(() => undefined)
+  }
+
+  unarchiveThread(cwd: string, threadId: string): Promise<void> {
+    requireTrustedWorkspace()
+    return this.host.control(cwd, "thread/unarchive", { threadId }).then(() => undefined)
+  }
+
+  deleteThread(cwd: string, threadId: string): Promise<void> {
+    requireTrustedWorkspace()
+    return this.host.control(cwd, "thread/delete", { threadId }).then(() => undefined)
+  }
+
+  async forkThread(cwd: string, threadId: string): Promise<string> {
+    requireTrustedWorkspace()
+    const result = await this.host.control(cwd, "thread/fork", { threadId })
+    return exactText(result.threadId, "forked threadId")
+  }
+
+  unsubscribeThread(cwd: string, threadId: string): Promise<void> {
+    requireTrustedWorkspace()
+    return this.host.unsubscribeThread(cwd, threadId)
   }
 
   respondToInteraction(requestId: string, response: AppServerInteractionResponse): Promise<void> {
@@ -141,14 +249,25 @@ function requireTrustedWorkspace(): void {
   }
 }
 
-function threadSettings(): AppServerThreadSettings {
+function threadSettings(model: string, intelligence?: string): AppServerThreadSettings {
   const configuration = vscode.workspace.getConfiguration("codem")
   return {
-    model: configuration.get("model", "codem/auto"),
-    intelligence: configuration.get("intelligence", "medium"),
+    model,
+    intelligence: intelligence ?? configuration.get("intelligence", "medium"),
     permissionMode: configuration.get("permissionMode", "auto"),
     workMode: configuration.get("workMode", "default"),
     additionalDirectories: [],
     mcpServers: [],
   }
+}
+
+function exactText(value: unknown, label: string): string {
+  if (typeof value !== "string" || !value.trim() || value !== value.trim()) {
+    throw new Error(`Invalid CodeM ${label}`)
+  }
+  return value
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error && error.message.trim() ? error.message : String(error)
 }

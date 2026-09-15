@@ -112,13 +112,11 @@ import {
   type MigrationSource,
 } from "./kilo-provider/handlers/migration"
 import type { MigrationSelections } from "./legacy-migration/legacy-types"
-import {
-  handleLogin,
-  handleLogout,
-  handleSetOrganization,
-  handleRefreshProfile,
-  type AuthContext,
-} from "./kilo-provider/handlers/auth"
+import { handleSetOrganization, type AuthContext } from "./kilo-provider/handlers/auth"
+import { codeMWebviewProfile } from "./services/app-server/authentication-ui"
+import { MatureUiAppServerController } from "./services/app-server/mature-ui-controller"
+import { prepareMatureUiPrompt } from "./services/app-server/mature-ui-prompt"
+import { CODEM_UI_INTERACTION_OWNERS, type CodeMUiInteractionType } from "./services/app-server/ui-parity"
 import {
   handleRequestCloudSessions,
   handleRequestCloudSessionData,
@@ -356,8 +354,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   private connectionGeneration = 0
   private loginAttempt = 0
   private isWebviewReady = false
-  private readonly extensionVersion =
-    vscode.extensions.getExtension("codem.codem")?.packageJSON?.version ?? "unknown"
+  private readonly extensionVersion = vscode.extensions.getExtension("codem.codem")?.packageJSON?.version ?? "unknown"
   private cachedProvidersMessage: unknown = null
   /**
    * Provider API keys retained extension-side for authenticated model
@@ -450,9 +447,10 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   private unsubscribeNotificationDismiss: (() => void) | null = null
   private unsubscribeAcknowledged: (() => void) | null = null
   private unsubscribeLanguageChange: (() => void) | null = null
-  private unsubscribeProfileChange: (() => void) | null = null
+  private codeMAuthenticationChange: vscode.Disposable | null = null
+  private readonly appServerController: MatureUiAppServerController | null
+  private readonly appServerEvent: vscode.Disposable | null
   private unsubscribeFavoritesChange: (() => void) | null = null
-  private unsubscribeModelSelectorExpanded: (() => void) | null = null
   private unsubscribeClearPendingPrompts: (() => void) | null = null
   private unsubscribeDirectoryProvider: (() => void) | null = null
   private unsubscribeSandboxPreference: (() => void) | null = null
@@ -516,6 +514,28 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     this.unsubscribeSandboxPreference = this.connectionService.sandboxPreference?.onChange(() => {
       if (this.connectionState === "connected") void this.fetchAndSendSandboxDefault()
     })
+    this.appServerController = this.opts.appServer
+      ? new MatureUiAppServerController({
+          service: this.opts.appServer,
+          cwdForThread: (threadId) => this.getWorkspaceDirectory(threadId),
+          preparePrompt: (message) => prepareMatureUiPrompt(message, this.getWorkspaceDirectory(message.sessionID)),
+          post: (message) => this.postMessage(message),
+          selectThread: (threadId) => {
+            this.contextSessionID = threadId ?? undefined
+          },
+        })
+      : null
+    this.appServerEvent =
+      this.opts.appServer?.onEvent((event) => {
+        this.appServerController?.acceptEvent(event)
+      }) ?? null
+    this.codeMAuthenticationChange =
+      this.opts.authentication?.onDidChange((status) => {
+        this.postMessage({ type: "profileData", data: codeMWebviewProfile(status) })
+        if (status.loggedIn && status.routerCredential === true && this.appServerController) {
+          void this.appServerController.handle({ type: "requestProviders" })
+        }
+      }) ?? null
     TelemetryProxy.getInstance().setProvider(this)
   }
 
@@ -733,19 +753,13 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       })
     }
 
-    // Always attempt to fetch+push profile when connected.
-    // Profile returns 401 when user isn't logged into CodeM Gateway — that's expected.
-    // Use fire-and-forget (no throwOnError) to match old getProfile() which returned null on error.
-    if (this.connectionState === "connected" && this.client) {
-      console.log("[CodeM New] KiloProvider: 👤 syncWebviewState fetching profile...")
-      const profileResult = await retry(() => this.client!.kilo.profile())
-      const profileData = profileResult.data ?? null
-      console.log("[CodeM New] KiloProvider: 👤 syncWebviewState profile:", profileData ? "received" : "null")
-      this.postMessage({
-        type: "profileData",
-        data: profileData,
-      })
+    const authentication = this.opts.authentication
+    if (authentication) {
+      const status = authentication.current ?? (await authentication.refresh())
+      this.postMessage({ type: "profileData", data: codeMWebviewProfile(status) })
+    }
 
+    if (this.connectionState === "connected" && this.client) {
       if (this.currentSession) {
         this.refreshSessionDetails(this.currentSession.id, this.getWorkspaceDirectory(this.currentSession.id))
       }
@@ -843,6 +857,9 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   }
 
   public loadMessages(sessionID: string): Promise<void> {
+    if (this.appServerController) {
+      return this.appServerController.handle({ type: "loadMessages", sessionID, mode: "replace" }).then(() => undefined)
+    }
     // Sub-agent viewers share the normal paginated transcript and preserve
     // live deltas that arrive while the initial page is loading.
     return this.handleLoadMessages(sessionID, { preserveStream: true })
@@ -1049,6 +1066,18 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     return true
   }
 
+  private async handleAppServerMessage(message: WebviewMessage): Promise<boolean> {
+    if (!this.appServerController) return false
+    if (await this.appServerController.handle(message)) return true
+    if (CODEM_UI_INTERACTION_OWNERS[message.type as CodeMUiInteractionType] !== "app-server-live") return false
+    this.postMessage({
+      type: "error",
+      message: `CodeM App Server does not support ${message.type} yet`,
+      ...(typeof message.sessionID === "string" ? { sessionID: message.sessionID } : {}),
+    })
+    return true
+  }
+
   private setupWebviewMessageHandler(webview: vscode.Webview): void {
     this.webviewMessageDisposable?.dispose()
     this.unsubscribeAcknowledged?.()
@@ -1080,6 +1109,8 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       })
       if (intercepted === null) return
       message = intercepted
+
+      if (await this.handleAppServerMessage(message)) return
 
       if (
         await routeEarlyMessage(message, {
@@ -1136,7 +1167,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       ) {
         return
       }
-      if (await this.handleModelSelectorExpandedMessage(message)) return
       this.handleWebviewFocusMessage(message)
       this.visibleTaskStreams.handle(message)
       this.handleStreamVisibilityMessage(message)
@@ -1213,6 +1243,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
         case "clearSession":
           this.stopCurrentSessionProcesses()
           this.contextSessionID = undefined
+          this.appServerController?.clearSelection()
           this.setCurrentSession(null)
           this.focusSession()
           break
@@ -1234,15 +1265,15 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
           break
         case "login": {
           const attempt = ++this.loginAttempt
-          await handleLogin(this.authCtx, attempt, () => this.loginAttempt)
+          await this.handleCodeMLogin(attempt)
           break
         }
         case "cancelLogin":
           this.loginAttempt++
-          this.postMessage({ type: "deviceAuthCancelled" })
+          await this.handleCodeMLoginCancellation()
           break
         case "logout":
-          await handleLogout(this.authCtx)
+          await this.handleCodeMLogout()
           break
         case "setOrganization":
           if (typeof message.organizationId === "string" || message.organizationId === null) {
@@ -1614,7 +1645,13 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
 
   private async handleProfileDataMessage(message: TypedWebviewMessage): Promise<boolean> {
     if (message.type === "refreshProfile") {
-      await handleRefreshProfile(this.authCtx)
+      const authentication = this.opts.authentication
+      if (!authentication) {
+        this.postMessage({ type: "error", message: "CodeM authentication is unavailable" })
+        return true
+      }
+      const status = await authentication.refresh()
+      this.postMessage({ type: "profileData", data: codeMWebviewProfile(status) })
       return true
     }
     if (message.type === "requestProviderUsage") {
@@ -1626,6 +1663,38 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       return true
     }
     return false
+  }
+
+  private async handleCodeMLogin(attempt: number): Promise<void> {
+    const authentication = this.opts.authentication
+    if (!authentication) {
+      this.postMessage({ type: "deviceAuthFailed", error: "CodeM authentication is unavailable" })
+      return
+    }
+    try {
+      const status = await authentication.signIn()
+      if (attempt !== this.loginAttempt) return
+      this.postMessage({ type: "profileData", data: codeMWebviewProfile(status) })
+      this.postMessage({ type: "deviceAuthComplete" })
+    } catch (error: unknown) {
+      if (attempt !== this.loginAttempt) return
+      this.postMessage({ type: "deviceAuthFailed", error: getErrorMessage(error) || "CodeM login failed" })
+    }
+  }
+
+  private async handleCodeMLoginCancellation(): Promise<void> {
+    await this.opts.authentication?.cancelSignIn()
+    this.postMessage({ type: "deviceAuthCancelled" })
+  }
+
+  private async handleCodeMLogout(): Promise<void> {
+    const authentication = this.opts.authentication
+    if (!authentication) {
+      this.postMessage({ type: "error", message: "CodeM authentication is unavailable" })
+      return
+    }
+    const status = await authentication.signOut()
+    this.postMessage({ type: "profileData", data: codeMWebviewProfile(status) })
   }
 
   private handleWebviewFocusMessage(message: TypedWebviewMessage & { focused?: unknown; target?: unknown }): void {
@@ -1735,21 +1804,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     })
   }
 
-  private async handleModelSelectorExpandedMessage(message: TypedWebviewMessage): Promise<boolean> {
-    if (message.type === "persistModelSelectorExpanded") {
-      if (typeof message.value !== "boolean") return true
-      await this.extensionContext?.globalState.update("modelSelectorExpanded", message.value)
-      this.connectionService.notifyModelSelectorExpandedChanged(message.value)
-      return true
-    }
-    if (message.type === "requestModelSelectorExpanded") {
-      const value = this.extensionContext?.globalState.get("modelSelectorExpanded", true) ?? true
-      this.postMessage({ type: "modelSelectorExpandedLoaded", value })
-      return true
-    }
-    return false
-  }
-
   /** Notifications settings traffic, kept out of the main switch to bound its complexity. */
   private handleNotificationSettingsMessage(message: { type: string; sound?: string }): boolean {
     switch (message.type) {
@@ -1835,9 +1889,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     this.unsubscribeState?.()
     this.unsubscribeNotificationDismiss?.()
     this.unsubscribeLanguageChange?.()
-    this.unsubscribeProfileChange?.()
     this.unsubscribeFavoritesChange?.()
-    this.unsubscribeModelSelectorExpanded?.()
     this.unsubscribeClearPendingPrompts?.()
     this.unsubscribeDirectoryProvider?.()
 
@@ -1920,12 +1972,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
           // sequential await chain doesn't prevent warnings from being shown
           void this.checkConfigWarnings("state")
           try {
-            // Profile fetch is best-effort — returns 401 when user isn't logged into gateway.
-            const sdkClient = this.client
-            if (sdkClient) {
-              const profileResult = await sdkClient.kilo.profile()
-              this.postMessage({ type: "profileData", data: profileResult.data ?? null })
-            }
             await this.syncWebviewState("sse-connected")
             await this.flushPendingSessionRefresh("sse-connected")
             this.recoverPendingPrompts()
@@ -1949,19 +1995,9 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
         this.postMessage({ type: "languageChanged", locale })
       })
 
-      // Subscribe to profile change broadcast from other KiloProvider instances
-      this.unsubscribeProfileChange = this.connectionService.onProfileChanged((data) => {
-        this.postMessage({ type: "profileData", data })
-      })
-
       // Subscribe to favorites change broadcast from other KiloProvider instances
       this.unsubscribeFavoritesChange = this.connectionService.onFavoritesChanged((favorites) => {
         this.postMessage({ type: "favoritesLoaded", favorites })
-      })
-
-      // Subscribe to model-selector expand/collapse broadcast from other KiloProvider instances
-      this.unsubscribeModelSelectorExpanded = this.connectionService.onModelSelectorExpandedChanged((value) => {
-        this.postMessage({ type: "modelSelectorExpandedLoaded", value })
       })
 
       // Subscribe to clear-pending-prompts broadcast (fired after config save drains prompts)
@@ -2656,6 +2692,10 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
 
   /** Fetch providers and send to webview. Coalesced: at most one in-flight + one queued. */
   private async fetchAndSendProviders(): Promise<void> {
+    if (this.appServerController) {
+      await this.appServerController.handle({ type: "requestProviders" })
+      return
+    }
     const next = ++this.providersGeneration
     if (this.providersRefresh) {
       this.providersQueued = true
@@ -4622,9 +4662,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   private async handleUpdateSetting(key: string, value: unknown): Promise<void> {
     if (key === "maxCost") {
       const normalized = this.setMaxCost(value)
-      await vscode.workspace
-        .getConfiguration("codem")
-        .update("maxCost", normalized, vscode.ConfigurationTarget.Global)
+      await vscode.workspace.getConfiguration("codem").update("maxCost", normalized, vscode.ConfigurationTarget.Global)
       for (const sid of this.trackedSessionIds) {
         const oldLimit = this.activeAlerts.get(sid)
         if (oldLimit !== undefined) {
@@ -5681,9 +5719,9 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     this.unsubscribeState?.()
     this.unsubscribeNotificationDismiss?.()
     this.unsubscribeLanguageChange?.()
-    this.unsubscribeProfileChange?.()
+    this.codeMAuthenticationChange?.dispose()
+    this.appServerEvent?.dispose()
     this.unsubscribeFavoritesChange?.()
-    this.unsubscribeModelSelectorExpanded?.()
     this.unsubscribeClearPendingPrompts?.()
     this.unsubscribeDirectoryProvider?.()
     this.unsubscribeSandboxPreference?.()

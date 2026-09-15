@@ -252,10 +252,9 @@ export const dict = {
 
   "error.startup.title": "서버 연결 실패",
 
-  "error.paidModel.title": "이 모델을 사용하려면 로그인이 필요합니다",
-  "error.paidModel.description":
-    "로그인하거나 계정을 만들어 500개 이상의 모델에 접근하고, 원가로 크레딧을 사용하거나, 자체 키를 가져오세요.",
-  "error.paidModel.action": "로그인",
+  "error.paidModel.title": "계속하려면 로그인하세요",
+  "error.paidModel.description": "CodeM 계정으로 로그인하거나 새 계정을 만들어 계속하세요.",
+  "error.paidModel.action": "CodeM에 로그인",
   "error.promotionLimit.title": "계속하려면 가입이 필요합니다",
   "error.promotionLimit.description":
     "무료로 가입하여 500개 이상의 모델을 탐색하세요. 2분이면 완료, 신용카드 불필요. 또는 나중에 다시 오세요.",
@@ -561,7 +560,6 @@ export const dict = {
   "session.tab.worktree": "작업 트리",
   "session.cloud.repoOnly": "이 저장소만",
   "session.cloud.import": "클라우드에서 가져오기",
-  "feedback.button": "피드백 & 지원",
   "feedback.dialog.message": "피드백을 들려주시거나 겪고 계신 문제에 대해 도움을 드리고 싶습니다.",
   "feedback.dialog.github": "GitHub에 이슈 보고하기",
   "feedback.dialog.discord": "Discord 커뮤니티 참여하기",

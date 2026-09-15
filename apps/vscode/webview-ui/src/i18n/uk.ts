@@ -253,10 +253,9 @@ export const dict = {
 
   "error.startup.title": "Підключення до сервера не вдалося",
 
-  "error.paidModel.title": "Для використання цієї моделі потрібно увійти",
-  "error.paidModel.description":
-    "Увійдіть або створіть акаунт для доступу до 500+ моделей, використання кредитів за вартістю або підключення власного ключа.",
-  "error.paidModel.action": "Увійти",
+  "error.paidModel.title": "Увійдіть, щоб продовжити",
+  "error.paidModel.description": "Увійдіть або створіть обліковий запис CodeM, щоб продовжити.",
+  "error.paidModel.action": "Увійти в CodeM",
   "error.promotionLimit.title": "Для продовження потрібна реєстрація",
   "error.promotionLimit.description":
     "Зареєструйтеся безкоштовно для продовження та доступу до 500+ моделей. Займе 2 хвилини, кредитна картка не потрібна. Або поверніться пізніше.",
@@ -558,7 +557,6 @@ export const dict = {
   "session.tab.worktree": "Робоче дерево",
   "session.cloud.repoOnly": "Лише цей репозиторій",
   "session.cloud.import": "Імпортувати з хмари",
-  "feedback.button": "Зворотний зв'язок і підтримка",
   "feedback.dialog.message": "Ми раді отримати ваш відгук або допомогти з будь-якими проблемами, які у вас виникли.",
   "feedback.dialog.github": "Повідомити про проблему на GitHub",
   "feedback.dialog.discord": "Приєднатися до нашої спільноти Discord",

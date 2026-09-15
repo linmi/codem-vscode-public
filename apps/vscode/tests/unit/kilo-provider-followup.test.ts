@@ -94,7 +94,6 @@ function connection() {
     onLanguageChanged: () => () => undefined,
     onProfileChanged: () => () => undefined,
     onFavoritesChanged: () => () => undefined,
-    onModelSelectorExpandedChanged: () => () => undefined,
     registerDirectoryProvider: () => () => undefined,
     unregisterVisible: () => undefined,
     unregisterAttached: () => undefined,

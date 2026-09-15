@@ -152,7 +152,6 @@ export const ModeSwitcherBase: Component<ModeSwitcherBaseProps> = (props) => {
   return (
     <Show when={hasAgents()}>
       <PopupSelector
-        expanded={false}
         placement="top-start"
         minHeight={100}
         portal={props.portal}

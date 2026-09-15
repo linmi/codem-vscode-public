@@ -1,32 +1,34 @@
 # 基于 CodeM App Server 与 Kilo Code 的 VS Code 插件方案
 
-版本：v1.0　更新日期：2026-09-15　状态：VS Code 的 agent 生产调用链已切换到 CodeM App Server；旧 Kilo transport 不再进入构建。
+版本：v1.1　更新日期：2026-09-15　状态：成熟交互已恢复为兼容基线，App Server 正按 1:1 parity 适配；生产调用链尚未切换。
 
-v1.0 更新摘要：以 2026-09-15 拉取后的 CodeM `main@d7763f0a` 为实现契约。`@codem/app-server` 同时 pin Core `0.8.37` 与 CLI credential broker `0.1.208`，共享 Host 覆盖连接池、thread/turn、HITL、mode、control、skills、side question 与受控关闭。VS Code 激活入口、Sidebar 和 React/shadcn Webview 只消费 App Server 与严格 CodeM DTO；Kilo REST/SSE、旧 SDK、Agent Manager 和旧 Solid Webview 不再进入生产 bundle。初始化登录/注册、退出与刷新仍走 broker，CLI 不作为 live agent transport。
+v1.1 更新摘要：以 2026-09-15 拉取后的 CodeM `main@d7763f0a` 为实现契约。`@codem/app-server` 同时 pin Core `0.8.37` 与 CLI credential broker `0.1.208`，共享 Host 覆盖连接池、thread/turn、history、HITL、mode、control、skills、side question、工具流、guard、完整 diff、结构化 final answer、全部后台唤醒阶段、hook 与受控关闭。由于先前精简版丢失了成熟 UI 交互，当前恢复 Solid Webview 与 Agent Manager 作为过渡展示基线，删除独立的最小 `CodeMProvider` Webview，并以 264 个 Webview 入站命令的穷举 ownership registry 作为切换门禁。只有 App Server、编辑器 Host、认证、Autocomplete、云服务、语音等所有真实能力逐项接通后，才原子删除 Kilo REST/SSE agent transport；不保留 fallback。
+
+当前可执行 parity 报告已覆盖全部 264 个命令：206 个归属编辑器 Host 或独立服务，线上 App Server v1 能表达的 18 个命令已有严格控制器，剩余 40 个是协议缺口而不是尚未补 switch 的普通工程欠账。缺口存在时生产门禁必然失败，因此当前不能诚实地切换生产调用链或打 App Server production-ready 包；必须先扩展并发布 Core/App Server 契约，或由产品明确取消对应成熟交互。
 
 # 1. 结论与推荐路线
 
 **推荐采用“CodeM 单一运行时 + Kilo 交互选择性复用 + React/shadcn 重建 Webview”的路线。**插件位于 `apps/vscode`，复用 Kilo 已验证的 Activity Bar、Sidebar/Open in Tab、上下文引用、diff/review、历史导出、后台子 Agent 和 Agent Manager 交互设计，但不把 Solid 组件层或 Kilo backend 当作目标依赖。Webview 使用 React 与仓库自有的 `packages/ui` shadcn 组件；唯一 agent 后端是 `codem app-server` stdio JSON-RPC，Core JSONL 是持久化会话权威。
 
-该路线不是在 Kilo 后端前加一层 App Server 适配器，也不是长期维护两套运行时。第一阶段先把冻结集成分支中的 App Server host、会话契约和 durable projection 收敛成可复用包，让目标 Desktop 与 VS Code 共用同一实现；第二阶段再把 Kilo 的 VS Code 壳和 Webview 交互接到这套 host SDK。
+该路线不是长期维护两套运行时。过渡期允许一个有明确退出条件的“成熟 UI presentation adapter”：它只把严格 CodeM DTO 投影为现有 Webview 的 message/part 词汇，不读取 raw frame、不拥有 durable history、也不在 App Server 失败时回退 Kilo。第一阶段把 App Server host、会话契约和事件投影收敛成可复用包；第二阶段让现有完整 VS Code 表层逐项接到该 SDK；第三阶段一次性切换生产 agent transport 并删除兼容层。
 
-CodeM `main@d7763f0a` 已包含正式 App Server Desktop 实现与 active contract；本仓库不再以旧集成分支作为当前行为依据。线上 CLI `0.1.208` 与 Core `0.8.37` 仍是本 Cycle 的精确制品 pin。VS Code Sidebar 的完整入口已经原子切换，后续功能应在 App Server 模型上补齐，不恢复 Kilo transport。
+CodeM `main@d7763f0a` 已包含正式 App Server Desktop 实现与 active contract；本仓库不再以旧集成分支作为当前行为依据。线上 CLI `0.1.208` 与 Core `0.8.37` 仍是本 Cycle 的精确制品 pin。VS Code Sidebar 当前仍使用成熟兼容入口；App Server 适配完成前不做残缺切换，完成后也不保留 Kilo transport 作为 fallback。
 
 # 2. 已验证的当前事实
 
 ## 2.1 CodeM App Server
 
-| 事实       | 已验证状态                                                                                                                                                         | 对 VS Code 的影响                                                                          |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| 代码位置   | App Server 的当前依据是 `byted/main@d7763f0af4a9152e9dd4ca54ce6f1e56862b798c`，包含 `src/main/codem/app-server/*` 与 active Desktop contract。                     | VS Code 与 Desktop 以同一主干契约收敛；旧集成分支只保留历史来源意义。                      |
-| 实时协议   | 线上 Core `0.8.37` 提供换行分隔的 App Server stdio，接受带 `jsonrpc: "2.0"` 的请求；当前响应省略该字段，其余 `id/result/error`、protocol 与 capability 形状可用。  | Host 临时接受并记录“省略”或精确 `"2.0"`，拒绝其他值；不降级到 Kilo/Headless。              |
-| 持久化     | Core JSONL schema 12 是 durable history 权威；Desktop projection schema 20 已移除旧 sidecar 投影，SQLite/窗口数据是可重建状态。                                    | VS Code 不另造会话数据库；应复用 CodeM record schema 与 projection。                       |
-| 连接模型   | 当前连接池键为 canonical `cwd + permissionMode`；同一连接可承载多个 thread，以 `threadId` 路由。                                                                   | 连接属于 Extension Host，不属于某个 Webview 或标签页。                                     |
-| 协议能力   | 覆盖 start/resume、turn start/steer/interrupt、compact、rewind、权限、问题、计划、Plan Mode、后台任务、side question、diff、rename/archive/delete/fork 与 skills。 | MVP 可以覆盖完整 agent 交互，而无需借用 Kilo agent runtime。                               |
-| 运行时版本 | 2026-09-15 registry latest CLI 为 `0.1.208`，声明 Core `0.8.37`；当前 CodeM 源码 `main` 的旧 pin 不再作为 VS Code runtime 权威。                                   | Host 精确固定线上 Core `0.8.37`；升级只能作为独立 Cycle，禁止隐式跟随 latest。             |
-| 初始化认证 | Core binary 不提供 `auth` 子命令；CLI `0.1.208` 提供机器可读的 `auth status/login/logout`，登录授权页同时支持新用户注册。                                          | VSIX 必须携带匹配平台的 CLI broker；Host 不直接接触 refresh token 或私有 config。          |
-| 平台包     | 线上 Core `0.8.37` 发布 macOS、Linux、Windows 的 arm64/x64 六个平台包。                                                                                            | Host 可解析全部六种目标；当前只在 macOS arm64 完成真实执行，其他目标仍需 clean-host 验收。 |
-| 验收       | 本仓库 34 个聚焦 app-server 测试通过；真实 CLI broker 与 Core preflight 已验证；新的 VS Code Host/Webview typecheck、定向 lint 和 production bundle 通过。         | 下一步只需做真实登录 turn、HITL、重启历史和 Extension Host 人工验收。                      |
+| 事实       | 已验证状态                                                                                                                                                                     | 对 VS Code 的影响                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| 代码位置   | App Server 的当前依据是 `byted/main@d7763f0af4a9152e9dd4ca54ce6f1e56862b798c`，包含 `src/main/codem/app-server/*` 与 active Desktop contract。                                 | VS Code 与 Desktop 以同一主干契约收敛；旧集成分支只保留历史来源意义。                      |
+| 实时协议   | 线上 Core `0.8.37` 提供换行分隔的 App Server stdio，接受带 `jsonrpc: "2.0"` 的请求；当前响应省略该字段，其余 `id/result/error`、protocol 与 capability 形状可用。              | Host 临时接受并记录“省略”或精确 `"2.0"`，拒绝其他值；不降级到 Kilo/Headless。              |
+| 持久化     | Core JSONL schema 12 是 durable history 权威；Desktop projection schema 20 已移除旧 sidecar 投影，SQLite/窗口数据是可重建状态。                                                | VS Code 不另造会话数据库；应复用 CodeM record schema 与 projection。                       |
+| 连接模型   | 当前连接池键为 canonical `cwd + permissionMode`；同一连接可承载多个 thread，以 `threadId` 路由。                                                                               | 连接属于 Extension Host，不属于某个 Webview 或标签页。                                     |
+| 协议能力   | 覆盖 start/resume、turn start/steer/interrupt、compact、rewind、权限、问题、计划、Plan Mode、后台任务、side question、diff、rename/archive/delete/fork 与 skills。             | MVP 可以覆盖完整 agent 交互，而无需借用 Kilo agent runtime。                               |
+| 运行时版本 | 2026-09-15 registry latest CLI 为 `0.1.208`，声明 Core `0.8.37`；当前 CodeM 源码 `main` 的旧 pin 不再作为 VS Code runtime 权威。                                               | Host 精确固定线上 Core `0.8.37`；升级只能作为独立 Cycle，禁止隐式跟随 latest。             |
+| 初始化认证 | Core binary 不提供 `auth` 子命令；CLI `0.1.208` 提供机器可读的 `auth status/login/logout`，登录授权页同时支持新用户注册。                                                      | VSIX 必须携带匹配平台的 CLI broker；Host 不直接接触 refresh token 或私有 config。          |
+| 平台包     | 线上 Core `0.8.37` 发布 macOS、Linux、Windows 的 arm64/x64 六个平台包。                                                                                                        | Host 可解析全部六种目标；当前只在 macOS arm64 完成真实执行，其他目标仍需 clean-host 验收。 |
+| 验收       | App Server 原有 34 个聚焦测试曾通过；本次新增 Host live-surface 与成熟 UI adapter 定向测试通过，Host/Webview typecheck 通过。尚未重新执行全包、生产 bundle 或 Extension Host。 | 必须继续完成 264 项 parity、真实登录 turn、HITL、重启历史和 Extension Host 人工验收。      |
 
 ## 2.2 Kilo Code
 
@@ -243,13 +245,13 @@ codem/
 
 **现状证据。**CodeM `main@d7763f0a` 已包含正式 App Server；线上 CLI `0.1.208` 声明并发布 Core `0.8.37`，后者可直接执行 App Server。真实响应省略 `jsonrpc`，同时返回 protocol 1、匹配 agent version 与完整必需 capability。
 
-**交付结果。**新增唯一的 `@codem/app-server` package，固定线上 Core `0.8.37` 并统一六平台映射、包版本、可执行文件、许可证、staging、bundle hash、response envelope、协议版本、必需 capability 与 agent 版本验证。VS Code 构建流程把当前平台 Core、许可证和确定性 manifest 打入 dev VSIX，安装端不依赖用户 PATH 或本地 CLI；macOS arm64 真实 initialize、archive integrity 与包内 Core hash 已通过。该 package 已由 VS Code 生产入口消费。
+**交付结果。**新增唯一的 `@codem/app-server` package，固定线上 Core `0.8.37` 并统一六平台映射、包版本、可执行文件、许可证、staging、bundle hash、response envelope、协议版本、必需 capability 与 agent 版本验证。VS Code 构建流程把当前平台 Core、许可证和确定性 manifest 打入 dev VSIX，安装端不依赖用户 PATH 或本地 CLI；macOS arm64 真实 initialize、archive integrity 与包内 Core hash 已通过。该 package 已接入构建与认证边界，但在 1:1 门禁完成前尚未接管生产 agent transport。
 
 **变更边界。**只做基线冻结、Node host 的 runtime/preflight、真实 initialize 探测与文档事实收敛；不引入长连接 RPC，不触碰 Kilo 生产调用链，不开始 UI 搬运。
 
 **兼容例外。**对象是线上 Core `0.8.37` response 省略 `jsonrpc` 的已发布协议行为，依据是真实 initialize 输出；Host 只接受“字段省略”或精确值 `"2.0"`，并在预检结果中暴露 `responseJsonrpc`。退出路径是在 pinned Core 首次稳定返回该字段的升级 Cycle 中删除 omission 分支；测试覆盖省略、`"2.0"` 和显式错误版本。
 
-**当前准出结果。**runtime、版本、macOS arm64 binary、打包 manifest/hash、protocol、capability、credential broker 登录态和 production bundle 已通过。当前开发包为 `codem-vscode-0.1.1-dev-darwin-arm64.vsix`，大小 32.73 MB，SHA-256 为 `709727eb4f2665f6ae8352255d87f504996975383181e75045ef33f73f7a9951`。真实注册交互、live turn、HITL、重启历史、其他五个平台与真实 Extension Host 尚未验证，进入后续 Cycle。
+**当前准出结果。**runtime、版本、macOS arm64 binary、打包 manifest/hash、protocol、capability、credential broker 登录态和 production bundle 已通过。Cycle 0 曾产出 `codem-vscode-0.1.1-dev-darwin-arm64.vsix`（32.73 MB，SHA-256 `709727eb4f2665f6ae8352255d87f504996975383181e75045ef33f73f7a9951`）；它不是当前 `0.1.3` 源码的可安装验收包。真实注册交互、live turn、HITL、重启历史、其他五个平台与真实 Extension Host 尚未验证，进入后续 Cycle。
 
 **准出标准。**
 
@@ -308,12 +310,15 @@ codem/
 
 **交付结果。**达到 App Server Desktop surface parity：permission、question、plan、Plan Mode、compact、rewind、settings、background cancel、rename/archive/unarchive/delete/fork 和 skills；当 Core 已提供稳定 child identity 时，同时交付后台子 Agent 状态条与只读 transcript viewer。
 
+**1:1 门禁。**`apps/vscode/src/services/app-server/ui-parity.ts` 必须穷举现有 264 个 Webview 入站命令，并为每项指定唯一 owner；`app-server-live` 与 `app-server-control` 全部由严格 DTO adapter 承接，`editor-host`／`agent-manager-host` 保持真实 VS Code/Git/终端行为，Autocomplete、认证、云、语音和 telemetry 继续走各自专用服务。owner 登记不是“已完成”标记；生产切换前还必须为每项建立成功、失败和身份关联验证。不得隐藏未迁移按钮、返回伪成功或把 unsupported 当作完成。
+
 **准出标准。**
 
 1. 每类 server request 都覆盖回答、取消、失败、重复、过期和跨 thread 注入的负向测试。
 2. 运行中设置只影响修改后创建的提交，不改写 active run 或已排队提交。
 3. delete/fork 的 Core commit、ACK loss、重试和 restart 后结果唯一，不由 Extension 文件补偿。
 4. Webview 生产类型中不存在 Kilo Session/Permission/Provider 旧模型。
+5. ownership registry 与 `WebviewMessage["type"]` 双向穷举；新增、删除或漏配任何交互都会让类型检查失败。
 
 ## Cycle 5：Agent Manager 与工作树
 

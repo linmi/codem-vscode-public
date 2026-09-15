@@ -254,10 +254,9 @@ export const dict = {
 
   "error.startup.title": "Falha na conexão com o servidor",
 
-  "error.paidModel.title": "Você precisa fazer login para usar este modelo",
-  "error.paidModel.description":
-    "Faça login ou crie uma conta para acessar mais de 500 modelos, usar créditos a preço de custo ou trazer sua própria chave.",
-  "error.paidModel.action": "Fazer login",
+  "error.paidModel.title": "Entre para continuar",
+  "error.paidModel.description": "Entre ou crie uma conta CodeM para continuar.",
+  "error.paidModel.action": "Entrar no CodeM",
   "error.promotionLimit.title": "Você precisa se cadastrar para continuar",
   "error.promotionLimit.description":
     "Cadastre-se gratuitamente para continuar e explorar mais de 500 modelos. Leva 2 minutos, sem cartão de crédito. Ou volte mais tarde.",
@@ -566,7 +565,6 @@ export const dict = {
   "session.tab.worktree": "Árvore de trabalho",
   "session.cloud.repoOnly": "Apenas este repositório",
   "session.cloud.import": "Importar da nuvem",
-  "feedback.button": "Feedback e suporte",
   "feedback.dialog.message":
     "Adoraríamos ouvir seu feedback ou ajudar com quaisquer problemas que você esteja enfrentando.",
   "feedback.dialog.github": "Reportar um problema no GitHub",

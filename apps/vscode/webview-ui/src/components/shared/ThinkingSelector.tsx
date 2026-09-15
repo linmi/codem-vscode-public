@@ -189,7 +189,6 @@ export const ThinkingSelectorBase: Component<ThinkingSelectorBaseProps> = (props
         openDelay={0}
       >
         <PopupSelector
-          expanded={false}
           placement={props.placement ?? "top-start"}
           preferredWidth={180}
           minHeight={100}

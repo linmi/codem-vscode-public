@@ -19,6 +19,8 @@ import { TelemetryProxy, type TelemetryEventName } from "../services/telemetry"
 import type { AutoApproveController } from "../commands/toggle-auto-approve"
 import type { RemoteStatusService } from "../services/RemoteStatusService"
 import type { CaffeinationService } from "../services/caffeination"
+import type { CodeMAuthenticationService } from "../services/app-server/authentication"
+import type { CodeMAppServerService } from "../services/app-server/service"
 
 const INTRO_KEY = "kilo.agentManager.introDismissed"
 const PR_MERGE_METHODS_KEY = "agentManager.prMergeMethod"
@@ -40,6 +42,8 @@ export class VscodeHost implements Host {
     private readonly context: vscode.ExtensionContext,
     private readonly remoteService: RemoteStatusService,
     private readonly caffeination?: Pick<CaffeinationService, "getState" | "onChange" | "setEnabled">,
+    private readonly authentication?: CodeMAuthenticationService,
+    private readonly appServer?: CodeMAppServerService,
   ) {}
 
   setDiffVirtualProvider(provider: DiffVirtualProvider): void {
@@ -54,17 +58,12 @@ export class VscodeHost implements Host {
     onBeforeMessage: (msg: Record<string, unknown>) => Promise<Record<string, unknown> | null>
     worktreeDirectories?: () => string[]
   }): PanelContext {
-    const panel = vscode.window.createWebviewPanel(
-      "codem.AgentManagerPanel",
-      "Agent Manager",
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        enableForms: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [this.extensionUri],
-      },
-    )
+    const panel = vscode.window.createWebviewPanel("codem.AgentManagerPanel", "Agent Manager", vscode.ViewColumn.One, {
+      enableScripts: true,
+      enableForms: true,
+      retainContextWhenHidden: true,
+      localResourceRoots: [this.extensionUri],
+    })
     return this.wirePanel(panel, opts)
   }
 
@@ -115,6 +114,8 @@ export class VscodeHost implements Host {
     })
 
     const provider = new KiloProvider(this.extensionUri, this.connectionService, this.context, {
+      authentication: this.authentication,
+      appServer: this.appServer,
       tabTitle: (title) => {
         panel.title = title
       },
