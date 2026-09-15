@@ -317,8 +317,6 @@ export const dict = {
   "sidebar.topBar.newTask": "งานใหม่",
   "sidebar.topBar.history": "ประวัติ",
   "sidebar.topBar.agentManager": "ตัวจัดการเอเจนต์",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "มาร์เก็ตเพลส",
   "sidebar.topBar.profile": "โปรไฟล์",
   "sidebar.topBar.settings": "การตั้งค่า",
   "sidebar.session.newSession": "เซสชันใหม่",
@@ -1036,7 +1034,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "คำสั่ง",
   "settings.agentBehaviour.mcpDetail.args": "อาร์กิวเมนต์",
   "settings.agentBehaviour.mcpDetail.env": "สภาพแวดล้อม",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "เรียกดู Marketplace",
   "settings.agentBehaviour.mcpEmpty":
     "ไม่ได้กำหนดค่าเซิร์ฟเวอร์ MCP เพิ่มเซิร์ฟเวอร์ MCP ใน kilo.jsonc หรือขอให้เอเจนต์เพิ่มให้คุณ",
   "settings.agentBehaviour.workflows.description":

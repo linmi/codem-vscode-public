@@ -305,8 +305,6 @@ export const dict = {
   "sidebar.topBar.newTask": "新建任务",
   "sidebar.topBar.history": "历史记录",
   "sidebar.topBar.agentManager": "代理管理器",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "市场",
   "sidebar.topBar.profile": "个人资料",
   "sidebar.topBar.settings": "设置",
   "sidebar.session.newSession": "新会话",
@@ -1004,7 +1002,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "命令",
   "settings.agentBehaviour.mcpDetail.args": "参数",
   "settings.agentBehaviour.mcpDetail.env": "环境",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "浏览市场",
   "settings.agentBehaviour.mcpEmpty": "未配置 MCP 服务器。在 kilo.jsonc 中添加 MCP 服务器，或让代理为您添加。",
   "settings.agentBehaviour.workflows.description":
     "工作流是在配置中定义的自定义斜杠命令。在聊天中输入 /command-name 来调用它们。命令在 opencode.json 的 'command' 部分中配置。",

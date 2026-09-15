@@ -59,3 +59,23 @@ export {
   type AppServerRpcPeerOptions,
   type JsonObject,
 } from "./rpc.ts"
+export {
+  AppServerHost,
+  DEFAULT_APP_SERVER_THREAD_SETTINGS,
+  appServerHostEnvironment,
+  type AppServerHostEvent,
+  type AppServerHostOptions,
+  type AppServerInteraction,
+  type AppServerInteractionResponse,
+  type AppServerItemStatus,
+  type AppServerMcpServer,
+  type AppServerModelSummary,
+  type AppServerPermissionMode,
+  type AppServerPermissionPreview,
+  type AppServerPromptAttachment,
+  type AppServerQuestion,
+  type AppServerSkillSummary,
+  type AppServerThreadSettings,
+  type AppServerThreadSummary,
+  type AppServerWorkMode,
+} from "./host.ts"

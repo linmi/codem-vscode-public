@@ -320,8 +320,6 @@ export const dict = {
   "sidebar.topBar.newTask": "Novi Zadatak",
   "sidebar.topBar.history": "Historija",
   "sidebar.topBar.agentManager": "Agent Manager",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "Marketplace",
   "sidebar.topBar.profile": "Profil",
   "sidebar.topBar.settings": "Postavke",
   "sidebar.session.newSession": "Nova Sesija",
@@ -1053,7 +1051,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "Naredba",
   "settings.agentBehaviour.mcpDetail.args": "Argumenti",
   "settings.agentBehaviour.mcpDetail.env": "Okruženje",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "Pregledaj Marketplace",
   "settings.agentBehaviour.mcpEmpty":
     "Nema konfiguriranih MCP servera. Dodajte MCP servere u kilo.jsonc ili zamolite agenta da ih doda.",
   "settings.agentBehaviour.workflows.description":

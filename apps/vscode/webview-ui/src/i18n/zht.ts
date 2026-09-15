@@ -303,8 +303,6 @@ export const dict = {
   "sidebar.topBar.newTask": "新建任務",
   "sidebar.topBar.history": "歷史記錄",
   "sidebar.topBar.agentManager": "代理管理器",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "市集",
   "sidebar.topBar.profile": "個人資料",
   "sidebar.topBar.settings": "設定",
   "sidebar.session.newSession": "新會話",
@@ -966,7 +964,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "指令",
   "settings.agentBehaviour.mcpDetail.args": "引數",
   "settings.agentBehaviour.mcpDetail.env": "環境",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "瀏覽市場",
   "settings.agentBehaviour.mcpEmpty": "未設定 MCP 伺服器。在 kilo.jsonc 中新增 MCP 伺服器，或請代理為您新增。",
   "settings.agentBehaviour.workflows.description":
     "工作流程是在設定中定義的自訂斜線命令。在聊天中輸入 /command-name 來呼叫它們。命令在 opencode.json 的 'command' 區段中設定。",

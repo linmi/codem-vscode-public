@@ -311,8 +311,6 @@ export const dict = {
   "sidebar.topBar.newTask": "مهمة جديدة",
   "sidebar.topBar.history": "السجل",
   "sidebar.topBar.agentManager": "مدير الوكلاء",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "المتجر",
   "sidebar.topBar.profile": "الملف الشخصي",
   "sidebar.topBar.settings": "الإعدادات",
   "sidebar.session.newSession": "جلسة جديدة",
@@ -1028,7 +1026,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "الأمر",
   "settings.agentBehaviour.mcpDetail.args": "الوسائط",
   "settings.agentBehaviour.mcpDetail.env": "البيئة",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "تصفح Marketplace",
   "settings.agentBehaviour.mcpEmpty":
     "لم يتم تهيئة خوادم MCP. أضف خوادم MCP في kilo.jsonc، أو اطلب من الوكيل إضافتها لك.",
   "settings.agentBehaviour.workflows.description":

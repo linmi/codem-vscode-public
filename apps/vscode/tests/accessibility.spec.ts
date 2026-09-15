@@ -14,7 +14,6 @@ const STORIES = [
   { id: "profile--stale-and-unavailable", name: "Profile / stale usage" },
   { id: "profile--empty-usage", name: "Profile / empty usage" },
   { id: "settings--providers-configure", name: "Settings / providers empty state" },
-  { id: "marketplace--empty-list", name: "Marketplace / empty state" },
   { id: "agentmanager--sidebar-search-open", name: "Agent Manager / sidebar search" },
   { id: "agentmanager--side-terminal-panel-empty", name: "Agent Manager / side terminal" },
   { id: "session-tabs--switcher-open", name: "Session tabs / switcher" },

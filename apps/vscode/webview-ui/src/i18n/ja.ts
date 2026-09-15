@@ -318,8 +318,6 @@ export const dict = {
   "sidebar.topBar.newTask": "新規タスク",
   "sidebar.topBar.history": "履歴",
   "sidebar.topBar.agentManager": "エージェントマネージャー",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "マーケットプレイス",
   "sidebar.topBar.profile": "プロフィール",
   "sidebar.topBar.settings": "設定",
   "sidebar.session.newSession": "新規セッション",
@@ -1046,7 +1044,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "コマンド",
   "settings.agentBehaviour.mcpDetail.args": "引数",
   "settings.agentBehaviour.mcpDetail.env": "環境",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "マーケットプレイスを閲覧",
   "settings.agentBehaviour.mcpEmpty":
     "MCPサーバーが設定されていません。kilo.jsoncでMCPサーバーを追加するか、エージェントに追加を依頼してください。",
   "settings.agentBehaviour.workflows.description":

@@ -51,7 +51,7 @@ import {
 } from "./kilo-provider-utils"
 import { GitOps } from "./agent-manager/GitOps"
 import { GitStatsPoller, type LocalStats } from "./agent-manager/GitStatsPoller"
-import { createMarketplaceRemover, removeMcp } from "./kilo-provider/remove-config-item"
+import { removeMcp } from "./kilo-provider/remove-config-item"
 import type { RemoteStatusService } from "./services/RemoteStatusService"
 import { resolveProjectDirectory } from "./project-directory"
 import { seedSessionStatuses } from "./session-status"
@@ -468,7 +468,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   private viewStateDisposable: vscode.Disposable | null = null
   private visibilityDisposable: vscode.Disposable | null = null
   private autoApproveBridge: ReturnType<typeof createAutoApproveBridge> | null = null
-  private readonly marketplaceRemove = createMarketplaceRemover()
 
   private ignoreController: FileIgnoreController | null = null
   private ignoreControllerDir: string | null = null
@@ -659,14 +658,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     })
   }
 
-  private openMarketplacePanel(directory: unknown): void {
-    if (typeof directory === "string" && directory) {
-      vscode.commands.executeCommand("codem.marketplaceButtonClicked", directory)
-      return
-    }
-    vscode.commands.executeCommand("codem.marketplaceButtonClicked", this.projectDirectory)
-  }
-
   // Strip metadata unused by the webview to keep session switches fast.
   // Logic in kilo-provider/slim-metadata.ts.
   private slimInfo<T>(info: T): T {
@@ -701,7 +692,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       connection: this.connectionService,
       project: () => this.getProjectDirectory(this.currentSession?.id),
       directory: () => this.getWorkspaceDirectory(),
-      remove: this.marketplaceRemove,
       refresh: async () => {
         this.cachedAgentsMessage = null
         this.cachedConfigMessage = null
@@ -1262,17 +1252,11 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
         case "openSettingsPanel":
           vscode.commands.executeCommand("codem.settingsButtonClicked", message.tab, message.projectId)
           break
-        case "openKiloClaw":
-          vscode.commands.executeCommand("codem.cloudAgentOpen")
-          break
         case "openVSCodeSettings":
           vscode.commands.executeCommand("workbench.action.openSettings", message.query)
           break
         case "openConfigFile":
           await openConfig(message.scope, message.labels, this.getProjectDirectory(this.currentSession?.id))
-          break
-        case "openMarketplacePanel":
-          this.openMarketplacePanel(message.directory)
           break
         case "forkSession":
           handleForkSession(this.forkCtx, message.sessionId, message.messageId).catch((e) =>

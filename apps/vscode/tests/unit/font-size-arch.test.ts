@@ -3,7 +3,7 @@
  *
  * CodeM's VS Code webviews use the `codem.fontSize` setting, not
  * VS Code editor font-size or raw pixel declarations. This keeps the CodeM UI
- * independently scalable across sidebar, settings, Agent Manager, KiloClaw,
+ * independently scalable across sidebar, settings, Agent Manager,
  * diff viewers, code blocks, and shared kilo-ui controls.
  */
 
@@ -17,8 +17,6 @@ const REPO = path.resolve(ROOT, "../..")
 const TARGETS = [
   path.join(ROOT, "webview-ui/src"),
   path.join(ROOT, "webview-ui/agent-manager"),
-  path.join(ROOT, "webview-ui/kiloclaw"),
-  path.join(ROOT, "webview-ui/marketplace"),
   path.join(ROOT, "webview-ui/diff-viewer"),
   path.join(ROOT, "webview-ui/diff-virtual"),
   path.join(REPO, "packages/legacy/kilo-ui/src/components"),
@@ -28,8 +26,6 @@ const WATCHED_PROVIDERS = [
   path.join(ROOT, "src/KiloProvider.ts"),
   path.join(ROOT, "src/diff/DiffViewerProvider.ts"),
   path.join(ROOT, "src/DiffVirtualProvider.ts"),
-  path.join(ROOT, "src/kiloclaw/KiloClawProvider.ts"),
-  path.join(ROOT, "src/MarketplacePanelProvider.ts"),
 ]
 
 const ALLOWED_DIRS = new Set(["stories"])

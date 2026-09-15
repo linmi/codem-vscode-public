@@ -728,8 +728,6 @@ export const dict = {
   "sidebar.topBar.newTask": "وظیفه جدید",
   "sidebar.topBar.history": "تاریخچه",
   "sidebar.topBar.agentManager": "مدیر عامل‌ها",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "بازارچه",
   "sidebar.topBar.profile": "پروفایل",
   "sidebar.topBar.settings": "تنظیمات",
   "sidebar.session.newSession": "جلسه جدید",
@@ -996,7 +994,6 @@ export const dict = {
   "settings.agentBehaviour.addMcp.args.placeholder": "مثلاً\n-y\n@modelcontextprotocol/server-filesystem\n/tmp",
   "settings.agentBehaviour.addMcp.url": "URL سرور",
   "settings.agentBehaviour.addMcp.url.placeholder": "مثلاً http://localhost:3000/sse",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "مرور Marketplace",
   "settings.agentBehaviour.mcpEmpty":
     "هیچ سرور MCP پیکربندی نشده است. سرورهای MCP را در kilo.jsonc اضافه کنید، یا از agent بخواهید آن‌ها را برایتان اضافه کند.",
   "settings.agentBehaviour.workflows.description":

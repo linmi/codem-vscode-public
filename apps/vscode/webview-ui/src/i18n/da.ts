@@ -318,8 +318,6 @@ export const dict = {
   "sidebar.topBar.newTask": "Ny Opgave",
   "sidebar.topBar.history": "Historik",
   "sidebar.topBar.agentManager": "Agent Manager",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "Markedsplads",
   "sidebar.topBar.profile": "Profil",
   "sidebar.topBar.settings": "Indstillinger",
   "sidebar.session.newSession": "Ny Session",
@@ -1051,7 +1049,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "Kommando",
   "settings.agentBehaviour.mcpDetail.args": "Argumenter",
   "settings.agentBehaviour.mcpDetail.env": "Miljø",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "Gennemse Marketplace",
   "settings.agentBehaviour.mcpEmpty":
     "Ingen MCP-servere konfigureret. Tilføj MCP-servere i kilo.jsonc, eller bed agenten om at tilføje dem.",
   "settings.agentBehaviour.workflows.description":

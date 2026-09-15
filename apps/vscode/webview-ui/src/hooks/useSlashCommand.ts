@@ -191,14 +191,6 @@ export function useSlashCommand(
       },
     },
     {
-      name: "cloud",
-      description: "Open CodeM Cloud",
-      hints: ["agent"],
-      action: () => {
-        vscode.postMessage({ type: "openKiloClaw" })
-      },
-    },
-    {
       name: "sandbox",
       description: "Toggle sandbox",
       hints: [],

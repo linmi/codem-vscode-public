@@ -319,8 +319,6 @@ export const dict = {
   "sidebar.topBar.newTask": "Nowe Zadanie",
   "sidebar.topBar.history": "Historia",
   "sidebar.topBar.agentManager": "Agent Manager",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "Marketplace",
   "sidebar.topBar.profile": "Profil",
   "sidebar.topBar.settings": "Ustawienia",
   "sidebar.session.newSession": "Nowa Sesja",
@@ -1052,7 +1050,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "Polecenie",
   "settings.agentBehaviour.mcpDetail.args": "Argumenty",
   "settings.agentBehaviour.mcpDetail.env": "Środowisko",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "Przeglądaj Marketplace",
   "settings.agentBehaviour.mcpEmpty":
     "Brak skonfigurowanych serwerów MCP. Dodaj serwery MCP w kilo.jsonc lub poproś agenta o ich dodanie.",
   "settings.agentBehaviour.workflows.description":

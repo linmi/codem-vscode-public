@@ -22,6 +22,7 @@ export const REQUIRED_APP_SERVER_BOOLEAN_CAPABILITIES = [
   "threads.rewind",
   "threads.initialPlanMode",
   "threads.modelSelection",
+  "threads.sessionModes",
   "turns.steer",
   "turns.interrupt",
   "turns.attachments",

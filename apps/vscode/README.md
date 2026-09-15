@@ -1,8 +1,8 @@
 # CodeM for VS Code
 
-CodeM brings the CodeM coding-agent experience into VS Code through the Activity Bar, editor tabs, context actions, diff and review surfaces, conversation history, and Agent Manager workflows.
+CodeM brings CodeM Core into VS Code through an App Server-native Activity Bar and chat surface.
 
-> This package is an internal development preview. The editor shell now uses CodeM branding and public VS Code identifiers, while the runtime migration to `codem app-server` is still in progress. Do not treat this build as a production CodeM release.
+> This package is an internal development preview. Its only live agent transport is `codem app-server` over stdio JSON-RPC; it has no Kilo REST/SSE fallback.
 
 ## Development
 
@@ -19,7 +19,7 @@ The packaged extension identity is `codem.codem`. Commands, views, context keys,
 
 ## Architecture
 
-The executable product and protocol contract is documented in [`../../vscode-plugin-plan.md`](../../vscode-plugin-plan.md). Shared React/shadcn components belong in `packages/ui`; the retained SolidJS webview and legacy backend packages are migration inputs only.
+The executable product and protocol contract is documented in [`../../vscode-plugin-plan.md`](../../vscode-plugin-plan.md). Shared React/shadcn components belong in `packages/ui`. The production bundle contains one React Webview and the reusable `@codem/app-server` Host; retained Kilo/Solid source is migration reference only and is excluded from the package dependency and build closure.
 
 ## License and provenance
 

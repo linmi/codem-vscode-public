@@ -1,4 +1,3 @@
-import type { InstallMarketplaceItemOptions, MarketplaceFilters, MarketplaceItem } from "../marketplace"
 import type { FileAttachment } from "./parts"
 import type { MessageLoadMode } from "./sessions"
 import type { PermissionFileDiff } from "./permissions"
@@ -309,21 +308,12 @@ export interface OpenConfigFileRequest {
   }
 }
 
-export interface OpenMarketplacePanelRequest {
-  type: "openMarketplacePanel"
-  directory?: string
-}
-
 export interface OpenAgentManagerRequest {
   type: "openAgentManager"
 }
 
 export interface OpenAdvancedWorktreeRequest {
   type: "openAdvancedWorktree"
-}
-
-export interface OpenKiloClawRequest {
-  type: "openKiloClaw"
 }
 
 export interface RequestAgentsMessage {
@@ -1534,27 +1524,6 @@ export interface MoveSectionRequest {
   dir: -1 | 1
 }
 
-export interface FetchMarketplaceDataMessage {
-  type: "fetchMarketplaceData"
-}
-
-export interface FilterMarketplaceItemsMessage {
-  type: "filterMarketplaceItems"
-  filters: MarketplaceFilters
-}
-
-export interface InstallMarketplaceItemMessage {
-  type: "installMarketplaceItem"
-  mpItem: MarketplaceItem
-  mpInstallOptions: InstallMarketplaceItemOptions
-}
-
-export interface RemoveInstalledMarketplaceItemMessage {
-  type: "removeInstalledMarketplaceItem"
-  mpItem: MarketplaceItem
-  mpInstallOptions: InstallMarketplaceItemOptions
-}
-
 export interface DismissAgentMigrationBannerMessage {
   type: "dismissAgentMigrationBanner"
 }
@@ -1601,10 +1570,8 @@ export type WebviewMessage =
   | OpenProfilePanelRequest
   | OpenVSCodeSettingsRequest
   | OpenConfigFileRequest
-  | OpenMarketplacePanelRequest
   | OpenAgentManagerRequest
   | OpenAdvancedWorktreeRequest
-  | OpenKiloClawRequest
   | OpenFileRequest
   | ValidateFilesRequest
   | CancelLoginRequest
@@ -1773,10 +1740,6 @@ export type WebviewMessage =
   | RequestSandboxDefaultMessage
   | SetSandboxDefaultMessage
   | ToggleSandboxMessage
-  | FetchMarketplaceDataMessage
-  | FilterMarketplaceItemsMessage
-  | InstallMarketplaceItemMessage
-  | RemoveInstalledMarketplaceItemMessage
   | DismissAgentMigrationBannerMessage
   | ConnectProviderMessage
   | AuthorizeProviderOAuthMessage

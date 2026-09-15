@@ -1,6 +1,11 @@
 import { getErrorMessage } from "../kilo-provider-utils"
 import type { KiloConnectionService } from "./cli-backend"
-import type { RemoveResult } from "./marketplace/types"
+
+interface RemoveResult {
+  success: boolean
+  slug: string
+  error?: string
+}
 
 interface Input {
   connection: KiloConnectionService

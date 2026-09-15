@@ -321,8 +321,6 @@ export const dict = {
   "sidebar.topBar.newTask": "Nova Tarefa",
   "sidebar.topBar.history": "Histórico",
   "sidebar.topBar.agentManager": "Agent Manager",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "Marketplace",
   "sidebar.topBar.profile": "Perfil",
   "sidebar.topBar.settings": "Configurações",
   "sidebar.session.newSession": "Nova Sessão",
@@ -1062,7 +1060,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "Comando",
   "settings.agentBehaviour.mcpDetail.args": "Argumentos",
   "settings.agentBehaviour.mcpDetail.env": "Ambiente",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "Explorar Marketplace",
   "settings.agentBehaviour.mcpEmpty":
     "Nenhum servidor MCP configurado. Adicione servidores MCP em kilo.jsonc ou peça ao agente para adicioná-los.",
   "settings.agentBehaviour.workflows.description":

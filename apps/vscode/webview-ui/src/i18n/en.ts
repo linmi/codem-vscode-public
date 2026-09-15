@@ -724,8 +724,6 @@ export const dict = {
   "sidebar.topBar.newTask": "New Task",
   "sidebar.topBar.history": "History",
   "sidebar.topBar.agentManager": "Agent Manager",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "Marketplace",
   "sidebar.topBar.profile": "Profile",
   "sidebar.topBar.settings": "Settings",
   "sidebar.session.newSession": "New Session",
@@ -990,7 +988,6 @@ export const dict = {
   "settings.agentBehaviour.addMcp.args.placeholder": "e.g.\n-y\n@modelcontextprotocol/server-filesystem\n/tmp",
   "settings.agentBehaviour.addMcp.url": "Server URL",
   "settings.agentBehaviour.addMcp.url.placeholder": "e.g. http://localhost:3000/sse",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "Browse Marketplace",
   "settings.agentBehaviour.mcpEmpty":
     "No MCP servers configured. Add MCP servers in kilo.jsonc, or ask the agent to add them for you.",
   "settings.agentBehaviour.workflows.description":

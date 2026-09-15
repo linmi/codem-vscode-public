@@ -319,8 +319,6 @@ export const dict = {
   "sidebar.topBar.newTask": "새 작업",
   "sidebar.topBar.history": "기록",
   "sidebar.topBar.agentManager": "에이전트 관리자",
-  "sidebar.topBar.cloudAgent": "CodeM Cloud",
-  "sidebar.topBar.marketplace": "마켓플레이스",
   "sidebar.topBar.profile": "프로필",
   "sidebar.topBar.settings": "설정",
   "sidebar.session.newSession": "새 세션",
@@ -1040,7 +1038,6 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.command": "명령어",
   "settings.agentBehaviour.mcpDetail.args": "인수",
   "settings.agentBehaviour.mcpDetail.env": "환경",
-  "settings.agentBehaviour.mcpBrowseMarketplace": "마켓플레이스 둘러보기",
   "settings.agentBehaviour.mcpEmpty":
     "MCP 서버가 구성되지 않았습니다. kilo.jsonc에서 MCP 서버를 추가하거나 에이전트에게 추가를 요청하세요.",
   "settings.agentBehaviour.workflows.description":
