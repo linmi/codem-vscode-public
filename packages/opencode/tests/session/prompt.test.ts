@@ -1,15 +1,11 @@
-import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
-import { NodeFileSystem } from "@effect/platform-node"
 import { Database } from "@opencode-ai/core/database/database"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { eq } from "drizzle-orm"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { Bus } from "@/bus"
-import { FetchHttpClient } from "effect/unstable/http"
-import { expect, spyOn } from "bun:test"
-import { Telemetry } from "@kilocode/kilo-telemetry"
+import { expect } from "bun:test"
 import { legacyReviewMessage } from "../../src/kilocode/review/command"
 import { Cause, Deferred, Duration, Effect, Exit, Fiber, Layer } from "effect"
 import path from "path"
@@ -18,7 +14,6 @@ import { NamedError } from "@opencode-ai/core/util/error"
 import { Agent as AgentSvc } from "../../src/agent/agent"
 import { BackgroundJob } from "@/background/job"
 import { Command } from "../../src/command"
-import { Auth } from "../../src/auth"
 import { Config } from "@/config/config"
 import { LSP } from "@/lsp/lsp"
 import { MCP } from "../../src/mcp"
@@ -50,7 +45,6 @@ import { KiloSessionPrompt } from "../../src/kilocode/session/prompt"
 import { KiloSessionPromptQueue } from "../../src/kilocode/session/prompt-queue"
 // kilocode_change end
 import { KiloSessions } from "../../src/kilo-sessions/kilo-sessions"
-import { Suggestion } from "../../src/kilocode/suggestion"
 import { MessageID, PartID, SessionID } from "../../src/session/schema"
 import { SessionStatus } from "../../src/session/status"
 import { SessionV2 } from "@opencode-ai/core/session"
@@ -69,7 +63,6 @@ import { awaitWithTimeout, pollWithTimeout, testEffect } from "../lib/effect"
 import { reply, TestLLMServer } from "../lib/llm-server"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { MemoryService } from "@kilocode/kilo-memory/effect/service"
-import { RepositoryCache } from "@opencode-ai/core/repository-cache"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { LocationServiceMap, locationServiceMapLayer } from "@opencode-ai/core/location-services"
@@ -1870,77 +1863,79 @@ it.instance(
   10_000,
 )
 
-it.instance("prompt submitted during an active run is included in the next LLM input", () =>
-  Effect.gen(function* () {
-    const { llm } = yield* useServerConfig(providerCfg)
-    const gate = yield* Deferred.make<void>()
-    const prompt = yield* SessionPrompt.Service
-    const sessions = yield* Session.Service
-    const chat = yield* sessions.create({ title: "Pinned" })
+it.instance(
+  "prompt submitted during an active run is included in the next LLM input",
+  () =>
+    Effect.gen(function* () {
+      const { llm } = yield* useServerConfig(providerCfg)
+      const gate = yield* Deferred.make<void>()
+      const prompt = yield* SessionPrompt.Service
+      const sessions = yield* Session.Service
+      const chat = yield* sessions.create({ title: "Pinned" })
 
-    yield* llm.hold("first", deferredAsPromise(gate))
-    yield* llm.text("second")
+      yield* llm.hold("first", deferredAsPromise(gate))
+      yield* llm.text("second")
 
-    const a = yield* prompt
-      .prompt({
-        sessionID: chat.id,
-        agent: "build",
-        model: ref,
-        parts: [{ type: "text", text: "first" }],
-      })
-      .pipe(Effect.forkChild)
+      const a = yield* prompt
+        .prompt({
+          sessionID: chat.id,
+          agent: "build",
+          model: ref,
+          parts: [{ type: "text", text: "first" }],
+        })
+        .pipe(Effect.forkChild)
 
-    yield* llm.wait(1)
-    yield* waitForBusy(chat.id)
+      yield* llm.wait(1)
+      yield* waitForBusy(chat.id)
 
-    const id = MessageID.ascending()
-    const b = yield* prompt
-      .prompt({
-        sessionID: chat.id,
-        messageID: id,
-        agent: "build",
-        model: ref,
-        parts: [{ type: "text", text: "second" }],
-      })
-      .pipe(Effect.forkChild)
+      const id = MessageID.ascending()
+      const b = yield* prompt
+        .prompt({
+          sessionID: chat.id,
+          messageID: id,
+          agent: "build",
+          model: ref,
+          parts: [{ type: "text", text: "second" }],
+        })
+        .pipe(Effect.forkChild)
 
-    yield* pollWithTimeout(
-      sessions
-        .messages({ sessionID: chat.id })
-        .pipe(
-          Effect.map((msgs) =>
-            msgs.some((msg) => msg.info.role === "user" && msg.info.id === id) ? true : undefined,
+      yield* pollWithTimeout(
+        sessions
+          .messages({ sessionID: chat.id })
+          .pipe(
+            Effect.map((msgs) =>
+              msgs.some((msg) => msg.info.role === "user" && msg.info.id === id) ? true : undefined,
+            ),
           ),
-        ),
-      "timed out waiting for second prompt to save",
-    )
+        "timed out waiting for second prompt to save",
+      )
 
-    yield* Deferred.succeed(gate, void 0)
+      yield* Deferred.succeed(gate, void 0)
 
-    const [ea, eb] = yield* Effect.all([Fiber.await(a), Fiber.await(b)])
-    expect(Exit.isSuccess(ea)).toBe(true)
-    expect(Exit.isSuccess(eb)).toBe(true)
-    expect(yield* llm.calls).toBe(2)
+      const [ea, eb] = yield* Effect.all([Fiber.await(a), Fiber.await(b)])
+      expect(Exit.isSuccess(ea)).toBe(true)
+      expect(Exit.isSuccess(eb)).toBe(true)
+      expect(yield* llm.calls).toBe(2)
 
-    const msgs = yield* sessions.messages({ sessionID: chat.id })
-    const assistants = msgs.filter((msg) => msg.info.role === "assistant")
-    expect(assistants).toHaveLength(2)
-    const last = assistants.at(-1)
-    if (!last || last.info.role !== "assistant") throw new Error("expected second assistant")
-    expect(last.info.parentID).toBe(id)
-    expect(last.parts.some((part) => part.type === "text" && part.text === "second")).toBe(true)
+      const msgs = yield* sessions.messages({ sessionID: chat.id })
+      const assistants = msgs.filter((msg) => msg.info.role === "assistant")
+      expect(assistants).toHaveLength(2)
+      const last = assistants.at(-1)
+      if (!last || last.info.role !== "assistant") throw new Error("expected second assistant")
+      expect(last.info.parentID).toBe(id)
+      expect(last.parts.some((part) => part.type === "text" && part.text === "second")).toBe(true)
 
-    const inputs = yield* llm.inputs
-    expect(inputs).toHaveLength(2)
-    const messages = inputs.at(-1)?.messages
-    if (!Array.isArray(messages)) throw new Error("expected LLM messages")
-    // kilocode_change start - Kilo appends environment details to queued user prompts
-    expect(messages.at(-1)).toMatchObject({
-      role: "user",
-      content: expect.arrayContaining([{ type: "text", text: "second" }]),
-    })
-    // kilocode_change end
-  }),
+      const inputs = yield* llm.inputs
+      expect(inputs).toHaveLength(2)
+      const messages = inputs.at(-1)?.messages
+      if (!Array.isArray(messages)) throw new Error("expected LLM messages")
+      // kilocode_change start - Kilo appends environment details to queued user prompts
+      expect(messages.at(-1)).toMatchObject({
+        role: "user",
+        content: expect.arrayContaining([{ type: "text", text: "second" }]),
+      })
+      // kilocode_change end
+    }),
   10_000,
 )
 
@@ -3086,86 +3081,6 @@ noLLMServer.instance(
       ).toBe(true)
     }),
   { config: cfg },
-  30_000,
-)
-
-it.instance(
-  "review command marks child completions with review telemetry",
-  () =>
-    Effect.gen(function* () {
-      const trackSpy = spyOn(Telemetry, "trackLlmCompletion")
-      yield* Effect.addFinalizer(() => Effect.sync(() => trackSpy.mockRestore()))
-      const { llm } = yield* useServerConfig(providerCfg)
-      const prompt = yield* SessionPrompt.Service
-      const sessions = yield* Session.Service
-      const chat = yield* sessions.create({
-        title: "Review telemetry",
-        permission: [{ permission: "*", pattern: "*", action: "allow" }],
-      })
-
-      // child subagent's first LLM step needs non-zero usage so trackStep fires
-      yield* llm.text("review done", { usage: { input: 100, output: 50 } })
-
-      yield* prompt.command({
-        sessionID: chat.id,
-        command: "review",
-        arguments: "",
-        agent: "general",
-      })
-
-      const tagged = trackSpy.mock.calls
-        .map((args) => args[0] as Parameters<typeof Telemetry.trackLlmCompletion>[0])
-        .find((p) => p.mode === "review" && p.feature === "code_reviews" && p.command === "review")
-      expect(tagged).toBeDefined()
-    }),
-  30_000,
-)
-
-it.instance(
-  "accepted suggest tool marks following completion with review telemetry",
-  () =>
-    Effect.gen(function* () {
-      const trackSpy = spyOn(Telemetry, "trackLlmCompletion")
-      yield* Effect.addFinalizer(() => Effect.sync(() => trackSpy.mockRestore()))
-      const { llm } = yield* useServerConfig(providerCfg)
-      const prompt = yield* SessionPrompt.Service
-      const sessions = yield* Session.Service
-      const chat = yield* sessions.create({
-        title: "Suggest telemetry",
-        permission: [{ permission: "*", pattern: "*", action: "allow" }],
-      })
-
-      yield* llm.tool("suggest", {
-        suggest: "Run a local review?",
-        actions: [{ label: "Review", prompt: "/review uncommitted --focus telemetry" }],
-      })
-      yield* llm.text("review done", { usage: { input: 100, output: 50 } })
-
-      const fiber = yield* prompt
-        .prompt({
-          sessionID: chat.id,
-          agent: "build",
-          model: ref,
-          parts: [{ type: "text", text: "Suggest a review action." }],
-        })
-        .pipe(Effect.forkChild)
-      const request = yield* pollWithTimeout(
-        Effect.promise(() => Suggestion.list()).pipe(
-          Effect.map((items) => items.find((item) => item.sessionID === chat.id)),
-        ),
-        "timed out waiting for suggestion request",
-      )
-
-      yield* Effect.promise(() => Suggestion.accept({ requestID: request.id, index: 0 }))
-      yield* Fiber.join(fiber)
-
-      const tagged = trackSpy.mock.calls
-        .map((args) => args[0] as Parameters<typeof Telemetry.trackLlmCompletion>[0])
-        .find(
-          (p) => p.mode === "review" && p.feature === "code_reviews" && p.command === "review" && p.tool === "suggest",
-        )
-      expect(tagged).toBeDefined()
-    }),
   30_000,
 )
 

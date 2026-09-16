@@ -20,7 +20,6 @@ const inputs = [
   "packages/kilo-indexing",
   "packages/kilo-memory",
   "packages/kilo-sandbox",
-  "packages/kilo-telemetry",
   "packages/llm",
   "packages/plugin",
   "packages/plugin-atomic-chat",

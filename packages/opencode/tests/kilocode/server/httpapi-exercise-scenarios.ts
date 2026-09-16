@@ -761,7 +761,10 @@ export const kiloScenarios: Scenario[] = [
       check(item.builtin === false, "command file should not be builtin")
       check(item.model === "anthropic/claude-sonnet-4-6", "command file should include model metadata")
       check(item.variant === "high", "command file should include variant metadata")
-      check(typeof item.content === "string" && item.content.includes("Run command."), "command file should include content")
+      check(
+        typeof item.content === "string" && item.content.includes("Run command."),
+        "command file should include content",
+      )
     }),
   http.protected
     .post("/kilocode/command/remove", "kilocode.removeCommand")
@@ -777,10 +780,7 @@ export const kiloScenarios: Scenario[] = [
       Effect.gen(function* () {
         check(body === true, "command removal should return true")
         const location = path.join(directory(ctx), ".kilo/command/httpapi-remove.md")
-        check(
-          !(yield* Effect.promise(() => Bun.file(location).exists())),
-          "removed command should not remain on disk",
-        )
+        check(!(yield* Effect.promise(() => Bun.file(location).exists())), "removed command should not remain on disk")
       }),
     ),
   http.protected
@@ -1050,18 +1050,6 @@ export const kiloScenarios: Scenario[] = [
       },
     }))
     .status(400),
-  http.protected
-    .post("/telemetry/capture", "telemetry.capture")
-    .at((ctx) => ({
-      path: "/telemetry/capture",
-      headers: ctx.headers(),
-      body: { event: "httpapi_exercise", properties: { source: "httpapi" } },
-    }))
-    .json(200, (body) => check(body === true, "telemetry capture should return true")),
-  http.protected
-    .post("/telemetry/setEnabled", "telemetry.setEnabled")
-    .at((ctx) => ({ path: "/telemetry/setEnabled", headers: ctx.headers(), body: { enabled: true } }))
-    .json(200, (body) => check(body === true, "telemetry enabled update should return true")),
   http.protected
     .post("/instance/reload", "instance.reload")
     .skipValidAuthProbe()

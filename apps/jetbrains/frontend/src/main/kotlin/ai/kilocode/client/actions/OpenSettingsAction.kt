@@ -3,7 +3,6 @@ package ai.kilocode.client.actions
 import ai.kilocode.client.plugin.KiloBundle
 import ai.kilocode.client.settings.KiloSettingsConfigurable
 import ai.kilocode.client.settings.KiloSettingsSelection
-import ai.kilocode.client.telemetry.Telemetry
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.options.Configurable
@@ -19,7 +18,6 @@ class OpenSettingsAction : DumbAwareAction(
     null,
 ) {
     override fun actionPerformed(e: AnActionEvent) {
-        Telemetry.send("Settings Opened", mapOf("surface" to "tool_window"))
         val project = e.project ?: ProjectManager.getInstance().defaultProject
         val target = KiloSettingsSelection.target(project)
         val util = ShowSettingsUtil.getInstance()

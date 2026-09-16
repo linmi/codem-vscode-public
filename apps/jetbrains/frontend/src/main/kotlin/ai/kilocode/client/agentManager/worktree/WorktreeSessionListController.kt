@@ -1,7 +1,6 @@
 package ai.kilocode.client.agentManager.worktree
 
 import ai.kilocode.client.app.KiloSessionService
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.util.edt
 import ai.kilocode.log.KiloLog
 import ai.kilocode.rpc.dto.SessionDto
@@ -19,7 +18,6 @@ class WorktreeSessionListController(
     private val service: KiloSessionService,
     private val dir: String,
     private val cs: CoroutineScope,
-    private val telemetry: (String, Map<String, String>) -> Unit = { event, props -> Telemetry.send(event, props) },
 ) {
     val model = CollectionListModel<SessionDto>()
 
@@ -59,7 +57,6 @@ class WorktreeSessionListController(
                 val result = service.sessionsFor(dir)
                 edt {
                     model.replaceAll(result.sessions)
-                    capture("Worktree Session List Loaded", mapOf("count" to result.sessions.size.toString()))
                     done?.invoke()
                 }
             } catch (e: Exception) {
@@ -79,7 +76,6 @@ class WorktreeSessionListController(
                         .filter { it.id != session.id }
                     model.replaceAll(listOf(session) + keep)
                     done(session)
-                    capture("Worktree Session Created", mapOf("sessionId" to session.id))
                 }
             } catch (e: Exception) {
                 LOG.warn("worktree session create failed dir=$dir message=${e.message}", e)
@@ -128,7 +124,6 @@ class WorktreeSessionListController(
                         .filter { it.id != id }
                     model.replaceAll(keep)
                     done(true, null)
-                    capture("Worktree Session Deleted", mapOf("sessionId" to id))
                 }
                 return@launch
             }
@@ -159,7 +154,6 @@ class WorktreeSessionListController(
                 edt {
                     index(id).takeIf { it >= 0 }?.let { model.setElementAt(updated, it) }
                     done(true, null)
-                    capture("Worktree Session Renamed", mapOf("sessionId" to id))
                 }
                 return@launch
             }
@@ -176,14 +170,6 @@ class WorktreeSessionListController(
     companion object {
         private val LOG = KiloLog.create(WorktreeSessionListController::class.java)
         private const val COALESCE_MS = 300L
-    }
-
-    private fun capture(event: String, props: Map<String, String>) {
-        try {
-            telemetry(event, props)
-        } catch (e: Exception) {
-            LOG.warn("worktree session telemetry failed event=$event message=${e.message}", e)
-        }
     }
 
     private fun index(id: String): Int {

@@ -37,26 +37,7 @@ class CommandLifecycleTest : SessionControllerTestBase() {
         assertEquals("ses_test", rpc.commands.single().id)
     }
 
-    fun `test command records telemetry`() {
-        appRpc.state.value = KiloAppStateDto(KiloAppStatusDto.READY, config = ConfigDto(model = "kilo/gpt-5"))
-        projectRpc.state.value = workspaceReady().copy(commands = listOf(CommandDto("deploy")))
-        val m = controller()
-
-        flush()
-        edt { m.command("deploy", "prod") }
-        flush()
-
-        val sent = appRpc.telemetry.single { it.event == "Conversation Send Clicked" }
-        assertEquals("command", sent.properties["source"])
-        assertEquals("true", sent.properties["hasSlashCommand"])
-        assertEquals("server", sent.properties["slashCommandType"])
-        val message = appRpc.telemetry.single { it.event == "Conversation Message" }
-        assertEquals("command", message.properties["source"])
-        assertEquals("true", message.properties["hasSlashCommand"])
-        assertEquals("server", message.properties["slashCommandType"])
-    }
-
-    fun `test command errors set state and telemetry`() {
+    fun `test command errors set state`() {
         appRpc.state.value = KiloAppStateDto(KiloAppStatusDto.READY, config = ConfigDto(model = "kilo/gpt-5"))
         projectRpc.state.value = workspaceReady().copy(commands = listOf(CommandDto("deploy")))
         rpc.commandThrows = IllegalStateException("boom")
@@ -67,7 +48,5 @@ class CommandLifecycleTest : SessionControllerTestBase() {
         flush()
 
         assertTrue(m.model.state is SessionState.Error)
-        val event = appRpc.telemetry.single { it.event == "Session Error" }
-        assertEquals("command", event.properties["context"])
     }
 }

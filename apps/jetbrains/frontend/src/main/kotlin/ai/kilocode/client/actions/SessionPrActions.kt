@@ -2,7 +2,6 @@ package ai.kilocode.client.actions
 
 import ai.kilocode.client.plugin.KiloBundle
 import ai.kilocode.client.session.SessionActionsKeys
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.rpc.dto.WorktreePrDto
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -22,7 +21,6 @@ class OpenSessionPrAction : AnAction(), DumbAware {
 
     override fun actionPerformed(e: AnActionEvent) {
         val pr = e.getData(SessionActionsKeys.ACTIONS)?.pr ?: return
-        Telemetry.send("Session Action", mapOf("action" to "open_pr"))
         BrowserUtil.browse(pr.url)
     }
 }
@@ -43,7 +41,6 @@ class CopySessionPrRefAction : AnAction(), DumbAware {
 
     override fun actionPerformed(e: AnActionEvent) {
         val pr = e.getData(SessionActionsKeys.ACTIONS)?.pr ?: return
-        Telemetry.send("Session Action", mapOf("action" to "copy_pr_ref"))
         CopyPasteManager.getInstance().setContents(StringSelection(reference(pr)))
     }
 
@@ -65,7 +62,6 @@ class CopySessionIdAction : AnAction(), DumbAware {
 
     override fun actionPerformed(e: AnActionEvent) {
         val id = e.getData(SessionActionsKeys.ACTIONS)?.id ?: return
-        Telemetry.send("Session Action", mapOf("action" to "copy_session_id"))
         CopyPasteManager.getInstance().setContents(StringSelection(id))
     }
 }
@@ -80,7 +76,6 @@ class CopyShareLinkAction : AnAction(), DumbAware {
 
     override fun actionPerformed(e: AnActionEvent) {
         val link = e.getData(SessionActionsKeys.ACTIONS)?.share ?: return
-        Telemetry.send("Session Action", mapOf("action" to "copy_share_link"))
         CopyPasteManager.getInstance().setContents(StringSelection(link))
     }
 }
@@ -113,7 +108,6 @@ class ShareSessionAction : AnAction(), DumbAware {
         val actions = e.getData(SessionActionsKeys.ACTIONS) ?: return
         if (actions.id == null || actions.readonly) return
         val shared = actions.share != null
-        Telemetry.send("Session Action", mapOf("action" to if (shared) "unshare" else "share"))
         if (shared) actions.stopShare() else actions.startShare()
     }
 }

@@ -15,7 +15,6 @@ import type { LocalGitStats, RunStatus, WorktreeGitStats, PRStatus } from "../sr
 import type { LanguageContextValue } from "../src/context/language"
 import { LOCAL } from "./navigate"
 import { ConstrainDragYAxis } from "../src/components/chat/TabDnd"
-import type { tracker } from "./telemetry"
 import { SidebarToggleButton } from "./SidebarToggleButton"
 import type { DiffScope } from "./diff-scope-state"
 import { TerminalDestinationButton } from "./terminal/TerminalDestinationButton"
@@ -69,7 +68,6 @@ export interface TabBarProps {
   terminalKeybind: () => string
   onTerminalDestinationOpen: () => void
   onTerminalDestinationChoose: (destination: TerminalDestination) => void
-  track: ReturnType<typeof tracker>["click"]
 }
 
 /** Tab bar with sortable session/terminal/review tabs and the run/diff/apply actions. */
@@ -285,14 +283,7 @@ export const TabBar: Component<TabBarProps> = (props) => (
                             icon={active() ? "stop" : "play"}
                             aria-label={title()}
                             disabled={rs()?.state === "stopping"}
-                            onClick={props.track(
-                              "run_script",
-                              "tab_toolbar",
-                              () => props.onRun(rid()),
-                              () => ({
-                                action: active() ? "stop" : configured() ? "run" : "configure",
-                              }),
-                            )}
+                            onClick={() => props.onRun(rid())}
                           />
                         </TooltipKeybind>
                         <DropdownMenu gutter={4} placement="bottom-end">
@@ -308,9 +299,7 @@ export const TabBar: Component<TabBarProps> = (props) => (
                           </Tooltip>
                           <DropdownMenu.Portal>
                             <DropdownMenu.Content class="am-split-menu">
-                              <DropdownMenu.Item
-                                onSelect={props.track("configure_run_script", "run_menu", props.onConfigureRun)}
-                              >
+                              <DropdownMenu.Item onSelect={props.onConfigureRun}>
                                 <Icon name="settings-gear" size="small" />
                                 <DropdownMenu.ItemLabel>{props.t("agentManager.run.configure")}</DropdownMenu.ItemLabel>
                               </DropdownMenu.Item>

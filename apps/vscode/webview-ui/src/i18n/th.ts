@@ -145,7 +145,8 @@ export const dict = {
   "provider.connect.oauth.code.required": "ต้องใช้รหัสการอนุญาต",
   "provider.connect.oauth.auto.visit.prefix": "เยี่ยมชม ",
   "provider.connect.oauth.auto.visit.link": "ลิงก์นี้",
-  "provider.connect.oauth.auto.visit.suffix": " และป้อนรหัสด้านล่างเพื่อเชื่อมต่อบัญชีและใช้โมเดล {{provider}} ใน CodeM",
+  "provider.connect.oauth.auto.visit.suffix":
+    " และป้อนรหัสด้านล่างเพื่อเชื่อมต่อบัญชีและใช้โมเดล {{provider}} ใน CodeM",
   "provider.connect.oauth.auto.confirmationCode": "รหัสยืนยัน",
   "provider.connect.toast.connected.title": "{{provider}} ที่เชื่อมต่อแล้ว",
   "provider.connect.toast.connected.description": "โมเดล {{provider}} พร้อมใช้งานแล้ว",
@@ -797,8 +798,7 @@ export const dict = {
   "settings.aboutCodeM.resetSettings.button": "รีเซ็ตการตั้งค่าทั้งหมด",
   "settings.aboutCodeM.resetSettings.notificationsButton": "Reset Read Notifications",
   "settings.aboutCodeM.settingsTransfer.title": "ถ่ายโอนการตั้งค่า",
-  "settings.aboutCodeM.settingsTransfer.description":
-    "ส่งออกหรือนำเข้าการตั้งค่าเพื่อถ่ายโอนระหว่างอินสแตนซ์ VS Code",
+  "settings.aboutCodeM.settingsTransfer.description": "ส่งออกหรือนำเข้าการตั้งค่าเพื่อถ่ายโอนระหว่างอินสแตนซ์ VS Code",
   "settings.aboutCodeM.exportSettings": "ส่งออก",
   "settings.aboutCodeM.importSettings": "นำเข้า",
   "settings.aboutCodeM.importSettings.invalidJson": "ไฟล์ JSON ไม่ถูกต้อง กรุณาเลือกไฟล์การตั้งค่าที่ถูกต้อง",
@@ -807,11 +807,6 @@ export const dict = {
   "settings.aboutCodeM.importSettings.newerVersion":
     "ไฟล์นี้ถูกส่งออกจาก CodeM เวอร์ชันใหม่กว่า การตั้งค่าบางรายการอาจถูกข้ามไป",
   "settings.aboutCodeM.importSettings.success": "นำเข้าการตั้งค่าแล้ว ตรวจสอบการเปลี่ยนแปลงด้านบน จากนั้นคลิกบันทึก",
-
-  "settings.aboutCodeM.telemetry.title": "Telemetry",
-  "settings.aboutCodeM.telemetry.description":
-    'Telemetry ถูกควบคุมโดยการตั้งค่า Telemetry ในตัวของ VS Code หากต้องการปิดใช้งาน ให้ไปที่ Settings > Telemetry > Telemetry Level แล้วตั้งค่าเป็น "off" รีสตาร์ท VS Code เพื่อให้การเปลี่ยนแปลงมีผล',
-  "settings.aboutCodeM.telemetry.openSettings": "เปิดการตั้งค่า Telemetry",
 
   "settings.agentBehaviour.subtab.agents": "ตัวแทน",
   "settings.agentBehaviour.subtab.mcpServers": "เซิร์ฟเวอร์ MCP",

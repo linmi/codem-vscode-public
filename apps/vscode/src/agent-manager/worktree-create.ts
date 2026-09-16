@@ -2,7 +2,6 @@ import type { Worktree, WorktreeStateManager } from "./WorktreeStateManager"
 import type { WorktreeManager, CreateWorktreeResult } from "./WorktreeManager"
 import { chooseBaseBranch } from "./base-branch"
 import { classifyWorktreeError, type WorktreeSetupErrorCode } from "./git-import"
-import { PLATFORM } from "./constants"
 import type { AgentManagerOutMessage } from "./types"
 
 export type CreateWorktreeOnDiskOptions = {
@@ -30,7 +29,6 @@ export interface CreateWorktreeOnDiskContext {
   getWorktreeManager: () => WorktreeManager | undefined
   getStateManager: () => WorktreeStateManager | undefined
   postToWebview: (message: AgentManagerOutMessage) => void
-  capture: (event: string, properties?: Record<string, unknown>) => void
   pushState: () => void
   log: (...args: unknown[]) => void
 }
@@ -89,11 +87,6 @@ export async function createWorktreeOnDisk(
       status: "error",
       message: msg,
       errorCode,
-    })
-    ctx.capture("Agent Manager Session Error", {
-      source: PLATFORM,
-      error: msg,
-      context: "createWorktree",
     })
     return null
   }

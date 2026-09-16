@@ -12,7 +12,6 @@ import { SessionSummary } from "@/session/summary"
 import { SessionExport } from "@/kilocode/session-export"
 import { createWorkspaceProvider } from "@/kilocode/session-export/workspace-provider"
 import { Instance } from "@/kilocode/instance"
-import { Identity } from "@kilocode/kilo-telemetry"
 import { MemoryLifecycle } from "@/kilocode/memory/turn"
 import { MemoryService } from "@kilocode/kilo-memory/effect/service"
 import { MemoryEvents } from "@/kilocode/memory/events"
@@ -58,15 +57,8 @@ export namespace KilocodeBootstrap {
         // Session export bootstrap.
         yield* Effect.gen(function* () {
           if (!SessionExport.enabled) return
-          const anon = yield* EffectBridge.fromPromise(() =>
-            Identity.getMachineId().catch((err) => {
-              log.warn("session export identity failed", { err })
-              return undefined
-            }),
-          )
           SessionExport.init({
             agentVersion: InstallationVersion,
-            anonId: anon,
             dbPath: path.join(Global.Path.data, "session-export.db"),
             workspaceKey: Instance.directory,
             subscribeAll: (cb) => Bus.subscribeAll(cb),

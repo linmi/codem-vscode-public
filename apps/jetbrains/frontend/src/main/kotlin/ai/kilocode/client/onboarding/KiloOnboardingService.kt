@@ -4,7 +4,6 @@ import ai.kilocode.client.app.KiloAppService
 import ai.kilocode.client.onboarding.providers.v5migration.KiloMigrationService
 import ai.kilocode.client.onboarding.providers.v5migration.MigrationOnboardingProvider
 import ai.kilocode.client.onboarding.ui.OnboardingDialog
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.log.KiloLog
 import ai.kilocode.rpc.dto.KiloAppStateDto
 import com.intellij.openapi.components.Service
@@ -62,7 +61,6 @@ class KiloOnboardingService internal constructor(
     private val cs: CoroutineScope,
     providerList: List<OnboardingProvider>,
     appState: StateFlow<KiloAppStateDto>?,
-    private val capture: (String, Map<String, String>) -> Unit = { event, props -> Telemetry.send(event, props) },
 ) : OnboardingController {
 
     /** Platform constructor — resolves the default provider set from the service container. */
@@ -110,7 +108,6 @@ class KiloOnboardingService internal constructor(
 
     override fun laterStep(id: String) {
         val provider = providers[id] ?: return
-        capture("Onboarding Step Deferred", mapOf("stepId" to id))
         cs.launch {
             // Defer only once the provider confirms. For a blocking step, `later()` is what
             // unpauses the app, so suppressing the step on a failed resume would hide the only UI
@@ -123,7 +120,6 @@ class KiloOnboardingService internal constructor(
 
     override fun skipStep(id: String) {
         providers[id]?.skip()
-        capture("Onboarding Step Skipped", mapOf("stepId" to id))
         cs.launch { redetect() }
     }
 
@@ -137,10 +133,6 @@ class KiloOnboardingService internal constructor(
         if (dialog != null) return
         val initial = steps.value
         if (initial.isEmpty()) return
-        capture(
-            "Onboarding Started",
-            mapOf("stepCount" to initial.size.toString(), "stepIds" to initial.joinToString(",") { it.id }),
-        )
         val created = OnboardingDialog(this, initial) { dialog = null }
         dialog = created
         created.show()
@@ -160,13 +152,6 @@ class KiloOnboardingService internal constructor(
             OnboardingStep(provider.id, need, provider.blocking)
         }
         if (next == _steps.value) return
-        val wasEmpty = _steps.value.isEmpty()
         _steps.value = next
-        if (next.isNotEmpty() && wasEmpty) {
-            capture(
-                "Onboarding Shown",
-                mapOf("stepCount" to next.size.toString(), "stepIds" to next.joinToString(",") { it.id }),
-            )
-        }
     }
 }

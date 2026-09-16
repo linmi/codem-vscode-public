@@ -1,11 +1,7 @@
-// kilocode_change - new file
-import { Telemetry, type ReviewCommand } from "@kilocode/kilo-telemetry"
 import { SessionNetwork } from "@/session/network"
 import type { SessionID } from "@/session/schema"
 import type { SessionStatus } from "@/session/status"
 import { MessageV2 } from "@/session/message-v2"
-import { isRecord } from "@/util/record"
-import { parseReviewCommand, reviewCommandName } from "@/kilocode/review/command"
 import * as Log from "@opencode-ai/core/util/log"
 import { Cause, Effect, Exit } from "effect"
 import { Flag } from "@opencode-ai/core/flag/flag"
@@ -14,13 +10,6 @@ import type { LLMEvent, ProviderMetadata, Usage } from "@opencode-ai/llm"
 import type { ProviderV2 } from "@opencode-ai/core/provider"
 import { SessionRetry } from "@/session/retry"
 import { computeMetrics as computeMetricsHelper, type TokenRates } from "@/kilocode/session/metrics"
-
-export type ReviewTelemetry = {
-  mode: "review"
-  feature: "code_reviews"
-  command: ReviewCommand
-  tool?: "suggest"
-}
 
 export namespace KiloSessionProcessor {
   const log = Log.create({ service: "session.processor.kilo" })
@@ -46,91 +35,6 @@ export namespace KiloSessionProcessor {
     "The model hit its output limit while reasoning and produced no actionable output. Try disabling reasoning or increasing the output limit."
   export const PROVIDER_FINISH_ERROR_MESSAGE =
     "The provider ended the response with an error before returning details. Start a new message to retry; Kilo will compact the oversized conversation first if needed."
-
-  export function reviewTelemetry(command: string | undefined): ReviewTelemetry | undefined {
-    const cmd = reviewCommandName(command)
-    if (!cmd) return
-    return { mode: "review", feature: "code_reviews", command: cmd }
-  }
-
-  /**
-   * Tag the text parts of a prompt with review telemetry metadata so that
-   * downstream LLM completions in the same turn (including child sessions
-   * spawned by subtask commands) are attributed to the originating review
-   * command. No-op when the command is not a recognized review command.
-   */
-  export function markReviewTelemetry(
-    parts: Array<{ type: string; metadata?: Record<string, unknown> }>,
-    command: string | undefined,
-  ): ReviewTelemetry | undefined {
-    const tel = reviewTelemetry(command)
-    if (!tel) return
-    for (const part of parts) {
-      if (part.type !== "text") continue
-      part.metadata = { ...part.metadata, ...tel }
-    }
-    return tel
-  }
-
-  export function extractReviewTelemetry(parts: MessageV2.Part[]): ReviewTelemetry | undefined {
-    for (const part of parts) {
-      if (part.type !== "text") continue
-      const meta: Record<string, unknown> | undefined = part.metadata
-      if (!meta) continue
-      if (meta.mode !== "review") continue
-      if (meta.feature !== "code_reviews") continue
-      const tel = reviewTelemetry(typeof meta.command === "string" ? meta.command : undefined)
-      if (tel) return tel
-    }
-  }
-
-  export function suggestionReviewTelemetry(metadata: unknown): ReviewTelemetry | undefined {
-    if (!isRecord(metadata)) return
-    if (!isRecord(metadata.accepted)) return
-    const prompt = typeof metadata.accepted.prompt === "string" ? metadata.accepted.prompt : undefined
-    const tel = reviewTelemetry(parseReviewCommand(prompt))
-    if (!tel) return
-    return { ...tel, tool: "suggest" }
-  }
-
-  export function extractSuggestionReviewTelemetry(parts: MessageV2.Part[]): ReviewTelemetry | undefined {
-    for (const part of parts) {
-      if (part.type !== "tool") continue
-      if (part.tool !== "suggest") continue
-      if (part.state.status !== "completed") continue
-      const tel = suggestionReviewTelemetry(part.state.metadata)
-      if (tel) return tel
-    }
-  }
-
-  /**
-   * Track LLM completion telemetry for a finished step.
-   * Only fires if at least one token bucket is non-zero.
-   */
-  export function trackStep(input: {
-    sessionID: string
-    model: { providerID: string; id: string }
-    tokens: { input: number; output: number; cache: { read: number; write: number } }
-    cost: number
-    elapsed: number
-    telemetry?: ReviewTelemetry
-  }) {
-    const { tokens } = input
-    if (tokens.input > 0 || tokens.output > 0 || tokens.cache.write > 0 || tokens.cache.read > 0) {
-      Telemetry.trackLlmCompletion({
-        taskId: input.sessionID,
-        ...(input.telemetry ?? {}),
-        apiProvider: input.model.providerID,
-        modelId: input.model.id,
-        inputTokens: tokens.input,
-        outputTokens: tokens.output,
-        cacheReadTokens: tokens.cache.read,
-        cacheWriteTokens: tokens.cache.write,
-        cost: input.cost,
-        completionTime: input.elapsed,
-      })
-    }
-  }
 
   /** Pure throughput helper re-exported for namespace symmetry. */
   export const computeMetrics: typeof computeMetricsHelper = computeMetricsHelper
@@ -289,8 +193,7 @@ export namespace KiloSessionProcessor {
         if (!error && !input.replayable()) return
 
         yield* input.discard()
-        if (index === INCOMPLETE_RESPONSE_RETRIES)
-          return yield* Effect.fail(error ?? new IncompleteResponseError())
+        if (index === INCOMPLETE_RESPONSE_RETRIES) return yield* Effect.fail(error ?? new IncompleteResponseError())
         const wait = SessionRetry.delay(index + 1)
         yield* input.set({ attempt: index + 1, message: INCOMPLETE_RESPONSE_MESSAGE, next: Date.now() + wait })
         yield* Effect.sleep(`${wait} millis`)

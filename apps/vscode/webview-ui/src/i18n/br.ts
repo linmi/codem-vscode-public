@@ -822,11 +822,6 @@ export const dict = {
   "settings.aboutCodeM.importSettings.success":
     "Configurações importadas. Revise as alterações acima e clique em Salvar.",
 
-  "settings.aboutCodeM.telemetry.title": "Telemetria",
-  "settings.aboutCodeM.telemetry.description":
-    'A telemetria é controlada pela configuração de telemetria integrada do VS Code. Para desativá-la, vá para Configurações > Telemetria > Nível de Telemetria e defina como "off". Reinicie o VS Code para aplicar a alteração.',
-  "settings.aboutCodeM.telemetry.openSettings": "Abrir Configurações de Telemetria",
-
   "settings.agentBehaviour.subtab.agents": "Agentes",
   "settings.agentBehaviour.subtab.mcpServers": "Servidores MCP",
   "settings.agentBehaviour.subtab.rules": "Regras",

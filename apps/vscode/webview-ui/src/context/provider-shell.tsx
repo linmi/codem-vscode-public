@@ -19,7 +19,6 @@ import { MemoryProvider } from "./memory"
 import { SessionProvider } from "./session"
 import { LanguageBridge } from "./language-bridge"
 import { NotificationsProvider } from "./notifications"
-import { FeedbackProvider } from "./feedback"
 import { KiloEmbeddingModelsProvider } from "./kilo-embedding-models"
 import { ImageModelsProvider } from "./image-models"
 import { SpeechToTextModelsProvider } from "./speech-to-text-models"
@@ -89,10 +88,6 @@ const Session: ParentComponent = (props) => (
   </IndexingProvider>
 )
 
-const Chat: ParentComponent = (props) => (
-  <MemoryProvider>
-    <FeedbackProvider>{props.children}</FeedbackProvider>
-  </MemoryProvider>
-)
+const Chat: ParentComponent = (props) => <MemoryProvider>{props.children}</MemoryProvider>
 
 export const ProviderShell = { Root, Session, Chat }

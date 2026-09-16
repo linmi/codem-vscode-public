@@ -9,7 +9,6 @@ import { useSession } from "../../context/session"
 import { useServer } from "../../context/server"
 import { useLanguage } from "../../context/language"
 import { useVSCode } from "../../context/vscode"
-import { useFeedback } from "../../context/feedback"
 import { AssistantMessage } from "./AssistantMessage"
 import { ErrorDisplay, type ErrorDisplayProps } from "./ErrorDisplay"
 import { VscodeUserMessage } from "./VscodeUserMessage"
@@ -40,7 +39,6 @@ export const TranscriptRowView: Component<TranscriptRowViewProps> = (props) => {
   const server = useServer()
   const language = useLanguage()
   const vscode = useVSCode()
-  const feedback = useFeedback()
   const i18n = useI18n()
 
   createEffect(() => session.hydrateParts([props.row.message.id]))
@@ -113,20 +111,6 @@ export const TranscriptRowView: Component<TranscriptRowViewProps> = (props) => {
               highlight={props.highlight}
               readonly={props.readonly}
               interactivePrompts={props.interactivePrompts}
-              feedback={{
-                enabled: feedback.telemetryEnabled(),
-                rating: feedback.getRating(row().message.id),
-                onRate: (next) =>
-                  feedback.rate({
-                    messageID: row().message.id,
-                    sessionID: row().message.sessionID,
-                    parentMessageID: row().message.parentID ?? "",
-                    providerID: row().message.providerID ?? row().message.model?.providerID ?? "",
-                    modelID: row().message.modelID ?? row().message.model?.modelID ?? "",
-                    variant: row().message.model?.variant,
-                    next,
-                  }),
-              }}
             />
           </div>
         )}

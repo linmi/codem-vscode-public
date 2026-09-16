@@ -75,19 +75,6 @@ class SessionCancellationTest : SessionControllerTestBase() {
         assertEquals(listOf(KiloBundle.message("session.cancelled.title") to reloadText()), notifications)
     }
 
-    fun `test unrequested abort is reported to telemetry`() {
-        prompted()
-
-        emit(ChatEventDto.TurnOpen("ses_test"))
-        emit(ChatEventDto.Error("ses_test", abort))
-
-        assertTrue(
-            appRpc.telemetry.any {
-                it.event == "Session Error" && it.properties["errorClass"] == MessageErrorDto.ABORTED
-            },
-        )
-    }
-
     fun `test unrequested abort offers Retry`() {
         val m = failedTurn()
 

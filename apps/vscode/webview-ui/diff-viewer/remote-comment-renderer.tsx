@@ -76,7 +76,6 @@ interface Options {
   diffs: () => WorktreeFileDiff[]
   active: () => boolean
   activeTerminalId: () => string | undefined
-  onSendClick?: () => void
   onOpenFile?: (file: string, line?: number) => void
   onOpenUrl?: (url: string) => void
   reactions?: ReactionController
@@ -276,7 +275,6 @@ export function createRemoteCommentController(options: Options): RemoteCommentCo
           const value = comment()
           sendReviewComments([prPayload(value)], options.activeTerminalId())
           props.item.setSent(true)
-          options.onSendClick?.()
         }}
         onOpenFile={
           comment().file && options.onOpenFile

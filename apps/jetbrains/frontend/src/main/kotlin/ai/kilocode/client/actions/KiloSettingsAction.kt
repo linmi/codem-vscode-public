@@ -1,7 +1,6 @@
 package ai.kilocode.client.actions
 
 import ai.kilocode.client.app.KiloWorkspaceService
-import ai.kilocode.client.telemetry.Telemetry
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionGroupUtil
 import com.intellij.openapi.actionSystem.ActionManager
@@ -41,7 +40,6 @@ class KiloSettingsAction : AnAction(), DumbAware {
         val group = ActionManager.getInstance().getAction(GROUP_ID) as? ActionGroup ?: return
         val service = service<KiloWorkspaceService>()
         refreshConfigTargets(e, service)
-        Telemetry.send("Settings Opened", mapOf("surface" to "tool_window"))
 
         JBPopupFactory.getInstance()
             .createActionGroupPopup(

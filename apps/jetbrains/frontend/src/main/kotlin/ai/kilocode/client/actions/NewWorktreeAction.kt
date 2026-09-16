@@ -3,7 +3,6 @@ package ai.kilocode.client.actions
 import ai.kilocode.client.agentManager.SidePanelKeys
 import ai.kilocode.client.agentManager.SidePanelMode
 import ai.kilocode.client.plugin.KiloBundle
-import ai.kilocode.client.telemetry.Telemetry
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -30,7 +29,6 @@ class NewWorktreeAction : AnAction(
     }
 
     override fun actionPerformed(e: AnActionEvent) {
-        Telemetry.send("New Worktree Clicked", mapOf("surface" to "tool_window"))
         e.getData(SidePanelKeys.WORKTREE_PANEL)?.configure()
     }
 }

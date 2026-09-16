@@ -13,7 +13,6 @@
 import { createSignal, createMemo, type ParentComponent } from "solid-js"
 import { VSCodeProvider } from "../context/vscode"
 import { ServerProvider } from "../context/server"
-import { FeedbackProvider } from "../context/feedback"
 import { ProviderContext } from "../context/provider"
 import { flattenModels, findModel as _findModel } from "../context/provider-utils"
 import { ConfigProvider, ConfigContext } from "../context/config"
@@ -423,67 +422,65 @@ export const StoryProviders: ParentComponent<StoryProvidersProps> = (props) => {
   return (
     <VSCodeProvider>
       <ServerProvider>
-        <FeedbackProvider>
-          <ConfigWrapper
-            config={props.config}
-            features={props.features}
-            globalConfig={props.globalConfig}
-            projectConfig={props.projectConfig}
-            onConfigChange={props.onConfigChange}
-            onGlobalConfigChange={props.onGlobalConfigChange}
-            onProjectConfigChange={props.onProjectConfigChange}
-          >
-            <DisplayProvider>
-              <MockProviderProvider kiloAuth={props.kiloAuth} training={props.training}>
-                <DialogProvider>
-                  <LanguageContext.Provider
-                    value={{
-                      locale,
-                      setLocale: noop,
-                      userOverride: () => "" as any,
-                      t,
-                    }}
-                  >
-                    <I18nProvider value={{ locale: () => "en", t, plural }}>
-                      <NotificationsContext.Provider value={notifications}>
-                        <SessionContext.Provider value={session as any}>
-                          <MemoryProvider>
-                            <IndexingProvider>
-                              <KiloEmbeddingModelsProvider>
-                                <DataProvider
-                                  data={data()}
-                                  directory="/project/"
-                                  onOpenDiff={props.onOpenDiff}
-                                  onOpenFile={props.onOpenFile}
-                                >
-                                  <DiffComponentProvider component={Diff}>
-                                    <CodeComponentProvider component={Code}>
-                                      <FileComponentProvider component={File}>
-                                        <MarkedProvider>
-                                          <TranscriptSearchProvider>
-                                            {props.noPadding ? (
-                                              props.children
-                                            ) : (
-                                              <div style={{ padding: "12px" }}>{props.children}</div>
-                                            )}
-                                          </TranscriptSearchProvider>
-                                        </MarkedProvider>
-                                      </FileComponentProvider>
-                                    </CodeComponentProvider>
-                                  </DiffComponentProvider>
-                                </DataProvider>
-                              </KiloEmbeddingModelsProvider>
-                            </IndexingProvider>
-                          </MemoryProvider>
-                        </SessionContext.Provider>
-                      </NotificationsContext.Provider>
-                    </I18nProvider>
-                  </LanguageContext.Provider>
-                </DialogProvider>
-              </MockProviderProvider>
-            </DisplayProvider>
-          </ConfigWrapper>
-        </FeedbackProvider>
+        <ConfigWrapper
+          config={props.config}
+          features={props.features}
+          globalConfig={props.globalConfig}
+          projectConfig={props.projectConfig}
+          onConfigChange={props.onConfigChange}
+          onGlobalConfigChange={props.onGlobalConfigChange}
+          onProjectConfigChange={props.onProjectConfigChange}
+        >
+          <DisplayProvider>
+            <MockProviderProvider kiloAuth={props.kiloAuth} training={props.training}>
+              <DialogProvider>
+                <LanguageContext.Provider
+                  value={{
+                    locale,
+                    setLocale: noop,
+                    userOverride: () => "" as any,
+                    t,
+                  }}
+                >
+                  <I18nProvider value={{ locale: () => "en", t, plural }}>
+                    <NotificationsContext.Provider value={notifications}>
+                      <SessionContext.Provider value={session as any}>
+                        <MemoryProvider>
+                          <IndexingProvider>
+                            <KiloEmbeddingModelsProvider>
+                              <DataProvider
+                                data={data()}
+                                directory="/project/"
+                                onOpenDiff={props.onOpenDiff}
+                                onOpenFile={props.onOpenFile}
+                              >
+                                <DiffComponentProvider component={Diff}>
+                                  <CodeComponentProvider component={Code}>
+                                    <FileComponentProvider component={File}>
+                                      <MarkedProvider>
+                                        <TranscriptSearchProvider>
+                                          {props.noPadding ? (
+                                            props.children
+                                          ) : (
+                                            <div style={{ padding: "12px" }}>{props.children}</div>
+                                          )}
+                                        </TranscriptSearchProvider>
+                                      </MarkedProvider>
+                                    </FileComponentProvider>
+                                  </CodeComponentProvider>
+                                </DiffComponentProvider>
+                              </DataProvider>
+                            </KiloEmbeddingModelsProvider>
+                          </IndexingProvider>
+                        </MemoryProvider>
+                      </SessionContext.Provider>
+                    </NotificationsContext.Provider>
+                  </I18nProvider>
+                </LanguageContext.Provider>
+              </DialogProvider>
+            </MockProviderProvider>
+          </DisplayProvider>
+        </ConfigWrapper>
       </ServerProvider>
     </VSCodeProvider>
   )

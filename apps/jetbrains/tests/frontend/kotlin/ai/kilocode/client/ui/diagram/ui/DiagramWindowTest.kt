@@ -7,11 +7,10 @@ import java.awt.Rectangle
 
 /**
  * Covers the window bookkeeping without opening a real window: [DiagramWindows] takes its handle
- * factory as a dependency, so the reuse, dispose and telemetry paths are exercised against fakes
+ * factory as a dependency, so the reuse and dispose paths are exercised against fakes
  * while the [com.intellij.openapi.ui.FrameWrapper] wiring stays out of the test.
  */
 class DiagramWindowTest : BasePlatformTestCase() {
-    private val events = mutableListOf<Pair<String, Map<String, String>>>()
     private val handles = mutableListOf<FakeHandle>()
 
     fun `test bounds take three quarters of the frame and stay centred`() {
@@ -71,21 +70,9 @@ class DiagramWindowTest : BasePlatformTestCase() {
         assertEquals(3, handles.size)
     }
 
-    fun `test opening reports whether the window was reused`() = edtWait {
-        val windows = windows()
-
-        windows.open("flowchart TD\nA-->B")
-        windows.open("flowchart TD\nA-->B")
-
-        assertEquals(listOf("Diagram Viewer Opened", "Diagram Viewer Opened"), events.map { it.first })
-        assertEquals(listOf("false", "true"), events.map { it.second["reused"] })
-        assertEquals(listOf("session", "session"), events.map { it.second["surface"] })
-    }
-
     private fun windows() = DiagramWindows(
         project,
         { FakeHandle().also(handles::add) },
-        { event, props -> events.add(event to props) },
     )
 
     private class FakeHandle : DiagramHandle {

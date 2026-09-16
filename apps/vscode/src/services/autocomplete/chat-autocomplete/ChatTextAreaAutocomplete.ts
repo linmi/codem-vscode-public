@@ -1,7 +1,6 @@
 import * as vscode from "vscode"
-import type { AutocompleteContext, VisibleCodeContext } from "../types"
+import type { VisibleCodeContext } from "../types"
 import { removePrefixOverlap } from "../continuedev/core/autocomplete/postprocessing/removePrefixOverlap.js"
-import { AutocompleteTelemetry } from "../classic-auto-complete/AutocompleteTelemetry"
 import { postprocessAutocompleteSuggestion } from "../classic-auto-complete/uselessSuggestionFilter"
 import { VisibleCodeTracker } from "../context/VisibleCodeTracker"
 import { FileIgnoreController } from "../shims/FileIgnoreController"
@@ -25,20 +24,16 @@ export { getChatAutocompleteModel }
  * Chat textarea autocomplete with cached per-request objects.
  *
  * Caches FileIgnoreController (refreshed when workspace changes or when
- * .kilocodeignore / .gitignore files are modified) and shares a single
- * AutocompleteTelemetry instance across requests so that request and
- * acceptance events correlate.
+ * .kilocodeignore / .gitignore files are modified).
  */
 export class ChatTextAreaAutocomplete {
   private connection: KiloConnectionService
-  readonly telemetry: AutocompleteTelemetry
   private ignore: FileIgnoreController | null = null
   private dir = ""
   private watcher: vscode.FileSystemWatcher | undefined
 
-  constructor(connectionService: KiloConnectionService, telemetry?: AutocompleteTelemetry) {
+  constructor(connectionService: KiloConnectionService) {
     this.connection = connectionService
-    this.telemetry = telemetry ?? new AutocompleteTelemetry("chat-textarea")
     this.watcher = vscode.workspace.createFileSystemWatcher("**/{.kilocodeignore,.gitignore}")
     const invalidate = () => {
       // Don't dispose — an in-flight request may still hold a reference.
@@ -79,22 +74,11 @@ export class ChatTextAreaAutocomplete {
   async getCompletion(userText: string, visibleCodeContext?: VisibleCodeContext): Promise<{ suggestion: string }> {
     const cfg = vscode.workspace.getConfiguration("codem.autocomplete")
     const entry = getChatAutocompleteModel(cfg.get<string>("provider"), cfg.get<string>("model"))
-    const startTime = Date.now()
-
-    // Build context for telemetry
-    const context: AutocompleteContext = {
-      languageId: "chat", // Chat textarea doesn't have a language ID
-      modelId: entry.id,
-      provider: entry.provider,
-    }
 
     // Check for valid credentials (but don't require FIM)
     if (!hasValidCredentials(this.connection)) {
       return { suggestion: "" }
     }
-
-    // Capture suggestion requested
-    this.telemetry.captureSuggestionRequested(context)
 
     const prefix = await this.buildPrefix(userText, visibleCodeContext)
     const suffix = ""
@@ -106,40 +90,10 @@ export class ChatTextAreaAutocomplete {
         response += chunk
       })
 
-      const latencyMs = Date.now() - startTime
-
-      // Capture successful LLM request
-      this.telemetry.captureLlmRequestCompleted(
-        {
-          latencyMs,
-          // Token counts not available from current API
-        },
-        context,
-      )
-
       const cleanedSuggestion = this.cleanSuggestion(response, userText, entry.id)
-
-      // Track if suggestion was filtered or returned
-      if (!cleanedSuggestion) {
-        if (!response.trim()) {
-          this.telemetry.captureSuggestionFiltered("empty_response", context)
-        } else {
-          this.telemetry.captureSuggestionFiltered("filtered_by_postprocessing", context)
-        }
-      } else {
-        this.telemetry.captureLlmSuggestionReturned(context, cleanedSuggestion.length)
-      }
 
       return { suggestion: cleanedSuggestion }
     } catch (error) {
-      const latencyMs = Date.now() - startTime
-      this.telemetry.captureLlmRequestFailed(
-        {
-          latencyMs,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        context,
-      )
       return { suggestion: "" }
     }
   }

@@ -4,7 +4,6 @@ import ai.kilocode.client.KiloNotifications
 import ai.kilocode.client.agentManager.worktree.WorktreeDataKeys
 import ai.kilocode.client.app.KiloWorkspaceService
 import ai.kilocode.client.plugin.KiloBundle
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.rpc.dto.ConfigTargetDto
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
@@ -50,7 +49,6 @@ class OpenLocalConfigAction : ConfigAction(
 
     override fun actionPerformed(e: AnActionEvent) {
         val dir = e.workspaceDirectory() ?: return
-        Telemetry.send("Config Opened", mapOf("surface" to "tool_window", "scope" to "local"))
         service<KiloWorkspaceService>().openLocalConfig(dir) { ok ->
             if (!ok) failed()
         }
@@ -74,7 +72,6 @@ class OpenGlobalConfigAction : ConfigAction(
     }
 
     override fun actionPerformed(e: AnActionEvent) {
-        Telemetry.send("Config Opened", mapOf("surface" to "tool_window", "scope" to "global"))
         service<KiloWorkspaceService>().openGlobalConfig { ok ->
             if (!ok) failed()
         }
@@ -109,7 +106,6 @@ class OpenSetupScriptAction : AnAction(
 
     override fun actionPerformed(e: AnActionEvent) {
         val dir = e.workspaceDirectory() ?: return
-        Telemetry.send("Worktree Setup Script Opened", mapOf("surface" to "worktree_row"))
         service<KiloWorkspaceService>().openSetupScript(dir) { ok ->
             if (!ok) KiloNotifications.error(KiloBundle.message("action.Kilo.OpenConfig.failed"))
         }

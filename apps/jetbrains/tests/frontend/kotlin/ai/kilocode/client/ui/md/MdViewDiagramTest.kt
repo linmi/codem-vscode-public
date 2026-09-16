@@ -238,7 +238,7 @@ class MdViewDiagramTest : BasePlatformTestCase() {
     /** Records the sources the transcript hands to the viewer window instead of opening one. */
     private fun windows(): List<String> {
         val opened = mutableListOf<String>()
-        val service = DiagramWindows(project, { source -> opened.add(source); NoopHandle() }, { _, _ -> })
+        val service = DiagramWindows(project, { source -> opened.add(source); NoopHandle() })
         project.replaceService(DiagramWindows::class.java, service, testRootDisposable)
         return opened
     }

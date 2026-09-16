@@ -4,7 +4,6 @@ package ai.kilocode.client.onboarding.providers.v5migration
 
 import ai.kilocode.client.app.KiloAppService
 import ai.kilocode.client.autocomplete.KiloAutocompleteSettingsService
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.log.KiloLog
 import ai.kilocode.rpc.KiloMigrationRpcApi
 import ai.kilocode.rpc.dto.KiloAppStateDto
@@ -62,7 +61,6 @@ class KiloMigrationService internal constructor(
     private val rpc: KiloMigrationRpcApi?,
     appState: StateFlow<KiloAppStateDto>?,
     private val autocomplete: ((LegacyAutocompleteSettingsDto) -> Unit)?,
-    private val capture: (String, Map<String, String>) -> Unit = { event, props -> Telemetry.send(event, props) },
 ) : MigrationUiController {
 
     /** Platform constructor — resolves RPC lazily. */
@@ -116,7 +114,6 @@ class KiloMigrationService internal constructor(
             return
         }
         LOG.info("Migration wizard: user started migration ${selectionSummary(selections)}")
-        telemetry("Migration Started", selectionProps(selections))
         lastSelections.set(selections)
 
         val dto = MigrationSelectionBuilder.toDto(selections)
@@ -137,7 +134,6 @@ class KiloMigrationService internal constructor(
                 val flow = try {
                     call { migrate(dto) }
                 } catch (e: Exception) {
-                    telemetry("Migration Failed", mapOf("itemCount" to initialProgress.size.toString(), "errorCount" to "1", "stage" to "start"))
                     LOG.warn("migration start failed", e)
                     finishWithError(e.message ?: "Migration failed")
                     return@launch
@@ -156,7 +152,6 @@ class KiloMigrationService internal constructor(
     override fun skip() {
         LOG.info("Migration wizard: user chose skip")
         val current = _state.value as? MigrationUiState.Needed
-        if (current != null) telemetry("Migration Skipped", detectionProps(current.detection))
         cs.launch {
             try {
                 call { skip() }
@@ -169,7 +164,7 @@ class KiloMigrationService internal constructor(
                 LOG.warn("migration skip failed", e)
                 return@launch
             }
-            hide("skip", current?.detection)
+            hide()
         }
     }
 
@@ -184,7 +179,6 @@ class KiloMigrationService internal constructor(
     override suspend fun later(): Boolean {
         LOG.info("Migration wizard: user chose later")
         val current = _state.value as? MigrationUiState.Needed
-        if (current != null) telemetry("Migration Deferred", detectionProps(current.detection))
         try {
             call { resume() }
         } catch (e: CancellationException) {
@@ -196,7 +190,7 @@ class KiloMigrationService internal constructor(
             LOG.warn("migration resume failed", e)
             return false
         }
-        hide("later", current?.detection)
+        hide()
         return true
     }
 
@@ -213,13 +207,6 @@ class KiloMigrationService internal constructor(
         val status = if (hasErrors) LegacyMigrationStatusDto.completed_with_errors else LegacyMigrationStatusDto.completed
         val selections = lastSelections.get()
         LOG.info("Migration wizard: user finished migration status=$status results=${current.results.size} errors=${current.results.count { it.status == MigrationItemStatusDto.error }}")
-        val props = detectionProps(current.detection) + mapOf(
-            "status" to status.name,
-            "cleanupRequested" to (selections?.keepLegacySettingsFile == false).toString(),
-            "resultCount" to current.results.size.toString(),
-            "errorCount" to current.results.count { it.status == MigrationItemStatusDto.error }.toString(),
-        )
-        telemetry("Migration Finished", props)
         cs.launch {
             try {
                 if (selections?.keepLegacySettingsFile == false) {
@@ -229,7 +216,7 @@ class KiloMigrationService internal constructor(
             } catch (e: Exception) {
                 LOG.warn("migration finalize failed", e)
             }
-            hide("finish_${status.name}", current.detection, props)
+            hide()
         }
     }
 
@@ -291,11 +278,6 @@ class KiloMigrationService internal constructor(
                 val phase = if (hasErrors) MigrationUiPhase.error else MigrationUiPhase.done
                 val progress = if (hasErrors) current.progress else finishSilentProgress(current.progress)
                 LOG.info("Migration wizard: migration complete phase=$phase items=${items.size} errors=${items.count { it.status == MigrationItemStatusDto.error }}")
-                if (hasErrors) {
-                    telemetry("Migration Failed", mapOf("itemCount" to items.size.toString(), "errorCount" to items.count { it.status == MigrationItemStatusDto.error }.toString(), "stage" to "complete"))
-                } else {
-                    telemetry("Migration Completed", mapOf("itemCount" to items.size.toString(), "sessionImportedCount" to current.sessionSummary.imported.size.toString()))
-                }
                 _state.value = current.copy(
                     running = false,
                     phase = phase,
@@ -305,7 +287,6 @@ class KiloMigrationService internal constructor(
             }
             is LegacyMigrationEventDto.Error -> {
                 LOG.warn("Migration wizard: migration error message=${event.message}")
-                telemetry("Migration Failed", mapOf("itemCount" to current.progress.size.toString(), "errorCount" to "1", "stage" to "event"))
                 finishWithError(event.message)
             }
         }
@@ -317,7 +298,6 @@ class KiloMigrationService internal constructor(
             val current = _state.value
             if (current is MigrationUiState.Needed && current.detection == migration && current.phase != MigrationUiPhase.selecting) return
             LOG.info("Migration wizard: showing because backend requires migration ${detectionSummary(migration)}")
-            telemetry("Migration Shown", detectionProps(migration) + mapOf("trigger" to "app_state"))
             _state.value = MigrationUiState.Needed(migration)
             return
         }
@@ -325,17 +305,10 @@ class KiloMigrationService internal constructor(
         if (_state.value !is MigrationUiState.Hidden) {
             LOG.info("Migration wizard: hiding because backend status=${state.status}")
         }
-        hide("app_status_${state.status.name}", (_state.value as? MigrationUiState.Needed)?.detection)
+        hide()
     }
 
-    private fun hide(
-        option: String,
-        detection: ai.kilocode.rpc.dto.LegacyMigrationDetectionDto?,
-        props: Map<String, String> = emptyMap(),
-    ) {
-        if (_state.value !is MigrationUiState.Hidden) {
-            telemetry("Migration Hidden", (detection?.let(::detectionProps).orEmpty() + props) + mapOf("option" to option))
-        }
+    private fun hide() {
         _state.value = MigrationUiState.Hidden
     }
 
@@ -381,58 +354,6 @@ class KiloMigrationService internal constructor(
 
     private fun detectionSummary(detection: ai.kilocode.rpc.dto.LegacyMigrationDetectionDto): String =
         "providers=${detection.providers.size} mcp=${detection.mcpServers.size} modes=${detection.customModes.size} sessions=${detection.sessions.size} model=${detection.defaultModel != null} settings=${detection.settings != null}"
-
-    private fun detectionProps(detection: ai.kilocode.rpc.dto.LegacyMigrationDetectionDto): Map<String, String> {
-        val settings = detection.settings
-        val providers = detection.providers
-        val mcp = detection.mcpServers
-        val modes = detection.customModes
-        val sessions = detection.sessions
-        return mapOf(
-            "hasData" to detection.hasData.toString(),
-            "settings" to (settings != null).toString(),
-            "providers" to providers.size.toString(),
-            "providerTypes" to providers.map { it.provider }.distinct().sorted().joinToString(","),
-            "providerSupported" to providers.count { it.supported }.toString(),
-            "providerUnsupported" to providers.count { !it.supported }.toString(),
-            "providerWithApiKey" to providers.count { it.hasApiKey }.toString(),
-            "mcpServers" to mcp.size.toString(),
-            "mcpTypes" to mcp.groupingBy { it.type }.eachCount().entries.sortedBy { it.key }.joinToString(",") { "${it.key}:${it.value}" },
-            "mcpDisabled" to mcp.count { it.disabled == true }.toString(),
-            "customModes" to modes.size.toString(),
-            "customNativeModes" to modes.count { it.nativeSlug != null }.toString(),
-            "customStandaloneModes" to modes.count { it.nativeSlug == null }.toString(),
-            "sessions" to sessions.size.toString(),
-            "sessionDirectories" to sessions.map { it.directory }.filter { it.isNotBlank() }.distinct().size.toString(),
-            "defaultModel" to (detection.defaultModel != null).toString(),
-            "defaultModelProvider" to (detection.defaultModel?.provider ?: ""),
-            "defaultModelId" to (detection.defaultModel?.model ?: ""),
-            "settingsLanguage" to (!settings?.language.isNullOrBlank()).toString(),
-            "settingsAutocomplete" to (settings?.autocomplete != null).toString(),
-            "settingsAutoApproval" to (settings?.autoApprovalEnabled != null).toString(),
-            "settingsAllowedCommands" to (settings?.allowedCommands?.size ?: 0).toString(),
-            "settingsDeniedCommands" to (settings?.deniedCommands?.size ?: 0).toString(),
-            "settingsReadPermission" to (settings?.alwaysAllowReadOnly != null || settings?.alwaysAllowReadOnlyOutsideWorkspace != null).toString(),
-            "settingsWritePermission" to (settings?.alwaysAllowWrite != null).toString(),
-            "settingsExecutePermission" to (settings?.alwaysAllowExecute != null).toString(),
-            "settingsMcpPermission" to (settings?.alwaysAllowMcp != null).toString(),
-            "settingsModeSwitchPermission" to (settings?.alwaysAllowModeSwitch != null).toString(),
-            "settingsSubtasksPermission" to (settings?.alwaysAllowSubtasks != null).toString(),
-        )
-    }
-
-    private fun selectionProps(selections: MigrationUiSelections): Map<String, String> = mapOf(
-        "providers" to selections.providers.size.toString(),
-        "mcpServers" to selections.mcpServers.size.toString(),
-        "customModes" to selections.customModes.size.toString(),
-        "sessions" to selections.sessions.size.toString(),
-        "defaultModel" to selections.defaultModel.toString(),
-        "keepLegacySettingsFile" to selections.keepLegacySettingsFile.toString(),
-    )
-
-    private fun telemetry(event: String, props: Map<String, String>) {
-        capture(event, props)
-    }
 
     private fun buildInitialProgress(
         selections: MigrationUiSelections,

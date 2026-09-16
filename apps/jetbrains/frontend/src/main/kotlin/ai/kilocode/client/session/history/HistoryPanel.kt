@@ -344,7 +344,6 @@ class HistoryPanel(
         } else {
             KiloBundle.message("history.delete.confirm.message.multiple", active.size)
         }
-        controller.requestDelete(active.size)
         localList.confirmDelete(
             localList.point(active[0].id, cell),
             ActiveListDeleteOptions(message = msg),
@@ -361,7 +360,6 @@ class HistoryPanel(
      * out blank and unchanged names, so no modal dialog is involved.
      */
     private fun beginRename(item: LocalHistoryItem, cell: String? = null) {
-        controller.requestRename()
         localList.rename(
             item.id,
             cell,

@@ -255,7 +255,7 @@ class WorktreeSessionEditorManagerTest : BasePlatformTestCase() {
     fun `test fork opens the forked session and lists it alongside the source`() {
         val session = session("ses_1", updated = 1.0)
         rpc.listed += session
-        val controller = WorktreeSessionListController(sessions, DIR, coroutines.scope, telemetry = { _, _ -> })
+        val controller = WorktreeSessionListController(sessions, DIR, coroutines.scope)
         val manager = manager(controller = controller)
         edt { manager.start() }
         flush()
@@ -620,7 +620,7 @@ class WorktreeSessionEditorManagerTest : BasePlatformTestCase() {
     )
 
     private fun manager(
-        controller: WorktreeSessionListController = WorktreeSessionListController(sessions, DIR, coroutines.scope, telemetry = { _, _ -> }),
+        controller: WorktreeSessionListController = WorktreeSessionListController(sessions, DIR, coroutines.scope),
         del: (String, (Boolean, String?) -> Unit) -> Unit = controller::delete,
         adopt: suspend (String, String, String) -> RenameWorktreeResultDto = { _, _, _ -> RenameWorktreeResultDto() },
         onAdopted: (WorktreeDto) -> Unit = {},

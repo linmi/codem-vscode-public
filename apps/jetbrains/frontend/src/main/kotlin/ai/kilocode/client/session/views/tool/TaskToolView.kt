@@ -208,7 +208,7 @@ class TaskToolView(
      */
     @RequiresEdt
     override fun headerPopup(): HeaderPopupRequest? =
-        popup("tool", "task", item.childTools.isNotEmpty()) { taskPopupBody() }
+        popup(item.childTools.isNotEmpty()) { taskPopupBody() }
 
     @RequiresEdt
     private fun taskPopupBody(): HeaderPopupBody {

@@ -111,7 +111,6 @@ describe("Agent Manager worktree deletion lifecycle", () => {
       },
       forgetName: () => calls.push("name"),
       stopDiffs: () => calls.push("diff"),
-      capture: () => undefined,
       autoName: () => ({ enabled: false }),
       client: () => client as unknown as KiloClient,
       acquirePtyCleanup: async () => {
@@ -410,10 +409,7 @@ describe("Agent Manager worktree deletion lifecycle", () => {
       expect(calls.indexOf(`move:${session.id}`)).toBeGreaterThan(calls.indexOf("disk"))
       expect(calls.indexOf(`move:${session.id}`)).toBeLessThan(calls.indexOf("snapshots"))
     }
-    expect(client.codem.removeSnapshot).toHaveBeenCalledWith(
-      { directory: ctx.root, worktree },
-      { throwOnError: true },
-    )
+    expect(client.codem.removeSnapshot).toHaveBeenCalledWith({ directory: ctx.root, worktree }, { throwOnError: true })
     expect(state.getWorktrees()).toHaveLength(0)
     expect(state.getSessions()).toHaveLength(0)
   })

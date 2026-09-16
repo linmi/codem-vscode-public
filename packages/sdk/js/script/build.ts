@@ -13,6 +13,8 @@ const opencode = path.resolve(dir, "../../opencode")
 
 await $`bun dev generate > ${dir}/openapi.json`.cwd(opencode)
 
+await Bun.write(path.resolve(dir, "../openapi.json"), await Bun.file("./openapi.json").text())
+
 const document = (await Bun.file("./openapi.json").json()) as {
   components?: { schemas?: Record<string, unknown> }
   [key: string]: unknown
@@ -123,7 +125,14 @@ const legacyPatched = legacySource.includes(sandbox)
 if (!legacyPatched.includes(sandbox)) {
   throw new Error(`Legacy Config sandbox patch did not apply (${legacyTypesPath})`)
 }
-await Bun.write(legacyTypesPath, legacyPatched)
+// The retired legacy generator still exports Config; remove its obsolete analytics setting too.
+await Bun.write(
+  legacyTypesPath,
+  legacyPatched.replace(
+    /    \/\*\*\n     \* Enable OpenTelemetry[^\n]*\n     \*\/\n    openTelemetry\?: boolean\n/,
+    "",
+  ),
+)
 
 await $`bun prettier --write src/gen src/v2`
 await $`rm -rf dist tsconfig.tsbuildinfo`

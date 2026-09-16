@@ -193,7 +193,7 @@ class EditToolView(
 
     @RequiresEdt
     override fun headerPopup(): HeaderPopupRequest? =
-        popup("tool", "edit", editDiff(item).isNotBlank()) { buildPopupBody() }
+        popup(editDiff(item).isNotBlank()) { buildPopupBody() }
 
     @RequiresEdt
     override fun applyStyle(style: SessionEditorStyle) {

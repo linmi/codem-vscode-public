@@ -11,7 +11,6 @@ import ai.kilocode.client.session.SessionRef
 import ai.kilocode.client.session.history.HistorySection
 import ai.kilocode.client.session.history.HistoryTime
 import ai.kilocode.client.session.history.LocalHistoryItem
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.util.edt
 import ai.kilocode.client.ui.list.ActiveList
 import ai.kilocode.client.ui.list.ActiveListBadge
@@ -439,7 +438,6 @@ class WorktreeSessionEditorPanel @RequiresEdt constructor(
     private fun openInNewFrame() {
         val dir = worktree.directory.takeIf { it.isNotBlank() } ?: return
         LOG.info("worktree open: clicked dir=$dir seam=${openWorktree != null}")
-        Telemetry.send("Worktree Opened In New Frame", mapOf("surface" to "worktree_toolbar"))
         if (openWorktree != null) {
             openWorktree.invoke(dir)
             return
@@ -499,7 +497,6 @@ class WorktreeSessionEditorPanel @RequiresEdt constructor(
     private fun openTerminal() {
         val dir = worktree.directory.takeIf { it.isNotBlank() } ?: return
         val target = project ?: return
-        Telemetry.send("Worktree Terminal Opened", mapOf("surface" to "worktree_toolbar"))
         val tabs = TerminalToolWindowTabsManager.getInstance(target)
         val existing = tabs.tabs.firstOrNull { same(it.content.getUserData(TERMINAL_DIR), dir) }
         if (existing != null) {

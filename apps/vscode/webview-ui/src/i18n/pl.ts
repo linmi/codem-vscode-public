@@ -756,8 +756,7 @@ export const dict = {
   "settings.aboutCodeM.community": "Społeczność i wsparcie",
   "settings.aboutCodeM.feedback.prefix": "Jeśli masz pytania lub uwagi, śmiało otwórz zgłoszenie na",
   "settings.aboutCodeM.feedback.or": "lub",
-  "settings.aboutCodeM.support.prefix":
-    "W sprawach rozliczeń lub konta skontaktuj się z obsługą klienta pod adresem",
+  "settings.aboutCodeM.support.prefix": "W sprawach rozliczeń lub konta skontaktuj się z obsługą klienta pod adresem",
   "settings.aboutCodeM.resetSettings.title": "Resetuj ustawienia",
   "settings.aboutCodeM.resetSettings.description":
     "To resetuje tylko ustawienia specyficzne dla rozszerzenia VS Code do ich domyślnych wartości. Ustawienia współdzielone z CLI, takie jak tryby i reguły automatycznego zatwierdzania, są przechowywane w konfiguracji CLI i nie zostaną zresetowane.",
@@ -775,11 +774,6 @@ export const dict = {
     "Ten plik został wyeksportowany z nowszej wersji CodeM. Niektóre ustawienia mogą zostać zignorowane.",
   "settings.aboutCodeM.importSettings.success":
     "Ustawienia zaimportowane. Przejrzyj powyższe zmiany, a następnie kliknij Zapisz.",
-
-  "settings.aboutCodeM.telemetry.title": "Telemetria",
-  "settings.aboutCodeM.telemetry.description":
-    'Telemetria jest kontrolowana przez wbudowane ustawienie telemetrii VS Code. Aby ją wyłączyć, przejdź do Ustawienia > Telemetria > Poziom telemetrii i ustaw na "off". Uruchom ponownie VS Code, aby zastosować zmianę.',
-  "settings.aboutCodeM.telemetry.openSettings": "Otwórz ustawienia telemetrii",
 
   "settings.agentBehaviour.subtab.agents": "Agenci",
   "settings.agentBehaviour.subtab.mcpServers": "Serwery MCP",

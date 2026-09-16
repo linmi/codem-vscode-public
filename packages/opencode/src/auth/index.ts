@@ -3,8 +3,7 @@ import path from "path"
 import { Effect, Layer, Record, Result, Schema, Context } from "effect"
 import { NonNegativeInt } from "@opencode-ai/core/schema"
 import { Global } from "@opencode-ai/core/global"
-import { FSUtil } from "@opencode-ai/core/fs-util"
-import { Telemetry } from "@kilocode/kilo-telemetry" // kilocode_change
+import { FSUtil } from "@opencode-ai/core/fs-util" // kilocode_change
 
 export const OAUTH_DUMMY_KEY = "kilo-oauth-dummy-key" // kilocode_change
 
@@ -88,11 +87,6 @@ const layer = Layer.effect(
       delete data[norm]
       yield* fsys.writeJson(file, data, 0o600).pipe(Effect.mapError(fail("Failed to write auth data")))
 
-      // kilocode_change start - Track logout and reset telemetry identity for Kilo
-      if (key === "kilo") {
-        yield* Effect.promise(() => Telemetry.updateIdentity(null))
-      }
-      Telemetry.trackAuthLogout(key)
       // kilocode_change end
     })
 

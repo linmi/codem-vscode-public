@@ -147,7 +147,7 @@ class ShellToolView(
     @RequiresEdt
     override fun headerPopup(): HeaderPopupRequest? {
         val cmd = command(item)
-        return popup("tool", "bash", cmd.isNotBlank()) { buildPopupBody(cmd) }
+        return popup(cmd.isNotBlank()) { buildPopupBody(cmd) }
     }
 
     @RequiresEdt

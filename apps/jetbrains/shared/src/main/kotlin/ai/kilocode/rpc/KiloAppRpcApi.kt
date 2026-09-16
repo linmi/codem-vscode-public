@@ -11,7 +11,6 @@ import ai.kilocode.rpc.dto.ModelSelectionUpdateDto
 import ai.kilocode.rpc.dto.ModelStateDto
 import ai.kilocode.rpc.dto.ModelVariantUpdateDto
 import ai.kilocode.rpc.dto.ProfileDto
-import ai.kilocode.rpc.dto.TelemetryCaptureDto
 import com.intellij.platform.rpc.RemoteApiProviderService
 import fleet.rpc.RemoteApi
 import fleet.rpc.Rpc
@@ -117,6 +116,4 @@ interface KiloAppRpcApi : RemoteApi<Unit> {
      */
     suspend fun setOrganization(organizationId: String?): ProfileDto?
 
-    /** Fire-and-forget behavior telemetry routed through the CLI server. */
-    suspend fun captureTelemetry(capture: TelemetryCaptureDto)
 }

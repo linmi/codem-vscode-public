@@ -56,7 +56,7 @@ export type KiloProviderOptions = {
    * away from the panel's one job. Sidebar and "Open in Tab" leave this unset.
    */
   hideTopBar?: boolean
-  /** Reports "Open in Tab" as the top bar's telemetry surface instead of the sidebar default. */
+  /** Identifies an editor tab so new chats open beside that tab. */
   topBarSurface?: "tab"
   /** Project-aware settings used by the standalone Agent Manager settings tab. */
   agentManagerSettings?: AgentManagerSettingsHandler

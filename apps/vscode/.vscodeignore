@@ -33,6 +33,7 @@ dist/**/*.map
 dist/**/*.d.ts
 dist/**/*.d.cts
 dist/**/*.d.mts
+dist/tests/**
 
 # Include bin/ directory for the transitional CLI and bundled CodeM App Server runtimes.
 !bin/**

@@ -163,7 +163,7 @@ class ReasoningView(
 
     @RequiresEdt
     override fun headerPopup(): HeaderPopupRequest? =
-        popup("part", "reasoning", source.isNotBlank()) { buildPopupBody(source) }
+        popup(source.isNotBlank()) { buildPopupBody(source) }
 
     @RequiresEdt
     override fun applyStyle(style: SessionEditorStyle) {

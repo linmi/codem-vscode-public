@@ -43,7 +43,6 @@ import { RemoteApi } from "@/kilocode/server/httpapi/groups/remote"
 import { SandboxApi } from "@/kilocode/server/httpapi/groups/sandbox"
 import { SessionImportApi } from "@/kilocode/server/httpapi/groups/session-import"
 import { SuggestionApi } from "@/kilocode/server/httpapi/groups/suggestion"
-import { TelemetryApi } from "@/kilocode/server/httpapi/groups/telemetry"
 import { MemoryApi } from "@/kilocode/server/httpapi/groups/memory" // kilocode_change
 // kilocode_change end
 import { makeApi } from "@opencode-ai/protocol/api"
@@ -113,7 +112,6 @@ export const InstanceHttpApi = HttpApi.make("opencode-instance")
   .addHttpApi(SandboxApi)
   .addHttpApi(SessionImportApi)
   .addHttpApi(SuggestionApi)
-  .addHttpApi(TelemetryApi)
   .addHttpApi(MemoryApi)
   // kilocode_change end
   .middleware(SchemaErrorMiddleware)

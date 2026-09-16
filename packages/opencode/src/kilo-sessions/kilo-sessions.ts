@@ -40,7 +40,6 @@ import {
   markRenameAdopted,
 } from "@/kilo-sessions/rename-adoptions"
 import { SessionStatus } from "@/session/status"
-import { Telemetry } from "@kilocode/kilo-telemetry"
 import { Question } from "@/question"
 import { Permission } from "@/permission"
 import { withTimeout } from "@/util/timeout"
@@ -826,10 +825,10 @@ export namespace KiloSessions {
             Effect.all(
               [...ids].map((id) =>
                 svc.get(SessionID.make(id)).pipe(
-                Effect.map((session) => ({
-                  id,
-                  directory: session.directory,
-                  status: resolveDerivedSessionStatus({
+                  Effect.map((session) => ({
+                    id,
+                    directory: session.directory,
+                    status: resolveDerivedSessionStatus({
                       hasPermission: permissionSessions.has(id),
                       hasQuestion: questionSessions.has(id),
                       statusType: statuses[id]?.type,
@@ -862,14 +861,16 @@ export namespace KiloSessions {
             gitPairs.set(directory, { gitUrl, gitBranch: sessionGitBranch })
           }),
         )
-        const sessions = results.filter((r): r is NonNullable<typeof r> => !!r).map((r) => ({
-          id: r.id,
-          status: r.status,
-          title: r.title,
-          parentSessionId: r.parentSessionId,
-          ...gitPairs.get(r.directory ?? Instance.worktree),
-          platform: r.platform,
-        }))
+        const sessions = results
+          .filter((r): r is NonNullable<typeof r> => !!r)
+          .map((r) => ({
+            id: r.id,
+            status: r.status,
+            title: r.title,
+            parentSessionId: r.parentSessionId,
+            ...gitPairs.get(r.directory ?? Instance.worktree),
+            platform: r.platform,
+          }))
         // kilocode_change - PR link advertise (plan 8.2): resolve once
         // (worktree-scoped) and attach to every advertised row, then ingest the
         // triple per session (deduped by last-sent triple).
@@ -969,7 +970,6 @@ export namespace KiloSessions {
 
       remote = { conn, sender }
       log.info("remote connection enabled", { connected: conn.connected })
-      Telemetry.trackRemoteConnectionOpened()
       void Bus.publish(Instance.current, Event.RemoteStatusChanged, { enabled: true, connected: conn.connected })
     })()
       .catch((err) => {

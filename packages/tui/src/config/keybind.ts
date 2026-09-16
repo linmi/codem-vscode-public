@@ -147,8 +147,6 @@ export const Definitions = {
   messages_undo: keybind("<leader>u", "Undo message"),
   messages_redo: keybind("<leader>r", "Redo message"),
   // kilocode_change start - message feedback
-  messages_feedback_up: keybind("<leader>=", "Rate last assistant message helpful"),
-  messages_feedback_down: keybind("<leader>-", "Rate last assistant message not helpful"),
   // kilocode_change end
   messages_toggle_conceal: keybind("<leader>h", "Toggle code block concealment in messages"),
   tool_details: keybind("none", "Toggle tool details visibility"),
@@ -358,8 +356,6 @@ export const CommandMap = {
   messages_undo: "session.undo",
   messages_redo: "session.redo",
   // kilocode_change start - message feedback
-  messages_feedback_up: "messages.feedback.up",
-  messages_feedback_down: "messages.feedback.down",
   // kilocode_change end
   messages_toggle_conceal: "session.toggle.conceal",
   tool_details: "session.toggle.actions",

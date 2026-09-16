@@ -12,19 +12,15 @@ import { IconButton } from "@kilocode/kilo-ui/icon-button"
 import { Tooltip } from "@kilocode/kilo-ui/tooltip"
 import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
-import { TelemetryEventName } from "../../../../src/services/telemetry/types"
 
 export interface SidebarTopBarProps {
   onNewTask: () => void
   onHistory: () => void
-  /** Telemetry surface — distinguishes the sidebar from the "Open in Tab" panel, which shares this component. */
-  surface: string
 }
 
 interface Action {
   key: string
   icon: "plus" | "history" | "organization" | "user" | "settings-gear"
-  button: string
   run: () => void
 }
 
@@ -32,24 +28,14 @@ export const SidebarTopBar: Component<SidebarTopBarProps> = (props) => {
   const vscode = useVSCode()
   const language = useLanguage()
 
-  // Mirrors the telemetry the native toolbar buttons used to record, so analytics aren't lost.
-  const track = (button: string) =>
-    vscode.postMessage({
-      type: "telemetry",
-      event: TelemetryEventName.TITLE_BUTTON_CLICKED,
-      properties: { button, surface: props.surface },
-    })
-
-  const open = (
-    type: "openAgentManager" | "openProfilePanel" | "openSettingsPanel",
-  ) => vscode.postMessage({ type })
+  const open = (type: "openAgentManager" | "openProfilePanel" | "openSettingsPanel") => vscode.postMessage({ type })
 
   const actions: Action[] = [
-    { key: "newTask", icon: "plus", button: "new_task", run: () => props.onNewTask() },
-    { key: "history", icon: "history", button: "history", run: () => props.onHistory() },
-    { key: "agentManager", icon: "organization", button: "agent_manager", run: () => open("openAgentManager") },
-    { key: "profile", icon: "user", button: "profile", run: () => open("openProfilePanel") },
-    { key: "settings", icon: "settings-gear", button: "settings", run: () => open("openSettingsPanel") },
+    { key: "newTask", icon: "plus", run: () => props.onNewTask() },
+    { key: "history", icon: "history", run: () => props.onHistory() },
+    { key: "agentManager", icon: "organization", run: () => open("openAgentManager") },
+    { key: "profile", icon: "user", run: () => open("openProfilePanel") },
+    { key: "settings", icon: "settings-gear", run: () => open("openSettingsPanel") },
   ]
 
   return (
@@ -65,7 +51,6 @@ export const SidebarTopBar: Component<SidebarTopBarProps> = (props) => {
                 size="small"
                 aria-label={label}
                 onClick={() => {
-                  track(action.button)
                   action.run()
                 }}
               />

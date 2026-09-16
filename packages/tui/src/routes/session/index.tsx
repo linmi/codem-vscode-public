@@ -70,7 +70,6 @@ import { normalizePath } from "../../util/path"
 import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 // kilocode_change start
-import { Suggest } from "@/kilocode/suggestion/tui/render"
 import { SuggestPrompt } from "@/kilocode/suggestion/tui/prompt"
 import { NetworkPrompt } from "./network"
 // kilocode_change end
@@ -93,7 +92,6 @@ import { usePathFormatter } from "../../context/path-format"
 import { KiloErrorBlock } from "@/kilocode/components/kilo-error-display"
 import { splitDiffHunks } from "@/kilocode/tui/diff"
 import { RoutedModelMeta } from "@/kilocode/cli/cmd/tui/routes/session/routed-model-meta"
-import { submitFeedback } from "@/kilocode/cli/cmd/tui/feedback"
 import { MemorySessionTui } from "@/kilocode/cli/cmd/tui/routes/session/memory"
 import { GoalRow } from "@/kilocode/cli/cmd/tui/component/goal"
 import { formatMarkdownTables } from "../../util/markdown"
@@ -1010,19 +1008,6 @@ export function Session() {
           .catch(() => toast.show({ message: "Failed to copy to clipboard", variant: "error" }))
         dialog.clear()
       },
-    },
-    // kilocode_change start - message feedback
-    {
-      title: "Rate last assistant message helpful",
-      value: "messages.feedback.up",
-      category: "Session",
-      run: () => submitFeedback("up", dialog, { toast, session, messages }),
-    },
-    {
-      title: "Rate last assistant message not helpful",
-      value: "messages.feedback.down",
-      category: "Session",
-      run: () => submitFeedback("down", dialog, { toast, session, messages }),
     },
     // kilocode_change end
     {

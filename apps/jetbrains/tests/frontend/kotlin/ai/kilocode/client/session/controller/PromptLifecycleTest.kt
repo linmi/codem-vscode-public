@@ -48,60 +48,6 @@ class PromptLifecycleTest : SessionControllerTestBase() {
         }
     }
 
-    fun `test prompt records send intent telemetry`() {
-        prompted()
-
-        val event = appRpc.telemetry.single { it.event == "Conversation Send Clicked" }
-        assertEquals("user", event.properties["source"])
-        assertEquals("false", event.properties["hasExistingSession"])
-        assertEquals("short", event.properties["textLength"])
-    }
-
-    fun `test prompt records aggregate mention telemetry`() {
-        appRpc.state.value = ai.kilocode.rpc.dto.KiloAppStateDto(ai.kilocode.rpc.dto.KiloAppStatusDto.READY, config = ai.kilocode.rpc.dto.ConfigDto(model = "kilo/gpt-5"))
-        projectRpc.state.value = workspaceReady()
-        val m = controller()
-        val files = listOf(
-            PromptPartDto(
-                type = "file",
-                mime = "text/plain",
-                url = "file:///repo/src/A.kt",
-                source = PartSourceDto("file", PartSourceTextDto("@src/A.kt", 0.0, 9.0), path = "src/A.kt"),
-            ),
-            PromptPartDto(
-                type = "file",
-                mime = "text/plain",
-                url = "file:///repo/src/B.kt",
-                source = PartSourceDto("file", PartSourceTextDto("@src/B.kt", 10.0, 19.0), path = "/repo/src/B.kt"),
-            ),
-            PromptPartDto(
-                type = "text",
-                text = "diff",
-                source = PartSourceDto("resource", PartSourceTextDto("@git-changes", 20.0, 32.0), path = "git-changes"),
-            ),
-        )
-
-        flush()
-        edt { m.prompt("review", files) }
-        flush()
-
-        val sent = appRpc.telemetry.single { it.event == "Conversation Send Clicked" }
-        assertEquals("true", sent.properties["hasMentions"])
-        assertEquals("3", sent.properties["mentionCount"])
-        assertEquals("2", sent.properties["fileMentionCount"])
-        assertEquals("1", sent.properties["resourceMentionCount"])
-        assertFalse(sent.properties.containsValue("@src/A.kt"))
-        assertFalse(sent.properties.containsValue("src/A.kt"))
-        assertFalse(sent.properties.containsValue("/repo/src/B.kt"))
-        val message = appRpc.telemetry.single { it.event == "Conversation Message" }
-        assertEquals("true", message.properties["hasMentions"])
-        assertEquals("3", message.properties["mentionCount"])
-        assertEquals("2", message.properties["fileMentionCount"])
-        assertEquals("1", message.properties["resourceMentionCount"])
-        assertFalse(message.properties.containsValue("@git-changes"))
-        assertFalse(message.properties.containsValue("git-changes"))
-    }
-
     fun `test session queue changed updates queued set`() {
         val (c, _, modelEvents) = prompted()
 
@@ -127,7 +73,7 @@ class PromptLifecycleTest : SessionControllerTestBase() {
         flush()
 
         assertEquals(listOf(ai.kilocode.client.testing.FakeSessionRpcApi.MessageDeleteCall("ses_test", "/test", "u2")), rpc.messageDeletes)
-        assertTrue(appRpc.telemetry.any { it.event == "Conversation Queued Message Removed" })
+
     }
 
     fun `test delete queued message miss captures error`() {
@@ -138,8 +84,7 @@ class PromptLifecycleTest : SessionControllerTestBase() {
         flush()
 
         assertEquals(listOf(ai.kilocode.client.testing.FakeSessionRpcApi.MessageDeleteCall("ses_test", "/test", "u2")), rpc.messageDeletes)
-        assertFalse(appRpc.telemetry.any { it.event == "Conversation Queued Message Removed" })
-        assertTrue(appRpc.telemetry.any { it.event == "Session Error" && it.properties["context"] == "delete-message" })
+
     }
 
     fun `test PermissionAsked moves state to AwaitingPermission`() {

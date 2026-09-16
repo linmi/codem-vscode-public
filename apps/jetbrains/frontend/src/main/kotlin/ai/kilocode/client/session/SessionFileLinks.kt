@@ -2,7 +2,6 @@ package ai.kilocode.client.session
 
 import ai.kilocode.client.app.KiloWorkspaceService
 import ai.kilocode.client.plugin.KiloBundle
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.ui.md.MdView
 import ai.kilocode.rpc.isManagedWorktreeStorage
 import ai.kilocode.rpc.dto.DiffFileDto
@@ -50,7 +49,6 @@ class SessionFileLinks(
     private val scope: CoroutineScope,
     private val root: JComponent,
     private val openUrl: (String) -> Unit,
-    private val send: (String, Map<String, String>) -> Unit = Telemetry::send,
 ) {
     fun open(href: String, anchor: RelativePoint?) {
         if (!isFileHref(href)) {
@@ -61,7 +59,6 @@ class SessionFileLinks(
         scope.launch {
             val ok = service.openPath(dir, target.path, target.line, target.column, target.endLine)
             if (ok) {
-                track(target, "direct")
                 return@launch
             }
             val found = service.searchFiles(dir, decode(name(target.path)), FILE_SEARCH_LIMIT)
@@ -73,30 +70,16 @@ class SessionFileLinks(
                 Resolution.Opened -> Unit
                 is Resolution.OpenDirect -> {
                     val opened = service.openPath(dir, result.file.path, target.line, target.column, target.endLine)
-                    track(target, if (opened) "search_direct" else "missing")
                 }
                 is Resolution.Choose -> {
-                    track(target, "chooser")
                     withContext(Dispatchers.Main) { choose(result.files, target, anchor) }
                 }
                 Resolution.Missing -> {
-                    track(target, "missing")
                     withContext(Dispatchers.Main) { missing(target.path, anchor) }
                 }
             }
         }
     }
-
-    private fun track(target: Target, result: String) = send(
-        "File Link Opened",
-        mapOf(
-            "surface" to "session",
-            "kind" to "file",
-            "hasLine" to (target.line != null).toString(),
-            "hasColumn" to (target.column != null).toString(),
-            "result" to result,
-        ),
-    )
 
     @RequiresEdt
     private fun choose(files: List<WorkspaceFileDto>, target: Target, anchor: RelativePoint?) {

@@ -9,7 +9,7 @@ export type CodeMUiInteractionOwner =
   | "autocomplete-service"
   | "speech-service"
   | "cloud-service"
-  | "telemetry-service"
+  | "usage-service"
   | "external-integration"
 
 /**
@@ -122,7 +122,6 @@ export const CODEM_UI_INTERACTION_OWNERS = {
   cancelAnacondaDesktopRequest: "external-integration",
   cancelBackgroundJob: "app-server-live",
   cancelLogin: "authentication-broker",
-  chatCompletionAccepted: "autocomplete-service",
   clearSession: "editor-host",
   compact: "app-server-live",
   completeProviderOAuth: "app-server-control",
@@ -184,9 +183,9 @@ export const CODEM_UI_INTERACTION_OWNERS = {
   promoteBackgroundJob: "app-server-live",
   questionReject: "app-server-live",
   questionReply: "app-server-live",
-  recordModelUsage: "telemetry-service",
+  recordModelUsage: "usage-service",
   refreshProfile: "authentication-broker",
-  refreshProviderUsage: "telemetry-service",
+  refreshProviderUsage: "usage-service",
   reload: "editor-host",
   removeAgent: "app-server-control",
   removeMcp: "app-server-control",
@@ -221,10 +220,10 @@ export const CODEM_UI_INTERACTION_OWNERS = {
   requestMemory: "app-server-control",
   requestMigrationData: "editor-host",
   requestModelSelections: "editor-host",
-  requestModelUsage: "telemetry-service",
+  requestModelUsage: "usage-service",
   requestNotificationSettings: "editor-host",
   requestNotifications: "editor-host",
-  requestProviderUsage: "telemetry-service",
+  requestProviderUsage: "usage-service",
   requestProviders: "app-server-control",
   requestRecents: "editor-host",
   requestRemoteStatus: "cloud-service",
@@ -271,7 +270,6 @@ export const CODEM_UI_INTERACTION_OWNERS = {
   suggestionAccept: "app-server-live",
   suggestionDismiss: "app-server-live",
   syncSession: "editor-host",
-  telemetry: "telemetry-service",
   testNotification: "editor-host",
   testOSNotification: "editor-host",
   setThreadPermissionMode: "app-server-control",

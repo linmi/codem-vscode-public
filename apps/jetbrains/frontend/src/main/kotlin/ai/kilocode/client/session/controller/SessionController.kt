@@ -28,7 +28,6 @@ import ai.kilocode.client.session.model.Outcome
 import ai.kilocode.client.session.model.TurnOutcome
 import ai.kilocode.client.plugin.KiloPluginSettings
 import ai.kilocode.client.session.SessionRef
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.util.UiTimer
 import ai.kilocode.client.util.UiTimerSource
 import ai.kilocode.client.util.UiTimers
@@ -107,7 +106,6 @@ class SessionController(
   private val afterUpdate: (Boolean) -> Unit = {},
   private val loaded: (Boolean) -> Unit = {},
   private val openProfileAction: () -> Unit = {},
-  private val telemetry: (String, Map<String, String>) -> Unit = { event, props -> Telemetry.send(event, props) },
   private val notify: (String, String) -> Unit = { title, body -> KiloNotifications.error(title, body) },
   private val timers: UiTimerSource = UiTimers,
   private val log: KiloLog = LOG,
@@ -117,14 +115,7 @@ class SessionController(
     private data class Followup(val dir: String, val time: Long)
     private data class Pref(val agent: String?, val model: String?, val variants: List<String>, val variant: String?, val reset: Boolean)
     private data class RevertOp(val key: Long)
-    private data class Dispatch(
-        val kind: String,
-        val source: String,
-        val text: String,
-        val props: Map<String, String>,
-        val start: String,
-        val exists: Boolean,
-    )
+    private data class Dispatch(val kind: String, val start: String)
 
     companion object {
         private val LOG = KiloLog.create(SessionController::class.java)
@@ -257,7 +248,6 @@ class SessionController(
         }
         val id = ++enhancement
         enhancements[id] = complete
-        capture("Prompt Enhance Clicked", mapOf("textLength" to bucket(text)))
         cs.launch {
             val result = try {
                 Result.success(sessions.enhancePrompt(directory, text))
@@ -268,13 +258,6 @@ class SessionController(
             }
             edt {
                 val callback = enhancements.remove(id) ?: return@edt
-                result.onSuccess {
-                    capture("Prompt Enhanced", mapOf("textLength" to bucket(text)))
-                }.onFailure { e ->
-                    if (e !is CancellationException) {
-                        capture("Session Error", mapOf("context" to "enhance-prompt", "errorClass" to e::class.java.name))
-                    }
-                }
                 callback(result)
             }
         }
@@ -288,11 +271,9 @@ class SessionController(
     ) {
         assertEdt()
         val start = sid ?: ref?.key ?: "pending"
-        val exists = sid != null
         val dto = promptDto(text, files, editorContext, select)
-        val props = promptProps(files)
         LOG.debug { "${ChatLogSummary.sid(start)} ${ChatLogSummary.prompt(dto)} ${ChatLogSummary.dir(directory)}" }
-        dispatch(Dispatch("prompt", "user", text, props, start, exists)) { id ->
+        dispatch(Dispatch("prompt", start)) { id ->
             sessions.prompt(id, directory, dto)
         }
     }
@@ -300,11 +281,9 @@ class SessionController(
     fun command(command: String, args: String, files: List<PromptPartDto> = emptyList()) {
         assertEdt()
         val start = sid ?: ref?.key ?: "pending"
-        val exists = sid != null
         val dto = promptDto("", files)
-        val props = promptProps(files)
         LOG.debug { "${ChatLogSummary.sid(start)} kind=command command=$command args=${args.length} ${ChatLogSummary.dir(directory)}" }
-        dispatch(Dispatch("command", "command", args, props, start, exists)) { id ->
+        dispatch(Dispatch("command", start)) { id ->
             sessions.command(id, directory, command, args, dto)
         }
     }
@@ -316,22 +295,14 @@ class SessionController(
         // never reaches a turn would otherwise leave a stale Stop suppressing the next explanation.
         stopRequested = false
         cancelReason = null
-        val props = data.props + if (data.kind == "command") slashProps() else emptyMap()
-        capture("Conversation Send Clicked", sessionProps(sid ?: ref?.key) + mapOf(
-            "source" to data.source,
-            "hasExistingSession" to data.exists.toString(),
-            "textLength" to bucket(data.text),
-        ) + props)
         showSession()
         val pending = sid?.let { CompletableDeferred(it) } ?: session()
         cs.launch {
             try {
                 val id = pending.await() ?: return@launch
                 send(id)
-                capture("Conversation Message", sessionProps(id) + mapOf("source" to data.source, "hasExistingSession" to data.exists.toString()) + props)
                 LOG.debug { "${ChatLogSummary.sid(id)} kind=${data.kind} dispatched=true" }
             } catch (e: Exception) {
-                capture("Session Error", sessionProps(sid ?: ref?.key ?: data.start) + mapOf("context" to data.kind, "errorClass" to e::class.java.name))
                 LOG.warn("${ChatLogSummary.sid(sid ?: ref?.key ?: data.start)} kind=${data.kind} dir=${ChatLogSummary.dir(directory)} failed message=${e.message}", e)
                 edt {
                     if (disposed) return@edt
@@ -377,7 +348,6 @@ class SessionController(
         if (disposed) return null
         val meta = if (LOG.isDebugEnabled) ChatLogSummary.dir(directory) else "kind=session"
         LOG.info("${ChatLogSummary.sid(session.id)} kind=session $meta created=true")
-        capture("Task Created", sessionProps(session.id) + mapOf("source" to "jetbrains"))
         runEdt {
             if (disposed) return@runEdt
             subscribeEvents()
@@ -395,14 +365,11 @@ class SessionController(
         val id = sid ?: return
         stopRequested = true
         updateModel { (childIds + id).forEach(::purgePending) }
-        capture("Session Stop Clicked", sessionProps(id))
         cs.launch {
             try {
                 sessions.abort(id, directory)
-                capture("Session Stopped", sessionProps(id))
                 LOG.debug { "${ChatLogSummary.sid(id)} kind=abort ok=true" }
             } catch (e: Exception) {
-                capture("Session Error", sessionProps(id) + mapOf("context" to "abort", "errorClass" to e::class.java.name))
                 LOG.warn("${ChatLogSummary.sid(id)} kind=abort dir=${ChatLogSummary.dir(directory)} failed message=${e.message}", e)
             }
         }
@@ -411,7 +378,6 @@ class SessionController(
     fun setAutoApprove(value: Boolean) {
         assertEdt()
         KiloPluginSettings.setAutoApprove(value)
-        capture("Auto Approve Toggled", mapOf("enabled" to value.toString()))
         if (!value) {
             drainJob?.cancel()
             drainJob = null
@@ -446,7 +412,6 @@ class SessionController(
         cs.launch {
             try {
                 val session = if (on) sessions.shareSession(id, dir) else sessions.unshareSession(id, dir)
-                capture("Session Share Changed", sessionProps(id) + mapOf("shared" to on.toString()))
                 LOG.info("${ChatLogSummary.sid(id)} kind=share on=$on ok=true")
                 edt {
                     if (disposed) return@edt
@@ -456,7 +421,6 @@ class SessionController(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                capture("Session Error", sessionProps(id) + mapOf("context" to "share", "errorClass" to e::class.java.name))
                 LOG.warn("${ChatLogSummary.sid(id)} kind=share on=$on dir=${ChatLogSummary.dir(dir)} failed message=${e.message}", e)
                 edt {
                     if (disposed) return@edt
@@ -477,10 +441,8 @@ class SessionController(
         cs.launch {
             try {
                 sessions.compact(id, directory, sel)
-                capture("Context Condensed", sessionProps(id) + mapOf("provider" to sel.providerID, "modelId" to sel.modelID))
                 LOG.debug { "${ChatLogSummary.sid(id)} kind=compact ok=true" }
             } catch (e: Exception) {
-                capture("Session Error", sessionProps(id) + mapOf("context" to "compact", "errorClass" to e::class.java.name))
                 LOG.warn("${ChatLogSummary.sid(id)} kind=compact dir=${ChatLogSummary.dir(directory)} failed message=${e.message}", e)
                 edt {
                     updateModel {
@@ -524,14 +486,12 @@ class SessionController(
                     LOG.info("${ChatLogSummary.sid(id)} kind=revert abort=true ok=true")
                 }
                 sessions.revert(id, directory, message, part)
-                capture("Session Rollback", sessionProps(id))
                 synchronizeFromDisk(id, "revert")
                 LOG.info("${ChatLogSummary.sid(id)} kind=revert ok=true")
                 edt { clearReverting(op) }
             } catch (e: CancellationException) {
                 edt { cancelReverting(op) }
             } catch (e: Exception) {
-                capture("Session Error", sessionProps(id) + mapOf("context" to "revert", "errorClass" to e::class.java.name))
                 LOG.warn("${ChatLogSummary.sid(id)} kind=revert dir=${ChatLogSummary.dir(directory)} failed message=${e.message}", e)
                 edt { failReverting(op, e) }
             }
@@ -563,10 +523,6 @@ class SessionController(
         val id = sid ?: return
         val target = retryTarget() ?: return
         LOG.info("${ChatLogSummary.sid(id)} kind=retry clicked=true message=${target.assistant ?: "none"}")
-        capture(
-            "Session Retry",
-            sessionProps(id) + mapOf("tail" to if (target.assistant != null) "assistant" else "user"),
-        )
         // Hand off to the running turn before the RPC resolves. SessionOutcomeView is bound to the
         // session state, so this is also what dismisses the error card, and a busy state is what stops a
         // second click from reaching retryTarget.
@@ -578,7 +534,6 @@ class SessionController(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                capture("Session Error", sessionProps(id) + mapOf("context" to "retry", "errorClass" to e::class.java.name))
                 LOG.warn("${ChatLogSummary.sid(id)} kind=retry dir=${ChatLogSummary.dir(directory)} failed message=${e.message}", e)
                 edt {
                     if (disposed) return@edt
@@ -636,15 +591,12 @@ class SessionController(
             try {
                 val ok = sessions.deleteMessage(id, directory, message)
                 if (!ok) {
-                    capture("Session Error", sessionProps(id) + mapOf("context" to "delete-message", "errorClass" to "DeleteMiss"))
                     LOG.warn("${ChatLogSummary.sid(id)} kind=deleteMessage missed message=$message")
                     return@launch
                 }
-                capture("Conversation Queued Message Removed", sessionProps(id))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                capture("Session Error", sessionProps(id) + mapOf("context" to "delete-message", "errorClass" to e::class.java.name))
                 LOG.warn("${ChatLogSummary.sid(id)} kind=deleteMessage failed message=${e.message}", e)
             }
         }
@@ -661,13 +613,11 @@ class SessionController(
         revertJob = cs.launch {
             try {
                 sessions.unrevert(id, directory)
-                capture("Session Unrevert", sessionProps(id))
                 synchronizeFromDisk(id, "unrevert")
                 edt { clearReverting(op) }
             } catch (e: CancellationException) {
                 edt { cancelReverting(op) }
             } catch (e: Exception) {
-                capture("Session Error", sessionProps(id) + mapOf("context" to "unrevert", "errorClass" to e::class.java.name))
                 LOG.warn("${ChatLogSummary.sid(id)} kind=unrevert dir=${ChatLogSummary.dir(directory)} failed message=${e.message}", e)
                 edt { failReverting(op, e) }
             }
@@ -680,17 +630,14 @@ class SessionController(
         val msgs = model.messages().toList()
         val pos = msgs.indexOfFirst { it.info.id == mark.messageID }
         if (pos < 0) {
-            sid?.let { capture("Session Redo", sessionProps(it)) }
             unrevert()
             return
         }
         val next = msgs.drop(pos + 1).firstOrNull { it.info.role == "user" }
         if (next == null) {
-            sid?.let { capture("Session Redo", sessionProps(it)) }
             unrevert()
             return
         }
-        sid?.let { capture("Session Redo", sessionProps(it)) }
         redoTo(next.info.id)
     }
 
@@ -726,7 +673,6 @@ class SessionController(
 
     fun redoAll() {
         assertEdt()
-        sid?.let { capture("Session Redo All", sessionProps(it)) }
         unrevert()
     }
 
@@ -734,7 +680,6 @@ class SessionController(
         assertEdt()
         if (revertOp == null) return
         LOG.info("${ChatLogSummary.sid(sid ?: "?")} kind=revert cancelRequested=true")
-        sid?.let { capture("Session Revert Cancel Requested", sessionProps(it)) }
         val state = model.state
         if (state is SessionState.Reverting) {
             model.setState(state.copy(text = KiloBundle.message("session.status.operation.finishing")))
@@ -763,7 +708,6 @@ class SessionController(
         LOG.debug {
             "${ChatLogSummary.sid(sid ?: ref?.key ?: "pending")} kind=connection-retry app=${model.app.status} workspace=${model.workspace.status}"
         }
-        capture("Connection Retry Clicked", connectionProps())
         setConnectionTargetState(SessionControllerEvent.ConnectionChanged.ShowConnecting)
         setVisibleConnectionState(SessionControllerEvent.ConnectionChanged.ShowConnecting)
         // App retry policy is backend-owned and may escalate from lightweight refresh to restart.
@@ -804,7 +748,6 @@ class SessionController(
             model.agent = name
             syncModelSelection()
         }
-        capture("Mode Switched", sessionProps() + mapOf("agent" to name))
     }
 
     fun selectModel(provider: String, id: String) {
@@ -821,7 +764,6 @@ class SessionController(
         app.selectModel(agent, provider, id)
         selectResolvedModel(key)
         model.modelOverride = model.defaultModel != model.model
-        capture("Model Selected", sessionProps() + mapOf("agent" to agent, "provider" to provider, "modelId" to id, "isOverride" to "true"))
     }
 
     fun clearModelOverride() {
@@ -834,7 +776,6 @@ class SessionController(
         val auto = configModel(agent) ?: providerModel(agent)
         selectResolvedModel(auto)
         model.modelOverride = false
-        capture("Model Override Cleared", sessionProps() + mapOf("agent" to agent))
     }
 
     fun selectVariant(value: String) {
@@ -846,7 +787,6 @@ class SessionController(
         prefVariant = value
         app.selectVariant(key, value)
         model.variant = value
-        capture("Reasoning Variant Selected", sessionProps() + mapOf("model" to key, "variant" to value))
     }
 
     /**
@@ -895,17 +835,8 @@ class SessionController(
                     workspace.refreshConfigFiles()
                 }
                 sessions.replyPermission(requestId, directory, reply)
-                capture("Approval Answered", sessionProps() + mapOf(
-                    "requestId" to requestId,
-                    "tool" to (current?.permission?.name ?: "unknown"),
-                    "reply" to reply.reply,
-                    "hasRules" to (rules != null).toString(),
-                    "hasDiffs" to (current?.permission?.meta?.fileDiffs?.isNotEmpty() == true).toString(),
-                    "diffCount" to (current?.permission?.meta?.fileDiffs?.size ?: 0).toString(),
-                ))
                 LOG.debug { "${ChatLogSummary.sid(sid ?: ref?.key ?: "pending")} kind=permission rid=$requestId ok=true" }
             } catch (e: Exception) {
-                capture("Session Error", sessionProps() + mapOf("context" to "permission", "errorClass" to e::class.java.name))
                 LOG.warn("${ChatLogSummary.sid(sid ?: ref?.key ?: "pending")} kind=permission rid=$requestId reply=${reply.reply} dir=${ChatLogSummary.dir(directory)} failed message=${e.message}", e)
                 edt {
                     updatePermission(
@@ -941,7 +872,6 @@ class SessionController(
         cs.launch {
             try {
                 sessions.replyPermission(id, directory, PermissionReplyDto("once"))
-                capture("Permission Auto Approved", sessionProps() + mapOf("tool" to restore().name, "source" to "single"))
                 LOG.debug { "${ChatLogSummary.sid(sid ?: ref?.key ?: "pending")} kind=permission-auto rid=$id ok=true" }
             } catch (e: Exception) {
                 LOG.warn("${ChatLogSummary.sid(sid ?: ref?.key ?: "pending")} kind=permission-auto rid=$id dir=${ChatLogSummary.dir(directory)} failed message=${e.message}", e)
@@ -1007,7 +937,6 @@ class SessionController(
             // Skill-shell batches need a human; skip them here (callers surface the card).
             if (request.metadata["skillShell"] == "true") continue
             sessions.replyPermission(request.id, directory, PermissionReplyDto("once"))
-            capture("Permission Auto Approved", sessionProps(request.sessionID) + mapOf("tool" to request.permission, "source" to "drain"))
             count++
         }
         return count
@@ -1050,11 +979,6 @@ class SessionController(
         cs.launch {
             try {
                 sessions.replyQuestion(requestId, directory, answers)
-                capture("Question Answered", sessionProps() + mapOf(
-                    "requestId" to requestId,
-                    "answerCount" to answers.answers.size.toString(),
-                    "hasFollowupNewSession" to follow.toString(),
-                ))
                 LOG.debug { "${ChatLogSummary.sid(sid ?: ref?.key ?: "pending")} kind=question rid=$requestId ok=true" }
             } catch (e: Exception) {
                 edt { followup = null }
@@ -1070,7 +994,6 @@ class SessionController(
         cs.launch {
             try {
                 sessions.rejectQuestion(requestId, directory)
-                capture("Question Rejected", sessionProps() + mapOf("requestId" to requestId))
                 LOG.debug { "${ChatLogSummary.sid(sid ?: ref?.key ?: "pending")} kind=question rid=$requestId ok=true" }
             } catch (e: Exception) {
                 LOG.warn("${ChatLogSummary.sid(sid ?: ref?.key ?: "pending")} kind=question rid=$requestId rejected=true dir=${ChatLogSummary.dir(directory)} failed message=${e.message}", e)
@@ -1667,9 +1590,6 @@ class SessionController(
                 if (current is SessionState.Error && event.reason != "completed") return
                 val finish = model.messages().lastOrNull { it.info.role == "assistant" }?.info?.finish
                 val ended = if (current is SessionState.Error) null else TurnOutcome.classify(event.reason, finish)
-                if (event.reason == "completed") {
-                    capture("Task Completed", sessionProps(event.sessionID) + mapOf("finish" to (finish ?: "none")))
-                }
                 when {
                     ended != null -> model.setState(SessionState.TurnEnded(ended, finish))
                     event.reason == "completed" -> {
@@ -1682,9 +1602,6 @@ class SessionController(
             is ChatEventDto.SessionCreated -> adoptFollowup(event.info)
 
             is ChatEventDto.Error -> {
-                if (event.error?.aborted != true || unrequested(event.error)) {
-                    capture("Session Error", sessionProps(event.sessionID) + mapOf("context" to "event", "errorClass" to (event.error?.type ?: "unknown")))
-                }
                 error(event, true)
             }
 
@@ -1727,7 +1644,6 @@ class SessionController(
             is ChatEventDto.SessionQueueChanged -> updateModel { model.setQueued(event.queued.toSet()) }
 
             is ChatEventDto.SessionCompacted -> {
-                capture("Context Condensed", sessionProps(event.sessionID))
                 model.markCompacted()
             }
             is ChatEventDto.SessionDiffChanged -> model.setDiff(event.diff)
@@ -1802,10 +1718,6 @@ class SessionController(
         if (isPaidModelAuthRequired(err)) {
             loginRetry = retryPrompt()
             if (reveal) showSession()
-            capture("Account Overlay Shown", sessionProps(event.sessionID) + mapOf(
-                "surface" to "session",
-                "reason" to "paid_model_auth",
-            ))
             model.setState(SessionState.LoginRequired(KiloBundle.message("session.login.required.description")))
             return
         }
@@ -2029,7 +1941,6 @@ class SessionController(
         if (revertOp?.key != op.key) return
         LOG.warn("${ChatLogSummary.sid(sid ?: "?")} kind=revert timeout=true after=${revertTimeoutMs}ms")
         stopRevertWatchdog()
-        sid?.let { capture("Session Revert Timeout", sessionProps(it)) }
         revertJob?.cancel()
         failReverting(op, RuntimeException(KiloBundle.message("session.error.revert.timeout")))
     }
@@ -2378,9 +2289,7 @@ class SessionController(
         cs.launch {
             try {
                 app.setOrganization(org)
-                capture("Organization Switched", mapOf("target" to if (org == null) "personal" else "organization"))
             } catch (e: Exception) {
-                capture("Account Connect Failed", mapOf("stage" to "organization", "errorClass" to e::class.java.name))
                 LOG.warn("account switch failed org=$org message=${e.message}", e)
                 edt {
                     if (disposed) return@edt
@@ -2393,70 +2302,7 @@ class SessionController(
 
     fun openProfile() {
         assertEdt()
-        capture("Profile Settings Opened", mapOf("surface" to "session_overlay"))
         openProfileAction()
-    }
-
-    private fun capture(event: String, props: Map<String, String> = emptyMap()) {
-        telemetry(event, props)
-    }
-
-    private fun sessionProps(id: String? = sid): Map<String, String> = buildMap {
-        id?.let { put("sessionId", it) }
-        if (ApplicationManager.getApplication().isDispatchThread) {
-            model.agent?.let { put("agent", it) }
-            model.model?.let { put("model", it) }
-        }
-    }
-
-    private fun promptProps(files: List<PromptPartDto> = emptyList()): Map<String, String> = buildMap {
-        model.agent?.let { put("agent", it) }
-        model.model?.let { key ->
-            put("model", key)
-            parseModel(key)?.let { sel ->
-                put("provider", sel.first)
-                put("modelId", sel.second)
-            }
-        }
-        model.variant?.takeIf { it in model.variants }?.let { put("variant", it) }
-        if (files.isNotEmpty()) {
-            put("attachmentCount", files.size.toString())
-            put("mediaAttachmentCount", files.count { it.mime?.startsWith("image/") == true || it.mime == "application/pdf" }.toString())
-        }
-        val mentions = files.filter { it.source?.text?.value?.startsWith("@") == true }
-        if (mentions.isNotEmpty()) {
-            val resources = mentions.count { it.source?.path == "git-changes" }
-            put("hasMentions", "true")
-            put("mentionCount", mentions.size.toString())
-            put("fileMentionCount", (mentions.size - resources).toString())
-            put("resourceMentionCount", resources.toString())
-        }
-    }
-
-    private fun slashProps() = mapOf("hasSlashCommand" to "true", "slashCommandType" to "server")
-
-    private fun bucket(text: String): String = when (text.length) {
-        0 -> "empty"
-        in 1..80 -> "short"
-        in 81..500 -> "medium"
-        else -> "long"
-    }
-
-    private fun connectionProps(): Map<String, String> = buildMap {
-        put("appStatus", model.app.status.name)
-        put("workspaceStatus", model.workspace.status.name)
-        model.app.error?.let { put("appError", bucketError(it)) }
-        model.workspace.error?.let { put("workspaceError", bucketError(it)) }
-        put("warningCount", model.workspace.warnings.size.toString())
-    }
-
-    private fun bucketError(text: String): String = when {
-        text.isBlank() -> "empty"
-        text.contains("timed out", ignoreCase = true) -> "timeout"
-        text.contains("not connected", ignoreCase = true) -> "not_connected"
-        text.contains("connection", ignoreCase = true) -> "connection"
-        text.contains("http", ignoreCase = true) -> "http"
-        else -> "other"
     }
 
     fun dismissLoginRequired() {
@@ -2464,10 +2310,6 @@ class SessionController(
         val active = model.state is SessionState.LoginRequired
         loginRetry = null
         if (active) {
-            capture("Account Overlay Dismissed", sessionProps() + mapOf(
-                "surface" to "session",
-                "reason" to "paid_model_auth",
-            ))
             updateModel { model.setState(SessionState.Idle) }
         }
     }

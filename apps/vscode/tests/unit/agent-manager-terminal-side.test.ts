@@ -26,7 +26,6 @@ function scene(
     openVscode: 0,
     persisted: [] as string[],
     posted: [] as Array<Record<string, unknown>>,
-    tracked: [] as string[],
   }
   let visible = opts.visible ?? false
   let focusedId = opts.focusedId as string | undefined
@@ -54,7 +53,6 @@ function scene(
     },
     refocus: () => calls.refocus++,
     postMessage: (msg) => calls.posted.push(msg as Record<string, unknown>),
-    track: (button) => calls.tracked.push(button),
     openVscode: () => calls.openVscode++,
     saved: opts.saved,
     save: (destination) => calls.persisted.push(destination),

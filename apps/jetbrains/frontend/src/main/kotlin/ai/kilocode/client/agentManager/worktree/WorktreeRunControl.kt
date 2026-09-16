@@ -3,7 +3,6 @@ package ai.kilocode.client.agentManager.worktree
 import ai.kilocode.client.KiloNotifications
 import ai.kilocode.client.app.kiloRoot
 import ai.kilocode.client.plugin.KiloBundle
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.ui.ToolbarButtonAction
 import ai.kilocode.client.ui.hoverTextButton
 import ai.kilocode.client.util.edt
@@ -99,7 +98,6 @@ internal class WorktreeRunControl(
             states = states,
             run = { cfg -> start(repo, cfg) },
             stop = { state ->
-                Telemetry.send("Worktree Run Config Stopped", mapOf("surface" to "worktree_toolbar"))
                 service<KiloRunService>().stopInBackground(repo, state.id, worktree)
             },
             output = { state -> service<KiloRunService>().focusInBackground(repo, state.id, worktree) },
@@ -120,10 +118,6 @@ internal class WorktreeRunControl(
 
     private fun start(repo: String, cfg: RunConfigDto) {
         // "via" distinguishes a direct transplant from a run delegated to a build system.
-        Telemetry.send(
-            "Worktree Run Config Started",
-            mapOf("type" to cfg.type, "via" to (cfg.via ?: "direct"), "surface" to "worktree_toolbar"),
-        )
         service<KiloRunService>().runInBackground(repo, cfg.id, worktree) { result ->
             result.warning?.let { dropped ->
                 // The run started, but the framework's own build integration declined it, so it runs
@@ -143,7 +137,6 @@ internal class WorktreeRunControl(
 
     private fun build(repo: String, clean: Boolean) {
         val name = KiloBundle.message(if (clean) "worktree.run.rebuild" else "worktree.run.build")
-        Telemetry.send("Worktree Build Started", mapOf("mode" to if (clean) "rebuild" else "build", "surface" to "worktree_toolbar"))
         service<KiloRunService>().buildInBackground(repo, worktree, clean) { result ->
             val error = result.error ?: return@buildInBackground
             alive { KiloNotifications.error(project, KiloBundle.message("worktree.run.failed", name, error)) }

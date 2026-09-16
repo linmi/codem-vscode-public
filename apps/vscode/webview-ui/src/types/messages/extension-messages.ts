@@ -19,31 +19,6 @@ import type { PermissionRequest } from "./permissions"
 import type { AnacondaDesktopExtensionMessage } from "../../../../src/shared/anaconda-desktop-messages"
 import type { BrowserFeedbackData, BrowserReference } from "../../../../src/shared/browser-feedback"
 import type { PRMergeResult } from "../../../../src/shared/pr-comment-actions"
-
-export type { BrowserReference } from "../../../../src/shared/browser-feedback"
-
-export interface BackgroundJobsLoadedMessage {
-  type: "backgroundJobsLoaded"
-  sessionID: string
-  requestID: string
-  jobs: BackgroundJobInfo[]
-  error?: string
-}
-
-export interface BackgroundJobInfo {
-  id: string
-  type: string
-  title?: string
-  status: "running" | "completed" | "error" | "cancelled"
-  started_at: number
-  completed_at?: number
-  error?: string
-  metadata?: {
-    parentSessionId?: string
-    sessionId?: string
-    background?: boolean
-  }
-}
 import type { QuestionRequest, SuggestionRequest, TodoItem } from "./questions"
 import type { ModelSelection, ModelUsageMap, Provider, ProviderAuthState } from "./providers"
 import type { SpeechToTextModelDef } from "../../../../src/speech-to-text/models"
@@ -87,6 +62,31 @@ import type {
 } from "./migration"
 import type { MemoryEventMessage, MemoryLoadedMessage, MemoryOperationResultMessage } from "./memory"
 import type { SessionBoardLoadedMessage } from "./board"
+
+export type { BrowserReference } from "../../../../src/shared/browser-feedback"
+
+export interface BackgroundJobsLoadedMessage {
+  type: "backgroundJobsLoaded"
+  sessionID: string
+  requestID: string
+  jobs: BackgroundJobInfo[]
+  error?: string
+}
+
+export interface BackgroundJobInfo {
+  id: string
+  type: string
+  title?: string
+  status: "running" | "completed" | "error" | "cancelled"
+  started_at: number
+  completed_at?: number
+  error?: string
+  metadata?: {
+    parentSessionId?: string
+    sessionId?: string
+    background?: boolean
+  }
+}
 
 // ============================================
 // Messages FROM extension TO webview
@@ -1402,11 +1402,6 @@ export interface ExtensionDataReadyMessage {
   type: "extensionDataReady"
 }
 
-export interface TelemetryStateMessage {
-  type: "telemetryState"
-  enabled: boolean
-}
-
 export interface ProviderOAuthReadyMessage {
   type: "providerOAuthReady"
   requestId: string
@@ -1735,7 +1730,6 @@ export type ExtensionMessage =
   | McpStatusLoadedMessage
   | ClearPendingPromptsMessage
   | ExtensionDataReadyMessage
-  | TelemetryStateMessage
   | RemoteStatusMessage
   | ValidateFilesResultMessage
   | ClipboardWriteResultMessage

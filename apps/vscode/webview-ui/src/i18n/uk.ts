@@ -480,7 +480,8 @@ export const dict = {
   "settings.config.title": "Відкрити файл конфігурації CodeM ({{scope}})",
   "settings.config.placeholder":
     "Файли конфігурації об'єднуються по порядку; файли, позначені як завантажені, наразі впливають на налаштування.",
-  "settings.config.noWorkspace": "Відкрийте папку робочої області, щоб відредагувати локальний файл конфігурації CodeM.",
+  "settings.config.noWorkspace":
+    "Відкрийте папку робочої області, щоб відредагувати локальний файл конфігурації CodeM.",
   "settings.config.openFailed": "Не вдалося відкрити файл конфігурації CodeM ({{scope}}): {{message}}",
   "settings.config.source.xdg": "Глобальна конфігурація XDG",
   "settings.config.source.homeKilo": "Конфігурація .kilo (Home)",
@@ -807,11 +808,6 @@ export const dict = {
   "settings.aboutCodeM.importSettings.success":
     "Налаштування імпортовано. Перегляньте зміни вище, потім натисніть Зберегти.",
 
-  "settings.aboutCodeM.telemetry.title": "Телеметрія",
-  "settings.aboutCodeM.telemetry.description":
-    'Телеметрія керується вбудованим налаштуванням телеметрії VS Code. Щоб вимкнути її, перейдіть до Налаштування > Телеметрія > Рівень телеметрії та встановіть значення "off". Перезапустіть VS Code, щоб застосувати зміну.',
-  "settings.aboutCodeM.telemetry.openSettings": "Відкрити налаштування телеметрії",
-
   "settings.agentBehaviour.subtab.agents": "Агенти",
   "settings.agentBehaviour.subtab.mcpServers": "MCP-сервери",
   "settings.agentBehaviour.subtab.rules": "Правила",
@@ -887,7 +883,8 @@ export const dict = {
   "settings.models.speechToText.disabledDescription":
     "Увімкніть провайдер CodeM та виконайте вхід, щоб використовувати Speech to Text. Наразі Speech to Text підтримується лише з CodeM Gateway.",
   "settings.models.speechToTextModel.title": "Модель мовлення в текст",
-  "settings.models.speechToTextModel.description": "Виберіть модель транскрипції CodeM Gateway для голосового введення.",
+  "settings.models.speechToTextModel.description":
+    "Виберіть модель транскрипції CodeM Gateway для голосового введення.",
   "settings.experimental.nativeNotebookTools.title": "Власні інструменти для блокнотів",
   "settings.experimental.nativeNotebookTools.description":
     "Увімкнути експериментальні інструменти для читання, редагування та виконання блокнотів VS Code",

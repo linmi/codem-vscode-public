@@ -5,7 +5,6 @@ import type { RuntimeFlags } from "@/effect/runtime-flags"
 import { InstanceState } from "@/effect/instance-state"
 import { Permission } from "@/permission"
 import type { Agent } from "@/agent/agent"
-import type { MessageV2 } from "../message-v2"
 import type { Provider } from "@/provider/provider"
 import { ProviderTransform } from "@/provider/transform"
 import { SystemPrompt } from "../system"
@@ -17,14 +16,7 @@ import { mergeDeep } from "remeda"
 import { DEFAULT_HEADERS } from "@/kilocode/const" // kilocode_change
 // kilocode_change start
 import { getKiloProjectId } from "@/kilocode/project-id"
-import {
-  HEADER_FEATURE,
-  HEADER_PARENT_TASKID,
-  HEADER_PROJECTID,
-  HEADER_MACHINEID,
-  HEADER_TASKID,
-} from "@kilocode/kilo-gateway"
-import { Identity } from "@kilocode/kilo-telemetry"
+import { HEADER_FEATURE, HEADER_PARENT_TASKID, HEADER_PROJECTID, HEADER_TASKID } from "@kilocode/kilo-gateway"
 import { KiloSession } from "@/kilocode/session"
 import { stripInternalOptions } from "@/kilocode/agent/options"
 import { KilocodeSystemPrompt } from "@/kilocode/system-prompt"
@@ -182,9 +174,6 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
   const kiloProjectId = yield* isKilo
     ? Effect.promise(() => getKiloProjectId().catch(() => undefined))
     : Effect.succeed(undefined)
-  const machineId = yield* isKilo
-    ? Effect.promise(() => Identity.getMachineId().catch(() => undefined))
-    : Effect.succeed(undefined)
   const parent = input.parentSessionID ?? KiloSession.resolveParent(input.sessionID)
   // kilocode_change end
   // kilocode_change start - attribute Kilo gateway usage to the root product session
@@ -249,7 +238,6 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
       // kilocode_change start - headers for kilo provider
       ...(isKilo && input.agent.name ? { "x-kilocode-mode": input.agent.name.toLowerCase() } : {}),
       ...(isKilo && kiloProjectId ? { [HEADER_PROJECTID]: kiloProjectId } : {}),
-      ...(isKilo && machineId ? { [HEADER_MACHINEID]: machineId } : {}),
       ...(isKilo ? { [HEADER_TASKID]: input.sessionID } : {}),
       ...(isKilo && parent ? { [HEADER_PARENT_TASKID]: parent } : {}),
       ...(isKilo && attr.feature ? { [HEADER_FEATURE]: attr.feature } : {}),

@@ -88,18 +88,6 @@ export namespace KiloCli {
 
     const runtime = narrow ? await import("@/kilocode/cli/bootstrap-runtime") : undefined
     const app = narrow ? undefined : await import("@/effect/app-runtime")
-    const cfg = runtime
-      ? await runtime.KiloCliBootstrapRuntime.getGlobal()
-      : await app!.AppRuntime.runPromise((await import("@/config/config")).Config.Service.use((c) => c.getGlobal()))
-
-    const { Global } = await import("@opencode-ai/core/global")
-    const { Telemetry } = await import("@kilocode/kilo-telemetry")
-    await Telemetry.init({
-      dataPath: Global.Path.data,
-      version: InstallationVersion,
-      enabled: cfg.experimental?.openTelemetry !== false,
-    })
-
     const { migrateLegacyKiloAuth } = gateway
     const getAuth = async () => {
       if (runtime) return runtime.KiloCliBootstrapRuntime.getAuth()
@@ -113,41 +101,15 @@ export namespace KiloCli {
     }
 
     // Migrate legacy Kilo CLI auth (~/.kilocode/cli/config.json) into auth.json if present.
-    await migrateLegacyKiloAuth(
-      async () => (await getAuth()) !== undefined,
-      setAuth,
-    )
-
-    const auth = await getAuth()
-    if (auth) {
-      const token = auth.type === "oauth" ? auth.access : auth.key
-      const account = auth.type === "oauth" ? auth.accountId : undefined
-      await Telemetry.updateIdentity(token, account)
-    }
-
-    Telemetry.trackCliStart()
-    // Overlap the event upload with command execution so exit is not delayed by
-    // a network round trip (#10242).
-    Telemetry.flushInBackground()
+    await migrateLegacyKiloAuth(async () => (await getAuth()) !== undefined, setAuth)
   }
 
   // Runs from the `finally` block on every exit path.
   export async function shutdown(): Promise<void> {
     if (info) return
-    const { Telemetry } = await import("@kilocode/kilo-telemetry")
-    const code = typeof process.exitCode === "number" ? process.exitCode : undefined
-    Telemetry.trackCliExit(code)
     const { SessionExport } = await import("@/kilocode/session-export")
     try {
       await SessionExport.shutdown()
-      // Bound telemetry shutdown so an unreachable endpoint (offline, firewall,
-      // DNS adblock resolving the host to 0.0.0.0) cannot block process exit on
-      // short-lived commands like `kilo --help` / `kilo --version` (#9788).
-      try {
-        await Telemetry.shutdown(2000)
-      } catch (err) {
-        log.warn("telemetry shutdown failed", { err })
-      }
     } finally {
       await KiloShutdown.run()
       if (narrow) {

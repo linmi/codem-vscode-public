@@ -310,7 +310,7 @@ codem/
 
 **交付结果。**达到 App Server Desktop surface parity：permission、question、plan、Plan Mode、compact、rewind、settings、background cancel、rename/archive/unarchive/delete/fork 和 skills；当 Core 已提供稳定 child identity 时，同时交付后台子 Agent 状态条与只读 transcript viewer。
 
-**1:1 门禁。**`apps/vscode/src/services/app-server/ui-parity.ts` 必须穷举现有 264 个 Webview 入站命令，并为每项指定唯一 owner；`app-server-live` 与 `app-server-control` 全部由严格 DTO adapter 承接，`editor-host`／`agent-manager-host` 保持真实 VS Code/Git/终端行为，Autocomplete、认证、云、语音和 telemetry 继续走各自专用服务。owner 登记不是“已完成”标记；生产切换前还必须为每项建立成功、失败和身份关联验证。不得隐藏未迁移按钮、返回伪成功或把 unsupported 当作完成。
+**1:1 门禁。**`apps/vscode/src/services/app-server/ui-parity.ts` 必须穷举现有 262 个 Webview 入站命令，并为每项指定唯一 owner；`app-server-live` 与 `app-server-control` 全部由严格 DTO adapter 承接，`editor-host`／`agent-manager-host` 保持真实 VS Code/Git/终端行为，Autocomplete、认证、云、语音和本地用量统计继续走各自专用服务；旧 Kilo telemetry 已移除。owner 登记不是“已完成”标记；生产切换前还必须为每项建立成功、失败和身份关联验证。不得隐藏未迁移按钮、返回伪成功或把 unsupported 当作完成。
 
 **准出标准。**
 
@@ -463,7 +463,7 @@ Spike 评审通过后，按 Cycle 0→6 顺序实施；每个 Cycle 独立提交
 
 用户已确认以 Core 原生 `default / auto / yolo` 替换全局自动放行开关。当前线程模式仅由 `thread/mode/read`、带 `expectedRevision` 的 `thread/mode/set` 及 `thread/mode/changed` 决定；Host 不再自动回复 Kilo permission。新会话默认由 `codem.permissionMode` 指定（默认 `auto`），已有会话读取 Core 状态。冲突不盲目重试，断线和旧请求响应不能恢复失效权限显示。旧 `codem.toggleAutoApprove`、`codem.autoApprove.enabled` 和布尔消息入口已删除，不提供兼容别名。
 
-当前命令归属清单为 264 项，其中 20 项已有 App Server 控制器映射，38 项仍有协议/语义缺口，206 项归属 Host 或独立服务；映射数量不代表真实交互验收。设置页面的旧细粒度规则配置尚待单独迁移。
+当前命令归属清单为 262 项，其中 20 项已有 App Server 控制器映射，38 项仍有协议/语义缺口，204 项归属 Host 或独立服务；映射数量不代表真实交互验收。设置页面的旧细粒度规则配置尚待单独迁移。
 
 ## 2026-09-16 空间选择接入
 

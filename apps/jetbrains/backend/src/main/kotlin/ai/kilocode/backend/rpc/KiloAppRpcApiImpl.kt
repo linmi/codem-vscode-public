@@ -4,7 +4,6 @@ package ai.kilocode.backend.rpc
 
 import ai.kilocode.backend.app.KiloAppState
 import ai.kilocode.backend.app.KiloBackendAppService
-import ai.kilocode.backend.telemetry.KiloBackendTelemetry
 import ai.kilocode.backend.app.LoadError
 import ai.kilocode.backend.app.LoadProgress
 import ai.kilocode.backend.app.ProfileResult
@@ -34,7 +33,6 @@ import ai.kilocode.rpc.dto.ProfileDto
 import ai.kilocode.rpc.dto.ProfileKiloPassDto
 import ai.kilocode.rpc.dto.ProfileOrganizationDto
 import ai.kilocode.rpc.dto.ProfileStatusDto
-import ai.kilocode.rpc.dto.TelemetryCaptureDto
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.writeAction
 import com.intellij.openapi.components.service
@@ -142,10 +140,6 @@ class KiloAppRpcApiImpl : KiloAppRpcApi {
 
     override suspend fun setOrganization(organizationId: String?): ProfileDto? =
         app.setOrganization(organizationId)?.let(::profileDto)
-
-    override suspend fun captureTelemetry(capture: TelemetryCaptureDto) {
-        service<KiloBackendTelemetry>().capture(app.http, app.port, capture.event, capture.properties)
-    }
 
     private fun dto(state: KiloAppState): KiloAppStateDto =
         appStateDto(state)

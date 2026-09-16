@@ -34,7 +34,7 @@ class WorktreeSessionListControllerTest : BasePlatformTestCase() {
         coroutines = TestCoroutines()
         rpc = FakeSessionRpcApi()
         sessions = KiloSessionService(project, coroutines.scope, rpc)
-        controller = WorktreeSessionListController(sessions, dir, coroutines.scope, telemetry = { _, _ -> })
+        controller = WorktreeSessionListController(sessions, dir, coroutines.scope)
     }
 
     override fun tearDown() {

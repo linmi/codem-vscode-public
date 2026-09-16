@@ -19,7 +19,6 @@ import { CaffeinationService } from "./services/caffeination"
 import { confirmCaffeination } from "./services/caffeination/confirm"
 import { createCaffeinationDriver } from "./services/caffeination/inhibitor"
 import { BrowserBroker } from "./services/browser-automation"
-import { TelemetryEventName, TelemetryProxy } from "./services/telemetry"
 import { registerCommitMessageService } from "./services/commit-message"
 import { registerCodeActions, registerTerminalActions, KiloCodeActionProvider } from "./services/code-actions"
 import { registerHeapSnapshot } from "./commands/heap-snapshot"
@@ -58,8 +57,6 @@ export async function activate(context: vscode.ExtensionContext) {
   // Drives the "!codem.isCursor" guards on the native view/title and
   // editor/title menu contributions — see isCursorHost() for why.
   void vscode.commands.executeCommand("setContext", "codem.isCursor", isCursorHost())
-
-  const telemetry = TelemetryProxy.getInstance()
   const codeMAuthentication = new CodeMAuthenticationService(context)
   const codeMAppServer = new CodeMAppServerService(context, codeMAuthentication)
   context.subscriptions.push(
@@ -103,15 +100,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const unsubscribeStateChange = connectionService.onStateChange((state) => {
     if (state === "connected") {
-      const config = connectionService.getServerConfig()
-      if (config) {
-        telemetry.configure(config.baseUrl, config.password)
-        // Sync the CLI's PostHog client with the current consent state. The
-        // CLI reads KILO_TELEMETRY_LEVEL once at spawn, so without this call
-        // a fresh CLI started while VS Code telemetry was off would stay
-        // opted out for the rest of the session.
-        telemetry.setEnabled(vscode.env.isTelemetryEnabled)
-      }
       try {
         remoteService.setClient(connectionService.getClient())
         console.log("[CodeM New] CLI connected, calling remoteService.refresh()")
@@ -125,14 +113,6 @@ export async function activate(context: vscode.ExtensionContext) {
       remoteService.setClient(null)
     }
   })
-
-  // Propagate runtime telemetry consent changes to the CLI subprocess so its
-  // PostHog client stays in sync with the user's VS Code telemetry setting.
-  context.subscriptions.push(
-    vscode.env.onDidChangeTelemetryEnabled((enabled) => {
-      telemetry.setEnabled(enabled)
-    }),
-  )
 
   for (const folder of vscode.workspace.workspaceFolders ?? []) {
     void markWorkspace(folder.uri.fsPath, (msg) => console.warn(`[CodeM New] ${msg}`))
@@ -455,33 +435,23 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
   )
 
-  // Sidebar menus use wrapper commands so this event measures real title button presses,
-  // not programmatic opens, shortcuts, or editor title commands.
-  const track = (button: string, command: string) => {
-    TelemetryProxy.capture(TelemetryEventName.TITLE_BUTTON_CLICKED, {
-      button,
-      surface: "sidebar_title",
-    })
-    void vscode.commands.executeCommand(command)
-  }
-
   // Register toolbar button command handlers
   context.subscriptions.push(
-    vscode.commands.registerCommand("codem.sidebarTitle.plusButtonClicked", () => {
-      track("new_task", "codem.plusButtonClicked")
-    }),
-    vscode.commands.registerCommand("codem.sidebarTitle.historyButtonClicked", () => {
-      track("history", "codem.historyButtonClicked")
-    }),
-    vscode.commands.registerCommand("codem.sidebarTitle.agentManagerOpen", () => {
-      track("agent_manager", "codem.agentManagerOpen")
-    }),
-    vscode.commands.registerCommand("codem.sidebarTitle.profileButtonClicked", () => {
-      track("profile", "codem.profileButtonClicked")
-    }),
-    vscode.commands.registerCommand("codem.sidebarTitle.settingsButtonClicked", () => {
-      track("settings", "codem.settingsButtonClicked")
-    }),
+    vscode.commands.registerCommand("codem.sidebarTitle.plusButtonClicked", () =>
+      vscode.commands.executeCommand("codem.plusButtonClicked"),
+    ),
+    vscode.commands.registerCommand("codem.sidebarTitle.historyButtonClicked", () =>
+      vscode.commands.executeCommand("codem.historyButtonClicked"),
+    ),
+    vscode.commands.registerCommand("codem.sidebarTitle.agentManagerOpen", () =>
+      vscode.commands.executeCommand("codem.agentManagerOpen"),
+    ),
+    vscode.commands.registerCommand("codem.sidebarTitle.profileButtonClicked", () =>
+      vscode.commands.executeCommand("codem.profileButtonClicked"),
+    ),
+    vscode.commands.registerCommand("codem.sidebarTitle.settingsButtonClicked", () =>
+      vscode.commands.executeCommand("codem.settingsButtonClicked"),
+    ),
     vscode.commands.registerCommand("codem.plusButtonClicked", () => {
       const tab = activeTabProvider()
       if (tab) tab.postMessage({ type: "action", action: "plusButtonClicked" })
@@ -728,7 +698,6 @@ export async function deactivate() {
   for (const result of results) {
     if (result.status === "rejected") console.warn("[CodeM New] Extension shutdown failed:", result.reason)
   }
-  TelemetryProxy.getInstance().shutdown()
 }
 
 function openKiloInNewTab(

@@ -35,7 +35,6 @@ import ai.kilocode.rpc.dto.SessionChangeDto
 import ai.kilocode.rpc.dto.SessionChangeKindDto
 import ai.kilocode.rpc.dto.SessionDto
 import ai.kilocode.rpc.dto.SessionTimeDto
-import ai.kilocode.rpc.dto.TelemetryCaptureDto
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.util.Disposer
@@ -193,7 +192,6 @@ abstract class SessionControllerTestBase : BasePlatformTestCase() {
             open = open,
             beforeUpdate = beforeUpdate,
             afterUpdate = afterUpdate,
-            telemetry = { event, props -> appRpc.telemetry.add(TelemetryCaptureDto(event, props)) },
             notify = { title, body -> notifications.add(title to body) },
             timers = timers,
             log = log ?: KiloLog.create(SessionController::class.java),

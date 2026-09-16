@@ -1,7 +1,6 @@
 package ai.kilocode.client.ui.diagram.ui
 
 import ai.kilocode.client.plugin.KiloBundle
-import ai.kilocode.client.telemetry.Telemetry
 import com.intellij.ide.DataManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.CommonDataKeys
@@ -38,9 +37,8 @@ internal interface DiagramHandle : Disposable {
 internal class DiagramWindows internal constructor(
     project: Project,
     private val factory: (String) -> DiagramHandle,
-    private val send: (String, Map<String, String>) -> Unit,
 ) {
-    constructor(project: Project) : this(project, { source -> FrameHandle(project, source) }, Telemetry::send)
+    constructor(project: Project) : this(project, { source -> FrameHandle(project, source) })
 
     private val windows = mutableMapOf<String, DiagramHandle>()
 
@@ -50,7 +48,6 @@ internal class DiagramWindows internal constructor(
         val handle = windows[token]
         if (handle != null) {
             handle.focus()
-            track(true)
             return true
         }
         val next = factory(source)
@@ -59,7 +56,6 @@ internal class DiagramWindows internal constructor(
             if (windows[token] === next) windows.remove(token)
         }
         next.show()
-        track(false)
         return true
     }
 
@@ -70,15 +66,6 @@ internal class DiagramWindows internal constructor(
         all.forEach(Disposer::dispose)
     }
 
-    private fun track(reused: Boolean) {
-        send(
-            "Diagram Viewer Opened",
-            mapOf(
-                "surface" to "session",
-                "reused" to reused.toString(),
-            ),
-        )
-    }
 }
 
 private class FrameHandle(project: Project, source: String) : DiagramHandle {

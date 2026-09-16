@@ -801,8 +801,7 @@ export const dict = {
     "Exporteer of importeer uw instellingen om ze tussen VS Code-instanties over te dragen.",
   "settings.aboutCodeM.exportSettings": "Exporteren",
   "settings.aboutCodeM.importSettings": "Importeren",
-  "settings.aboutCodeM.importSettings.invalidJson":
-    "Ongeldig JSON-bestand. Selecteer een geldig instellingenbestand.",
+  "settings.aboutCodeM.importSettings.invalidJson": "Ongeldig JSON-bestand. Selecteer een geldig instellingenbestand.",
   "settings.aboutCodeM.importSettings.invalidConfig": "Het bestand bevat geen geldige CodeM-instellingen.",
   "settings.aboutCodeM.importSettings.tooLarge":
     "Het bestand is te groot. Instellingenbestanden moeten kleiner zijn dan 1 MB.",
@@ -810,11 +809,6 @@ export const dict = {
     "Dit bestand is geëxporteerd vanuit een nieuwere versie van CodeM. Sommige instellingen worden mogelijk genegeerd.",
   "settings.aboutCodeM.importSettings.success":
     "Instellingen geïmporteerd. Controleer de bovenstaande wijzigingen en klik vervolgens op Opslaan.",
-
-  "settings.aboutCodeM.telemetry.title": "Telemetrie",
-  "settings.aboutCodeM.telemetry.description":
-    'Telemetrie wordt beheerd door de ingebouwde telemetrie-instelling van VS Code. Om dit uit te schakelen, gaat u naar Instellingen > Telemetrie > Telemetrieniveau en stelt u dit in op "off". Herstart VS Code om de wijziging toe te passen.',
-  "settings.aboutCodeM.telemetry.openSettings": "Telemetrie-instellingen openen",
 
   "settings.agentBehaviour.subtab.agents": "Agenten",
   "settings.agentBehaviour.subtab.mcpServers": "MCP Servers",
@@ -1120,7 +1114,8 @@ export const dict = {
   "settings.display.username.title": "Gebruikersnaam",
   "settings.display.username.description": "Aangepaste gebruikersnaam weergegeven in gesprekken",
   "settings.display.fontSize.title": "Lettergrootte",
-  "settings.display.fontSize.description": "Pas de lettergrootte van de CodeM webview UI onafhankelijk van VS Code aan.",
+  "settings.display.fontSize.description":
+    "Pas de lettergrootte van de CodeM webview UI onafhankelijk van VS Code aan.",
   "settings.display.reasoningAutoCollapse.title": "Redenering automatisch inklappen",
   "settings.display.reasoningAutoCollapse.description":
     "Klapt redeneerblokken in nadat de agent klaar is met schrijven. Laat uitgeschakeld om redenering uitgeklapt te houden, tenzij je die handmatig inklapt.",

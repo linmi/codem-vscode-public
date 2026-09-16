@@ -7,7 +7,6 @@ import { parseQdrantWarning } from "./indexing-warning"
 type Entry = {
   manager: CodeIndexManager
   progress: { dispose(): void }
-  telemetry: { dispose(): void }
 }
 
 const managers = new Map<string, Entry>()
@@ -38,7 +37,6 @@ async function dispose(key: string) {
   if (!entry) return
   managers.delete(key)
   entry.progress.dispose()
-  entry.telemetry.dispose()
   await entry.manager.dispose()
 }
 
@@ -57,10 +55,7 @@ async function init(request: Extract<Request, { method: "init" }>) {
   const progress = manager.onProgressUpdate.on(() => {
     send({ type: "event", key: request.key, event: "status", data: status.normalizeIndexingStatus(manager) })
   })
-  const telemetry = manager.onTelemetry.on((data) => {
-    send({ type: "event", key: request.key, event: "telemetry", data })
-  })
-  managers.set(request.key, { manager, progress, telemetry })
+  managers.set(request.key, { manager, progress })
   await manager.initialize(request.input.config)
   send({ type: "result", id: request.id, method: "init", ok: true, value: status.normalizeIndexingStatus(manager) })
 }

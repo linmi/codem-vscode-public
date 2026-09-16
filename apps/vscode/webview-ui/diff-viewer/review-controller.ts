@@ -47,7 +47,6 @@ type Props = {
   activeTerminalId: Accessor<string | undefined>
   active?: Accessor<boolean>
   canComment?: Accessor<boolean>
-  onSendClick?: () => void
   onSendAll?: () => void
 }
 
@@ -189,7 +188,6 @@ export function createReviewController(props: Props) {
       draftMeta = null
       props.composer().draft = null
     })
-    props.onSendClick?.()
     props.focus()
   }
 
@@ -272,7 +270,6 @@ export function createReviewController(props: Props) {
   }
 
   const sendAllClick = () => {
-    props.onSendClick?.()
     sendAllToChat()
   }
 
@@ -302,7 +299,6 @@ export interface ReviewViewProps {
   sessionKey?: string
   active?: boolean
   activeTerminalId?: string
-  onSendClick?: () => void
   onSendAll?: () => void
   remoteComments?: PRComment[]
   projectId?: string
@@ -335,7 +331,6 @@ export function createReviewView(props: ReviewViewProps, root: Accessor<HTMLDivE
     diffs: rows,
     active: () => true,
     activeTerminalId: () => props.activeTerminalId,
-    onSendClick: props.onSendClick,
     onOpenFile: props.onOpenFile,
     onOpenUrl: (url) => vscode.postMessage({ type: "openExternal", url }),
     reactions: createReactionController({
@@ -382,7 +377,6 @@ export function createReviewView(props: ReviewViewProps, root: Accessor<HTMLDivE
     activeTerminalId: () => props.activeTerminalId,
     active: () => props.active !== false,
     canComment: () => props.canComment !== false,
-    onSendClick: props.onSendClick,
     onSendAll: props.onSendAll,
   })
   const pinned = createMemo(() => {

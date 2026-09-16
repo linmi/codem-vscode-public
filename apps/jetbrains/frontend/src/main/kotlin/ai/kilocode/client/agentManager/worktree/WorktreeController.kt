@@ -1,7 +1,6 @@
 package ai.kilocode.client.agentManager.worktree
 
 import ai.kilocode.client.plugin.KiloBundle
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.util.edt
 import ai.kilocode.client.session.SessionActivityKind
 import ai.kilocode.log.KiloLog
@@ -35,7 +34,6 @@ class WorktreeController(
     private val cs: CoroutineScope,
     activity: StateFlow<Map<String, SessionActivityDto>> = MutableStateFlow(emptyMap()),
     private val abort: suspend (String, String) -> Unit = { _, _ -> },
-    private val telemetry: (String, Map<String, String>) -> Unit = { event, props -> Telemetry.send(event, props) },
 ) {
     companion object {
         private val LOG = KiloLog.create(WorktreeController::class.java)
@@ -117,7 +115,6 @@ class WorktreeController(
                 branches = branchInfo.branches.filter { it !in worktreeBranches }
                 known = branchInfo.branches.toMutableSet().apply { addAll(rows.map { it.branch }) }
                 onReload?.invoke()
-                telemetry("Worktree List Loaded", mapOf("count" to extra.size.toString()))
             }
         }
     }
@@ -189,11 +186,9 @@ class WorktreeController(
                 prompt?.let { service<PendingWorktreePrompt>().put(created.path, it) }
                 onSelect?.invoke(created.id)
                 onCreated?.invoke(created)
-                telemetry("Worktree Created", mapOf("branch" to branch))
                 return@edt
             }
             if (idx >= 0) model.remove(temp)
-            telemetry("Worktree Create Failed", mapOf("branch" to branch))
             onCreateFailure?.invoke(CreateFailure(result.error, kind, branch))
         }
     }
@@ -228,7 +223,6 @@ class WorktreeController(
                     cache().remove(dto.path)
                     onRemoveSuccess?.invoke(dto, index)
                     onSuccess()
-                    telemetry("Worktree Deleted", mapOf("branch" to dto.branch, "force" to force.toString()))
                 }
                 return@launch
             }
@@ -238,10 +232,6 @@ class WorktreeController(
             edt {
                 tasks.remove(dto.id)
                 refresh(dto)
-                telemetry(
-                    "Worktree Delete Failed",
-                    mapOf("branch" to dto.branch, "force" to force.toString(), "locked" to result.locked.toString()),
-                )
                 onFailure(result)
             }
             reload()
@@ -288,10 +278,6 @@ class WorktreeController(
                                 event.session?.let { service<PendingWorktreeSession>().put(worktree.path, it) }
                                 onSelect?.invoke(worktree.id)
                                 onCreated?.invoke(worktree)
-                                telemetry(
-                                    "Continue in Worktree",
-                                    mapOf("surface" to surface, "session" to (sessionId != null).toString()),
-                                )
                             }
                             MoveStage.ERROR -> failMove(key, temp, event.error, stage)
                             else -> Unit
@@ -324,13 +310,11 @@ class WorktreeController(
                 if (updated != null) {
                     index(dto.id).takeIf { it >= 0 }?.let { model.setElementAt(updated, it) }
                     cache().put(updated)
-                    telemetry("Worktree Renamed", mapOf("path" to dto.path))
                     onSuccess(updated)
                     return@edt
                 }
                 index(dto.id).takeIf { it >= 0 }?.let { model.setElementAt(dto, it) }
                 cache().put(dto)
-                telemetry("Worktree Rename Failed", mapOf("path" to dto.path))
                 onFailure(result.error)
                 reload()
             }
@@ -352,7 +336,6 @@ class WorktreeController(
         cs.launch {
             val ok = service.reorder(directory, paths)
             if (!ok) edt { reload() }
-            edt { telemetry("Worktree Reordered", mapOf("count" to paths.size.toString())) }
         }
     }
 
@@ -384,7 +367,6 @@ class WorktreeController(
         tasks.remove(temp.id)
         model.remove(temp)
         onMoveFailure?.invoke(err)
-        telemetry("Continue in Worktree Failed", mapOf("stage" to stage.name))
     }
 
     private fun label(stage: MoveStage): String = when (stage) {

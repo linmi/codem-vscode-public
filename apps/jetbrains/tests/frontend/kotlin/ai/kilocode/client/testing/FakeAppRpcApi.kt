@@ -20,7 +20,6 @@ import ai.kilocode.rpc.dto.PermissionConfigDto
 import ai.kilocode.rpc.dto.PermissionRuleDto
 import ai.kilocode.rpc.dto.ProfileDto
 import ai.kilocode.rpc.dto.SkillsConfigDto
-import ai.kilocode.rpc.dto.TelemetryCaptureDto
 import ai.kilocode.rpc.dto.WatcherConfigDto
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
@@ -313,7 +312,6 @@ class FakeAppRpcApi : KiloAppRpcApi {
     var fakeDeviceAuth = DeviceAuthDto(code = "TEST-1234", verificationUrl = "https://auth.kilo.ai/device")
     val orgProfiles = mutableMapOf<String?, ProfileDto?>()
     val orgSelections = mutableListOf<String?>()
-    val telemetry = mutableListOf<TelemetryCaptureDto>()
 
     /** When set, [completeLogin] will await this deferred before returning. */
     var completeGate: CompletableDeferred<Unit>? = null
@@ -385,8 +383,4 @@ class FakeAppRpcApi : KiloAppRpcApi {
         return fakeProfile
     }
 
-    override suspend fun captureTelemetry(capture: TelemetryCaptureDto) {
-        assertNotEdt("captureTelemetry")
-        telemetry.add(capture)
-    }
 }

@@ -494,11 +494,6 @@ export interface RequestGitChangesContextMessage {
   sessionID?: string
   agentManagerContext?: string
 }
-
-export interface ChatCompletionAcceptedMessage {
-  type: "chatCompletionAccepted"
-  suggestionLength?: number
-}
 export interface UpdateSettingRequest {
   type: "updateSetting"
   key: string
@@ -657,12 +652,6 @@ export interface CreateWorktreeSessionRequest {
   modelID?: string
   agent?: string
   files?: FileAttachment[]
-}
-
-export interface TelemetryRequest {
-  type: "telemetry"
-  event: string
-  properties?: Record<string, unknown>
 }
 
 // Create a new worktree (with auto-created first session)
@@ -1610,7 +1599,6 @@ export type WebviewMessage =
   | RequestFilePickerMessage
   | RequestTerminalContextMessage
   | RequestGitChangesContextMessage
-  | ChatCompletionAcceptedMessage
   | UpdateSettingRequest
   | RequestTimelineSettingMessage
   | RequestThroughputSettingMessage
@@ -1654,7 +1642,6 @@ export type WebviewMessage =
   | PersistSessionRequest
   | ForgetSessionRequest
   | RenameWorktreeRequest
-  | TelemetryRequest
   | RequestRepoInfoMessage
   | RequestStateMessage
   | RequestProjectsMessage

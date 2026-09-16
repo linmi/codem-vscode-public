@@ -90,7 +90,6 @@ export interface SidebarBodyProps {
   cancelPendingDelete: () => void
   handleDeleteWorktree: (id: string, e: MouseEvent) => void
   confirmRemoveStaleWorktree: (id: string) => void
-  track: (event: string, source: string, action: () => void) => () => void
 }
 
 /** Legacy single-project sidebar body: local repo, worktrees, unassigned sessions. */
@@ -341,15 +340,11 @@ export const SidebarBody: Component<SidebarBodyProps> = (props) => {
                                 }
                                 runStatus={props.runStatuses()[wt.id]}
                                 onOpenComments={() => props.onOpenComments?.(wt.id)}
-                                onOpenPR={props.track("open_pull_request", "worktree_menu", () =>
-                                  props.onOpenPR?.(wt.id),
-                                )}
+                                onOpenPR={() => props.onOpenPR?.(wt.id)}
                                 sections={props.sections()}
                                 currentSectionId={wt.sectionId}
                                 onMoveToSection={(secId) => props.moveToSection([wt.id], secId)}
-                                onMoveToNewSection={props.track("new_section", "worktree_menu", () =>
-                                  props.onNewSection(),
-                                )}
+                                onMoveToNewSection={() => props.onNewSection()}
                                 onClick={() => props.selectWorktree(wt.id)}
                                 onCancelDelete={props.cancelPendingDelete}
                                 onDelete={(e) => props.handleDeleteWorktree(wt.id, e)}
@@ -366,9 +361,9 @@ export const SidebarBody: Component<SidebarBodyProps> = (props) => {
                                   )
                                 }
                                 onCopyPath={() => navigator.clipboard.writeText(wt.path)}
-                                onOpen={props.track("open_worktree_window", "worktree_menu", () =>
-                                  vscode.postMessage({ type: "agentManager.openWorktree", worktreeId: wt.id }),
-                                )}
+                                onOpen={() =>
+                                  vscode.postMessage({ type: "agentManager.openWorktree", worktreeId: wt.id })
+                                }
                               />
                             </div>
                           )

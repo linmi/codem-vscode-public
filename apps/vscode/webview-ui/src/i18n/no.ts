@@ -779,11 +779,6 @@ export const dict = {
   "settings.aboutCodeM.importSettings.success":
     "Innstillinger importert. Gjennomgå endringene ovenfor, og klikk deretter på Lagre.",
 
-  "settings.aboutCodeM.telemetry.title": "Telemetri",
-  "settings.aboutCodeM.telemetry.description":
-    'Telemetri styres av den innebygde telemetri-innstillingen i VS Code. For å deaktivere den, gå til Innstillinger > Telemetry > Telemetry Level og sett den til "off". Start VS Code på nytt for å ta i bruk endringen.',
-  "settings.aboutCodeM.telemetry.openSettings": "Åpne innstillinger for telemetri",
-
   "settings.agentBehaviour.subtab.agents": "Agenter",
   "settings.agentBehaviour.subtab.mcpServers": "MCP-servere",
   "settings.agentBehaviour.subtab.rules": "Regler",

@@ -45,7 +45,6 @@ import ai.kilocode.client.diff.KiloDiffComparison
 import ai.kilocode.client.diff.openKiloDiff
 import ai.kilocode.client.plugin.KiloBundle
 import ai.kilocode.client.session.SessionActivityKind
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.ui.UiStyle
 import ai.kilocode.client.ui.list.ActiveList
 import ai.kilocode.client.ui.list.ActiveListBadge
@@ -240,11 +239,9 @@ class AgentManagerPanel(
         when (plan) {
             is NewWorktreePlan.Create -> controller.create(plan.branch, plan.base, prompt = plan.prompt)
             is NewWorktreePlan.Branch -> {
-                Telemetry.send("Worktree Import Submitted", mapOf("kind" to "branch"))
                 controller.importBranch(plan.branch)
             }
             is NewWorktreePlan.Pr -> {
-                Telemetry.send("Worktree Import Submitted", mapOf("kind" to "pr"))
                 controller.importPr(plan.url)
             }
         }
@@ -306,7 +303,6 @@ class AgentManagerPanel(
 
     internal fun copyPrRef(item: WorktreeDto) {
         val pr = prDto(item) ?: return
-        Telemetry.send("Worktree Action", mapOf("action" to "copy_pr_ref"))
         CopyPasteManager.getInstance().setContents(StringSelection(CopySessionPrRefAction.reference(pr)))
     }
 
@@ -363,7 +359,6 @@ class AgentManagerPanel(
         val target = project ?: return
         if (!canRunSetup(item)) return
         val script = service<KiloWorkspaceService>().setupScript[controller.directory] ?: return
-        Telemetry.send("Worktree Setup Script Run", mapOf("surface" to "worktree_row"))
         runWorktreeSetupScript(target, script, item.path, controller.directory)
     }
 
@@ -377,7 +372,6 @@ class AgentManagerPanel(
         if (created.main) return
         val target = project ?: return
         service<KiloWorkspaceService>().ifSetupScriptExists(controller.directory) { script ->
-            Telemetry.send("Worktree Setup Script Run", mapOf("surface" to "auto"))
             runWorktreeSetupScript(target, script, created.path, controller.directory)
         }
     }

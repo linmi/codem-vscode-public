@@ -187,7 +187,6 @@ export function useGhostText(vscode: VSCodeContext, getText: () => string, conne
     saved = ""
     savedPrefix = ""
     setGhost("")
-    vscode.postMessage({ type: "chatCompletionAccepted", suggestionLength: suggestion.length })
     return { text: suggestion }
   }
 

@@ -2683,7 +2683,6 @@ export type Config = {
     native_notebook_tools?: boolean
     task_model_selection?: boolean
     speech_to_text_model?: string
-    openTelemetry?: boolean
     shared_agent_board?: boolean
     primary_tools?: Array<string>
     continue_loop_on_deny?: boolean
@@ -18236,72 +18235,6 @@ export type SuggestionDismissResponses = {
 }
 
 export type SuggestionDismissResponse = SuggestionDismissResponses[keyof SuggestionDismissResponses]
-
-export type TelemetryCaptureData = {
-  body?: {
-    /**
-     * Event name
-     */
-    event: string
-    properties?: {
-      [key: string]: unknown
-    }
-  }
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/telemetry/capture"
-}
-
-export type TelemetryCaptureErrors = {
-  /**
-   * BadRequest | InvalidRequestError
-   */
-  400: EffectHttpApiErrorBadRequest | InvalidRequestError
-}
-
-export type TelemetryCaptureError = TelemetryCaptureErrors[keyof TelemetryCaptureErrors]
-
-export type TelemetryCaptureResponses = {
-  /**
-   * Event captured
-   */
-  200: boolean
-}
-
-export type TelemetryCaptureResponse = TelemetryCaptureResponses[keyof TelemetryCaptureResponses]
-
-export type TelemetrySetEnabledData = {
-  body?: {
-    enabled: boolean
-  }
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/telemetry/setEnabled"
-}
-
-export type TelemetrySetEnabledErrors = {
-  /**
-   * BadRequest | InvalidRequestError
-   */
-  400: EffectHttpApiErrorBadRequest | InvalidRequestError
-}
-
-export type TelemetrySetEnabledError = TelemetrySetEnabledErrors[keyof TelemetrySetEnabledErrors]
-
-export type TelemetrySetEnabledResponses = {
-  /**
-   * State updated
-   */
-  200: boolean
-}
-
-export type TelemetrySetEnabledResponse = TelemetrySetEnabledResponses[keyof TelemetrySetEnabledResponses]
 
 export type MemoryStatusData = {
   body?: never

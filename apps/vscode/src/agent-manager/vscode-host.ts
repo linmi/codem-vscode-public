@@ -15,7 +15,6 @@ import { PLATFORM, SNAPSHOT_INITIALIZATION } from "./constants"
 import { DiffVirtualProvider } from "../DiffVirtualProvider"
 import { buildWebviewHtml } from "../utils"
 import { openFileInEditor, getWorkspaceRoot } from "../review-utils"
-import { TelemetryProxy, type TelemetryEventName } from "../services/telemetry"
 import type { RemoteStatusService } from "../services/RemoteStatusService"
 import type { CaffeinationService } from "../services/caffeination"
 import type { CodeMAuthenticationService } from "../services/app-server/authentication"
@@ -361,10 +360,6 @@ export class VscodeHost implements Host {
 
   copyToClipboard(text: string): void {
     void vscode.env.clipboard.writeText(text)
-  }
-
-  capture(event: string, properties?: Record<string, unknown>): void {
-    TelemetryProxy.capture(event as TelemetryEventName, properties)
   }
 
   openExternal(url: string): void {

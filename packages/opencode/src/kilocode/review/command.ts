@@ -1,6 +1,6 @@
 import type { Command } from "@/command"
-import type { ReviewCommand } from "@kilocode/kilo-telemetry"
 import REVIEW from "./review.txt"
+type ReviewCommand = "review"
 
 const legacy = {
   "local-review": {

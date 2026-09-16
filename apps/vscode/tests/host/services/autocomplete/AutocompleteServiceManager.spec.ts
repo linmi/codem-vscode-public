@@ -89,11 +89,6 @@ vi.mock("../../../../src/services/autocomplete/classic-auto-complete/Autocomplet
   return { AutocompleteInlineCompletionProvider }
 })
 
-vi.mock("../../../../src/services/autocomplete/classic-auto-complete/AutocompleteTelemetry", () => {
-  class AutocompleteTelemetry {}
-  return { AutocompleteTelemetry }
-})
-
 vi.mock("@roo-code/telemetry", () => ({
   TelemetryService: {
     instance: {

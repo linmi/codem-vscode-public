@@ -24,12 +24,6 @@ import { saveImage } from "./kilo-provider/save-image"
 import { handleEditorAction } from "./kilo-provider/editor-actions"
 import { exportTranscript } from "./kilo-provider/export-transcript"
 import {
-  TelemetryProxy,
-  type TelemetryPropertiesProvider,
-  pushTelemetryState,
-  watchTelemetryState,
-} from "./services/telemetry"
-import {
   sessionToWebview,
   indexProvidersById,
   filterVisibleAgents,
@@ -341,7 +335,7 @@ type ContextRequestMessage =
   | { type: "requestFilePicker"; requestId: string }
   | { type: "requestTerminalContext"; requestId: string; sessionID?: string; agentManagerContext?: string }
 
-export class KiloProvider implements vscode.WebviewViewProvider, TelemetryPropertiesProvider {
+export class KiloProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "codem.SidebarProvider"
   private readonly instanceId = crypto.randomUUID()
 
@@ -461,7 +455,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   private throughputConfigDisposable: vscode.Disposable | null = null
   private autoApprovalReasonConfigDisposable: vscode.Disposable | null = null
   private pushFixesConfigDisposable: vscode.Disposable | null = null
-  private telemetryStateDisposable: vscode.Disposable | null = null
   private viewStateDisposable: vscode.Disposable | null = null
   private visibilityDisposable: vscode.Disposable | null = null
 
@@ -538,7 +531,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
           void this.appServerController.handle({ type: "requestProviders" })
         }
       }) ?? null
-    TelemetryProxy.getInstance().setProvider(this)
   }
 
   setRemoteService(service: RemoteStatusService): void {
@@ -640,18 +632,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     this.documentViewerProvider = provider
   }
 
-  getTelemetryProperties(): Record<string, unknown> {
-    return {
-      appName: "codem",
-      appVersion: this.extensionVersion,
-      platform: "vscode",
-      editorName: vscode.env.appName,
-      vscodeVersion: vscode.version,
-      machineId: vscode.env.machineId,
-      vscodeIsTelemetryEnabled: vscode.env.isTelemetryEnabled,
-    }
-  }
-
   /**
    * Convenience getter that returns the shared SDK KiloClient or null if not yet connected.
    * Preserves the existing null-check pattern used throughout handler methods.
@@ -734,7 +714,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
 
     // Always push connection state first so the UI can render appropriately.
     this.postConnectionState()
-    pushTelemetryState((m) => this.postMessage(m))
 
     // Re-send ready so the webview can recover after refresh.
     if (serverInfo) {
@@ -1097,8 +1076,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     this.autoApprovalReasonConfigDisposable = watchAutoApprovalReasonConfig((msg) => this.postMessage(msg))
     this.pushFixesConfigDisposable?.dispose()
     this.pushFixesConfigDisposable = watchPushFixesConfig((msg) => this.postMessage(msg))
-    this.telemetryStateDisposable?.dispose()
-    this.telemetryStateDisposable = watchTelemetryState((msg) => this.postMessage(msg))
     this.webviewMessageDisposable = webview.onDidReceiveMessage(async (message) => {
       if (this.acknowledge(message)) return
       const intercepted = await interceptMessage(message, {
@@ -1486,9 +1463,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
         case "requestTerminalContext":
           await this.handleContextRequest(message)
           break
-        case "chatCompletionAccepted":
-          this.chatAutocomplete?.telemetry.captureAcceptSuggestion(message.suggestionLength)
-          break
         case "toggleRemote":
         case "setRemoteEnabled":
         case "requestRemoteStatus":
@@ -1558,9 +1532,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
           break
         case "resetReadNotifications":
           await resetReadNotifications(this.notificationsContext())
-          break
-        case "telemetry":
-          TelemetryProxy.capture(message.event, message.properties)
           break
         case "persistVariant": {
           const stored = this.extensionContext?.globalState.get<Record<string, string>>("variantSelections") ?? {}
@@ -5651,7 +5622,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       // never show the bar. Sidebar and "Open in Tab" only need it in Cursor —
       // VS Code's native toolbar (restored in package.json) works everywhere.
       topBar: this.opts.hideTopBar !== true && isCursorHost(),
-      topBarSurface: this.opts.topBarSurface === "tab" ? "tab_title" : "sidebar_title",
       agentManagerSettings: this.opts.agentManagerSettings !== undefined,
     })
   }
@@ -5735,7 +5705,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     this.throughputConfigDisposable?.dispose()
     this.autoApprovalReasonConfigDisposable?.dispose()
     this.pushFixesConfigDisposable?.dispose()
-    this.telemetryStateDisposable?.dispose()
     this.visibleTaskStreams.clear()
     this.streams.dispose()
     this.isWebviewReady = false

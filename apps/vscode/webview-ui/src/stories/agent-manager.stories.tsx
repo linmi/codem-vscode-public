@@ -489,7 +489,6 @@ export const DiffPanelCachedWorktreeSwitch: Story = {
               onDiffStyleChange={() => {}}
               markdownRender={false}
               onMarkdownRenderChange={() => {}}
-              onSendClick={() => {}}
               onClose={() => {}}
               onRequestDiff={() => {}}
               onOpenFile={() => {}}

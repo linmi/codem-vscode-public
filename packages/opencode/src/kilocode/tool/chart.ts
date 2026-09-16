@@ -1,7 +1,6 @@
 // kilocode_change - new file
 import { Effect, Schema } from "effect"
 import * as Tool from "../../tool/tool"
-import { Telemetry } from "@kilocode/kilo-telemetry"
 
 const Parameters = Schema.Struct({
   title: Schema.String.annotate({
@@ -11,7 +10,8 @@ const Parameters = Schema.Struct({
     description: "Optional subtitle shown below the title",
   }),
   spec: Schema.String.annotate({
-    description: "A Chart.js v4 configuration serialized as a JSON string. Pass the JSON object as a plain string value — do not nest objects, do not escape quotes manually. Example: '{\"type\":\"bar\",\"data\":{\"labels\":[\"A\",\"B\"],\"datasets\":[{\"data\":[1,2]}]}}'",
+    description:
+      'A Chart.js v4 configuration serialized as a JSON string. Pass the JSON object as a plain string value — do not nest objects, do not escape quotes manually. Example: \'{"type":"bar","data":{"labels":["A","B"],"datasets":[{"data":[1,2]}]}}\'',
   }),
 })
 
@@ -66,8 +66,6 @@ export const ChartTool = Tool.define(
               }))
             }
           }
-
-          Telemetry.trackToolUsed("chart", ctx.sessionID)
 
           return {
             title: params.title,

@@ -18,13 +18,11 @@ class KiloOnboardingServiceTest : BasePlatformTestCase() {
 
     private lateinit var scope: CoroutineScope
     private lateinit var app: MutableStateFlow<KiloAppStateDto>
-    private val telemetry = mutableListOf<Pair<String, Map<String, String>>>()
 
     override fun setUp() {
         super.setUp()
         scope = CoroutineScope(SupervisorJob())
         app = MutableStateFlow(KiloAppStateDto(KiloAppStatusDto.DISCONNECTED))
-        telemetry.clear()
     }
 
     override fun tearDown() {
@@ -46,7 +44,7 @@ class KiloOnboardingServiceTest : BasePlatformTestCase() {
         scope,
         providers.toList(),
         app,
-    ) { event, props -> telemetry.add(event to props) }
+    )
 
     fun `test detection aggregates all providers in order and skips nulls`() {
         val a = FakeOnboardingProvider("a").apply { need = OnboardingNeed("A", "a detail") }
@@ -184,17 +182,4 @@ class KiloOnboardingServiceTest : BasePlatformTestCase() {
         assertNull(svc.provider("missing"))
     }
 
-    fun `test onboarding shown telemetry fires once when steps first appear`() {
-        val a = FakeOnboardingProvider("a")
-        val svc = service(a)
-        settle()
-
-        a.need = OnboardingNeed("A", "a detail")
-        app.value = KiloAppStateDto(KiloAppStatusDto.READY)
-        settle()
-
-        val shown = telemetry.filter { it.first == "Onboarding Shown" }
-        assertEquals(1, shown.size)
-        assertEquals("1", shown.single().second["stepCount"])
-    }
 }

@@ -5,7 +5,6 @@ import ai.kilocode.client.app.Workspace
 import ai.kilocode.client.app.KiloSessionService
 import ai.kilocode.client.session.SessionManager
 import ai.kilocode.client.session.SessionSidePanelManager
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.agentManager.worktree.GhStatusCoordinator
 import ai.kilocode.client.agentManager.worktree.KiloWorktreeService
 import ai.kilocode.client.agentManager.AgentManagerHost
@@ -81,13 +80,8 @@ internal class KiloToolWindowSetupService(
                 withContext(Dispatchers.Main) {
                     setup(project, toolWindow, workspace)
                 }
-                Telemetry.send("Tool Window Opened", mapOf(
-                    "projectResolved" to dir.isNotBlank().toString(),
-                    "durationMs" to (System.currentTimeMillis() - start).toString(),
-                ))
             }
         } catch (e: Exception) {
-            Telemetry.send("Tool Window Setup Failed", mapOf("stage" to "create", "errorClass" to e::class.java.name))
             LOG.error("Failed to create Kilo tool window content", e)
         }
     }
@@ -150,7 +144,6 @@ internal class KiloToolWindowSetupService(
             // dialog and only switches to that tab once the user confirms. The dialog is anchored on
             // the chat panel because the Agents content may not be in a window hierarchy yet.
             manager.onNewWorktree = {
-                Telemetry.send("New Worktree Clicked", mapOf("surface" to "chat_dock"))
                 agentManagerPanel.configure(anchor = chat, onCreate = { agents() })
             }
             manager.onMoveToWorktree = { id, dir ->
@@ -166,7 +159,6 @@ internal class KiloToolWindowSetupService(
                     agentManagerPanel.move(id, dir, surface)
                 },
                 newWorktree = {
-                    Telemetry.send("New Worktree Clicked", mapOf("surface" to "worktree_editor"))
                     agentManagerPanel.configure(anchor = chat, onCreate = { agents() })
                 },
             )
@@ -215,7 +207,6 @@ internal class KiloToolWindowSetupService(
                 toolWindow.setAdditionalGearActions(it)
             }
         } catch (e: Exception) {
-            Telemetry.send("Tool Window Setup Failed", mapOf("stage" to "setup", "errorClass" to e::class.java.name))
             LOG.error("Failed to set up Kilo tool window content", e)
         }
     }

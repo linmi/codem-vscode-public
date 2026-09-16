@@ -79,7 +79,6 @@ export interface SideTerminalDeps {
   /** Move focus back to the chat composer. */
   refocus: () => void
   postMessage: (msg: unknown) => void
-  track: (button: string, surface: string, properties: Record<string, string>) => void
   /** Open or focus the VS Code integrated terminal for the active context. */
   openVscode: () => void
   /** Panel-local choice restored from webview state, if the user ever
@@ -146,7 +145,6 @@ export function createSideTerminal(deps: SideTerminalDeps) {
   /** Toolbar button and `Cmd/Ctrl+/`: follow the user's destination. */
   const openPreferred = (trigger: "keyboard_shortcut" | "tab_toolbar") => {
     const target = destination()
-    deps.track("terminal", trigger, { destination: target })
     if (target === "agentManager") {
       toggle(trigger)
       return
@@ -162,7 +160,6 @@ export function createSideTerminal(deps: SideTerminalDeps) {
    * while setup uses this panel-local value immediately.
    */
   const choose = (target: TerminalDestination) => {
-    deps.track("terminal_destination", "tab_toolbar", { destination: target })
     setLocal(target)
     setDestination(target)
     deps.save(target)

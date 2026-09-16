@@ -48,7 +48,8 @@ export const anacondaDesktopDict = {
   "provider.anaconda.action.continue": "Continuar de todos modos",
   "provider.anaconda.action.manage": "Administrar / Actualizar",
   "provider.anaconda.toast.refreshed.title": "Anaconda Desktop actualizado",
-  "provider.anaconda.toast.refreshed.description": "El servidor local activo y los modelos están actualizados en CodeM.",
+  "provider.anaconda.toast.refreshed.description":
+    "El servidor local activo y los modelos están actualizados en CodeM.",
   "settings.providers.note.anacondaDesktop": "Ejecuta un modelo servido localmente por Anaconda Desktop.",
   "settings.providers.tag.local": "Local",
 } as const
@@ -815,8 +816,7 @@ export const dict = {
     "Exporta o importa tus ajustes para transferirlos entre instancias de VS Code.",
   "settings.aboutCodeM.exportSettings": "Exportar",
   "settings.aboutCodeM.importSettings": "Importar",
-  "settings.aboutCodeM.importSettings.invalidJson":
-    "Archivo JSON no válido. Seleccione un archivo de ajustes válido.",
+  "settings.aboutCodeM.importSettings.invalidJson": "Archivo JSON no válido. Seleccione un archivo de ajustes válido.",
   "settings.aboutCodeM.importSettings.invalidConfig": "El archivo no contiene ajustes válidos de CodeM.",
   "settings.aboutCodeM.importSettings.tooLarge":
     "El archivo es demasiado grande. Los archivos de ajustes deben ser menores de 1 MB.",
@@ -824,11 +824,6 @@ export const dict = {
     "Este archivo fue exportado desde una versión más reciente de CodeM. Algunos ajustes podrían ignorarse.",
   "settings.aboutCodeM.importSettings.success":
     "Ajustes importados. Revise los cambios anteriores y luego haga clic en Guardar.",
-
-  "settings.aboutCodeM.telemetry.title": "Telemetría",
-  "settings.aboutCodeM.telemetry.description":
-    'La telemetría está controlada por la configuración de telemetría integrada de VS Code. Para desactivarla, ve a Configuración > Telemetría > Nivel de telemetría y establécelo en "off". Reinicia VS Code para aplicar el cambio.',
-  "settings.aboutCodeM.telemetry.openSettings": "Abrir configuración de telemetría",
 
   "settings.agentBehaviour.subtab.agents": "Agentes",
   "settings.agentBehaviour.subtab.mcpServers": "Servidores MCP",
@@ -1214,8 +1209,7 @@ export const dict = {
   "question.summary": "{{n}} de {{total}} preguntas",
   "common.review": "Revisar",
 
-  "settings.aboutCodeM.rooImport.description":
-    "Importa el historial de conversaciones de una instalación de Roo Code.",
+  "settings.aboutCodeM.rooImport.description": "Importa el historial de conversaciones de una instalación de Roo Code.",
   "settings.aboutCodeM.rooImport.button": "Importar sesiones desde Roo Code",
 
   "migration.roo.button": "Importar sesiones",

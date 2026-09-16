@@ -51,7 +51,6 @@ function deps(overrides: Partial<ToolDeps> = {}): ToolDeps {
     notifyReady: mock(() => calls.push("notifyReady")),
     push: mock(() => calls.push("push")),
     post: mock((msg: unknown) => calls.push(msg)),
-    capture: mock(() => calls.push("capture")),
     log: mock(() => {}),
     error: mock(() => {}),
     ...overrides,

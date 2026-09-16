@@ -35,7 +35,6 @@ class KiloMigrationServiceTest : BasePlatformTestCase() {
     private lateinit var service: KiloMigrationService
     private lateinit var app: MutableStateFlow<KiloAppStateDto>
     private val autocomplete = mutableListOf<LegacyAutocompleteSettingsDto>()
-    private val telemetry = mutableListOf<Pair<String, Map<String, String>>>()
 
     override fun setUp() {
         super.setUp()
@@ -43,8 +42,7 @@ class KiloMigrationServiceTest : BasePlatformTestCase() {
         rpc = FakeMigrationRpcApi()
         app = MutableStateFlow(KiloAppStateDto(KiloAppStatusDto.DISCONNECTED))
         autocomplete.clear()
-        telemetry.clear()
-        service = KiloMigrationService(scope, rpc, app, { autocomplete.add(it) }) { event, props -> telemetry.add(event to props) }
+        service = KiloMigrationService(scope, rpc, app, { autocomplete.add(it) })
     }
 
     override fun tearDown() {
@@ -76,39 +74,12 @@ class KiloMigrationServiceTest : BasePlatformTestCase() {
         assertTrue("state should be Needed", service.state.value is MigrationUiState.Needed)
     }
 
-    fun `test migration shown telemetry includes discovered payload`() {
-        app.value = KiloAppStateDto(KiloAppStatusDto.MIGRATION_REQUIRED, migration = sampleDetection())
-        settle()
-
-        val props = telemetry.single { it.first == "Migration Shown" }.second
-        assertEquals("true", props["hasData"])
-        assertEquals("1", props["providers"])
-        assertEquals("anthropic", props["providerTypes"])
-        assertEquals("2", props["mcpServers"])
-        assertEquals("sse:1,stdio:1", props["mcpTypes"])
-        assertEquals("1", props["mcpDisabled"])
-        assertEquals("2", props["customModes"])
-        assertEquals("1", props["customNativeModes"])
-        assertEquals("2", props["sessions"])
-        assertEquals("1", props["sessionDirectories"])
-        assertEquals("true", props["defaultModel"])
-        assertEquals("anthropic", props["defaultModelProvider"])
-        assertEquals("claude-3", props["defaultModelId"])
-        assertEquals("true", props["settingsLanguage"])
-        assertEquals("true", props["settingsAutocomplete"])
-        assertEquals("2", props["settingsAllowedCommands"])
-        assertEquals("app_state", props["trigger"])
-    }
-
     fun `test ready app state hides migration`() {
         app.value = KiloAppStateDto(KiloAppStatusDto.MIGRATION_REQUIRED, migration = sampleDetection())
         settle()
         app.value = KiloAppStateDto(KiloAppStatusDto.READY)
         settle()
         assertEquals(MigrationUiState.Hidden, service.state.value)
-        val props = telemetry.single { it.first == "Migration Hidden" }.second
-        assertEquals("app_status_READY", props["option"])
-        assertEquals("2", props["mcpServers"])
     }
 
     fun `test duplicate migration required does not reset running migration`() {
@@ -130,9 +101,6 @@ class KiloMigrationServiceTest : BasePlatformTestCase() {
         settle()
         assertEquals(1, rpc.skipCalls.size)
         assertEquals(MigrationUiState.Hidden, service.state.value)
-        val props = telemetry.single { it.first == "Migration Hidden" }.second
-        assertEquals("skip", props["option"])
-        assertEquals("2", props["sessions"])
     }
 
     fun `test later resumes without marking status and hides`() {
@@ -144,9 +112,6 @@ class KiloMigrationServiceTest : BasePlatformTestCase() {
         assertEquals(0, rpc.skipCalls.size)
         assertEquals(0, rpc.finalizeCalls.size)
         assertEquals(MigrationUiState.Hidden, service.state.value)
-        val props = telemetry.single { it.first == "Migration Hidden" }.second
-        assertEquals("later", props["option"])
-        assertEquals("2", props["mcpServers"])
     }
 
     fun `test later keeps wizard selectable when resume fails`() {
@@ -190,10 +155,6 @@ class KiloMigrationServiceTest : BasePlatformTestCase() {
         assertEquals(0, rpc.cleanupCalls.size)
         assertEquals(0, rpc.resumeCalls.size)
         assertEquals(MigrationUiState.Hidden, service.state.value)
-        val props = telemetry.single { it.first == "Migration Hidden" }.second
-        assertEquals("finish_completed", props["option"])
-        assertEquals("completed", props["status"])
-        assertEquals("false", props["cleanupRequested"])
     }
 
     fun `test finish after unchecked keep file cleans up legacy settings file`() {

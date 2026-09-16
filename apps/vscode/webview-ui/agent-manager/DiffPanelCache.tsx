@@ -38,7 +38,6 @@ interface Props {
   onDiffStyleChange: (style: "unified" | "split") => void
   markdownRender: boolean
   onMarkdownRenderChange: (render: boolean) => void
-  onSendClick: () => void
   onClose: () => void
   onExpand?: () => void
   onRequestDiff: (key: string, file: string) => void
@@ -124,7 +123,6 @@ export const DiffPanelCache: Component<Props> = (props) => {
               focusedComment={active() ? props.focusedComment?.(entry.key) : undefined}
               onCommentsChange={(comments) => props.setComments(entry.key, comments)}
               composer={props.composer(entry.cacheKey)}
-              onSendClick={props.onSendClick}
               onClose={props.onClose}
               onExpand={props.onExpand}
               onRequestDiff={(file) => props.onRequestDiff(entry.key, file)}

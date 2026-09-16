@@ -4,12 +4,10 @@ import { Identifier } from "../../id/id"
 import { SessionID } from "../../session/schema"
 import { zod as toZod } from "@opencode-ai/core/effect-zod"
 import * as Log from "@opencode-ai/core/util/log"
-import { Telemetry } from "@kilocode/kilo-telemetry"
 import z from "zod"
 import { Schema } from "effect"
 import { KiloSessionPromptQueue } from "../session/prompt-queue"
 import { Instance } from "../instance"
-import { parseReviewCommand } from "../review/command"
 
 export namespace Suggestion {
   const log = Log.create({ service: "suggestion" })
@@ -156,18 +154,6 @@ export namespace Suggestion {
         resolve,
         reject,
       }
-      info.actions.forEach((action, index) => {
-        const cmd = parseReviewCommand(action.prompt)
-        if (!cmd) return
-        Telemetry.trackSuggestionShown({
-          sessionId: info.sessionID,
-          requestId: info.id,
-          index,
-          tool: "suggest",
-          command: cmd,
-          actionCount: info.actions.length,
-        })
-      })
       Bus.publish(Instance.current, Event.Shown, { ...info, sessionID: SessionID.make(info.sessionID) })
     })
   }
@@ -191,18 +177,6 @@ export namespace Suggestion {
     delete s.pending[input.requestID]
 
     log.info("accepted", { requestID: input.requestID, index: input.index, label: action.label })
-
-    const cmd = parseReviewCommand(action.prompt)
-    if (cmd) {
-      Telemetry.trackSuggestionAccepted({
-        sessionId: existing.info.sessionID,
-        requestId: existing.info.id,
-        index: input.index,
-        tool: "suggest",
-        command: cmd,
-        actionCount: existing.info.actions.length,
-      })
-    }
 
     Bus.publish(Instance.current, Event.Accepted, {
       sessionID: SessionID.make(existing.info.sessionID),

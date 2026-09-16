@@ -3,7 +3,6 @@ import type { CreateWorktreeResult } from "./WorktreeManager"
 import type { WorktreeStateManager } from "./WorktreeStateManager"
 import { capture as captureGitState, apply as applyGitState, type GitSnapshot } from "./git-transfer"
 import { getErrorMessage } from "../kilo-provider-utils"
-import { PLATFORM } from "./constants"
 import { recordForkHandoff } from "./fork-handoff"
 
 export interface ContinueContext {
@@ -21,7 +20,6 @@ export interface ContinueContext {
   registerWorktreeSession: (sessionId: string, directory: string) => void
   registerSession: (session: Session) => void
   notifyReady: (sessionId: string, result: CreateWorktreeResult, worktreeId: string) => void
-  capture: (event: string, props: Record<string, unknown>) => void
   log: (...args: unknown[]) => void
 }
 
@@ -113,7 +111,7 @@ export async function forkSession(ctx: ContinueContext, sessionId: string, dir: 
   }
 }
 
-/** Register the forked session in state and emit telemetry. */
+/** Register the forked session in state. */
 export function registerSession(
   ctx: ContinueContext,
   session: Session,
@@ -130,7 +128,6 @@ export function registerSession(
   // managedSessions (and thus worktreeSessionIds) hadn't been updated yet.
   ctx.notifyReady(session.id, result, worktreeId)
   ctx.registerSession(session)
-  ctx.capture("Continue in Worktree", { source: PLATFORM, sessionId: session.id, worktreeId })
   ctx.log(`Continued sidebar session ${sourceId} → worktree ${worktreeId} (session ${session.id})`)
 }
 

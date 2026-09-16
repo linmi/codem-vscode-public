@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { KiloShutdown } from "../../src/kilocode/cli/shutdown"
 
 const calls: string[] = []
-const timeouts: Array<number | undefined> = []
 let err: unknown
 let drainCalls = 0
 let exit: string | number | null | undefined
@@ -14,24 +13,6 @@ mock.module("@opencode-ai/core/global", () => ({
 mock.module("@opencode-ai/core/installation/version", () => ({
   InstallationBuildKind: "release",
   InstallationVersion: "test",
-}))
-
-mock.module("@kilocode/kilo-telemetry", () => ({
-  Telemetry: {
-    async init() {
-      calls.push("telemetry:init")
-    },
-    async updateIdentity() {},
-    trackCliStart() {},
-    trackCliExit(code?: number) {
-      calls.push(`track:${code ?? "undefined"}`)
-    },
-    async shutdown(timeout?: number) {
-      calls.push("telemetry")
-      timeouts.push(timeout)
-      if (err) throw err
-    },
-  },
 }))
 
 mock.module("@kilocode/kilo-gateway", () => ({
@@ -87,6 +68,7 @@ mock.module("@/kilocode/session-export", () => ({
   SessionExport: {
     async shutdown() {
       calls.push("session")
+      if (err) throw err
     },
   },
 }))
@@ -141,7 +123,6 @@ async function installDrain() {
 describe("KiloCli.shutdown", () => {
   beforeEach(() => {
     calls.length = 0
-    timeouts.length = 0
     err = undefined
     drainCalls = 0
     exit = process.exitCode
@@ -159,21 +140,19 @@ describe("KiloCli.shutdown", () => {
     await expect(KiloCli.shutdown()).resolves.toBeUndefined()
 
     expect(drainCalls).toBe(0)
-    expect(timeouts).toEqual([2000])
-    expect(calls).toEqual(["track:0", "session", "telemetry", "dispose"])
+    expect(calls).toEqual(["session", "dispose"])
     expect(process.exitCode).toBe(0)
   })
 
-  test("keeps telemetry shutdown timeout best-effort and still disposes instances", async () => {
-    err = "Timeout while shutting down PostHog. Some events may not have been sent."
+  test("disposes instances and drains when session export shutdown fails", async () => {
+    err = new Error("Session export shutdown failed")
     process.exitCode = 0
     const { KiloCli } = await import("../../src/kilocode/cli/setup")
     await installDrain()
 
-    await expect(KiloCli.shutdown()).resolves.toBeUndefined()
+    await expect(KiloCli.shutdown()).rejects.toThrow("Session export shutdown failed")
 
-    expect(timeouts).toEqual([2000])
-    expect(calls).toEqual(["track:0", "session", "telemetry", "drain", "dispose"])
+    expect(calls).toEqual(["session", "drain", "dispose"])
     expect(process.exitCode).toBe(0)
   })
 
@@ -184,8 +163,7 @@ describe("KiloCli.shutdown", () => {
 
     await KiloCli.shutdown()
 
-    expect(timeouts).toEqual([2000])
-    expect(calls).toEqual(["track:1", "session", "telemetry", "drain", "dispose"])
+    expect(calls).toEqual(["session", "drain", "dispose"])
     expect(process.exitCode).toBe(1)
   })
 
@@ -199,6 +177,5 @@ describe("KiloCli.shutdown", () => {
     }
 
     expect(calls).toEqual([])
-    expect(timeouts).toEqual([])
   })
 })

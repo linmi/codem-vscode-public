@@ -811,8 +811,7 @@ export const dict = {
   "settings.aboutCodeM.community": "Community & Support",
   "settings.aboutCodeM.feedback.prefix": "Bei Fragen oder Feedback können Sie ein Issue eröffnen auf",
   "settings.aboutCodeM.feedback.or": "oder",
-  "settings.aboutCodeM.support.prefix":
-    "Bei Abrechnungs- oder Kontofragen wenden Sie sich an den Kundensupport unter",
+  "settings.aboutCodeM.support.prefix": "Bei Abrechnungs- oder Kontofragen wenden Sie sich an den Kundensupport unter",
   "settings.aboutCodeM.resetSettings.title": "Einstellungen zurücksetzen",
   "settings.aboutCodeM.resetSettings.description":
     "Dies setzt nur VS Code-erweiterungsspezifische Einstellungen auf ihre Standardwerte zurück. Einstellungen, die mit der CLI geteilt werden, wie Modi und Regeln für die automatische Genehmigung, werden in der CLI-Konfiguration gespeichert und nicht zurückgesetzt.",
@@ -832,11 +831,6 @@ export const dict = {
     "Diese Datei wurde mit einer neueren Version von CodeM exportiert. Einige Einstellungen werden möglicherweise ignoriert.",
   "settings.aboutCodeM.importSettings.success":
     "Einstellungen importiert. Überprüfen Sie die obigen Änderungen und klicken Sie dann auf Speichern.",
-
-  "settings.aboutCodeM.telemetry.title": "Telemetrie",
-  "settings.aboutCodeM.telemetry.description":
-    'Die Telemetrie wird durch die integrierte Telemetrie-Einstellung von VS Code gesteuert. Um sie zu deaktivieren, gehen Sie zu Einstellungen > Telemetrie > Telemetrie-Stufe und setzen Sie diese auf "off". Starten Sie VS Code neu, um die Änderung zu übernehmen.',
-  "settings.aboutCodeM.telemetry.openSettings": "Telemetrie-Einstellungen öffnen",
 
   "settings.agentBehaviour.subtab.agents": "Agenten",
   "settings.agentBehaviour.subtab.mcpServers": "MCP-Server",
@@ -1173,7 +1167,8 @@ export const dict = {
   "settings.display.username.title": "Benutzername",
   "settings.display.username.description": "Benutzerdefinierter Benutzername in Gesprächen",
   "settings.display.fontSize.title": "Schriftgröße",
-  "settings.display.fontSize.description": "Passen Sie die Schriftgröße der CodeM webview UI unabhängig von VS Code an.",
+  "settings.display.fontSize.description":
+    "Passen Sie die Schriftgröße der CodeM webview UI unabhängig von VS Code an.",
   "settings.display.reasoningAutoCollapse.title": "Reasoning automatisch einklappen",
   "settings.display.reasoningAutoCollapse.description":
     "Klappt Reasoning-Blöcke ein, nachdem der Agent sie fertig geschrieben hat. Deaktiviert lassen, damit Reasoning erweitert bleibt, sofern du es nicht manuell einklappst.",

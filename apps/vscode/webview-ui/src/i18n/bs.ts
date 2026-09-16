@@ -819,11 +819,6 @@ export const dict = {
   "settings.aboutCodeM.importSettings.success":
     "Postavke su uvezene. Pregledajte promjene iznad, a zatim kliknite Sačuvaj.",
 
-  "settings.aboutCodeM.telemetry.title": "Telemetrija",
-  "settings.aboutCodeM.telemetry.description":
-    'Telemetrija je kontrolisana ugrađenom postavkom za telemetriju u VS Code-u. Da biste je onemogućili, idite na Postavke > Telemetrija > Nivo telemetrije i postavite na "off". Ponovo pokrenite VS Code da biste primijenili promjenu.',
-  "settings.aboutCodeM.telemetry.openSettings": "Otvori postavke telemetrije",
-
   "settings.agentBehaviour.subtab.agents": "Agenti",
   "settings.agentBehaviour.subtab.mcpServers": "MCP serveri",
   "settings.agentBehaviour.subtab.rules": "Pravila",

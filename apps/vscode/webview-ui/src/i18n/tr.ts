@@ -137,7 +137,8 @@ export const dict = {
   "provider.connect.azure.resourceName.placeholder": "örn. my-models",
   "provider.connect.azure.baseURL.label": "Azure OpenAI uç nokta URL'si",
   "provider.connect.azure.baseURL.placeholder": "örn. https://my-models.openai.azure.com/openai",
-  "provider.connect.oauth.code.visit.prefix": "Hesabınızı bağlamak ve CodeM'da {{provider}} modellerini kullanmak için ",
+  "provider.connect.oauth.code.visit.prefix":
+    "Hesabınızı bağlamak ve CodeM'da {{provider}} modellerini kullanmak için ",
   "provider.connect.oauth.code.visit.link": "bu bağlantıya",
   "provider.connect.oauth.code.visit.suffix": " tıklayarak yetkilendirme kodunuzu alın.",
   "provider.connect.oauth.code.label": "{{method}} yetkilendirme kodu",
@@ -808,11 +809,6 @@ export const dict = {
   "settings.aboutCodeM.importSettings.success":
     "Ayarlar içe aktarıldı. Yukarıdaki değişiklikleri gözden geçirin, ardından Kaydet'e tıklayın.",
 
-  "settings.aboutCodeM.telemetry.title": "Telemetri",
-  "settings.aboutCodeM.telemetry.description":
-    "Telemetri, VS Code'un yerleşik telemetri ayarı tarafından kontrol edilir. Devre dışı bırakmak için Ayarlar > Telemetri > Telemetri Düzeyi'ne gidin ve \"off\" olarak ayarlayın. Değişikliği uygulamak için VS Code'u yeniden başlatın.",
-  "settings.aboutCodeM.telemetry.openSettings": "Telemetri Ayarlarını Aç",
-
   "settings.agentBehaviour.subtab.agents": "Ajanlar",
   "settings.agentBehaviour.subtab.mcpServers": "MCP Sunucuları",
   "settings.agentBehaviour.subtab.rules": "Kurallar",
@@ -828,8 +824,7 @@ export const dict = {
   "settings.browser.headless.title": "Başsız Mod",
   "settings.browser.headless.description": "Başsız modda çalıştır (görünür tarayıcı penceresi yok).",
 
-  "settings.language.description":
-    '"Otomatik" VS Code görüntüleme dilinizi kullanır. CodeM arayüzü için dil seçin.',
+  "settings.language.description": '"Otomatik" VS Code görüntüleme dilinizi kullanır. CodeM arayüzü için dil seçin.',
   "settings.language.auto": "Otomatik (VS Code dili)",
   "settings.language.current": "Mevcut:",
 

@@ -180,9 +180,6 @@ export interface Host {
   /** Copy text to the system clipboard. */
   copyToClipboard(text: string): void
 
-  /** Capture a telemetry event. */
-  capture(event: string, properties?: Record<string, unknown>): void
-
   /** Open a URL in the user's default browser. */
   openExternal(url: string): void
 

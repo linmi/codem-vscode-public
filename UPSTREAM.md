@@ -149,3 +149,9 @@ Do not merge upstream wholesale. Add one row for each approved intake:
 ## CodeM native spaces (2026-09-16)
 
 Added a native VS Code status-bar/QuickPick space selector using the pinned CLI 0.1.208 broker (`project_list`, `space_prepare`, `space_commit`) and Core 0.8.37 process launch binding. No upstream implementation or credential-file reader was copied; the existing Kilo command inventory does not count this new CodeM capability. Preparation, membership validation and the durable account selection remain CLI-owned. Model/skill catalogs come from the selected Core connection. The user explicitly excluded historical space migration during development; reopened sessions use the current selection. Shared package protocol tests, focused service concurrency/failure tests and real Extension Host acceptance cover this path.
+
+## 2026-09-16: remove imported Kilo analytics
+
+Removed `packages/kilo-telemetry`, its PostHog dependency, CLI lifecycle/auth/LLM/tool/suggestion/indexing forwarding, machine identity headers, and the `/telemetry/capture` and `/telemetry/setEnabled` APIs. Regenerated the SDK and removed the obsolete `experimental.openTelemetry` analytics setting. VS Code and JetBrains no longer collect or forward these events; the telemetry-backed answer ratings and TUI rating commands were removed. Editor launchers force `KILO_TELEMETRY_LEVEL=off` for independently distributed legacy CLI binaries until those binaries are replaced. This environment setting is an external-runtime boundary, not a retained local analytics implementation.
+
+Local model/provider usage, completion latency/cost accounting, indexing recovery diagnostics, session export, and separate OpenTelemetry tracing remain. The mature Webview inventory is now 262 commands (204 host/service commands and 58 App Server commands), after removing analytics capture and completion-acceptance reporting. Historical inventory counts above describe earlier checkpoints.

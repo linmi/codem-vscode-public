@@ -76,7 +76,7 @@ class ToolView(
     @RequiresEdt
     override fun headerPopup(): HeaderPopupRequest? {
         val md = toolBodyMarkdown(item)
-        return popup("tool", item.name, md.isNotBlank()) {
+        return popup(md.isNotBlank()) {
             markdownPopupBody(style, md, options = POPUP_OPTS, foreground = bodyColor())
         }
     }

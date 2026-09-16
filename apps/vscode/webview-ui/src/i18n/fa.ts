@@ -791,20 +791,13 @@ export const dict = {
     "تنظیمات خود را برای انتقال بین نمونه‌های VS Code صادر یا وارد کنید.",
   "settings.aboutCodeM.exportSettings": "صادر کردن",
   "settings.aboutCodeM.importSettings": "وارد کردن",
-  "settings.aboutCodeM.importSettings.invalidJson":
-    "فایل JSON نامعتبر است. لطفاً یک فایل تنظیمات معتبر انتخاب کنید.",
+  "settings.aboutCodeM.importSettings.invalidJson": "فایل JSON نامعتبر است. لطفاً یک فایل تنظیمات معتبر انتخاب کنید.",
   "settings.aboutCodeM.importSettings.invalidConfig": "فایل حاوی تنظیمات معتبر CodeM نیست.",
   "settings.aboutCodeM.importSettings.tooLarge":
     "فایل بیش از حد بزرگ است. فایل‌های تنظیمات باید کمتر از ۱ مگابایت باشند.",
   "settings.aboutCodeM.importSettings.newerVersion":
     "این فایل از نسخه جدیدتری از CodeM صادر شده است. برخی تنظیمات ممکن است نادیده گرفته شوند.",
-  "settings.aboutCodeM.importSettings.success":
-    "تنظیمات وارد شد. تغییرات بالا را بررسی کنید، سپس روی ذخیره کلیک کنید.",
-
-  "settings.aboutCodeM.telemetry.title": "تله‌متری",
-  "settings.aboutCodeM.telemetry.description":
-    "تله‌متری توسط تنظیمات داخلی تله‌متری VS Code کنترل می‌شود. برای غیرفعال کردن آن، به Settings > Telemetry > Telemetry Level بروید و آن را روی «off» تنظیم کنید. VS Code را مجدداً راه‌اندازی کنید تا تغییر اعمال شود.",
-  "settings.aboutCodeM.telemetry.openSettings": "باز کردن تنظیمات تله‌متری",
+  "settings.aboutCodeM.importSettings.success": "تنظیمات وارد شد. تغییرات بالا را بررسی کنید، سپس روی ذخیره کلیک کنید.",
 
   "settings.agentBehaviour.subtab.agents": "عوامل",
   "settings.agentBehaviour.subtab.mcpServers": "MCP Servers",

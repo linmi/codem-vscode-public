@@ -196,7 +196,8 @@ export const dict = {
   "prompt.action.send.recording": "转录并发送",
   "prompt.action.stop": "停止",
   "prompt.permission.label": "当前会话权限模式",
-  "prompt.permission.description": "仅影响当前会话。默认：常规审批策略；自动：由 Core 自动审核操作；YOLO：跳过权限提示和工作区边界检查。",
+  "prompt.permission.description":
+    "仅影响当前会话。默认：常规审批策略；自动：由 Core 自动审核操作；YOLO：跳过权限提示和工作区边界检查。",
   "prompt.permission.unavailable": "权限状态未就绪",
   "prompt.permission.default": "默认审批",
   "prompt.permission.auto": "自动审核",
@@ -795,11 +796,6 @@ export const dict = {
   "settings.aboutCodeM.importSettings.tooLarge": "文件过大。设置文件必须小于 1 MB。",
   "settings.aboutCodeM.importSettings.newerVersion": "此文件由较新版本的 CodeM 导出。部分设置可能会被忽略。",
   "settings.aboutCodeM.importSettings.success": "设置已导入。请查看上方的更改，然后点击保存。",
-
-  "settings.aboutCodeM.telemetry.title": "遥测",
-  "settings.aboutCodeM.telemetry.description":
-    '遥测由 VS Code 的内置遥测设置控制。若要将其禁用，请转到「设置」>「遥测」>「遥测级别」并将其设置为 "off"。重启 VS Code 以应用更改。',
-  "settings.aboutCodeM.telemetry.openSettings": "打开遥测设置",
 
   "settings.agentBehaviour.subtab.agents": "代理",
   "settings.agentBehaviour.subtab.mcpServers": "MCP 服务器",

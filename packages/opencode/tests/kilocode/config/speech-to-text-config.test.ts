@@ -15,6 +15,5 @@ describe("Config.Info experimental speech-to-text model", () => {
 
   test("keeps existing experimental defaults", () => {
     const parsed = Schema.decodeUnknownSync(Config.Info)({ experimental: { speech_to_text_model: "google/chirp-3" } })
-    expect(parsed.experimental?.openTelemetry).toBe(true)
   })
 })

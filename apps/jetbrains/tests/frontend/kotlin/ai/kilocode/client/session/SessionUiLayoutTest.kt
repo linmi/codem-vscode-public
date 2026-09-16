@@ -9,7 +9,6 @@ import ai.kilocode.client.diff.KiloDiffEditorService
 import ai.kilocode.client.diff.openKiloDiff
 import ai.kilocode.client.plugin.KiloPluginSettings
 import ai.kilocode.client.ui.ChangesPanel
-import ai.kilocode.client.telemetry.KiloTelemetryService
 import ai.kilocode.client.vfs.KiloVirtualFile
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.util.Disposer
@@ -581,8 +580,7 @@ class SessionUiLayoutTest : SessionUiTestBase() {
         val dock = dock()
         ApplicationManager.getApplication().replaceService(KiloWorkspaceService::class.java, workspaces, testRootDisposable)
         ApplicationManager.getApplication().replaceService(KiloAppService::class.java, app, testRootDisposable)
-        ApplicationManager.getApplication()
-            .replaceService(KiloTelemetryService::class.java, KiloTelemetryService(scope, appRpc), testRootDisposable)
+
         project.replaceService(KiloSessionService::class.java, sessions, testRootDisposable)
         project.replaceService(KiloDiffEditorService::class.java, KiloDiffEditorService(project, scope), testRootDisposable)
         val manager = FileEditorManager.getInstance(project)
@@ -954,7 +952,6 @@ class SessionUiLayoutTest : SessionUiTestBase() {
         assertTrue(panel.progress.isVisible)
         assertEquals(SessionEditorStyle.current().editorForeground, panel.progress.labelForeground())
     }
-
 
     fun `test rollback keeps transcript and shows inline progress`() {
         showMessages()

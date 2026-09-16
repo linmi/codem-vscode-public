@@ -17,22 +17,11 @@ export interface NextEditProviderDeps {
   getRecentlyViewedSnippets?: (document: vscode.TextDocument) => MercuryRecentSnippet[]
   /** Returns false for files that must not be sent to a server (.env etc). */
   isFileAllowed: (fsPath: string) => Promise<boolean>
-  /** Telemetry hook fired on every suggestion result. */
-  onSuggestion?: (event: NextEditSuggestionEvent) => void
   onFatalError?: (status: number | null) => void
   /** Stash for diffs that don't land on the cursor's line — rendered as a jump affordance. */
   suggestionManager?: NextEditSuggestionManager
   /** Resolves the currently selected (provider, model) at request time. */
   getModelSelection?: () => { providerId: string; modelId: string }
-}
-
-export interface NextEditSuggestionEvent {
-  shown: boolean
-  latencyMs: number
-  status: "ok" | "no-replacement" | "error"
-  errorStatus?: number
-  inputTokens?: number
-  outputTokens?: number
 }
 
 /** A parsed Mercury suggestion plus the editable region it targets. */
@@ -91,7 +80,6 @@ export class NextEditInlineCompletionProvider implements vscode.InlineCompletion
     try {
       const suggestion = await provider.suggest(ctx)
       if (!suggestion || token.isCancellationRequested) {
-        this.deps.onSuggestion?.({ shown: false, latencyMs: 0, status: "no-replacement" })
         return undefined
       }
       return this.toCompletionItems(document, position, suggestion)
@@ -150,7 +138,6 @@ export class NextEditInlineCompletionProvider implements vscode.InlineCompletion
     )
     const currentText = document.getText(fullRange)
     if (currentText === suggestion.replacement) {
-      this.emitNotShown(suggestion)
       return undefined
     }
 
@@ -231,7 +218,6 @@ export class NextEditInlineCompletionProvider implements vscode.InlineCompletion
     const cursorLineProposed = proposedLines[prefixLines]
     // A pure deletion at the trim seam has no cursor-line replacement to render.
     if (cursorLineProposed === undefined) {
-      this.emitNotShown(suggestion)
       return undefined
     }
     // Native ghost text cannot alter text before the cursor; present that edit
@@ -264,24 +250,7 @@ export class NextEditInlineCompletionProvider implements vscode.InlineCompletion
     nesLog(
       `RENDER range=[${renderRange.start.line}:${renderRange.start.character}..${renderRange.end.line}:${renderRange.end.character}] insertChars=${insertText.length}`,
     )
-    this.deps.onSuggestion?.({
-      shown: true,
-      latencyMs: suggestion.latencyMs,
-      status: "ok",
-      inputTokens: suggestion.inputTokens,
-      outputTokens: suggestion.outputTokens,
-    })
     return [item]
-  }
-
-  private emitNotShown(suggestion: SuggestionResult): void {
-    this.deps.onSuggestion?.({
-      shown: false,
-      latencyMs: suggestion.latencyMs,
-      status: "no-replacement",
-      inputTokens: suggestion.inputTokens,
-      outputTokens: suggestion.outputTokens,
-    })
   }
 
   private stashOffCursorSuggestion(
@@ -298,7 +267,6 @@ export class NextEditInlineCompletionProvider implements vscode.InlineCompletion
       // Manager wasn't wired — fall through silently. The classic path
       // already covers same-line completions; this branch only matters in
       // tests or misconfigured embeds.
-      this.emitNotShown(suggestion)
       return
     }
     if (isPureInsertion) {
@@ -339,24 +307,11 @@ export class NextEditInlineCompletionProvider implements vscode.InlineCompletion
       })
       nesLog(`replace suggestion stashed at lines [${diffStartLine}..${diffEndLine}]`)
     }
-    this.deps.onSuggestion?.({
-      shown: true,
-      latencyMs: suggestion.latencyMs,
-      status: "ok",
-      inputTokens: suggestion.inputTokens,
-      outputTokens: suggestion.outputTokens,
-    })
   }
 
   private handleError(err: unknown): undefined {
     if ((err as Error)?.name === "AbortError") return undefined
     const status = err instanceof MercuryEditError ? err.status : null
-    this.deps.onSuggestion?.({
-      shown: false,
-      latencyMs: 0,
-      status: "error",
-      errorStatus: status ?? undefined,
-    })
     if (status === 401 || status === 402) this.deps.onFatalError?.(status)
     return undefined
   }

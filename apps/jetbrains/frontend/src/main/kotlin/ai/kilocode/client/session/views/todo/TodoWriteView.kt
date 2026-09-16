@@ -51,7 +51,7 @@ class TodoWriteView(
     override fun headerPopup(): HeaderPopupRequest? {
         val data = rows(item)
         val present = data.todos.isNotEmpty() || data.before > 0 || data.after > 0
-        return popup("part", "todo", present) { buildPopup(data) }
+        return popup(present) { buildPopup(data) }
     }
 
     @RequiresEdt

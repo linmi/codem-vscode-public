@@ -2,7 +2,7 @@
   "name": "codem",
   "displayName": "CodeM",
   "description": "Development build of the CodeM editor client for VS Code.",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "icon": "assets/icons/codem.png",
   "galleryBanner": {
     "color": "#FFFFFF",

@@ -20,7 +20,6 @@ import ai.kilocode.client.session.controller.SessionController
 import ai.kilocode.client.session.history.HistoryTime
 import ai.kilocode.client.session.history.LocalHistoryItem
 import ai.kilocode.client.session.ui.empty.EmptySessionPanel
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.util.UiTimerSource
 import ai.kilocode.client.util.UiTimers
 import ai.kilocode.client.util.edt
@@ -262,14 +261,6 @@ open class WorktreeSessionEditorManager(
             onListChanged?.invoke()
             // One event per attempt, sent once the outcome is known: the surface and whether a message
             // was targeted only exist here, and a failed fork must not read as a completed one.
-            Telemetry.send(
-                "Session Forked",
-                mapOf(
-                    "surface" to surface,
-                    "message" to (messageId != null).toString(),
-                    "success" to (forked != null).toString(),
-                ),
-            )
             if (forked == null) {
                 notify(KiloBundle.message("worktree.session.fork.failed.title", name), err)
                 return@fork

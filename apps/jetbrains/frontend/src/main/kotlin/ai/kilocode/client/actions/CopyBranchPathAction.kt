@@ -1,7 +1,6 @@
 package ai.kilocode.client.actions
 
 import ai.kilocode.client.agentManager.worktree.WorktreeDataKeys
-import ai.kilocode.client.telemetry.Telemetry
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -19,7 +18,6 @@ class CopyBranchPathAction : AnAction(), DumbAware {
 
     override fun actionPerformed(e: AnActionEvent) {
         val item = e.getData(WorktreeDataKeys.WORKTREE) ?: return
-        Telemetry.send("Worktree Action", mapOf("action" to "copy_branch_path"))
         CopyPasteManager.getInstance().setContents(StringSelection(item.path))
     }
 }

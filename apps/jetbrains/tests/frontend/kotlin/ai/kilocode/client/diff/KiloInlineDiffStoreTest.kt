@@ -4,7 +4,6 @@ import ai.kilocode.client.app.KiloAppService
 import ai.kilocode.client.app.KiloSessionService
 import ai.kilocode.client.app.KiloWorkspaceService
 import ai.kilocode.client.plugin.KiloBundle
-import ai.kilocode.client.telemetry.KiloTelemetryService
 import ai.kilocode.client.testing.FakeAppRpcApi
 import ai.kilocode.client.testing.FakeSessionRpcApi
 import ai.kilocode.client.testing.FakeWorkspaceRpcApi
@@ -56,8 +55,7 @@ class KiloInlineDiffStoreTest : BasePlatformTestCase() {
             .replaceService(KiloWorkspaceService::class.java, KiloWorkspaceService(coroutines.scope, workspace), testRootDisposable)
         ApplicationManager.getApplication()
             .replaceService(KiloAppService::class.java, KiloAppService(coroutines.scope, app), testRootDisposable)
-        ApplicationManager.getApplication()
-            .replaceService(KiloTelemetryService::class.java, KiloTelemetryService(coroutines.scope, app), testRootDisposable)
+
     }
 
     override fun tearDown() {

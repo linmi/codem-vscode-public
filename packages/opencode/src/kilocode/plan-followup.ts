@@ -1,4 +1,3 @@
-import { Telemetry } from "@kilocode/kilo-telemetry"
 import { Agent } from "@/agent/agent"
 import { TuiEvent } from "@/server/tui-event"
 import { Flag } from "@opencode-ai/core/flag/flag"
@@ -37,9 +36,9 @@ export const PlanFollowupRuntime = {
     const { AppRuntime } = await import("@/effect/app-runtime")
     return AppRuntime.runPromise(
       Provider.Service.use((svc) =>
-        svc.getModel(providerID, modelID).pipe(
-          Effect.catchIf(Provider.ModelNotFoundError.isInstance, () => Effect.succeed(undefined)),
-        ),
+        svc
+          .getModel(providerID, modelID)
+          .pipe(Effect.catchIf(Provider.ModelNotFoundError.isInstance, () => Effect.succeed(undefined))),
       ),
     )
   },
@@ -205,10 +204,7 @@ export namespace PlanFollowup {
     }
   }
 
-  async function pick(
-    ref: { providerID: string; modelID: string } | undefined,
-    variant?: string,
-  ) {
+  async function pick(ref: { providerID: string; modelID: string } | undefined, variant?: string) {
     if (!ref) return
     return stamp(ref, variant)
   }
@@ -536,18 +532,15 @@ export namespace PlanFollowup {
 
     const answers = await prompt({ sessionID: input.sessionID, abort: input.abort, question: input.question })
     if (!answers) {
-      Telemetry.trackPlanFollowup(input.sessionID, "dismissed")
       return "break"
     }
 
     const answer = answers[0]?.[0]?.trim()
     if (!answer) {
-      Telemetry.trackPlanFollowup(input.sessionID, "dismissed")
       return "break"
     }
 
     if (answer === ANSWER_NEW_SESSION) {
-      Telemetry.trackPlanFollowup(input.sessionID, "new_session")
       const ctx = Instance.current
       const { file } = await locatePlan(input.sessionID, input.messages)
       await startNew({
@@ -561,7 +554,6 @@ export namespace PlanFollowup {
     }
 
     if (answer === ANSWER_CONTINUE) {
-      Telemetry.trackPlanFollowup(input.sessionID, "continue")
       const code = await resolveCodeModel({
         model: user.model,
       })
@@ -588,7 +580,6 @@ export namespace PlanFollowup {
     }
 
     if (answer === ANSWER_KEEP_REFINING) {
-      Telemetry.trackPlanFollowup(input.sessionID, "keep_refining")
       const msg = await inject({
         sessionID: input.sessionID,
         agent: "plan",
@@ -598,8 +589,6 @@ export namespace PlanFollowup {
       KiloSessionPromptQueue.retarget(input.sessionID, msg.id)
       return "continue"
     }
-
-    Telemetry.trackPlanFollowup(input.sessionID, "custom")
     const msg = await inject({
       sessionID: input.sessionID,
       agent: "plan",

@@ -379,11 +379,9 @@ const AppContent: Component = () => {
   // real page HTML).
   const host = window as {
     KILO_TOP_BAR?: boolean
-    KILO_TOP_BAR_SURFACE?: string
     KILO_AGENT_MANAGER_SETTINGS?: boolean
   }
   const showTopBar = host.KILO_TOP_BAR !== false
-  const topBarSurface = host.KILO_TOP_BAR_SURFACE ?? "sidebar_title"
 
   return (
     <div class="container">
@@ -391,7 +389,6 @@ const AppContent: Component = () => {
         <SidebarTopBar
           onNewTask={() => handleViewAction("plusButtonClicked")}
           onHistory={() => handleViewAction("historyButtonClicked")}
-          surface={topBarSurface}
         />
       </Show>
       <Show

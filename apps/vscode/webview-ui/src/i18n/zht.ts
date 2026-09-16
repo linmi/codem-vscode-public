@@ -195,7 +195,8 @@ export const dict = {
   "prompt.action.send.recording": "轉錄並傳送",
   "prompt.action.stop": "停止",
   "prompt.permission.label": "目前會話權限模式",
-  "prompt.permission.description": "僅影響目前會話。預設：一般審批策略；自動：由 Core 自動審核操作；YOLO：跳過權限提示和工作區邊界檢查。",
+  "prompt.permission.description":
+    "僅影響目前會話。預設：一般審批策略；自動：由 Core 自動審核操作；YOLO：跳過權限提示和工作區邊界檢查。",
   "prompt.permission.unavailable": "權限狀態未就緒",
   "prompt.permission.default": "預設審批",
   "prompt.permission.auto": "自動審核",
@@ -755,11 +756,6 @@ export const dict = {
   "settings.aboutCodeM.importSettings.tooLarge": "檔案過大。設定檔必須小於 1 MB。",
   "settings.aboutCodeM.importSettings.newerVersion": "此檔案由較新版本的 CodeM 匯出。部分設定可能會被忽略。",
   "settings.aboutCodeM.importSettings.success": "設定已匯入。請檢視上方的變更，然後點擊儲存。",
-
-  "settings.aboutCodeM.telemetry.title": "遙測",
-  "settings.aboutCodeM.telemetry.description":
-    '遙測由 VS Code 內建的遙測設定控制。若要停用，請前往「設定」>「遙測」>「遙測層級」並將其設為 "off"。重新啟動 VS Code 以套用變更。',
-  "settings.aboutCodeM.telemetry.openSettings": "開啟遙測設定",
 
   "settings.agentBehaviour.subtab.agents": "代理程式",
   "settings.agentBehaviour.subtab.mcpServers": "MCP 伺服器",

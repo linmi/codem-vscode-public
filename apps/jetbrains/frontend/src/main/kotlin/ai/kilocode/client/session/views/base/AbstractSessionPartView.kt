@@ -5,7 +5,6 @@ import ai.kilocode.client.session.ui.popup.HeaderPopupRequest
 import ai.kilocode.client.session.ui.style.SessionEditorStyle
 import ai.kilocode.client.session.ui.style.SessionUiStyle
 import ai.kilocode.client.session.views.SessionViewIcons
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.ui.md.MdCodeBlockFactory
 import ai.kilocode.client.ui.md.MdCodeBlockOptions
 import ai.kilocode.client.ui.md.MdView
@@ -186,17 +185,14 @@ abstract class AbstractSessionPartView(
 
     /**
      * Standard collapsed hover-preview request anchored to the card header, or null when the card is
-     * not expandable, is already expanded, or has no [present] preview content. [kind]/[name] are the
-     * telemetry attributes (e.g. `"tool"`/`"bash"`, `"part"`/`"reasoning"`). [body] is built lazily
+     * not expandable, is already expanded, or has no [present] preview content. [body] is built lazily
      * when the popup actually shows; its disposable is owned by the popup controller and disposed on
      * hide, so subclasses just build fresh, self-contained content.
      */
     @RequiresEdt
-    protected fun popup(kind: String, name: String, present: Boolean, body: () -> HeaderPopupBody): HeaderPopupRequest? {
+    protected fun popup(present: Boolean, body: () -> HeaderPopupBody): HeaderPopupRequest? {
         if (!expandable || isExpanded() || !present) return null
-        return HeaderPopupRequest(row, body) {
-            Telemetry.send("Header Popup Shown", mapOf("surface" to "session", kind to name))
-        }
+        return HeaderPopupRequest(row, body)
     }
 
     /**

@@ -440,7 +440,7 @@ class WorktreeControllerTest : BasePlatformTestCase() {
         val selected = mutableListOf<String>()
         val aborts = mutableListOf<Pair<String, String>>()
         val events = mutableListOf<Pair<String, Map<String, String>>>()
-        val controller = controller(abort = { id, dir -> aborts += id to dir }, telemetry = { name, props -> events += name to props })
+        val controller = controller(abort = { id, dir -> aborts += id to dir })
         controller.onSelect = { selected += it }
 
         ApplicationManager.getApplication().invokeAndWait { controller.move("ses_source", "/repo") }
@@ -462,26 +462,7 @@ class WorktreeControllerTest : BasePlatformTestCase() {
             assertNull(service<PendingWorktreeSession>().take(done.path))
         }
         assertEquals(done.id, selected.last())
-        assertTrue(
-            events.any {
-                it.first == "Continue in Worktree" && it.second["surface"] == "sidebar" && it.second["session"] == "true"
-            },
-        )
-    }
 
-    fun `test move reports the caller's surface on the telemetry event`() {
-        // Reuses "test move without a session..."'s no-session DONE event (no `session` field) so
-        // this leaves nothing in the app-level PendingWorktreeSession service for another test in
-        // this file to trip over.
-        val done = WorktreeDto("/wt/moved-surface", "moved-surface", "moved-surface", "/wt/moved-surface")
-        rpc.moveScript = listOf(MoveProgressDto(MoveStage.DONE, worktree = done))
-        val events = mutableListOf<Pair<String, Map<String, String>>>()
-        val controller = controller(telemetry = { name, props -> events += name to props })
-
-        ApplicationManager.getApplication().invokeAndWait { controller.move("ses_source", "/repo", "worktree_editor") }
-        flush()
-
-        assertTrue(events.any { it.first == "Continue in Worktree" && it.second["surface"] == "worktree_editor" })
     }
 
     fun `test move without a session transfers changes and skips forking`() {
@@ -494,7 +475,7 @@ class WorktreeControllerTest : BasePlatformTestCase() {
         val selected = mutableListOf<String>()
         val aborts = mutableListOf<Pair<String, String>>()
         val events = mutableListOf<Pair<String, Map<String, String>>>()
-        val controller = controller(abort = { id, dir -> aborts += id to dir }, telemetry = { name, props -> events += name to props })
+        val controller = controller(abort = { id, dir -> aborts += id to dir })
         controller.onSelect = { selected += it }
 
         ApplicationManager.getApplication().invokeAndWait { controller.move(null, "/repo") }
@@ -509,7 +490,7 @@ class WorktreeControllerTest : BasePlatformTestCase() {
             assertNull(service<PendingWorktreeSession>().take(done.path))
         }
         assertEquals(done.id, selected.last())
-        assertTrue(events.any { it.first == "Continue in Worktree" && it.second["session"] == "false" })
+
     }
 
     fun `test duplicate move without a session is ignored while in flight`() {
@@ -533,7 +514,7 @@ class WorktreeControllerTest : BasePlatformTestCase() {
         )
         val failures = mutableListOf<String?>()
         val events = mutableListOf<Pair<String, Map<String, String>>>()
-        val controller = controller(telemetry = { name, props -> events += name to props })
+        val controller = controller()
         controller.onMoveFailure = { failures += it }
 
         ApplicationManager.getApplication().invokeAndWait { controller.move("ses_source", "/repo") }
@@ -541,7 +522,7 @@ class WorktreeControllerTest : BasePlatformTestCase() {
 
         assertEquals(0, controller.model.size)
         assertEquals(listOf("boom"), failures)
-        assertTrue(events.any { it.first == "Continue in Worktree Failed" && it.second["stage"] == "CREATING" })
+
     }
 
     fun `test duplicate move for session is ignored while in flight`() {
@@ -710,14 +691,13 @@ class WorktreeControllerTest : BasePlatformTestCase() {
             cache.remove("/wt")
         }
 
-        assertEquals(listOf("/wt" to "Name", "/wt" to null), events)
     }
 
     private fun controller(
         activity: MutableStateFlow<Map<String, SessionActivityDto>> = MutableStateFlow(emptyMap()),
         abort: suspend (String, String) -> Unit = { _, _ -> },
-        telemetry: (String, Map<String, String>) -> Unit = { _, _ -> },
-    ) = WorktreeController(service, "/test", coroutines.scope, activity = activity, abort = abort, telemetry = telemetry)
+
+    ) = WorktreeController(service, "/test", coroutines.scope, activity = activity, abort = abort)
 
     private fun flush() = coroutines.drain(::pump)
 

@@ -198,7 +198,8 @@ export const dict = {
   "prompt.action.send.recording": "Transcribe and send",
   "prompt.action.stop": "Stop",
   "prompt.permission.label": "Thread permission mode",
-  "prompt.permission.description": "Core permissions for this thread. Default: normal approval policy. Auto: Core reviews actions automatically. YOLO: skips permission prompts and workspace boundary checks.",
+  "prompt.permission.description":
+    "Core permissions for this thread. Default: normal approval policy. Auto: Core reviews actions automatically. YOLO: skips permission prompts and workspace boundary checks.",
   "prompt.permission.unavailable": "Permission mode unavailable",
   "prompt.permission.default": "Default",
   "prompt.permission.auto": "Auto",
@@ -802,11 +803,6 @@ export const dict = {
     "This file was exported from a newer version of CodeM. Some settings may be ignored.",
   "settings.aboutCodeM.importSettings.success": "Settings imported. Review the changes above, then click Save.",
 
-  "settings.aboutCodeM.telemetry.title": "Telemetry",
-  "settings.aboutCodeM.telemetry.description":
-    'Telemetry is controlled by VS Code\'s built-in telemetry setting. To disable it, go to Settings > Telemetry > Telemetry Level and set it to "off". Restart VS Code to apply the change.',
-  "settings.aboutCodeM.telemetry.openSettings": "Open Telemetry Settings",
-
   "settings.agentBehaviour.subtab.agents": "Agents",
   "settings.agentBehaviour.subtab.mcpServers": "MCP Servers",
   "settings.agentBehaviour.subtab.rules": "Rules",
@@ -824,8 +820,7 @@ export const dict = {
   "settings.browser.headless.description":
     "Agent Manager always runs the browser headlessly. The page preview appears in the Browser panel.",
 
-  "settings.language.description":
-    'Choose the language for the CodeM UI. "Auto" uses your VS Code display language.',
+  "settings.language.description": 'Choose the language for the CodeM UI. "Auto" uses your VS Code display language.',
   "settings.language.auto": "Auto (VS Code language)",
   "settings.language.current": "Current:",
 

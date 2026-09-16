@@ -4,7 +4,6 @@ import ai.kilocode.client.app.KiloAppService
 import ai.kilocode.client.app.KiloSessionService
 import ai.kilocode.client.app.KiloWorkspaceService
 import ai.kilocode.client.plugin.KiloBundle
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.ui.UiStyle
 import ai.kilocode.client.ui.layout.Stack
 import ai.kilocode.client.vfs.KiloEditorKind
@@ -134,7 +133,6 @@ internal class KiloDiffEditorService(
             KiloDiffEditorKind.ID,
             diffParams(comparison.source, dir, null, comparison.title(branch), branch),
         )
-        if (opened) Telemetry.send("Diff Editor Opened", mapOf("source" to comparison.source))
     }
 
     fun load(params: Map<String, String>, parent: Disposable, done: (DiffEditorData) -> Unit) {

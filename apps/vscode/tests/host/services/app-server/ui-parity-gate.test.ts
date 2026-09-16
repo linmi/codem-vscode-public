@@ -1,12 +1,16 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { APP_SERVER_V1_PROTOCOL_GAPS, assertMatureUiProductionReady, matureUiParityReport } from "../../../../src/services/app-server/ui-parity-gate.ts"
+import {
+  APP_SERVER_V1_PROTOCOL_GAPS,
+  assertMatureUiProductionReady,
+  matureUiParityReport,
+} from "../../../../src/services/app-server/ui-parity-gate.ts"
 
 describe("mature UI production parity gate", () => {
-  it("accounts for the complete 264-command mature Webview surface", () => {
+  it("accounts for the complete 262-command mature Webview surface", () => {
     const report = matureUiParityReport()
-    assert.equal(report.totalCommands, 264)
-    assert.equal(report.preservedHostCommands, 206)
+    assert.equal(report.totalCommands, 262)
+    assert.equal(report.preservedHostCommands, 204)
     assert.equal(report.appServerCommands, 58)
     assert.equal(report.controllerReady.length, 20)
     assert.equal(report.controllerPending.length, 0)

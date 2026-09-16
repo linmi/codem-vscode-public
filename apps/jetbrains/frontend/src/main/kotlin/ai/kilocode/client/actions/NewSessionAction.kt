@@ -2,7 +2,6 @@ package ai.kilocode.client.actions
 
 import ai.kilocode.client.plugin.KiloBundle
 import ai.kilocode.client.session.SessionManager
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.agentManager.SidePanelKeys
 import ai.kilocode.client.agentManager.SidePanelMode
 import com.intellij.openapi.actionSystem.AnAction
@@ -16,7 +15,6 @@ class NewSessionAction : AnAction(
     KiloActionIcons.add,
 ), DumbAware {
     override fun actionPerformed(e: AnActionEvent) {
-        Telemetry.send("New Session Clicked", mapOf("surface" to "tool_window"))
         e.getData(SessionManager.KEY)?.newSession()
     }
 

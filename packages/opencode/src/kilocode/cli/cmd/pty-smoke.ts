@@ -28,7 +28,7 @@ export async function render(file: string, args: string[] = ["--pure"], timeout 
     KILO_DISABLE_PROJECT_CONFIG: "1",
     KILO_DISABLE_DEFAULT_PLUGINS: "1",
     KILO_PURE: "1",
-    KILO_CONFIG_CONTENT: JSON.stringify({ enabled_providers: ["anthropic"], experimental: { openTelemetry: false } }),
+    KILO_CONFIG_CONTENT: JSON.stringify({ enabled_providers: ["anthropic"] }),
     KILO_AUTH_CONTENT: "{}",
     ANTHROPIC_API_KEY: "dummy",
     HOME: dir,

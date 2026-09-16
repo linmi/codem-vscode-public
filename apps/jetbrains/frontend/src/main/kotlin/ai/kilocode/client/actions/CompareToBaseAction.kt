@@ -1,7 +1,6 @@
 package ai.kilocode.client.actions
 
 import ai.kilocode.client.session.SessionActionsKeys
-import ai.kilocode.client.telemetry.Telemetry
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -24,7 +23,6 @@ class CompareToBaseAction : AnAction(), DumbAware {
     override fun actionPerformed(e: AnActionEvent) {
         val actions = e.getData(SessionActionsKeys.ACTIONS) ?: return
         if (!actions.git) return
-        Telemetry.send("Session Action", mapOf("action" to "compare_to_base"))
         actions.compare()
     }
 }

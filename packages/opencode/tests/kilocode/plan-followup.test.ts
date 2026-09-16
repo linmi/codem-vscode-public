@@ -1,6 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test"
 import { Effect } from "effect"
-import { Telemetry } from "@kilocode/kilo-telemetry"
 import { Global } from "@opencode-ai/core/global"
 import * as Log from "@opencode-ai/core/util/log"
 import { Agent } from "../../src/agent/agent"
@@ -69,10 +68,7 @@ const todo = {
   },
 }
 
-const session = makeRuntime(
-  Session.Service,
-  LayerNode.compile(LayerNode.group([Session.node, SessionProjector.node])),
-)
+const session = makeRuntime(Session.Service, LayerNode.compile(LayerNode.group([Session.node, SessionProjector.node])))
 const store = {
   create: (input?: Parameters<Session.Interface["create"]>[0]) => session.runPromise((svc) => svc.create(input)),
   get: (id: SessionID) => session.runPromise((svc) => svc.get(id)),
@@ -501,11 +497,8 @@ describe("plan follow-up", () => {
 
   test("ask - returns continue and creates plan message on Keep refining", () =>
     withInstance(async () => {
-      const track = spyOn(Telemetry, "trackPlanFollowup").mockImplementation(() => {})
       using _ = {
-        [Symbol.dispose]() {
-          track.mockRestore()
-        },
+        [Symbol.dispose]() {},
       }
       const seeded = await seed({ text: "1. Build\n2. Test" })
       const pending = PlanFollowup.ask({
@@ -524,7 +517,6 @@ describe("plan follow-up", () => {
       })
 
       await expect(pending).resolves.toBe("continue")
-      expect(track).toHaveBeenCalledWith(seeded.sessionID, "keep_refining")
 
       const user = await latestUser(seeded.sessionID)
       expect(user?.info.role).toBe("user")
@@ -1785,7 +1777,9 @@ describe("plan follow-up", () => {
         ...fakeAgent,
         model,
       } as any)
-      const availableSpy = spyOn(PlanFollowupRuntime, "modelIfAvailable").mockRejectedValue(new Error("catalog unavailable"))
+      const availableSpy = spyOn(PlanFollowupRuntime, "modelIfAvailable").mockRejectedValue(
+        new Error("catalog unavailable"),
+      )
       const handoverSpy = spyOn(PlanFollowupRuntime, "handover").mockResolvedValue("should not run")
       using _ = {
         [Symbol.dispose]() {

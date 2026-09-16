@@ -17,7 +17,7 @@ import { routeProjectSession } from "./project/messages"
  * State is reached through the ProjectContext the handler receives; this host
  * only carries what genuinely belongs to the provider: shared creation
  * helpers, the panel session facade, route registration, poller skips, the
- * diff controller, telemetry, and the webview boundary.
+ * diff controller and the webview boundary.
  */
 export interface LifecycleHost {
   createOnDisk: (opts?: CreateWorktreeOnDiskOptions) => Promise<CreateWorktreeOnDiskResult | null>
@@ -47,7 +47,6 @@ export interface LifecycleHost {
   clearRun: (worktreeId: string) => Promise<boolean>
   forgetName: (worktreeId: string) => void
   stopDiffs: (path: string, orphaned: ManagedSession[]) => void
-  capture: (event: string, props: Record<string, unknown>) => void
   autoName: () => { enabled: boolean }
   client: () => KiloClient
   acquirePtyCleanup: (directory: string) => Promise<() => void>
@@ -100,12 +99,6 @@ export async function createLifecycleWorktree(
   // sees the worktree mapping and routes the session to the worktree tab.
   host.notifyReady(session.id, created.result, created.worktree.id)
   host.sessions.register(session)
-  host.capture("Agent Manager Session Started", {
-    source: PLATFORM,
-    sessionId: session.id,
-    worktreeId: created.worktree.id,
-    branch: created.result.branch,
-  })
   host.log(`Created worktree ${created.worktree.id} with session ${session.id}`)
   return null
 }
@@ -340,12 +333,6 @@ export async function addSessionToLifecycleWorktree(
     host.register(sessionId, worktree.path)
     host.push()
     host.post({ type: "agentManager.sessionAdded", sessionId, worktreeId })
-    host.capture("Agent Manager Session Started", {
-      source: PLATFORM,
-      sessionId,
-      worktreeId,
-      existing: true,
-    })
     host.log(`Added existing session ${sessionId} to worktree ${worktreeId}`)
     return null
   }
@@ -361,12 +348,6 @@ export async function addSessionToLifecycleWorktree(
   } catch (error) {
     const err = getErrorMessage(error)
     host.post({ type: "error", message: `Failed to create session: ${err}` })
-    host.capture("Agent Manager Session Error", {
-      source: PLATFORM,
-      error: err,
-      context: "addSessionToWorktree",
-      worktreeId,
-    })
     return null
   }
 
@@ -375,12 +356,6 @@ export async function addSessionToLifecycleWorktree(
   host.push()
   host.post({ type: "agentManager.sessionAdded", sessionId: session.id, worktreeId })
   host.sessions.register(session)
-
-  host.capture("Agent Manager Session Started", {
-    source: PLATFORM,
-    sessionId: session.id,
-    worktreeId,
-  })
   host.log(`Added session ${session.id} to worktree ${worktreeId}`)
   return null
 }

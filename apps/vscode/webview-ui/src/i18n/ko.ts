@@ -805,18 +805,12 @@ export const dict = {
     "VS Code 인스턴스 간에 설정을 전송하려면 내보내기 또는 가져오기하세요.",
   "settings.aboutCodeM.exportSettings": "내보내기",
   "settings.aboutCodeM.importSettings": "가져오기",
-  "settings.aboutCodeM.importSettings.invalidJson":
-    "유효하지 않은 JSON 파일입니다. 올바른 설정 파일을 선택해 주세요.",
+  "settings.aboutCodeM.importSettings.invalidJson": "유효하지 않은 JSON 파일입니다. 올바른 설정 파일을 선택해 주세요.",
   "settings.aboutCodeM.importSettings.invalidConfig": "파일에 유효한 CodeM 설정이 포함되어 있지 않습니다.",
   "settings.aboutCodeM.importSettings.tooLarge": "파일이 너무 큽니다. 설정 파일은 1 MB 이하여야 합니다.",
   "settings.aboutCodeM.importSettings.newerVersion":
     "이 파일은 더 최신 버전의 CodeM에서 내보낸 것입니다. 일부 설정이 무시될 수 있습니다.",
   "settings.aboutCodeM.importSettings.success": "설정을 가져왔습니다. 위의 변경 사항을 확인한 후 저장을 클릭하세요.",
-
-  "settings.aboutCodeM.telemetry.title": "원격 측정",
-  "settings.aboutCodeM.telemetry.description":
-    '원격 측정은 VS Code에 내장된 원격 측정 설정으로 제어됩니다. 비활성화하려면 설정 > 원격 측정 > 원격 측정 수준으로 이동하여 "off"로 설정하세요. 변경 사항을 적용하려면 VS Code를 다시 시작하세요.',
-  "settings.aboutCodeM.telemetry.openSettings": "원격 측정 설정 열기",
 
   "settings.agentBehaviour.subtab.agents": "에이전트",
   "settings.agentBehaviour.subtab.mcpServers": "MCP 서버",

@@ -4,7 +4,6 @@ import ai.kilocode.client.session.controller.SessionController
 import ai.kilocode.client.session.ui.empty.EmptySessionPanel
 import ai.kilocode.client.app.KiloWorkspaceService
 import ai.kilocode.client.app.Workspace
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.util.UiTimer
 import ai.kilocode.client.util.UiTimerSource
 import ai.kilocode.client.util.UiTimers
@@ -60,7 +59,6 @@ abstract class SessionHost(
             } else create(ref)
         }
         if (current === ui) return
-        Telemetry.send("Session Opened", mapOf("source" to ref.type.name.lowercase(), "sessionId" to ref.id))
         show(ui, focus)
     }
 

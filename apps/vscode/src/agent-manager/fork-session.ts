@@ -1,8 +1,6 @@
 import type { KiloClient, Session } from "@kilocode/sdk/v2/client"
 import { getErrorMessage } from "../kilo-provider-utils"
-import { TelemetryProxy, TelemetryEventName } from "../services/telemetry"
 import type { WorktreeStateManager } from "./WorktreeStateManager"
-import { PLATFORM } from "./constants"
 import { recordForkHandoff } from "./fork-handoff"
 
 export interface ForkContext {
@@ -51,12 +49,6 @@ export async function forkSession(
   } catch (error) {
     const err = getErrorMessage(error)
     ctx.postError(`Failed to fork session: ${err}`)
-    TelemetryProxy.capture(TelemetryEventName.AGENT_MANAGER_SESSION_ERROR, {
-      source: PLATFORM,
-      error: err,
-      context: "forkSession",
-      sessionId,
-    })
     return null
   }
 

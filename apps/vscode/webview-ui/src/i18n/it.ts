@@ -685,10 +685,6 @@ export const dict = {
     "Questo file è stato esportato da una versione più recente di CodeM. Alcune impostazioni potrebbero essere ignorate.",
   "settings.aboutCodeM.importSettings.success":
     "Impostazioni importate. Controlla le modifiche sopra, poi fai clic su Salva.",
-  "settings.aboutCodeM.telemetry.title": "Telemetria",
-  "settings.aboutCodeM.telemetry.description":
-    'La telemetria è controllata dall\'impostazione integrata di VS Code. Per disabilitarla, vai in Impostazioni > Telemetria > Livello telemetria e impostala su "off". Riavvia VS Code per applicare la modifica.',
-  "settings.aboutCodeM.telemetry.openSettings": "Apri impostazioni telemetria",
   "settings.agentBehaviour.subtab.agents": "Agenti",
   "settings.agentBehaviour.subtab.mcpServers": "Server MCP",
   "settings.agentBehaviour.subtab.rules": "Regole",
@@ -1210,7 +1206,8 @@ export const dict = {
   "settings.models.speechToText.disabledDescription":
     "Abilita e accedi al provider CodeM per usare Da voce a testo. Da voce a testo è attualmente supportato solo tramite CodeM Gateway.",
   "settings.models.speechToTextModel.title": "Modello Da voce a testo",
-  "settings.models.speechToTextModel.description": "Scegli il modello di trascrizione CodeM Gateway per l'input vocale.",
+  "settings.models.speechToTextModel.description":
+    "Scegli il modello di trascrizione CodeM Gateway per l'input vocale.",
 
   // Compaction limit
   "settings.context.compactionLimit.title": "Limite compattazione automatica",

@@ -817,11 +817,6 @@ export const dict = {
   "settings.aboutCodeM.importSettings.success":
     "Настройки импортированы. Просмотрите изменения выше и нажмите «Сохранить».",
 
-  "settings.aboutCodeM.telemetry.title": "Телеметрия",
-  "settings.aboutCodeM.telemetry.description":
-    'Телеметрия управляется встроенной настройкой телеметрии VS Code. Чтобы отключить её, перейдите в Настройки > Телеметрия > Уровень телеметрии и установите значение "off". Перезапустите VS Code, чтобы применить изменение.',
-  "settings.aboutCodeM.telemetry.openSettings": "Открыть настройки телеметрии",
-
   "settings.agentBehaviour.subtab.agents": "Агенты",
   "settings.agentBehaviour.subtab.mcpServers": "MCP-серверы",
   "settings.agentBehaviour.subtab.rules": "Правила",

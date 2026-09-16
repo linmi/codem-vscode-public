@@ -801,11 +801,6 @@ export const dict = {
     "تم تصدير هذا الملف من إصدار أحدث من CodeM. قد يتم تجاهل بعض الإعدادات.",
   "settings.aboutCodeM.importSettings.success": "تم استيراد الإعدادات. راجع التغييرات أعلاه، ثم انقر على حفظ.",
 
-  "settings.aboutCodeM.telemetry.title": "Telemetry",
-  "settings.aboutCodeM.telemetry.description":
-    'يتم التحكم في Telemetry بواسطة إعداد Telemetry المدمج في VS Code. لتعطيله، انتقل إلى الإعدادات > Telemetry > Telemetry Level واضبطه على "off". أعد تشغيل VS Code لتطبيق التغيير.',
-  "settings.aboutCodeM.telemetry.openSettings": "فتح إعدادات Telemetry",
-
   "settings.agentBehaviour.subtab.agents": "الوكلاء",
   "settings.agentBehaviour.subtab.mcpServers": "خوادم MCP",
   "settings.agentBehaviour.subtab.rules": "القواعد",

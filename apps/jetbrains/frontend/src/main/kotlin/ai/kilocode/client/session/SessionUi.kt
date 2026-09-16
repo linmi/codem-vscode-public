@@ -74,7 +74,6 @@ import ai.kilocode.client.session.views.permission.PermissionView
 import ai.kilocode.client.session.views.question.QuestionView
 import ai.kilocode.client.settings.KiloSettingsConfigurable
 import ai.kilocode.client.settings.profile.UserProfileConfigurable
-import ai.kilocode.client.telemetry.Telemetry
 import ai.kilocode.client.util.UiTimerSource
 import ai.kilocode.client.util.UiTimers
 import ai.kilocode.client.vfs.KiloVfsManager
@@ -186,7 +185,6 @@ class SessionUi(
         openProfileAction = ::openProfileSettings,
         timers = timers,
     )
-
 
     private lateinit var root: SessionRootPanel
     private lateinit var fileLinks: SessionFileLinks
@@ -664,10 +662,6 @@ class SessionUi(
             prompt.setAutoApprove(controller.autoApprove)
             prompt.model.favorites = { app.favorites.value }
             prompt.model.onFavoriteToggle = { item ->
-                Telemetry.send(
-                    "Model Favorite Toggled",
-                    mapOf("provider" to item.provider, "modelId" to item.id),
-                )
                 app.toggleModelFavorite(item.provider, item.id)
             }
         }
@@ -1023,7 +1017,6 @@ class SessionUi(
         KiloBundle.message(spec.descriptionKey),
         spec.hints,
         {
-            Telemetry.send("Slash Command Used", mapOf("slashCommandType" to "client", "command" to spec.name))
             action()
         },
     )
@@ -1065,7 +1058,6 @@ class SessionUi(
                     KiloDiffEditorKind.ID,
                     diffParams("inline", dir, controller.id, label, token = key),
                 )
-                Telemetry.send("Diff Editor Opened", mapOf("source" to "inline"))
             }
         }
     }
@@ -1078,7 +1070,6 @@ class SessionUi(
             SubagentSessionEditorKind.ID,
             subagentSessionParams(sessionId, workspace.directory),
         )
-        Telemetry.send("Subagent Session Opened", mapOf("sessionId" to sessionId))
     }
 
     @RequiresEdt

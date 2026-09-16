@@ -5,7 +5,6 @@ import { useLanguage } from "./language"
 import { resolveWorkStyleOnboarding } from "./work-style-state"
 import { createWorkStyleToasts } from "./onboarding/work-style-toasts"
 import type { ExtensionMessage } from "../types/messages"
-import { TelemetryEventName } from "../../../src/services/telemetry/types"
 import type { WorkStyle, WorkStyleState } from "../../../src/shared/work-style-presets"
 
 export interface WorkStyleContextValue {
@@ -74,11 +73,6 @@ export const WorkStyleProvider: ParentComponent = (props) => {
   function apply(style: WorkStyle) {
     if (applying()) return
     setApplying(true)
-    vscode.postMessage({
-      type: "telemetry",
-      event: TelemetryEventName.WORK_STYLE_SELECTED,
-      properties: { style },
-    })
     vscode.postMessage({ type: "applyWorkStyle", style })
   }
 
@@ -93,10 +87,6 @@ export const WorkStyleProvider: ParentComponent = (props) => {
     }
     if (acknowledged) return
     acknowledged = true
-    vscode.postMessage({
-      type: "telemetry",
-      event: TelemetryEventName.WORK_STYLE_ONBOARDING_SHOWN,
-    })
   })
 
   const value: WorkStyleContextValue = {
