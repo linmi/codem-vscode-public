@@ -1,6 +1,11 @@
 import * as vscode from "vscode"
 import {
   AppServerHost,
+  listAppServerSpaces,
+  prepareAppServerSpace,
+  commitAppServerSpace,
+  type AppServerSpace,
+  type AppServerPreparedSpace,
   resolveBundledAppServerRuntime,
   type AppServerHostEvent,
   type AppServerPromptAttachment,
@@ -19,6 +24,14 @@ export class CodeMAppServerService implements vscode.Disposable {
   private readonly authenticationChange: vscode.Disposable
   private host: AppServerHost
   private disposed = false
+  private switching = false
+  private operations = 0
+  private space: Promise<AppServerPreparedSpace> | null = null
+  private readonly spaceEvents = new vscode.EventEmitter<AppServerSpace | null>()
+  private lifetime = new AbortController()
+  private readonly backgroundWork = new Set<string>()
+
+  readonly onDidChangeSpace = this.spaceEvents.event
 
   readonly onEvent = this.events.event
 
@@ -29,13 +42,18 @@ export class CodeMAppServerService implements vscode.Disposable {
     this.host = this.createHost()
     this.authenticationChange = authentication.onDidChange((status) => {
       if (status.loggedIn && status.routerCredential === true) return
+      this.lifetime.abort()
+      this.lifetime = new AbortController()
+      this.space = null
+      this.backgroundWork.clear()
+      this.spaceEvents.fire(null)
       const previous = this.host
       this.host = this.createHost()
       void previous.close()
     })
   }
 
-  private createHost(): AppServerHost {
+  private createHost(prepared?: AppServerPreparedSpace): AppServerHost {
     const host = new AppServerHost({
       runtime: this.runtime,
       clientInfo: this.clientInfo,
@@ -43,9 +61,19 @@ export class CodeMAppServerService implements vscode.Disposable {
         requireTrustedWorkspace()
         await this.authentication.requireAuthenticated()
       },
+      prepareSpace: (cwd) => prepared ? Promise.resolve(prepared) : this.initialSpace(cwd),
       onStderr: (_cwd, text) => this.output.append(text),
     })
     host.onEvent((event) => {
+      if (host !== this.host) return
+      if ((event.type === "item-started" || event.type === "item-completed") && event.item.type === "subagent") {
+        const key = `${event.threadId}:${event.item.id}`
+        if (event.item.status === "inProgress") this.backgroundWork.add(key)
+        else this.backgroundWork.delete(key)
+      }
+      if (event.type === "thread-closed") {
+        for (const key of this.backgroundWork) if (key.startsWith(`${event.threadId}:`)) this.backgroundWork.delete(key)
+      }
       this.events.fire(event)
       if (event.type === "authentication-invalidated") {
         void this.authentication.refresh().catch((error: unknown) => {
@@ -56,23 +84,104 @@ export class CodeMAppServerService implements vscode.Disposable {
     return host
   }
 
+  private spaceOptions(cwd: string) {
+    return { runtime: this.runtime, workingDirectory: cwd, signal: this.lifetime.signal }
+  }
+
+  private initialSpace(cwd: string): Promise<AppServerPreparedSpace> {
+    if (this.space) return this.space
+    const options = this.spaceOptions(cwd)
+    const opening = (async () => {
+      const list = await listAppServerSpaces(options)
+      if (!list.current) throw new Error("Select a CodeM space before starting a task (CodeM: Select Space).")
+      const prepared = await prepareAppServerSpace(options, list.current)
+      options.signal.throwIfAborted()
+      this.spaceEvents.fire({ projectKey: prepared.projectKey, displayName: prepared.displayName })
+      return prepared
+    })()
+    this.space = opening
+    void opening.catch(() => { if (this.space === opening) this.space = null })
+    return opening
+  }
+
+  async listSpaces(cwd: string) {
+    requireTrustedWorkspace()
+    await this.authentication.requireAuthenticated()
+    const options = this.spaceOptions(cwd)
+    const list = await listAppServerSpaces(options)
+    const selected = this.space ? await this.space : null
+    options.signal.throwIfAborted()
+    return { spaces: list.spaces, current: selected?.projectKey ?? list.current }
+  }
+
+  async selectSpace(cwd: string, projectKey: string): Promise<void> {
+    requireTrustedWorkspace()
+    if (this.disposed || this.switching || this.operations || this.host.hasActiveWork || this.backgroundWork.size)
+      throw new Error("Wait for CodeM tasks and requests to finish before switching spaces.")
+    this.switching = true
+    const options = this.spaceOptions(cwd)
+    let candidate: AppServerHost | null = null
+    try {
+      await this.authentication.requireAuthenticated()
+      const prepared = await prepareAppServerSpace(options, projectKey)
+      candidate = this.createHost(prepared)
+      await candidate.prepareConnection(cwd)
+      await candidate.listModels(cwd)
+      await candidate.listSkills(cwd)
+      options.signal.throwIfAborted()
+      // The CLI alone persists the active pointer, after all launch checks pass.
+      await commitAppServerSpace(options, projectKey)
+      options.signal.throwIfAborted()
+      const previous = this.host
+      // Deliver retirement before publishing the new space and catalog.
+      await previous.close()
+      options.signal.throwIfAborted()
+      this.host = candidate
+      candidate = null
+      this.space = Promise.resolve(prepared)
+      this.backgroundWork.clear()
+      this.switching = false
+      this.spaceEvents.fire({ projectKey: prepared.projectKey, displayName: prepared.displayName })
+    } finally {
+      if (candidate) await candidate.close()
+      this.switching = false
+    }
+  }
+
+  private async useHost<T>(operation: (host: AppServerHost) => Promise<T>): Promise<T> {
+    if (this.disposed || this.switching) throw new Error("CodeM is switching spaces or shutting down; retry when ready.")
+    const host = this.host
+    this.operations++
+    try {
+      const result = await operation(host)
+      if (this.host !== host || this.disposed) throw new Error("CodeM response belongs to a retired connection")
+      return result
+    } finally {
+      this.operations--
+    }
+  }
+
   prepareConnection(cwd: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host.prepareConnection(cwd)
+    return this.useHost((host) => host.prepareConnection(cwd))
   }
 
   async startThread(cwd: string, requestedModel?: string, intelligence?: string): Promise<string> {
     requireTrustedWorkspace()
-    const model = await this.resolveModel(cwd, requestedModel)
-    return this.host.startThread(cwd, threadSettings(model, intelligence))
+    return this.useHost(async (host) => {
+      const model = await this.resolveModel(host, cwd, requestedModel)
+      return host.startThread(cwd, threadSettings(model, intelligence))
+    })
   }
 
   async resumeThread(cwd: string, threadId: string, requestedModel?: string, intelligence?: string): Promise<void> {
     requireTrustedWorkspace()
-    const model = requestedModel
-      ? await this.resolveModel(cwd, requestedModel)
-      : exactText((await this.host.readThread(cwd, threadId)).model, "thread model")
-    return this.host.resumeThread(cwd, threadId, threadSettings(model, intelligence))
+    return this.useHost(async (host) => {
+      const model = requestedModel
+        ? await this.resolveModel(host, cwd, requestedModel)
+        : exactText((await host.readThread(cwd, threadId)).model, "thread model")
+      return host.resumeThread(cwd, threadId, threadSettings(model, intelligence))
+    })
   }
 
   listThreads(
@@ -84,12 +193,12 @@ export class CodeMAppServerService implements vscode.Disposable {
     readonly total: number
   }> {
     requireTrustedWorkspace()
-    return this.host.listThreads(cwd, cursor)
+    return this.useHost((host) => host.listThreads(cwd, cursor))
   }
 
   readThread(cwd: string, threadId: string) {
     requireTrustedWorkspace()
-    return this.host.readThread(cwd, threadId)
+    return this.useHost((host) => host.readThread(cwd, threadId))
   }
 
   listTurns(
@@ -98,7 +207,7 @@ export class CodeMAppServerService implements vscode.Disposable {
     options?: { readonly cursor?: string; readonly limit?: number; readonly sortDirection?: "asc" | "desc" },
   ) {
     requireTrustedWorkspace()
-    return this.host.listTurns(cwd, threadId, options)
+    return this.useHost((host) => host.listTurns(cwd, threadId, options))
   }
 
   listItems(
@@ -112,16 +221,16 @@ export class CodeMAppServerService implements vscode.Disposable {
     },
   ) {
     requireTrustedWorkspace()
-    return this.host.listItems(cwd, threadId, options)
+    return this.useHost((host) => host.listItems(cwd, threadId, options))
   }
 
   listModels(cwd: string) {
     requireTrustedWorkspace()
-    return this.host.listModels(cwd)
+    return this.useHost((host) => host.listModels(cwd))
   }
 
-  private async resolveModel(cwd: string, requestedModel?: string): Promise<string> {
-    const catalog = await this.host.listModels(cwd)
+  private async resolveModel(host: AppServerHost, cwd: string, requestedModel?: string): Promise<string> {
+    const catalog = await host.listModels(cwd)
     const model = requestedModel ? exactText(requestedModel, "model") : catalog.activeModel
     if (!catalog.models.some((entry) => entry.id === model)) {
       throw new Error(`CodeM model ${model} is not available from Core`)
@@ -131,7 +240,7 @@ export class CodeMAppServerService implements vscode.Disposable {
 
   listSkills(cwd: string, threadId?: string) {
     requireTrustedWorkspace()
-    return this.host.listSkills(cwd, threadId)
+    return this.useHost((host) => host.listSkills(cwd, threadId))
   }
 
   startTurn(
@@ -142,47 +251,47 @@ export class CodeMAppServerService implements vscode.Disposable {
     attachments?: readonly AppServerPromptAttachment[],
   ): Promise<string> {
     requireTrustedWorkspace()
-    return this.host.startTurn({ cwd, threadId, submissionId, text, attachments })
+    return this.useHost((host) => host.startTurn({ cwd, threadId, submissionId, text, attachments }))
   }
 
   steerTurn(cwd: string, threadId: string, submissionId: string, text: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host.steerTurn({ cwd, threadId, submissionId, text })
+    return this.useHost((host) => host.steerTurn({ cwd, threadId, submissionId, text }))
   }
 
   compactThread(cwd: string, threadId: string): Promise<string> {
     requireTrustedWorkspace()
-    return this.host.compactThread(cwd, threadId)
+    return this.useHost((host) => host.compactThread(cwd, threadId))
   }
 
   rewindThread(cwd: string, threadId: string): Promise<string> {
     requireTrustedWorkspace()
-    return this.host.rewindThread(cwd, threadId)
+    return this.useHost((host) => host.rewindThread(cwd, threadId))
   }
 
   interrupt(cwd: string, threadId: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host.interruptTurn(cwd, threadId)
+    return this.useHost((host) => host.interruptTurn(cwd, threadId))
   }
 
   cancelBackgroundTask(cwd: string, threadId: string, taskId: string) {
     requireTrustedWorkspace()
-    return this.host.cancelBackgroundTask(cwd, threadId, taskId)
+    return this.useHost((host) => host.cancelBackgroundTask(cwd, threadId, taskId))
   }
 
   startSideQuestion(cwd: string, threadId: string, operationId: string, question: string): Promise<string> {
     requireTrustedWorkspace()
-    return this.host.startSideQuestion(cwd, threadId, operationId, question)
+    return this.useHost((host) => host.startSideQuestion(cwd, threadId, operationId, question))
   }
 
   cancelSideQuestion(cwd: string, threadId: string, sideQuestionId: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host.cancelSideQuestion(cwd, threadId, sideQuestionId)
+    return this.useHost((host) => host.cancelSideQuestion(cwd, threadId, sideQuestionId))
   }
 
   readModes(cwd: string, threadId: string) {
     requireTrustedWorkspace()
-    return this.host.readModes(cwd, threadId)
+    return this.useHost((host) => host.readModes(cwd, threadId))
   }
 
   setModes(input: {
@@ -193,49 +302,51 @@ export class CodeMAppServerService implements vscode.Disposable {
     readonly workMode?: "normal" | "plan"
   }) {
     requireTrustedWorkspace()
-    return this.host.setModes(input)
+    return this.useHost((host) => host.setModes(input))
   }
 
   renameThread(cwd: string, threadId: string, name: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host
-      .control(cwd, "thread/name/set", { threadId, name: exactText(name, "thread name") })
-      .then(() => undefined)
+    return this.useHost((host) => host.control(cwd, "thread/name/set", { threadId, name: exactText(name, "thread name") }).then(() => undefined))
   }
 
   archiveThread(cwd: string, threadId: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host.control(cwd, "thread/archive", { threadId }).then(() => undefined)
+    return this.useHost((host) => host.control(cwd, "thread/archive", { threadId }).then(() => undefined))
   }
 
   unarchiveThread(cwd: string, threadId: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host.control(cwd, "thread/unarchive", { threadId }).then(() => undefined)
+    return this.useHost((host) => host.control(cwd, "thread/unarchive", { threadId }).then(() => undefined))
   }
 
   deleteThread(cwd: string, threadId: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host.control(cwd, "thread/delete", { threadId }).then(() => undefined)
+    return this.useHost((host) => host.control(cwd, "thread/delete", { threadId }).then(() => undefined))
   }
 
   async forkThread(cwd: string, threadId: string): Promise<string> {
     requireTrustedWorkspace()
-    const result = await this.host.control(cwd, "thread/fork", { threadId })
-    return exactText(result.threadId, "forked threadId")
+    return this.useHost(async (host) => {
+      const result = await host.control(cwd, "thread/fork", { threadId })
+      return exactText(result.threadId, "forked threadId")
+    })
   }
 
   unsubscribeThread(cwd: string, threadId: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.host.unsubscribeThread(cwd, threadId)
+    return this.useHost((host) => host.unsubscribeThread(cwd, threadId))
   }
 
   respondToInteraction(requestId: string, response: AppServerInteractionResponse): Promise<void> {
-    return this.host.respondToInteraction(requestId, response)
+    return this.useHost((host) => host.respondToInteraction(requestId, response))
   }
 
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.lifetime.abort()
+    this.spaceEvents.dispose()
     void this.host.close()
     this.authenticationChange.dispose()
     this.events.dispose()

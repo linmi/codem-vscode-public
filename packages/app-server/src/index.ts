@@ -1,4 +1,13 @@
 export {
+  listAppServerSpaces,
+  prepareAppServerSpace,
+  commitAppServerSpace,
+  type AppServerSpace,
+  type AppServerSpaceList,
+  type AppServerPreparedSpace,
+  type AppServerSpaceOptions,
+} from "./spaces.ts"
+export {
   APP_SERVER_CLI_VERSION,
   APP_SERVER_CORE_VERSION,
   appServerAuthPackageName,
@@ -94,7 +103,6 @@ export {
   type AppServerInteractionResponse,
   type AppServerMcpServer,
   type AppServerModelSummary,
-  type AppServerPermissionMode,
   type AppServerPermissionPreview,
   type AppServerPromptAttachment,
   type AppServerQuestion,
@@ -105,3 +113,5 @@ export {
   type AppServerTurnSummary,
   type AppServerWorkMode,
 } from "./host.ts"
+
+export { type AppServerModeState, type AppServerPermissionMode } from "./modes.ts"

@@ -200,10 +200,6 @@ export const dict = {
   "prompt.action.send.recording": "ถอดเสียงและส่ง",
   "prompt.action.stop": "หยุด",
   "prompt.action.enhance": "ปรับปรุงพรอมต์",
-  "prompt.action.autoApprove.enable": "เปิดใช้การอนุมัติอัตโนมัติ",
-  "prompt.action.autoApprove.disable": "ปิดใช้การอนุมัติอัตโนมัติ",
-  "prompt.action.autoApprove.enabled": "เปิดใช้การอนุมัติอัตโนมัติแล้ว คำขอสิทธิ์จะได้รับการอนุมัติโดยอัตโนมัติ",
-  "prompt.action.autoApprove.disabled": "ปิดใช้การอนุมัติอัตโนมัติแล้ว คลิกเพื่ออนุมัติคำขอสิทธิ์โดยอัตโนมัติ",
   "prompt.action.enhanceDescription":
     "ปุ่ม 'ปรับปรุงพรอมต์' ช่วยปรับปรุงพรอมต์ของคุณโดยให้บริบทเพิ่มเติม ชี้แจง หรือเขียนใหม่ ลองพิมพ์พรอมต์ที่นี่และคลิกปุ่มอีกครั้งเพื่อดูว่ามันทำงานอย่างไร",
   "prompt.action.indexing": "การตั้งค่าการสร้างดัชนี",

@@ -72,6 +72,8 @@ When a migration Cycle touches one of these boundaries, update all production ca
 
 ## Validation
 
+Keep tests, test-only helpers, fixtures, and snapshots under each workspace package's root `tests/` directory. Preserve domain subdirectories. VS Code host tests live in `apps/vscode/tests/host/`; JetBrains Gradle modules use `apps/jetbrains/tests/<module>/kotlin` and `resources` through explicit test source sets.
+
 Install from the repository root:
 
 ```bash

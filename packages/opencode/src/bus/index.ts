@@ -49,7 +49,7 @@ export interface Interface {
   // yield is delivered, even if stream consumption starts later. The previous
   // Stream-returning shape acquired the subscription lazily on first pull,
   // opening a race window during which publishes were lost — see
-  // test/bus/bus-effect.test.ts RACE tests.
+  // tests/bus/bus-effect.test.ts RACE tests.
   readonly subscribe: <D extends BusEvent.Definition>(
     def: D,
   ) => Effect.Effect<Stream.Stream<Payload<D>>, never, Scope.Scope>

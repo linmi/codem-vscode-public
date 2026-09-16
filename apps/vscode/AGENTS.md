@@ -17,6 +17,7 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 - `src/agent-manager/`: worktree, terminal, Git, and Agent Manager host integration.
 - `webview-ui/`: current SolidJS webview implementation.
 - `tests/unit/`: package unit tests; run only focused files relevant to the current Cycle.
+- `tests/host/`: tests and fixtures relocated from the Host source tree. The default test command selects its App Server suite; imported Vitest suites retain their existing runner requirements and are excluded from Playwright discovery.
 - `script/`: local build, SDK generation, launch, and packaging scripts.
 
 ## UI boundary

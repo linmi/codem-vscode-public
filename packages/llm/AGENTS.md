@@ -14,7 +14,7 @@ Per-type constructors live on the type, not as top-level re-exports. Use `Messag
 
 ## Tests
 
-- Use `testEffect(...)` from `test/lib/effect.ts` for tests requiring Effect layers.
+- Use `testEffect(...)` from `tests/lib/effect.ts` for tests requiring Effect layers.
 - Keep provider tests fixture-first. Live provider calls must stay behind `RECORD=true` and required API-key checks.
 
 ## Architecture
@@ -316,6 +316,6 @@ Filters apply in replay and record mode. Combine them with `RECORD=true` when re
 
 **Binary response bodies.** Most providers stream text (SSE, JSON). The recorder treats known textual media types (`text/*`, JSON/XML structured types, JavaScript, forms, YAML, and SVG) as text and stores every other response as base64 with `bodyEncoding: "base64"`. This preserves binary formats such as AWS event-stream frames without a lossy UTF-8 round trip.
 
-**Matching strategy.** Replay walks the cassette in record order via an internal cursor: the Nth runtime request is served by the Nth recorded interaction, and each one is validated by comparing method, URL, allow-listed headers, and the canonical JSON body. This handles tool loops (each round's request differs as history grows) and retry/polling scenarios (successive byte-identical requests with different responses) uniformly. If a test reorders its requests, re-record the cassette. `scriptedResponses` (in `test/lib/http.ts`) is the deterministic counterpart for tests that don't need a live provider; it scripts response bodies in order without reading from disk.
+**Matching strategy.** Replay walks the cassette in record order via an internal cursor: the Nth runtime request is served by the Nth recorded interaction, and each one is validated by comparing method, URL, allow-listed headers, and the canonical JSON body. This handles tool loops (each round's request differs as history grows) and retry/polling scenarios (successive byte-identical requests with different responses) uniformly. If a test reorders its requests, re-record the cassette. `scriptedResponses` (in `tests/lib/http.ts`) is the deterministic counterpart for tests that don't need a live provider; it scripts response bodies in order without reading from disk.
 
 Do not blanket re-record an entire test file when adding one cassette. `RECORD=true` rewrites every recorded case that runs, and provider streams contain volatile IDs, timestamps, fingerprints, and obfuscation fields. Prefer deleting the one cassette you intend to refresh, or run a focused test pattern that only registers the scenario you want to record. Keep stable existing cassettes unchanged unless their request shape or expected behavior changed.

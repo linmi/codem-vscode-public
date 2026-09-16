@@ -26,13 +26,13 @@ Status legend: `[x]` done locally, `[~]` in progress locally, `[ ]` not started.
 
 Current combined PR scope:
 
-- `[x]` PR 1 drift tests: added OpenAPI/runtime query assertions and a negative fixture in `test/server/httpapi-query-schema-drift.test.ts`.
+- `[x]` PR 1 drift tests: added OpenAPI/runtime query assertions and a negative fixture in `tests/server/httpapi-query-schema-drift.test.ts`.
 - `[x]` PR 2 injection removal: removed broad `directory` / `workspace` post-generation injection from `public.ts` and replaced it with explicit runtime query schemas on affected routes.
 - `[ ]` PR 3+ cleanup: leave query override, path pattern, error shape, auth, and component-shape rewrites for later PRs.
 
 ### PR 1: Add OpenAPI/Runtime Query Drift Tests
 
-- `[x]` Add or extend `packages/opencode/test/server/httpapi-query-schema-drift.test.ts`.
+- `[x]` Add or extend `packages/opencode/tests/server/httpapi-query-schema-drift.test.ts`.
 - `[x]` Import `OpenApi.fromApi` and `PublicApi`.
 - `[x]` Generate the public spec in-process with `OpenApi.fromApi(PublicApi)`.
 - `[x]` Add a route inventory for the existing runtime reproducers: `session`, `file`, `experimental`, and `instance` routes.
@@ -42,7 +42,7 @@ Current combined PR scope:
 
 Verification:
 
-- `[x]` `bun test --timeout 5000 test/server/httpapi-query-schema-drift.test.ts` from `packages/opencode`.
+- `[x]` `bun test --timeout 5000 tests/server/httpapi-query-schema-drift.test.ts` from `packages/opencode`.
 - `[x]` `bun typecheck` from `packages/opencode`.
 
 ### PR 2: Delete Spec-Only Workspace Query Injection
@@ -68,7 +68,7 @@ for (const param of operation.parameters ?? []) normalizeParameter(param, `${met
 
 Verification:
 
-- `[x]` `bun test --timeout 5000 test/server/httpapi-query-schema-drift.test.ts` from `packages/opencode`.
+- `[x]` `bun test --timeout 5000 tests/server/httpapi-query-schema-drift.test.ts` from `packages/opencode`.
 - `[x]` `bun dev generate > /tmp/opencode-openapi.json` from `packages/opencode`.
 - `[x]` `./packages/sdk/js/script/build.ts` from repo root.
 - `[x]` Inspect SDK diff for removed `directory` / `workspace` params. Result: none after explicit runtime schemas; v2 list/message now also expose their existing beta pagination/filter query params in the SDK.

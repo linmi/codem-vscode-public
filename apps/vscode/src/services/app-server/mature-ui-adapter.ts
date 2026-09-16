@@ -156,6 +156,8 @@ export class AppServerMatureUiAdapter {
   }
 
   accept(event: AppServerHostEvent): readonly ExtensionMessage[] {
+    if (event.type === "thread-modes-updated")
+      return [{ type: "threadModesChanged", sessionID: event.threadId, state: event.state }]
     return this.acceptTimeline(event) ?? this.acceptInteraction(event) ?? this.acceptLifecycle(event)
   }
 
@@ -226,9 +228,12 @@ export class AppServerMatureUiAdapter {
   private acceptLifecycle(event: AppServerHostEvent): readonly ExtensionMessage[] {
     switch (event.type) {
       case "thread-closed":
-        return event.reason === "thread/deleted"
-          ? [{ type: "sessionDeleted", sessionID: event.threadId }]
-          : [{ type: "sessionStatus", sessionID: event.threadId, status: "idle" }]
+        return [
+          { type: "threadModesChanged", sessionID: event.threadId, state: null },
+          event.reason === "thread/deleted"
+            ? { type: "sessionDeleted", sessionID: event.threadId }
+            : { type: "sessionStatus", sessionID: event.threadId, status: "idle" },
+        ]
       case "warning":
         return [{ type: "error", message: event.message, ...(event.threadId ? { sessionID: event.threadId } : {}) }]
       case "protocol-error":

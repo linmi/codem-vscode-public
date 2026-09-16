@@ -8,7 +8,6 @@ import { CustomSoundIDs, resolveSoundID } from "../../src/services/attention/sou
 
 function setup(
   opts: {
-    approve?: () => boolean | Promise<boolean>
     details?: (sessionID: string, directory?: string) => Promise<Omit<AttentionNotice, "message"> | undefined>
     notifications?: boolean
     osNotifications?: boolean
@@ -67,7 +66,6 @@ function setup(
     },
   } as unknown as KiloConnectionService
   const service = new AttentionService(connection, {
-    approve: opts.approve,
     details: opts.details,
     focused: () => (typeof opts.focused === "function" ? opts.focused() : (opts.focused ?? true)),
     visible: (sessionID) => (typeof opts.visible === "function" ? opts.visible(sessionID) : (opts.visible ?? false)),
@@ -325,33 +323,10 @@ describe("AttentionService", () => {
     test.restore()
   })
 
-  it("stays silent for auto-approved permission requests", () => {
-    const test = setup({ approve: () => true })
+  it("always surfaces pending permissions instead of approving them in the editor", () => {
+    const test = setup()
     test.event(event({ type: "permission.asked", properties: { id: "p1", sessionID: "s1" } }))
-    test.event(event({ type: "permission.replied", properties: { requestID: "p1", sessionID: "s1" } }))
-
-    expect(test.sounds).toEqual([])
-    test.service.dispose()
-  })
-
-  it("plays attention when auto-approval fails and the request remains pending", async () => {
-    const test = setup({ approve: async () => false })
-    test.event(event({ type: "permission.asked", properties: { id: "p1", sessionID: "s1" } }))
-    await Bun.sleep(0)
-
     expect(test.sounds).toEqual(["permission"])
-    test.service.dispose()
-  })
-
-  it("stays silent when a permission resolves before auto-approval failure settles", async () => {
-    const approval = Promise.withResolvers<boolean>()
-    const test = setup({ approve: () => approval.promise })
-    test.event(event({ type: "permission.asked", properties: { id: "p1", sessionID: "s1" } }))
-    test.event(event({ type: "permission.replied", properties: { requestID: "p1", sessionID: "s1" } }))
-    approval.resolve(false)
-    await Bun.sleep(0)
-
-    expect(test.sounds).toEqual([])
     test.service.dispose()
   })
 

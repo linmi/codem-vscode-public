@@ -277,6 +277,9 @@ const AppContent: Component = () => {
       case "settingsButtonClicked":
         setCurrentView("settings")
         break
+      case "selectPermissionMode":
+        if (document.hasFocus()) window.dispatchEvent(new CustomEvent("selectPermissionMode"))
+        break
       case "cycleAgentMode":
         if (document.hasFocus()) cycleAgent(1)
         break

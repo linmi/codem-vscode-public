@@ -1,3 +1,4 @@
+import { emptyThreadPermissionView, acceptThreadPermissionMessage } from "../../utils/thread-permission-state"
 /**
  * PromptInput component
  * Text input with send/abort buttons, ghost-text autocomplete, and @ file mention support
@@ -354,7 +355,45 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const [reviewComments, setReviewComments] = createSignal<ReviewCommentEntry[]>([])
   const [browsers, setBrowsers] = createSignal<BrowserReference[]>([])
   const [enhancing, setEnhancing] = createSignal(false)
-  const [autoApprove, setAutoApprove] = createSignal(false)
+  const [permissionView, setPermissionView] = createSignal(emptyThreadPermissionView(null))
+  let permissionSelect: HTMLSelectElement | undefined
+  const readPermissionMode = () => {
+    const sessionID = session.currentSessionID()
+    if (!sessionID) return
+    const requestID = crypto.randomUUID()
+    setPermissionView((view) => ({ ...view, requestID, error: null }))
+    vscode.postMessage({ type: "requestThreadModes", sessionID, requestID })
+  }
+  createEffect(
+    on(
+      () => session.currentSessionID(),
+      (sessionID) => {
+        setPermissionView(emptyThreadPermissionView(sessionID ?? null))
+        if (sessionID) readPermissionMode()
+      },
+    ),
+  )
+  const selectPermissionMode = (event: Event & { currentTarget: HTMLSelectElement }) => {
+    const view = permissionView()
+    const permissionMode = event.currentTarget.value
+    event.currentTarget.value = view.state?.permissionMode ?? ""
+    if (!view.sessionID || !view.state || view.requestID) return
+    if (permissionMode !== "default" && permissionMode !== "auto" && permissionMode !== "yolo") return
+    const requestID = crypto.randomUUID()
+    setPermissionView({ ...view, requestID, error: null })
+    vscode.postMessage({
+      type: "setThreadPermissionMode",
+      sessionID: view.sessionID,
+      requestID,
+      expectedRevision: view.state.revision,
+      permissionMode,
+    })
+  }
+  const focusPermissionMode = () => {
+    permissionSelect?.focus()
+  }
+  window.addEventListener("selectPermissionMode", focusPermissionMode)
+  onCleanup(() => window.removeEventListener("selectPermissionMode", focusPermissionMode))
   const [sandboxes, setSandboxes] = createSignal<Record<string, SandboxState>>({})
   const [sandboxDefault, setSandboxDefault] = createSignal<SandboxDefaultState>()
   const [sandboxRequests, setSandboxRequests] = createSignal<Record<string, string>>({})
@@ -806,10 +845,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     ),
   )
 
-  const unsubAutoApprove = vscode.onMessage((message) => {
-    if (message.type === "autoApproveState") {
-      setAutoApprove(message.active)
-    }
+  const unsubscribePermissionMode = vscode.onMessage((message) => {
+    if (message.type === "threadModesChanged" || message.type === "threadModesResult")
+      setPermissionView((view) => acceptThreadPermissionMessage(view, message))
   })
 
   const restoreFailed = (failed: SendMessageFailedMessage) => {
@@ -1079,7 +1117,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       mention.insertFilePickerResult(message.path, message.requestId)
     }
   })
-  vscode.postMessage({ type: "requestAutoApproveState" })
 
   onCleanup(() => {
     props.onEditReady?.(false)
@@ -1090,7 +1127,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     // Persist current draft before unmounting
     saveDraft(draftKey(), text(), reviewComments(), imageAttach.images())
     if (sandboxRetry) clearTimeout(sandboxRetry)
-    unsubAutoApprove()
+    unsubscribePermissionMode()
     unsubscribe()
   })
 
@@ -1940,29 +1977,32 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               />
             </Tooltip>
           </Show>
-          <Tooltip
-            value={
-              autoApprove()
-                ? language.t("prompt.action.autoApprove.enabled")
-                : language.t("prompt.action.autoApprove.disabled")
-            }
-            placement="top"
-            openDelay={0}
-          >
-            <IconButton
-              icon="shield"
-              variant="ghost"
-              size="small"
-              onClick={() => vscode.postMessage({ type: "toggleAutoApprove" })}
-              aria-label={
-                autoApprove()
-                  ? language.t("prompt.action.autoApprove.disable")
-                  : language.t("prompt.action.autoApprove.enable")
-              }
-              aria-pressed={autoApprove()}
-              class={`prompt-status-button ${autoApprove() ? "prompt-status-button--active" : ""}`}
-            />
-          </Tooltip>
+          <div class="thread-permission-mode">
+            <select
+              ref={permissionSelect}
+              aria-label={language.t("prompt.permission.label")}
+              title={permissionView().error ?? language.t("prompt.permission.description")}
+              aria-busy={permissionView().requestID !== null}
+              disabled={!permissionView().state || permissionView().requestID !== null}
+              value={permissionView().state?.permissionMode ?? ""}
+              onChange={selectPermissionMode}
+            >
+              <option value="" disabled>
+                {language.t("prompt.permission.unavailable")}
+              </option>
+              <option value="default">{language.t("prompt.permission.default")}</option>
+              <option value="auto">{language.t("prompt.permission.auto")}</option>
+              <option value="yolo">{language.t("prompt.permission.yolo")}</option>
+            </select>
+            <Show when={permissionView().sessionID && !permissionView().state && !permissionView().requestID}>
+              <button type="button" onClick={readPermissionMode}>
+                {language.t("prompt.permission.retry")}
+              </button>
+            </Show>
+            <Show when={permissionView().error}>
+              <span role="alert">{permissionView().error}</span>
+            </Show>
+          </div>
           <Show when={sandboxVisible()}>
             <SandboxButtonBase
               enabled={sandboxEnabled()}

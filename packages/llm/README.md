@@ -128,4 +128,4 @@ This package is built on Effect. Public methods return `Effect` or `Stream`; pro
 
 - `AGENTS.md` — architecture, route construction, contributor guide
 - `example/tutorial.ts` — runnable end-to-end walkthrough
-- `test/provider/*.test.ts` — fixture-first protocol tests; `*.recorded.test.ts` files cover live cassettes
+- `tests/provider/*.test.ts` — fixture-first protocol tests; `*.recorded.test.ts` files cover live cassettes

@@ -16,7 +16,6 @@ import { DiffVirtualProvider } from "../DiffVirtualProvider"
 import { buildWebviewHtml } from "../utils"
 import { openFileInEditor, getWorkspaceRoot } from "../review-utils"
 import { TelemetryProxy, type TelemetryEventName } from "../services/telemetry"
-import type { AutoApproveController } from "../commands/toggle-auto-approve"
 import type { RemoteStatusService } from "../services/RemoteStatusService"
 import type { CaffeinationService } from "../services/caffeination"
 import type { CodeMAuthenticationService } from "../services/app-server/authentication"
@@ -28,7 +27,6 @@ type PRMergeMethod = "merge" | "squash" | "rebase"
 
 export class VscodeHost implements Host {
   private diffVirtual: DiffVirtualProvider | undefined
-  private autoApprove: AutoApproveController | undefined
   /**
    * Shared project route registry for every Agent Manager panel opened by
    * this host. One service keeps raw session id ambiguity consistent across
@@ -48,10 +46,6 @@ export class VscodeHost implements Host {
 
   setDiffVirtualProvider(provider: DiffVirtualProvider): void {
     this.diffVirtual = provider
-  }
-
-  setAutoApproveController(ctrl: AutoApproveController): void {
-    this.autoApprove = ctrl
   }
 
   openPanel(opts: {
@@ -168,7 +162,6 @@ export class VscodeHost implements Host {
     const streams = panel.onDidChangeViewState((event) =>
       provider.setStreamVisibility(event.webviewPanel.active && event.webviewPanel.visible),
     )
-    if (this.autoApprove) provider.setAutoApproveController(this.autoApprove)
 
     const sessions: SessionProvider = {
       setSessionDirectory: (id, dir) => provider.setSessionDirectory(id, dir),

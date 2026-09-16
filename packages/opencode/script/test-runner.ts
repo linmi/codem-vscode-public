@@ -10,7 +10,7 @@ import fs from "fs/promises"
 import { TestProfile } from "./kilocode/test-profile"
 import { TestShard } from "./kilocode/test-shard"
 import { TestCli } from "./kilocode/test-cli"
-import { remove } from "../test/kilocode/cleanup"
+import { remove } from "../tests/kilocode/cleanup"
 
 const root = path.resolve(import.meta.dir, "..")
 const argv = process.argv.slice(2)
@@ -152,7 +152,7 @@ const bold = (s: string) => (tty ? `\x1b[1m${s}\x1b[0m` : s)
 // ---------------------------------------------------------------------------
 
 const glob = new Bun.Glob("**/*.test.{ts,tsx}")
-const all = (await Array.fromAsync(glob.scan({ cwd: path.join(root, "test") })))
+const all = (await Array.fromAsync(glob.scan({ cwd: path.join(root, "tests") })))
   .map((file) => file.replaceAll("\\", "/"))
   .sort()
 
@@ -180,7 +180,7 @@ const selected = (() => {
 const matched =
   patterns.length > 0
     ? selected.filter((file) =>
-        patterns.some((pattern) => file.includes(pattern) || path.join("test", file).includes(pattern)),
+        patterns.some((pattern) => file.includes(pattern) || path.join("tests", file).includes(pattern)),
       )
     : selected
 const candidates = patterns.length > 0 && !profile ? matched : matched.filter((file) => !skipped.has(file)) // kilocode_change
@@ -223,7 +223,7 @@ const weightCache = new Map<string, number>()
 const weight = (file: string) => {
   const cached = weightCache.get(file)
   if (cached !== undefined) return cached
-  const value = DURATION_HINTS[file] ?? measuredDurations[file] ?? Bun.file(path.join(root, "test", file)).size
+  const value = DURATION_HINTS[file] ?? measuredDurations[file] ?? Bun.file(path.join(root, "tests", file)).size
   weightCache.set(file, value)
   return value
 }
@@ -353,7 +353,7 @@ if (patterns.length === 0 && !profile && !updateDurations) {
   for (let i = 0; i < members.length; i += 64) {
     await Promise.all(
       members.slice(i, i + 64).map(async (member) => {
-        const source = await Bun.file(path.join(root, "test", member)).text()
+        const source = await Bun.file(path.join(root, "tests", member)).text()
         if (unsafe.some((pattern) => pattern.test(source))) demoted.add(member)
       }),
     )
@@ -522,7 +522,7 @@ async function run(file: string): Promise<Result> {
   // one process; a shared pass compiles once, so it gets a roomier process deadline than a
   // single file even though each member is individually fast.
   const members = batches.get(file)
-  const targets = members ? members.map((member) => path.join("test", member)) : [path.join("test", file)]
+  const targets = members ? members.map((member) => path.join("tests", member)) : [path.join("tests", file)]
   const cmd = ["bun", "test", ...targets, "--timeout", String(timeout)]
   // kilocode_change end
 
@@ -683,13 +683,13 @@ const queue = TestShard.order(files, shardWeight)
 
 // kilocode_change start - a flaky batch names only its pseudo-file; pull the members that
 // failed on the earlier attempt out of that attempt's output so annotations can attribute
-// the flake to real files. bun prints a "test/<file>:" heading before each file's tests.
+// the flake to real files. bun prints a "tests/<file>:" heading before each file's tests.
 const flakyMembers = new Map<string, string[]>()
 const failedMembersOf = (stdout: string, members: string[]) => {
   const failed = new Set<string>()
   let current: string | undefined
   for (const line of stdout.split("\n")) {
-    const heading = line.match(/^(?:.*[\\/])?test[\\/](.+\.test\.tsx?):\s*$/)
+    const heading = line.match(/^(?:.*[\\/])?tests[\\/](.+\.test\.tsx?):\s*$/)
     if (heading) {
       const name = heading[1].replaceAll("\\", "/")
       current = members.includes(name) ? name : undefined
@@ -787,13 +787,13 @@ if (flaky.length > 0) {
       if (batches.has(r.file)) {
         for (const member of flakyMembers.get(r.file) ?? []) {
           console.log(
-            `::warning file=packages/opencode/test/${member},title=Flaky test file (in ${r.file})::passed on attempt ${r.attempts} of ${retries + 1}`,
+            `::warning file=packages/opencode/tests/${member},title=Flaky test file (in ${r.file})::passed on attempt ${r.attempts} of ${retries + 1}`,
           )
         }
         continue
       }
       // kilocode_change end
-      const repo = `packages/opencode/test/${r.file}`
+      const repo = `packages/opencode/tests/${r.file}`
       console.log(`::warning file=${repo},title=Flaky test file::passed on attempt ${r.attempts} of ${retries + 1}`)
     }
 

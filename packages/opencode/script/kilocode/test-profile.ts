@@ -49,7 +49,7 @@ export namespace TestProfile {
     const malformed = patterns.filter(
       (pattern) =>
         pattern.startsWith("/") ||
-        pattern.startsWith("test/") ||
+        pattern.startsWith("tests/") ||
         pattern.includes("\\") ||
         pattern.split("/").includes("..") ||
         !/\.test\.(ts|tsx|\{ts,tsx\})$/.test(pattern),

@@ -875,7 +875,7 @@ function children(id: string): ToolPart[] {
     const name = grep ? "grep" : "read"
     const input = grep
       ? { pattern: `timeout: ${index}|timeout: [0-9]+.*delayed|delayedBodyServer`, path: "packages" }
-      : { filePath: `packages/opencode/test/provider/provider-${index + 1}.test.ts` }
+      : { filePath: `packages/opencode/tests/provider/provider-${index + 1}.test.ts` }
     return {
       id: `matrix-task-${id}-${index}`,
       sessionID: id,

@@ -283,7 +283,7 @@ describe("isExempt", () => {
   const cases: Array<[string, boolean]> = [
     // exempt — "kilocode" in path
     ["packages/opencode/src/kilocode/foo.ts", true],
-    ["packages/opencode/test/kilocode/bar.test.ts", true],
+    ["packages/opencode/tests/kilocode/bar.test.ts", true],
     ["packages/opencode/src/some/kilocode/deep/path.ts", true],
     ["packages/opencode/src/kilocode/deep/nested/file.tsx", true],
     ["packages/opencode/src/kilo-sessions/session.ts", true],

@@ -200,6 +200,83 @@ describe("AppServerHost", () => {
     assert.equal("executionMode" in resume, false)
   })
 
+  it("reads, changes and broadcasts per-thread modes without accepting stale or cross-workspace writes", async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "mode-test", version: "1" },
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
+      assertAuthenticated: () => {},
+    })
+    const events: AppServerHostEvent[] = []
+    host.onEvent((event) => events.push(event))
+    try {
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      await host.resumeThread(fixture.root, "thread-2", DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      assert.equal((await host.readModes(fixture.root, threadId)).permissionMode, "default")
+      const updated = await host.setModes({ cwd: fixture.root, threadId, expectedRevision: 0, permissionMode: "auto" })
+      assert.deepEqual(updated, { revision: 1, permissionEpoch: 1, permissionMode: "auto", workMode: "normal" })
+      await assert.rejects(
+        host.setModes({ cwd: fixture.root, threadId, expectedRevision: 0, permissionMode: "yolo" }),
+        /revision conflict/,
+      )
+      assert.equal((await host.readModes(fixture.root, "thread-2")).permissionMode, "default")
+      await assert.rejects(
+        host.setModes({ cwd: "/other", threadId, expectedRevision: 1, permissionMode: "yolo" }),
+        /another workspace/,
+      )
+      await assert.rejects(
+        host.setModes({ cwd: fixture.root, threadId, expectedRevision: 1, permissionMode: "acceptEdits" as never }),
+        /permissionMode/,
+      )
+      assert.equal(
+        events.filter((event) => event.type === "thread-modes-updated" && event.threadId === threadId).length,
+        2,
+      )
+      await host.unsubscribeThread(fixture.root, threadId)
+      await assert.rejects(host.readModes(fixture.root, threadId), /not loaded/)
+      await host.resumeThread(fixture.root, threadId, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      assert.equal((await host.readModes(fixture.root, threadId)).permissionMode, "auto")
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("rejects the obsolete empty unsubscribe result instead of pretending the thread was released", async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "mode-test", version: "1" },
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, OLD_UNSUBSCRIBE_RESULT: "1" },
+      assertAuthenticated: () => {},
+    })
+    try {
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      await assert.rejects(host.unsubscribeThread(fixture.root, threadId), /unsubscribe status/)
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("rejects an in-flight mode response after the thread is retired", async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "mode-test", version: "1" },
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, DELAY_MODE_READ: "1" },
+      assertAuthenticated: () => {},
+    })
+    try {
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      const reading = host.readModes(fixture.root, threadId)
+      const rejected = assert.rejects(reading, /retired thread/)
+      await host.unsubscribeThread(fixture.root, threadId)
+      await rejected
+    } finally {
+      await host.close()
+    }
+  })
+
   it("removes inherited broker commands before installing the bundled broker", () => {
     const fixture = createFixture()
     const environment = appServerHostEnvironment(fixture.runtime, {
@@ -244,6 +321,8 @@ const readline = require("node:readline")
 const capture = (value) => fs.appendFileSync(process.env.CAPTURE_PATH, JSON.stringify(value) + "\\n")
 capture({ argv: process.argv.slice(2), environment: { credentialHost: JSON.parse(process.env.CODEM_ROUTER_CREDENTIAL_HOST_CMD), source: process.env.CODEM_SESSION_SOURCE } })
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n")
+const modes = new Map()
+const mode = (threadId) => modes.get(threadId) ?? { revision: 0, permissionEpoch: 0, permissionMode: "default", workMode: "normal" }
 const lines = readline.createInterface({ input: process.stdin })
 lines.on("close", () => process.exit(0))
 lines.on("line", (line) => {
@@ -253,6 +332,23 @@ lines.on("line", (line) => {
   if (frame.method === "initialize") return send({ jsonrpc: "2.0", id: frame.id, result: { protocolVersion: 1, agentInfo: { version: "0.8.37+1.gfixture" }, capabilities: ${JSON.stringify(capabilities)} } })
   if (frame.method === "thread/start") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1" } } })
   if (frame.method === "thread/resume") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: frame.params.threadId } } })
+  if (frame.method === "thread/unsubscribe") return send({ id: frame.id, result: process.env.OLD_UNSUBSCRIBE_RESULT ? {} : { status: "unsubscribed" } })
+  if (frame.method === "thread/mode/read") {
+    const result = { threadId: frame.params.threadId, state: mode(frame.params.threadId) }
+    if (process.env.DELAY_MODE_READ) return setTimeout(() => send({ id: frame.id, result }), 50)
+    return send({ id: frame.id, result })
+  }
+  if (frame.method === "thread/mode/set") {
+    const previous = mode(frame.params.threadId)
+    if (previous.revision !== frame.params.expectedRevision) return send({ id: frame.id, error: { code: -32003, message: "Session mode revision conflict", data: { kind: "sessionModeRevisionConflict" } } })
+    const state = { ...previous, revision: previous.revision + 1, permissionEpoch: previous.permissionEpoch + (previous.permissionMode === frame.params.permissionMode ? 0 : 1), permissionMode: frame.params.permissionMode }
+    modes.set(frame.params.threadId, state)
+    const result = { threadId: frame.params.threadId, state }
+    send({ method: "thread/mode/changed", params: result })
+    send({ method: "thread/mode/changed", params: result })
+    send({ method: "thread/mode/changed", params: { threadId: frame.params.threadId, state: previous } })
+    return send({ id: frame.id, result })
+  }
   if (frame.method === "thread/read") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), archived: false, model: "codem/auto", profile: "default", startedAt: "2026-09-15T00:00:00.000Z", status: "idle" } } })
   if (frame.method === "thread/turns/list") return send({ jsonrpc: "2.0", id: frame.id, result: { turns: [{ id: "turn-1", input: "Build it", submissionId: "submission-1", startedAt: "2026-09-15T00:00:01.000Z", completedAt: "2026-09-15T00:00:02.000Z", status: "completed", itemsView: "summary" }], nextCursor: null, total: 1 } })
   if (frame.method === "thread/items/list") return send({ jsonrpc: "2.0", id: frame.id, result: { items: [{ id: "item-1", type: "agentMessage", submissionId: "submission-1", recordSeq: 1, status: "completed", text: "Done" }, { id: "result-1", type: "toolResult", callId: "call-1", recordSeq: 2, status: "completed", output: "Done" }], nextCursor: null, total: 2 } })

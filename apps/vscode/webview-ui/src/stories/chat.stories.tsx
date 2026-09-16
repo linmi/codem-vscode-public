@@ -1254,7 +1254,7 @@ const headerParts: Record<string, Part[]> = {
       tool: "bash",
       state: {
         status: "running",
-        input: { command: "bun test packages/opencode/test/cli.test.ts", description: "Run CLI tests" },
+        input: { command: "bun test packages/opencode/tests/cli.test.ts", description: "Run CLI tests" },
         title: "Run CLI tests",
       },
     },

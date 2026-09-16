@@ -219,6 +219,12 @@ dependencies {
     testRuntimeOnly(libs.junit.vintage.engine)
 }
 
+sourceSets.test {
+    kotlin.setSrcDirs(listOf("../tests/backend/kotlin"))
+    java.setSrcDirs(emptyList<String>())
+    resources.setSrcDirs(listOf("../tests/backend/resources"))
+}
+
 tasks.test {
     // BasePlatformTestCase uses JUnit 3 test naming (test prefix), discovered by the
     // vintage engine via JUnit Platform; plain JUnit 5 tests keep running unchanged.

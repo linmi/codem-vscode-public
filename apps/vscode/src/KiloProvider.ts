@@ -160,7 +160,6 @@ import { fetchOpenAIModels, FetchModelsError } from "./shared/fetch-models"
 import type { Agent } from "@kilocode/sdk/v2/client"
 import { configFeatures, serverFeatures } from "./features"
 import { fetchSnapshot } from "./kilo-provider/config-snapshot"
-import { createAutoApproveBridge } from "./kilo-provider/auto-approve"
 import type { KiloProviderOptions } from "./kilo-provider/options"
 import type { ProjectRef, SessionRef, WorktreeRef } from "./agent-manager/project/route"
 import { indexingConsentStore, registeredProjects } from "./indexing-consent"
@@ -465,7 +464,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   private telemetryStateDisposable: vscode.Disposable | null = null
   private viewStateDisposable: vscode.Disposable | null = null
   private visibilityDisposable: vscode.Disposable | null = null
-  private autoApproveBridge: ReturnType<typeof createAutoApproveBridge> | null = null
 
   private ignoreController: FileIgnoreController | null = null
   private ignoreControllerDir: string | null = null
@@ -526,9 +524,12 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
         })
       : null
     this.appServerEvent =
-      this.opts.appServer?.onEvent((event) => {
-        this.appServerController?.acceptEvent(event)
-      }) ?? null
+      this.opts.appServer ? vscode.Disposable.from(
+        this.opts.appServer.onEvent((event) => this.appServerController?.acceptEvent(event)),
+        this.opts.appServer.onDidChangeSpace((space) => {
+          if (space) void this.appServerController?.refreshSpace()
+        }),
+      ) : null
     this.codeMAuthenticationChange =
       this.opts.authentication?.onDidChange((status) => {
         this.postMessage({ type: "profileData", data: codeMWebviewProfile(status) })
@@ -542,12 +543,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   setRemoteService(service: RemoteStatusService): void {
     this.remoteService = service
     this.unsubscribeRemote = service.onChange(() => this.sendRemoteStatus())
-  }
-
-  setAutoApproveController(ctrl: Parameters<typeof createAutoApproveBridge>[0]): void {
-    this.autoApproveBridge?.dispose()
-    this.autoApproveBridge = createAutoApproveBridge(ctrl, (msg) => this.postMessage(msg), this.onBeforeMessage)
-    this.onBeforeMessage = (msg) => this.autoApproveBridge!.handle(msg)
   }
 
   private setCurrentSession(session: Session | null): void {
@@ -1053,7 +1048,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   ): void {
     this.isWebviewReady = false
     this.webview = webview
-    if (!this.autoApproveBridge) this.onBeforeMessage = options?.onBeforeMessage ?? null
+    this.onBeforeMessage = options?.onBeforeMessage ?? null
     this.setupWebviewMessageHandler(webview)
     this.initializeConnection()
   }
@@ -1068,6 +1063,10 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
 
   private async handleAppServerMessage(message: WebviewMessage): Promise<boolean> {
     if (!this.appServerController) return false
+    if (!Object.hasOwn(CODEM_UI_INTERACTION_OWNERS, message.type)) {
+      this.postMessage({ type: "error", message: `Unsupported CodeM Webview command: ${message.type}` })
+      return true
+    }
     if (await this.appServerController.handle(message)) return true
     if (CODEM_UI_INTERACTION_OWNERS[message.type as CodeMUiInteractionType] !== "app-server-live") return false
     this.postMessage({
@@ -5736,7 +5735,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     this.autoApprovalReasonConfigDisposable?.dispose()
     this.pushFixesConfigDisposable?.dispose()
     this.telemetryStateDisposable?.dispose()
-    this.autoApproveBridge?.dispose()
     this.visibleTaskStreams.clear()
     this.streams.dispose()
     this.isWebviewReady = false

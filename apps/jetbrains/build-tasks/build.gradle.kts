@@ -12,6 +12,12 @@ dependencies {
     testImplementation(kotlin("test"))
 }
 
+sourceSets.test {
+    kotlin.setSrcDirs(listOf("../tests/build-tasks/kotlin"))
+    java.setSrcDirs(emptyList<String>())
+    resources.setSrcDirs(listOf("../tests/build-tasks/resources"))
+}
+
 tasks.test {
     useJUnitPlatform()
 }

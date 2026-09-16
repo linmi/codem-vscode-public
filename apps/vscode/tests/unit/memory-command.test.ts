@@ -26,7 +26,7 @@ type Case = {
 }
 
 const cases = (await Bun.file(
-  new URL("../../../../packages/kilo-memory/test/command-cases.json", import.meta.url),
+  new URL("../../../../packages/kilo-memory/tests/command-cases.json", import.meta.url),
 ).json()) as Case[]
 
 function expected(item: Case): ParsedMemoryCommand | undefined {

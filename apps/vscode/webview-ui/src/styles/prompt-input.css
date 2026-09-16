@@ -667,3 +667,27 @@
     transform: scale(0.94);
   }
 }
+
+.thread-permission-mode {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+.thread-permission-mode select,
+.thread-permission-mode button {
+  font: inherit;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, var(--vscode-contrastBorder, transparent));
+  border-radius: 4px;
+  max-width: 180px;
+}
+.thread-permission-mode select:focus-visible,
+.thread-permission-mode button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+.thread-permission-mode [role="alert"] {
+  color: var(--vscode-errorForeground);
+  white-space: normal;
+}

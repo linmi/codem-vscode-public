@@ -1026,9 +1026,17 @@ export interface AgentManagerKeybindingsMessage {
   bindings: Record<string, string>
 }
 
-export interface AutoApproveStateMessage {
-  type: "autoApproveState"
-  active: boolean
+export interface ThreadModesChangedMessage {
+  type: "threadModesChanged"
+  sessionID: string
+  state: import("@codem/app-server/modes").AppServerModeState | null
+}
+
+export interface ThreadModesResultMessage {
+  type: "threadModesResult"
+  sessionID: string
+  requestID: string
+  result: { state: import("@codem/app-server/modes").AppServerModeState } | { error: string }
 }
 
 export interface SandboxStatusMessage {
@@ -1647,7 +1655,8 @@ export type ExtensionMessage =
   | AgentManagerRunStatusMessage
   | AgentManagerCaffeinationMessage
   | AgentManagerKeybindingsMessage
-  | AutoApproveStateMessage
+  | ThreadModesChangedMessage
+  | ThreadModesResultMessage
   | SandboxStatusMessage
   | SandboxDefaultStatusMessage
   | SandboxStatusErrorMessage

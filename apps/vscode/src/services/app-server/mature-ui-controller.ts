@@ -12,6 +12,8 @@ import type { WebviewMessage } from "../../../webview-ui/src/types/messages/webv
 import { AppServerMatureUiAdapter } from "./mature-ui-adapter.ts"
 
 type AppServerMessageType =
+  | "requestThreadModes"
+  | "setThreadPermissionMode"
   | "abort"
   | "cancelBackgroundJob"
   | "compact"
@@ -32,6 +34,8 @@ type AppServerMessageType =
   | "sendMessage"
 
 export const APP_SERVER_MATURE_UI_COMMANDS = [
+  "requestThreadModes",
+  "setThreadPermissionMode",
   "abort",
   "cancelBackgroundJob",
   "compact",
@@ -58,6 +62,8 @@ export interface MatureUiPrompt {
 }
 
 export interface MatureUiAppServerPort {
+  readModes: import("./service").CodeMAppServerService["readModes"]
+  setModes: import("./service").CodeMAppServerService["setModes"]
   startThread(cwd: string, model?: string, intelligence?: string): Promise<string>
   resumeThread(cwd: string, threadId: string, model?: string, intelligence?: string): Promise<void>
   listThreads(
@@ -147,7 +153,9 @@ export class MatureUiAppServerController {
     if (!this.accepts(message.type)) return false
     const accepted = message as Extract<WebviewMessage, { readonly type: AppServerMessageType }>
     try {
-      await this.handleAccepted(accepted)
+      if (accepted.type === "requestThreadModes" || accepted.type === "setThreadPermissionMode")
+        await this.handleModes(accepted)
+      else await this.handleAccepted(accepted)
     } catch (error: unknown) {
       this.postFailure(accepted, error)
     }
@@ -156,6 +164,13 @@ export class MatureUiAppServerController {
 
   clearSelection(): void {
     this.setCurrentThread(null)
+  }
+
+  async refreshSpace(): Promise<void> {
+    // Service retires loaded threads before publishing a selected space.
+    this.clearSelection()
+    await this.handle({ type: "requestProviders" })
+    await this.handle({ type: "requestSkills" })
   }
 
   acceptEvent(event: AppServerHostEvent): void {
@@ -218,6 +233,35 @@ export class MatureUiAppServerController {
       case "requestSkills":
         return this.loadSkills()
     }
+  }
+
+  private async handleModes(
+    message: Extract<WebviewMessage, { type: "requestThreadModes" | "setThreadPermissionMode" }>,
+  ): Promise<void> {
+    for (const [name, value] of [
+      ["sessionID", message.sessionID],
+      ["requestID", message.requestID],
+    ]) {
+      if (typeof value !== "string" || !value.trim() || value !== value.trim())
+        throw new Error(`Invalid CodeM mode ${name}`)
+    }
+    const cwd = this.options.cwdForThread(message.sessionID)
+    await this.ensureLoaded(cwd, message.sessionID)
+    const state =
+      message.type === "requestThreadModes"
+        ? await this.service.readModes(cwd, message.sessionID)
+        : await this.service.setModes({
+            cwd,
+            threadId: message.sessionID,
+            expectedRevision: message.expectedRevision,
+            permissionMode: message.permissionMode,
+          })
+    this.post({
+      type: "threadModesResult",
+      sessionID: message.sessionID,
+      requestID: message.requestID,
+      result: { state },
+    })
   }
 
   private async createSession(draftId?: string, model?: string, intelligence?: string): Promise<void> {
@@ -403,6 +447,15 @@ export class MatureUiAppServerController {
 
   private postFailure(message: Extract<WebviewMessage, { readonly type: AppServerMessageType }>, error: unknown): void {
     const reason = error instanceof Error && error.message.trim() ? error.message : "CodeM App Server operation failed"
+    if (message.type === "requestThreadModes" || message.type === "setThreadPermissionMode") {
+      this.post({
+        type: "threadModesResult",
+        sessionID: message.sessionID,
+        requestID: message.requestID,
+        result: { error: reason },
+      })
+      return
+    }
     if (message.type === "sendMessage" || message.type === "sendCommand") {
       this.post({
         type: "sendMessageFailed",

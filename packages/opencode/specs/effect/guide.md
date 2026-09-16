@@ -204,7 +204,7 @@ that data explicitly.
 ## Testing
 
 Detailed test migration rules live in
-[`test/EFFECT_TEST_MIGRATION.md`](../../test/EFFECT_TEST_MIGRATION.md).
+[`tests/EFFECT_TEST_MIGRATION.md`](../../test/EFFECT_TEST_MIGRATION.md).
 
 Core pattern:
 
@@ -227,7 +227,7 @@ Rules:
 - Use `it.live(...)` for real timers, filesystem mtimes, child processes,
   git, locks, or other live integration behavior.
 - Use `it.instance(...)` for service tests that need a scoped instance.
-- Prefer Effect-aware fixtures from `test/fixture/fixture.ts`.
+- Prefer Effect-aware fixtures from `tests/fixture/fixture.ts`.
 - Avoid sleeps; wait for real events or deterministic state transitions.
 - Avoid mutable `process.env`, `Flag`, or module-global changes after
   layers are built.

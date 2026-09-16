@@ -1312,12 +1312,18 @@ export interface AgentManagerBrowserRequestMessage {
   theme?: "dark" | "light"
 }
 
-export interface RequestAutoApproveStateMessage {
-  type: "requestAutoApproveState"
+export interface RequestThreadModesMessage {
+  type: "requestThreadModes"
+  sessionID: string
+  requestID: string
 }
 
-export interface ToggleAutoApproveMessage {
-  type: "toggleAutoApprove"
+export interface SetThreadPermissionModeMessage {
+  type: "setThreadPermissionMode"
+  sessionID: string
+  requestID: string
+  expectedRevision: number
+  permissionMode: "default" | "auto" | "yolo"
 }
 
 export interface RequestSandboxStatusMessage {
@@ -1725,8 +1731,8 @@ export type WebviewMessage =
   | SidebarOpenSessionsMessage
   | AgentManagerVisibleSessionMessage
   | AgentManagerBrowserRequestMessage
-  | RequestAutoApproveStateMessage
-  | ToggleAutoApproveMessage
+  | RequestThreadModesMessage
+  | SetThreadPermissionModeMessage
   | RequestSandboxStatusMessage
   | RequestSandboxDefaultMessage
   | SetSandboxDefaultMessage

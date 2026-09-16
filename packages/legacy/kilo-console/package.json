@@ -7,8 +7,8 @@
     "dev": "vite --host 127.0.0.1 --port 3017",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 3018",
-    "test": "bun test src",
-    "test:ci": "mkdir -p .artifacts/unit && bun test src --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
+    "test": "bun test tests",
+    "test:ci": "mkdir -p .artifacts/unit && bun test tests --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {

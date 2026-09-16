@@ -458,3 +458,9 @@ Spike 评审通过后，按 Cycle 0→6 顺序实施；每个 Cycle 独立提交
 - 真实 Core `0.8.37`：protocol 1、必需 capability 通过，response 省略 `jsonrpc`，macOS arm64 SHA-256 `1354ec32d4e3ccfb462bc3dd005433a608c3e699b6f839462fe1359cec6b1273`
 
 外部事实以 2026-09-14 对 Kilo 官方源码与官方文档的核对为准；CodeM 事实以 2026-09-15 拉取后的 `main@d7763f0a`、官方包 registry、真实线上 Core 与 CLI broker 的核对为准。本仓库完成了 34 个聚焦 app-server contract 测试，以及新 VS Code Host/Webview 的 typecheck、定向 lint、production bundle 和 `0.1.1` dev VSIX。按要求没有执行全仓或旧 Kilo 单测；live turn、HITL、重启历史、dev VSIX 安装与真实 Extension Host 仍需人工验收。
+
+## 已交付的原子迁移：每会话权限模式（2026-09-16）
+
+用户已确认以 Core 原生 `default / auto / yolo` 替换全局自动放行开关。当前线程模式仅由 `thread/mode/read`、带 `expectedRevision` 的 `thread/mode/set` 及 `thread/mode/changed` 决定；Host 不再自动回复 Kilo permission。新会话默认由 `codem.permissionMode` 指定（默认 `auto`），已有会话读取 Core 状态。冲突不盲目重试，断线和旧请求响应不能恢复失效权限显示。旧 `codem.toggleAutoApprove`、`codem.autoApprove.enabled` 和布尔消息入口已删除，不提供兼容别名。
+
+当前命令归属清单为 264 项，其中 20 项已有 App Server 控制器映射，38 项仍有协议/语义缺口，206 项归属 Host 或独立服务；映射数量不代表真实交互验收。设置页面的旧细粒度规则配置尚待单独迁移。

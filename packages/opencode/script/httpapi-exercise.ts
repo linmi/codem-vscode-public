@@ -1,6 +1,6 @@
 // kilocode_change start - `--shards N` fans a pass out across N child processes, each
 // running `--shard i/N`. Children are fully isolated: the exerciser keys its database
-// and global root by PID (test/server/httpapi-exercise/environment.ts), so shards never
+// and global root by PID (tests/server/httpapi-exercise/environment.ts), so shards never
 // share SQLite files or on-disk state. Route coverage (missing/extra) stays correct
 // because every child checks it against the full scenario list.
 const args = Bun.argv.slice(2)
@@ -48,4 +48,4 @@ if (shards > 1) {
 }
 // kilocode_change end
 
-await import("../test/server/httpapi-exercise/index")
+await import("../tests/server/httpapi-exercise/index")

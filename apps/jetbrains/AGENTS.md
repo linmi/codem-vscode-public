@@ -12,6 +12,7 @@ Use pnpm as the repository package-manager entry point; Gradle remains the nativ
 - Reference template for the split-mode structure: https://github.com/JetBrains/intellij-platform-modular-plugin-template
 - Official docs: https://plugins.jetbrains.com/docs/intellij/split-mode-for-remote-development.html
 - Kotlin source goes under `{module}/src/main/kotlin/ai/kilocode/jetbrains/`. Package name is `ai.kilocode.jetbrains` (matches `group` in root `build.gradle.kts`).
+- Kotlin tests and test-only helpers live under `tests/{module}/kotlin/`, with test resources under `tests/{module}/resources/`. Each module's Gradle test source set points only to these directories.
 - The root `plugin.xml` is wiring only: keep plugin metadata and the `<content>` block there. Register services, extensions, listeners, and actions in the module XML descriptors, not in root `plugin.xml`.
 - Module descriptor files must live directly in `{module}/src/main/resources/`, not in `META-INF/`.
 - Module XMLs use `<dependencies>`, not `<depends>`. The allowed top-level registration tags are limited; keep module XMLs focused on `<resource-bundle>`, `<extensions>`, `<extensionPoints>`, `<actions>`, `<applicationListeners>`, and `<projectListeners>`.

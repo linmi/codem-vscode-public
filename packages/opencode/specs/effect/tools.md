@@ -26,7 +26,7 @@ That means a tool does not need a separate `Tool.defineEffect(...)` helper to co
 
 ## Tests
 
-Tool tests should use the existing Effect helpers in `packages/opencode/test/lib/effect.ts`:
+Tool tests should use the existing Effect helpers in `packages/opencode/tests/lib/effect.ts`:
 
 - Use `testEffect(...)` / `it.live(...)` instead of creating fake local wrappers around effectful tools.
 - Yield the real tool export, then initialize it: `const info = yield* ReadTool`, `const tool = yield* info.init()`.

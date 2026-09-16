@@ -13,5 +13,5 @@
     }
   },
   // kilocode_change - include ambient declarations used by retained Kilo imports from opencode
-  "include": ["src", "test", "../opencode/src/*.d.ts"]
+  "include": ["src", "tests", "../opencode/src/*.d.ts"]
 }

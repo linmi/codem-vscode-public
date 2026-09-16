@@ -11,11 +11,19 @@ import {
 } from "./items.ts"
 import type { AppServerNotification, AppServerRequest, JsonObject } from "./rpc.ts"
 import type { AppServerRuntime } from "./runtime.ts"
+import { appServerSpaceLaunch, type AppServerPreparedSpace } from "./spaces.ts"
+
+import {
+  parseAppServerModes,
+  reconcileAppServerModes,
+  permissionMode,
+  type AppServerModeState,
+  type AppServerPermissionMode,
+} from "./modes.ts"
 
 const ROUTER_CREDENTIAL_HOST_COMMAND_ENV = "CODEM_ROUTER_CREDENTIAL_HOST_CMD"
 const SESSION_SOURCE_ENV = "CODEM_SESSION_SOURCE"
 
-export type AppServerPermissionMode = "default" | "auto" | "yolo"
 export type AppServerWorkMode = "default" | "plan"
 export const APP_SERVER_BUILTIN_INTELLIGENCE_TIERS = ["low", "medium", "high", "xhigh"] as const
 export type AppServerBuiltinIntelligence = (typeof APP_SERVER_BUILTIN_INTELLIGENCE_TIERS)[number]
@@ -218,6 +226,7 @@ export type AppServerInteractionResponse =
   | { readonly kind: "plan-mode"; readonly approved: boolean }
 
 export type AppServerHostEvent =
+  | { readonly type: "thread-modes-updated"; readonly threadId: string; readonly state: AppServerModeState }
   | { readonly type: "connection-ready"; readonly cwd: string }
   | { readonly type: "connection-closed"; readonly cwd: string; readonly exit: AppServerProcessExit }
   | { readonly type: "thread-started"; readonly cwd: string; readonly threadId: string }
@@ -357,6 +366,7 @@ export interface AppServerHostOptions {
   readonly runtime: AppServerRuntime
   readonly clientInfo: { readonly name: string; readonly version: string }
   readonly assertAuthenticated: (cwd: string) => void | Promise<void>
+  readonly prepareSpace?: (cwd: string) => Promise<AppServerPreparedSpace>
   readonly environment?: NodeJS.ProcessEnv
   readonly onStderr?: (cwd: string, text: string) => void
 }
@@ -374,6 +384,7 @@ interface ThreadState {
   settings: AppServerThreadSettings
   activeTurn: ActiveTurn | null
   sideQuestion: ActiveSideQuestion | null
+  modes: AppServerModeState | null
 }
 
 interface ActiveSideQuestion {
@@ -423,6 +434,10 @@ export class AppServerHost {
   onEvent(listener: (event: AppServerHostEvent) => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
+  }
+
+  get hasActiveWork(): boolean {
+    return [...this.threads.values()].some((thread) => thread.activeTurn !== null || thread.sideQuestion !== null)
   }
 
   async prepareConnection(cwd: string): Promise<void> {
@@ -630,12 +645,10 @@ export class AppServerHost {
     thread.connection.connection.peer.respond(pending.rpcId, result)
   }
 
-  async readModes(cwd: string, threadId: string): Promise<Readonly<JsonObject>> {
+  async readModes(cwd: string, threadId: string): Promise<AppServerModeState> {
     const thread = this.requireThread(cwd, threadId)
-    return objectValue(
-      await thread.connection.connection.request("thread/mode/read", { threadId }),
-      "thread/mode/read result",
-    )
+    const result = await thread.connection.connection.request("thread/mode/read", { threadId })
+    return this.acceptModes(thread, result)
   }
 
   async setModes(input: {
@@ -644,23 +657,33 @@ export class AppServerHost {
     readonly expectedRevision: number
     readonly permissionMode?: AppServerPermissionMode
     readonly workMode?: "normal" | "plan"
-  }): Promise<Readonly<JsonObject>> {
+  }): Promise<AppServerModeState> {
     const thread = this.requireThread(input.cwd, input.threadId)
-    if (!Number.isInteger(input.expectedRevision) || input.expectedRevision < 0) {
+    if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0)
       throw new Error("CodeM thread/mode/set expectedRevision must be a non-negative integer")
-    }
-    if (input.permissionMode === undefined && input.workMode === undefined) {
+    if (input.permissionMode === undefined && input.workMode === undefined)
       throw new Error("CodeM thread/mode/set requires a mode change")
+    if (input.permissionMode !== undefined) permissionMode(input.permissionMode)
+    if (input.workMode !== undefined && input.workMode !== "normal" && input.workMode !== "plan")
+      throw new Error("Invalid CodeM workMode")
+    const result = await thread.connection.connection.request("thread/mode/set", {
+      threadId: input.threadId,
+      expectedRevision: input.expectedRevision,
+      ...(input.permissionMode === undefined ? {} : { permissionMode: input.permissionMode }),
+      ...(input.workMode === undefined ? {} : { workMode: input.workMode }),
+    })
+    return this.acceptModes(thread, result)
+  }
+
+  private acceptModes(thread: ThreadState, result: unknown): AppServerModeState {
+    if (this.threads.get(thread.id) !== thread)
+      throw new Error(`CodeM mode response belongs to retired thread ${thread.id}`)
+    const state = reconcileAppServerModes(thread.modes, parseAppServerModes(result, thread.id))
+    if (state !== thread.modes) {
+      thread.modes = state
+      this.emit({ type: "thread-modes-updated", threadId: thread.id, state })
     }
-    return objectValue(
-      await thread.connection.connection.request("thread/mode/set", {
-        threadId: input.threadId,
-        expectedRevision: input.expectedRevision,
-        ...(input.permissionMode === undefined ? {} : { permissionMode: input.permissionMode }),
-        ...(input.workMode === undefined ? {} : { workMode: input.workMode }),
-      }),
-      "thread/mode/set result",
-    )
+    return state
   }
 
   async listThreads(
@@ -813,7 +836,8 @@ export class AppServerHost {
       await thread.connection.connection.request("thread/unsubscribe", { threadId }),
       "thread/unsubscribe result",
     )
-    if (Object.keys(result).length !== 0) throw new Error("CodeM thread/unsubscribe result must be empty")
+    if (Object.keys(result).length !== 1 || (result.status !== "unsubscribed" && result.status !== "notSubscribed"))
+      throw new Error("Invalid CodeM thread/unsubscribe status")
     this.forgetThread(thread, "unsubscribed")
   }
 
@@ -887,13 +911,17 @@ export class AppServerHost {
 
   private async openConnection(cwd: string): Promise<ConnectionState> {
     await this.options.assertAuthenticated(cwd)
+    const space = this.options.prepareSpace ? appServerSpaceLaunch(await this.options.prepareSpace(cwd)) : null
     let state: ConnectionState | null = null
     const connection = await startAppServerConnection({
       runtime: this.options.runtime,
       workingDirectory: cwd,
       clientInfo: this.options.clientInfo,
-      arguments: ["--final-answer-tool"],
-      environment: appServerHostEnvironment(this.options.runtime, this.options.environment),
+      arguments: ["--final-answer-tool", ...(space?.arguments ?? [])],
+      environment: {
+        ...appServerHostEnvironment(this.options.runtime, this.options.environment),
+        ...space?.environment,
+      },
       onNotification: (notification) => {
         if (state) this.handleNotification(state, notification)
       },
@@ -934,6 +962,7 @@ export class AppServerHost {
       settings,
       activeTurn: null,
       sideQuestion: null,
+      modes: null,
     }
     thread.settings = settings
     this.threads.set(threadId, thread)
@@ -980,15 +1009,15 @@ export class AppServerHost {
       return
     }
     if (!thread) return
+    if (frame.method === "thread/mode/changed") {
+      this.acceptModes(thread, frame.params)
+      return
+    }
     if (frame.method === "thread/closed" || frame.method === "thread/archived" || frame.method === "thread/deleted") {
       this.forgetThread(thread, frame.method)
       return
     }
-    if (
-      frame.method === "thread/mode/changed" ||
-      frame.method === "thread/name/updated" ||
-      frame.method === "thread/unarchived"
-    ) {
+    if (frame.method === "thread/name/updated" || frame.method === "thread/unarchived") {
       this.emit({ type: "control-changed", threadId: thread.id, method: frame.method })
       return
     }

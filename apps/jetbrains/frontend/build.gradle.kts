@@ -66,6 +66,12 @@ tasks.processResources {
     dependsOn(providerIcons, providerIconsDark)
 }
 
+sourceSets.test {
+    kotlin.setSrcDirs(listOf("../tests/frontend/kotlin"))
+    java.setSrcDirs(emptyList<String>())
+    resources.setSrcDirs(listOf("../tests/frontend/resources"))
+}
+
 tasks.test {
     // BasePlatformTestCase uses JUnit 3 test naming (test prefix),
     // discovered by the vintage engine via JUnit Platform

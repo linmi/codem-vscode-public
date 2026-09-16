@@ -21,7 +21,6 @@ export type AttentionNotice = {
 }
 
 type Options = {
-  approve?: (event: Asked, directory?: string) => boolean | Promise<boolean>
   details?: (sessionID: string, directory?: string) => Promise<Omit<AttentionNotice, "message"> | undefined>
   focused?: () => boolean
   visible?: (sessionID: string) => boolean
@@ -113,16 +112,7 @@ export class AttentionService implements vscode.Disposable {
     const id = event.properties.id
     if (this.permissions.has(id)) return
     this.permissions.add(id)
-    const alert = () => {
-      if (!this.permissions.has(id)) return
-      this.notify("permission", event.properties.sessionID, directory)
-    }
-    const approval = this.opts.approve?.(event, directory)
-    if (approval === true) return
-    if (approval === false || approval === undefined) return alert()
-    void approval.then((handled) => {
-      if (!handled) alert()
-    }, alert)
+    this.notify("permission", event.properties.sessionID, directory)
   }
 
   private status(event: Status) {

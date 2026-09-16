@@ -180,12 +180,6 @@ export const dict = {
   "prompt.action.stop": "Ferma",
   "prompt.action.enhance": "Migliora prompt",
   "prompt.action.indexing": "Impostazioni indicizzazione",
-  "prompt.action.autoApprove.enable": "Abilita approvazione automatica",
-  "prompt.action.autoApprove.disable": "Disabilita approvazione automatica",
-  "prompt.action.autoApprove.enabled":
-    "L'approvazione automatica è abilitata. Le richieste di autorizzazione saranno approvate automaticamente.",
-  "prompt.action.autoApprove.disabled":
-    "L'approvazione automatica è disabilitata. Fai clic per approvare automaticamente le richieste di autorizzazione.",
   "prompt.action.enhanceDescription":
     "Il pulsante 'Migliora prompt' aiuta a migliorare il prompt aggiungendo contesto, chiarimenti o riformulazioni. Scrivi un prompt qui e fai di nuovo clic sul pulsante per vedere come funziona.",
   "prompt.toast.promptSendFailed.title": "Invio prompt non riuscito",

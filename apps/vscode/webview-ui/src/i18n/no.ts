@@ -204,12 +204,6 @@ export const dict = {
   "prompt.action.send.recording": "Transkriber og send",
   "prompt.action.stop": "Stopp",
   "prompt.action.enhance": "Forbedre prompt",
-  "prompt.action.autoApprove.enable": "Aktiver automatisk godkjenning",
-  "prompt.action.autoApprove.disable": "Deaktiver automatisk godkjenning",
-  "prompt.action.autoApprove.enabled":
-    "Automatisk godkjenning er aktivert. Tillatelsesforespørsler godkjennes automatisk.",
-  "prompt.action.autoApprove.disabled":
-    "Automatisk godkjenning er deaktivert. Klikk for å godkjenne tillatelsesforespørsler automatisk.",
   "prompt.action.indexing": "Indekseringsinnstillinger",
   "prompt.action.enhanceDescription":
     "Knappen 'Forbedre prompt' hjelper med å forbedre forespørselen din ved å gi ekstra kontekst, avklaring eller omformulering. Prøv å skrive en forespørsel her og klikk på knappen igjen for å se hvordan det fungerer.",

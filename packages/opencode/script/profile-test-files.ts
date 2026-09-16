@@ -1,7 +1,7 @@
 // Per-file profiler for finding candidate test-speed work; see ../../perf/test-suite.md
 // for the benchmark notes, kept wins, and discarded experiments.
-// Example: TEST_PROFILE_GLOB='test/server/**/*.test.ts' TEST_PROFILE_TOP=15 bun run profile:test
-const pattern = Bun.env.TEST_PROFILE_GLOB ?? "test/**/*.test.{ts,tsx}"
+// Example: TEST_PROFILE_GLOB='tests/server/**/*.test.ts' TEST_PROFILE_TOP=15 bun run profile:test
+const pattern = Bun.env.TEST_PROFILE_GLOB ?? "tests/**/*.test.{ts,tsx}"
 const limit = Number(Bun.env.TEST_PROFILE_LIMIT ?? 0)
 const timeout = Bun.env.TEST_PROFILE_TIMEOUT ?? "30000"
 const files = Array.fromAsync(new Bun.Glob(pattern).scan({ cwd: import.meta.dir + "/..", onlyFiles: true }))

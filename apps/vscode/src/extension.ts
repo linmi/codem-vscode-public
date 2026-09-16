@@ -22,7 +22,6 @@ import { BrowserBroker } from "./services/browser-automation"
 import { TelemetryEventName, TelemetryProxy } from "./services/telemetry"
 import { registerCommitMessageService } from "./services/commit-message"
 import { registerCodeActions, registerTerminalActions, KiloCodeActionProvider } from "./services/code-actions"
-import { registerToggleAutoApprove } from "./commands/toggle-auto-approve"
 import { registerHeapSnapshot } from "./commands/heap-snapshot"
 import { RemoteStatusService } from "./services/RemoteStatusService"
 import { markWorkspace } from "./util/spotlight"
@@ -32,6 +31,7 @@ import { isCursorHost } from "./utils"
 import { sameDirectory } from "./kilo-provider-utils"
 import { CodeMAuthenticationService } from "./services/app-server/authentication"
 import { CodeMAppServerService } from "./services/app-server/service"
+import { registerSpaceSelector } from "./services/app-server/spaces-ui"
 
 let agentManager: AgentManagerProvider | undefined
 let caffeination: CaffeinationService | undefined
@@ -65,6 +65,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     codeMAuthentication,
     codeMAppServer,
+    registerSpaceSelector(codeMAppServer),
     vscode.commands.registerCommand("codem.signIn", () => codeMAuthentication.signIn()),
     vscode.commands.registerCommand("codem.signOut", () => codeMAuthentication.signOut()),
     vscode.commands.registerCommand("codem.refreshAuthentication", () => codeMAuthentication.refresh()),
@@ -279,28 +280,7 @@ export async function activate(context: vscode.ExtensionContext) {
     agentManagerProvider.createFromSidebar(baseBranch, branchName),
   )
 
-  // Register toggle auto-approve shortcut (Ctrl+Alt+A / Cmd+Alt+A)
-  const defaultDir = () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
-  const autoApprove = registerToggleAutoApprove(
-    context,
-    connectionService,
-    (sessionId) => {
-      if (sessionId) {
-        const dir =
-          provider.getSessionDirectories().get(sessionId) ?? agentManagerProvider.getSessionDirectories().get(sessionId)
-        if (dir) return dir
-      }
-      return defaultDir()
-    },
-    () => {
-      const dirs = new Set([defaultDir()])
-      for (const dir of provider.getSessionDirectories().values()) dirs.add(dir)
-      for (const dir of agentManagerProvider.getSessionDirectories().values()) dirs.add(dir)
-      return [...dirs]
-    },
-  )
   const attention = new AttentionService(connectionService, {
-    approve: (event, directory) => autoApprove.approve(event, directory),
     details: async (sessionID, directory) => {
       provider.rememberSession(sessionID, directory)
       const session = await provider.getSessionInfo(sessionID)
@@ -325,9 +305,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Prewarm only after all global event consumers are ready.
   ensureBackendForAutocomplete(connectionService)
-
-  provider.setAutoApproveController(autoApprove)
-  agentManagerHost.setAutoApproveController(autoApprove)
 
   // Register serializer so Agent Manager restores when VS Code restarts
   context.subscriptions.push(
@@ -357,7 +334,6 @@ export async function activate(context: vscode.ExtensionContext) {
       topBarSurface: "tab",
     })
     tabProvider.setRemoteService(remoteService)
-    tabProvider.setAutoApproveController(autoApprove)
     tabProvider.setContinueInWorktreeHandler((sessionId, progress) =>
       agentManagerProvider.continueFromSidebar(sessionId, progress),
     )
@@ -518,6 +494,11 @@ export async function activate(context: vscode.ExtensionContext) {
       const tab = activeTabProvider()
       if (tab) tab.postMessage({ type: "action", action: "historyButtonClicked" })
       else provider.postMessage({ type: "action", action: "historyButtonClicked" })
+    }),
+    vscode.commands.registerCommand("codem.selectPermissionMode", () => {
+      const tab = activeTabProvider()
+      ;(tab ?? provider).postMessage({ type: "action", action: "selectPermissionMode" })
+      agentManagerProvider.postMessage({ type: "action", action: "selectPermissionMode" })
     }),
     vscode.commands.registerCommand("codem.cycleAgentMode", () => {
       const tab = activeTabProvider()

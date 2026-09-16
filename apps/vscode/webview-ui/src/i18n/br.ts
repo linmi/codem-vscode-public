@@ -201,12 +201,6 @@ export const dict = {
   "prompt.action.send.recording": "Transcrever e enviar",
   "prompt.action.stop": "Parar",
   "prompt.action.enhance": "Melhorar prompt",
-  "prompt.action.autoApprove.enable": "Ativar aprovação automática",
-  "prompt.action.autoApprove.disable": "Desativar aprovação automática",
-  "prompt.action.autoApprove.enabled":
-    "A aprovação automática está ativada. Solicitações de permissão serão aprovadas automaticamente.",
-  "prompt.action.autoApprove.disabled":
-    "A aprovação automática está desativada. Clique para aprovar solicitações de permissão automaticamente.",
   "prompt.action.enhanceDescription":
     "O botão 'Aprimorar prompt' ajuda a melhorar seu pedido fornecendo contexto adicional, esclarecimentos ou reformulações. Tente digitar um pedido aqui e clique no botão novamente para ver como funciona.",
   "prompt.action.indexing": "Configurações de indexação",

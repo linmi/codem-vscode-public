@@ -16,13 +16,5 @@
     // "noUnusedParameters": true,  /* Report errors on unused parameters. */
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "webview-ui",
-    "src/**/__tests__/**",
-    "src/**/*.test.ts",
-    "src/**/*.spec.ts",
-    "src/**/test/**",
-    "src/**/vitest.setup.ts",
-    "src/**/testUtils.ts"
-  ]
+  "exclude": ["webview-ui", "tests"]
 }
