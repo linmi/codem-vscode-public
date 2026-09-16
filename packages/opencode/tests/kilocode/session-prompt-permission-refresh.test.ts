@@ -1275,7 +1275,7 @@ it.live(
         git: true,
         config: (url) => ({
           ...providerCfg(url),
-          model: "tests/test-model",
+          model: "test/test-model",
           permission: { read: { "*": "allow", ".env": "ask" }, task: "allow" },
         }),
       },
@@ -1317,7 +1317,7 @@ for (const continued of [false, true]) {
           git: true,
           config: (url) => ({
             ...providerCfg(url),
-            model: "tests/test-model",
+            model: "test/test-model",
             permission: { read: { "*": "allow", ".env": "ask" } },
             experimental: { continue_loop_on_deny: continued },
           }),

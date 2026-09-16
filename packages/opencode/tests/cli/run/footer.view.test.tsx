@@ -723,7 +723,7 @@ test("direct queued prompt panel renders pending prompt actions", async () => {
   }
 })
 
-// OpenTUI currently crashes Bun in the full `tests/cli/run` directory run here.
+// OpenTUI currently crashes Bun in the full `test/cli/run` directory run here.
 // Re-enable after the upstream OpenTUI fix lands in this repo.
 test.skip("direct footer recreates the frame across command panel transitions", async () => {
   const app = await renderFooter()

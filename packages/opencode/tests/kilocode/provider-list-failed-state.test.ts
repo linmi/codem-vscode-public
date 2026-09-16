@@ -61,8 +61,8 @@ it.live("getFailure returns undefined when fetch succeeds", () =>
   Effect.gen(function* () {
     result = {
       models: {
-        "tests/model": {
-          id: "tests/model",
+        "test/model": {
+          id: "test/model",
           name: "Test",
           attachment: false,
           reasoning: false,
@@ -133,8 +133,8 @@ it.live("failure state is cleared when subsequent refresh succeeds", () =>
         expect(yield* cache.failedProviders()).toContain("kilo")
         result = {
           models: {
-            "tests/model": {
-              id: "tests/model",
+            "test/model": {
+              id: "test/model",
               name: "Test",
               attachment: false,
               reasoning: false,

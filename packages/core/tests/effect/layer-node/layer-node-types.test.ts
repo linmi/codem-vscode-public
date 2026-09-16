@@ -3,9 +3,9 @@ import { Context, Effect, Layer } from "effect"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { makeGlobalNode, makeLocationNode } from "@opencode-ai/core/effect/app-node"
 
-class A extends Context.Service<A, {}>()("tests/LayerNodeA") {}
-class B extends Context.Service<B, {}>()("tests/LayerNodeB") {}
-class C extends Context.Service<C, {}>()("tests/LayerNodeC") {}
+class A extends Context.Service<A, {}>()("test/LayerNodeA") {}
+class B extends Context.Service<B, {}>()("test/LayerNodeB") {}
+class C extends Context.Service<C, {}>()("test/LayerNodeC") {}
 class LayerError {
   readonly _tag = "LayerError"
 }
@@ -74,9 +74,9 @@ const invalidNodeErrorReplacement = () =>
   LayerNode.compile(a, [[a, make({ service: A, layer: Layer.effect(A, Effect.fail(new OtherError())), deps: [] })]])
 void invalidNodeErrorReplacement
 
-class TagA extends Context.Service<TagA, {}>()("tests/TagA") {}
-class TagB extends Context.Service<TagB, {}>()("tests/TagB") {}
-class TagC extends Context.Service<TagC, {}>()("tests/TagC") {}
+class TagA extends Context.Service<TagA, {}>()("test/TagA") {}
+class TagB extends Context.Service<TagB, {}>()("test/TagB") {}
+class TagC extends Context.Service<TagC, {}>()("test/TagC") {}
 
 const scopedTags = LayerNode.tags({ request: ["global"], global: [] })
 const request = scopedTags.make("request")
@@ -122,8 +122,8 @@ global({ service: TagB, layer: tagBLayer, deps: [requestA] })
 // @ts-expect-error Groups preserve their child tags
 global({ service: TagB, layer: tagBLayer, deps: [LayerNode.group([requestA])] })
 
-class ScopedA extends Context.Service<ScopedA, {}>()("tests/ScopedA") {}
-class ScopedB extends Context.Service<ScopedB, {}>()("tests/ScopedB") {}
+class ScopedA extends Context.Service<ScopedA, {}>()("test/ScopedA") {}
+class ScopedB extends Context.Service<ScopedB, {}>()("test/ScopedB") {}
 
 const scopedA = Layer.succeed(ScopedA, ScopedA.of({}))
 const scopedB = Layer.effect(ScopedB, Effect.as(ScopedA, ScopedB.of({})))

@@ -21,6 +21,7 @@ export function registerSpaceSelector(service: CodeMAppServerService): vscode.Di
     try {
       if (!vscode.workspace.isTrusted) throw new Error("Trust this workspace before selecting a CodeM space.")
       const folders = vscode.workspace.workspaceFolders ?? []
+      if (!folders.length) throw new Error("Open a workspace folder before selecting a CodeM space.")
       const folder = folders.length === 1 ? folders[0] : await vscode.window.showWorkspaceFolderPick()
       if (!folder) return
       const cwd = folder.uri.fsPath

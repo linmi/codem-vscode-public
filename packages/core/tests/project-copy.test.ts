@@ -88,7 +88,7 @@ describe("ProjectCopy", () => {
       const input = yield* setup()
       const copy = yield* ProjectCopy.Service
       const strategy: ProjectCopy.Strategy = {
-        id: ProjectCopy.StrategyID.make("tests/duplicate"),
+        id: ProjectCopy.StrategyID.make("test/duplicate"),
         create: () => Effect.die("unused"),
         remove: () => Effect.die("unused"),
         list: () => Effect.succeed([]),

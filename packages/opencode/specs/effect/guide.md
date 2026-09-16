@@ -204,7 +204,7 @@ that data explicitly.
 ## Testing
 
 Detailed test migration rules live in
-[`tests/EFFECT_TEST_MIGRATION.md`](../../test/EFFECT_TEST_MIGRATION.md).
+[`tests/EFFECT_TEST_MIGRATION.md`](../../tests/EFFECT_TEST_MIGRATION.md).
 
 Core pattern:
 

@@ -74,8 +74,8 @@ const setup = Effect.fnUntraced(function* (cfg: Partial<Config.Info> = {}) {
   yield* fs.writeWithDirs(
     path.join(instance.directory, "opencode.json"),
     JSON.stringify({
-      model: "tests/test-model",
-      small_model: "tests/test-model",
+      model: "test/test-model",
+      small_model: "test/test-model",
       enabled_providers: ["test"],
       formatter: false,
       lsp: false,
@@ -102,7 +102,7 @@ const setup = Effect.fnUntraced(function* (cfg: Partial<Config.Info> = {}) {
         command: "goal",
         arguments: args,
         agent: "code",
-        model: "tests/test-model",
+        model: "test/test-model",
       }),
       "goal command waited for autonomous work",
       "10 seconds",
@@ -364,7 +364,7 @@ for (const state of ["ordinary", "pause", "clear", "completed"] as const) {
 it.instance(
   "restricts foreground goal delegates without restricting independent child prompts",
   Effect.gen(function* () {
-    const run = yield* setup({ agent: { general: { model: "tests/selected-model" } } })
+    const run = yield* setup({ agent: { general: { model: "test/selected-model" } } })
     yield* run.llm.pushMatch(
       ({ body }) => body.model === "test-model",
       reply().tool("task", { description: "Check scope", prompt: "Inspect the scope", subagent_type: "general" }),
@@ -429,7 +429,7 @@ it.instance(
       agent: "code",
       command: "goal",
       arguments: `-- ${text}`,
-      model: "tests/test-model",
+      model: "test/test-model",
       parts: [
         { type: "file", mime: "image/png", url: image, filename: "design.png" },
         {
@@ -468,7 +468,7 @@ it.instance(
         agent: "code",
         command: "goal",
         arguments: `-- ${objective}`,
-        model: "tests/test-model",
+        model: "test/test-model",
         parts: [
           { type: "file", mime: "image/png", url: "data:image/png;base64,bm90LWFuLWltYWdl", filename: "invalid.png" },
         ],
@@ -500,7 +500,7 @@ for (const kind of ["image", "file"] as const) {
         .command({
           sessionID: run.session.id,
           agent: "ask",
-          model: "tests/selected-model",
+          model: "test/selected-model",
           command: "goal",
           arguments: "-- Invalid replacement",
           parts: [
@@ -602,7 +602,7 @@ for (const action of ["replace", "stop"] as const) {
           sessionID: run.session.id,
           messageID: id,
           agent: "code",
-          model: "tests/test-model",
+          model: "test/test-model",
           command: "goal",
           arguments: "-- Prepared replacement",
           parts: [
@@ -1186,7 +1186,7 @@ it.instance(
       agent: "code",
       command: "goal",
       arguments: `-- ${objective}`,
-      model: "tests/test-model",
+      model: "test/test-model",
     })
     expect(ack.info.role).toBe("assistant")
     yield* run.wait(1)
@@ -1684,7 +1684,7 @@ for (const failed of [true, false]) {
     `${failed ? "pauses terminal" : "continues recovered"} child compaction errors after successful tools`,
     Effect.gen(function* () {
       const run = yield* setup({
-        agent: { general: { model: "tests/selected-model" } },
+        agent: { general: { model: "test/selected-model" } },
         compaction: { auto: true, threshold_percent: 70, tail_turns: 0, preserve_recent_tokens: 0 },
       })
       const gate = Promise.withResolvers<void>()
@@ -1758,7 +1758,7 @@ for (const kind of ["success", "delivery-error", "independent-child"] as const) 
   it.instance(
     `evaluates delayed background ${kind} before continuing`,
     Effect.gen(function* () {
-      const run = yield* setup({ permission: { bash: "allow" }, agent: { general: { model: "tests/selected-model" } } })
+      const run = yield* setup({ permission: { bash: "allow" }, agent: { general: { model: "test/selected-model" } } })
       const gate = Promise.withResolvers<void>()
       const finish = Promise.withResolvers<void>()
       if (kind !== "independent-child") finish.resolve()
@@ -1835,7 +1835,7 @@ for (const kind of ["success", "delivery-error", "independent-child"] as const) 
 
 for (const override of [
   { template: "Custom workflow: $ARGUMENTS", description: "Run a custom workflow" },
-  { agent: "ask", model: "tests/selected-model", variant: "focused" },
+  { agent: "ask", model: "test/selected-model", variant: "focused" },
 ]) {
   it.instance(
     `rejects reserved goal ${"template" in override ? "templates" : "execution overrides"} in listing and dispatch`,

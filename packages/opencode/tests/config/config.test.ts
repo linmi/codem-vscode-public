@@ -351,12 +351,12 @@ it.instance("loads JSON config file", () =>
     const test = yield* TestInstance
     yield* writeConfigEffect(test.directory, {
       $schema: "https://app.kilo.ai/config.json",
-      model: "tests/model",
+      model: "test/model",
       username: "testuser",
     })
     // kilocode_change end
     const config = yield* Config.use.get()
-    expect(config.model).toBe("tests/model")
+    expect(config.model).toBe("test/model")
     expect(config.username).toBe("testuser")
   }),
 )
@@ -422,7 +422,7 @@ it.effect("updates global config and omits empty shell key in json", () =>
 )
 
 it.effect("updates global config and omits empty shell key in jsonc", () =>
-  withGlobalConfig({ config: { shell: "bash", model: "tests/model" }, name: "opencode.jsonc" }, ({ dir }) =>
+  withGlobalConfig({ config: { shell: "bash", model: "test/model" }, name: "opencode.jsonc" }, ({ dir }) =>
     Effect.gen(function* () {
       yield* Config.use.updateGlobal({ shell: "" })
 
@@ -431,7 +431,7 @@ it.effect("updates global config and omits empty shell key in jsonc", () =>
       const parsed = ConfigParse.schema(ConfigV1.Info, ConfigParse.jsonc(writtenConfig, file), file)
       expect(writtenConfig).not.toContain('"shell"')
       expect(parsed.shell).toBeUndefined()
-      expect(parsed.model).toBe("tests/model")
+      expect(parsed.model).toBe("test/model")
     }),
   ),
 )
@@ -476,13 +476,13 @@ it.instance("ignores legacy tui keys in opencode config", () =>
     const test = yield* TestInstance
     yield* writeConfigEffect(test.directory, {
       $schema: "https://opencode.ai/config.json",
-      model: "tests/model",
+      model: "test/model",
       theme: "legacy",
       tui: { scroll_speed: 4 },
     })
 
     const config = yield* Config.use.get()
-    expect(config.model).toBe("tests/model")
+    expect(config.model).toBe("test/model")
     expect((config as Record<string, unknown>).theme).toBeUndefined()
     expect((config as Record<string, unknown>).tui).toBeUndefined()
   }),
@@ -497,13 +497,13 @@ it.instance("loads JSONC config file", () =>
       `{
         // This is a comment
         "$schema": "https://app.kilo.ai/config.json",
-        "model": "tests/model",
+        "model": "test/model",
         "username": "testuser"
       }`,
       // kilocode_change end
     )
     const config = yield* Config.use.get()
-    expect(config.model).toBe("tests/model")
+    expect(config.model).toBe("test/model")
     expect(config.username).toBe("testuser")
   }),
 )
@@ -592,10 +592,10 @@ it.instance("injects $schema into comment-first JSONC config", () =>
     // Config with leading comment - regex-based injection would fail
     yield* FSUtil.use.writeWithDirs(
       path.join(test.directory, "kilo.jsonc"),
-      '// project config\n{\n  "model": "tests/model"\n}\n',
+      '// project config\n{\n  "model": "test/model"\n}\n',
     )
     const config = yield* Config.use.get()
-    expect(config.model).toBe("tests/model")
+    expect(config.model).toBe("test/model")
     expect(config.$schema).toBe("https://app.kilo.ai/config.json")
 
     // Read the file to verify $schema was injected correctly
@@ -795,7 +795,7 @@ it.instance("handles agent configuration", () =>
       $schema: "https://app.kilo.ai/config.json", // kilocode_change
       agent: {
         test_agent: {
-          model: "tests/model",
+          model: "test/model",
           temperature: 0.7,
           description: "test agent",
         },
@@ -804,7 +804,7 @@ it.instance("handles agent configuration", () =>
     const config = yield* Config.use.get()
     expect(config.agent?.["test_agent"]).toEqual(
       expect.objectContaining({
-        model: "tests/model",
+        model: "test/model",
         temperature: 0.7,
         description: "test agent",
       }),
@@ -878,14 +878,14 @@ it.instance("migrates mode field to agent field", () =>
       $schema: "https://app.kilo.ai/config.json", // kilocode_change
       mode: {
         test_mode: {
-          model: "tests/model",
+          model: "test/model",
           temperature: 0.5,
         },
       },
     })
     const config = yield* Config.use.get()
     expect(config.agent?.["test_mode"]).toEqual({
-      model: "tests/model",
+      model: "test/model",
       temperature: 0.5,
       mode: "primary",
       options: {},
@@ -921,7 +921,7 @@ it.instance("loads config from .kilo directory", () =>
     yield* FSUtil.use.writeWithDirs(
       path.join(test.directory, ".kilo", "agent", "test.md"), // kilocode_change
       `---
-model: tests/model
+model: test/model
 ---
 Test agent prompt`,
     )
@@ -930,7 +930,7 @@ Test agent prompt`,
     expect(config.agent?.["test"]).toEqual(
       expect.objectContaining({
         name: "test",
-        model: "tests/model",
+        model: "test/model",
         prompt: "Test agent prompt",
       }),
     )
@@ -964,7 +964,7 @@ it.instance("loads agents from .kilo/agents (plural)", () =>
     yield* FSUtil.use.writeWithDirs(
       path.join(test.directory, ".kilo", "agents", "helper.md"), // kilocode_change
       `---
-model: tests/model
+model: test/model
 mode: subagent
 ---
 Helper agent prompt`,
@@ -973,7 +973,7 @@ Helper agent prompt`,
     yield* FSUtil.use.writeWithDirs(
       path.join(test.directory, ".kilo", "agents", "nested", "child.md"), // kilocode_change
       `---
-model: tests/model
+model: test/model
 mode: subagent
 ---
 Nested agent prompt`,
@@ -983,14 +983,14 @@ Nested agent prompt`,
 
     expect(config.agent?.["helper"]).toMatchObject({
       name: "helper",
-      model: "tests/model",
+      model: "test/model",
       mode: "subagent",
       prompt: "Helper agent prompt",
     })
 
     expect(config.agent?.["nested/child"]).toMatchObject({
       name: "nested/child",
-      model: "tests/model",
+      model: "test/model",
       mode: "subagent",
       prompt: "Nested agent prompt",
     })
@@ -1251,7 +1251,7 @@ it.instance("does not error when only custom agent is a subagent", () =>
     yield* FSUtil.use.writeWithDirs(
       path.join(test.directory, ".kilo", "agent", "helper.md"), // kilocode_change
       `---
-model: tests/model
+model: test/model
 mode: subagent
 ---
 Helper subagent prompt`,
@@ -1260,7 +1260,7 @@ Helper subagent prompt`,
     const config = yield* Config.use.get()
     expect(config.agent?.["helper"]).toMatchObject({
       name: "helper",
-      model: "tests/model",
+      model: "test/model",
       mode: "subagent",
       prompt: "Helper subagent prompt",
     })

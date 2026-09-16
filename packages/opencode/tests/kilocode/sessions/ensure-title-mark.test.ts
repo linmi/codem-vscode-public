@@ -222,7 +222,7 @@ function providerCfg(url: string): Partial<ConfigV1.Info> {
     // Pin title/small generation to the TestLLMServer provider. Without this,
     // getSmallModel("test") falls through to kilo-auto/small and ensureTitle
     // never hits the local fixture (no setTitle, no E2E Title).
-    small_model: "tests/test-model",
+    small_model: "test/test-model",
     provider: {
       test: {
         name: "Test",

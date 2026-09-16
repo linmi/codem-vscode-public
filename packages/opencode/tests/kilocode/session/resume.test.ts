@@ -37,8 +37,8 @@ const setup = Effect.fnUntraced(function* () {
   yield* fs.writeWithDirs(
     path.join(instance.directory, "opencode.json"),
     JSON.stringify({
-      model: "tests/test-model",
-      small_model: "tests/test-model",
+      model: "test/test-model",
+      small_model: "test/test-model",
       enabled_providers: ["test"],
       formatter: false,
       lsp: false,

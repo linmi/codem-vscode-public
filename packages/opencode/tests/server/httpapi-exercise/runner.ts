@@ -241,8 +241,8 @@ function projectOptions(
 
 function fakeLlmConfig(url: string): Partial<ConfigV1.Info> {
   return {
-    model: "tests/test-model",
-    small_model: "tests/test-model",
+    model: "test/test-model",
+    small_model: "test/test-model",
     provider: {
       test: {
         name: "Test",

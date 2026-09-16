@@ -1034,7 +1034,7 @@ it.instance("failed subtask preserves metadata on error tool state", () =>
       ...providerCfg(url),
       agent: {
         general: {
-          model: "tests/missing-model",
+          model: "test/missing-model",
         },
       },
     }))
@@ -3050,7 +3050,7 @@ noLLMServer.instance(
       },
       agent: {
         build: {
-          model: "tests/test-model",
+          model: "test/test-model",
           variant: "xhigh",
         },
       },
@@ -3071,7 +3071,7 @@ noLLMServer.instance(
         sessionID: session.id,
         command: "local-review-uncommitted",
         arguments: "focus on tests",
-        model: "tests/test-model",
+        model: "test/test-model",
       })
 
       expect(result.info.role).toBe("assistant")

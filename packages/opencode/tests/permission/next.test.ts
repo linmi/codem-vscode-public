@@ -363,7 +363,7 @@ test("evaluate - multiple matching patterns, last wins", () => {
 test("evaluate - non-matching patterns are skipped", () => {
   const result = Permission.evaluate("edit", "src/foo.ts", [
     { permission: "edit", pattern: "*", action: "ask" },
-    { permission: "edit", pattern: "tests/*", action: "deny" },
+    { permission: "edit", pattern: "test/*", action: "deny" },
     { permission: "edit", pattern: "src/*", action: "allow" },
   ])
   expect(result.action).toBe("allow")

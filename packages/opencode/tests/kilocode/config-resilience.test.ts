@@ -193,7 +193,7 @@ Broken agent prompt`,
         await Filesystem.write(
           path.join(dir, ".kilo", "agent", "keep.md"),
           `---
-model: tests/model
+model: test/model
 ---
 Valid agent prompt`,
         )
@@ -208,7 +208,7 @@ Valid agent prompt`,
         expect(cfg.agent?.["skip"]).toBeUndefined()
         expect(cfg.agent?.["keep"]).toMatchObject({
           name: "keep",
-          model: "tests/model",
+          model: "test/model",
           prompt: "Valid agent prompt",
         })
       },
@@ -387,7 +387,7 @@ Broken command`,
 
   test("returns empty warnings when config is valid", async () => {
     await using tmp = await tmpdir({
-      config: { model: "tests/model" },
+      config: { model: "test/model" },
     })
 
     await provideTestInstance({

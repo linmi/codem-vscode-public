@@ -61,7 +61,7 @@ export class CodeMAppServerService implements vscode.Disposable {
         requireTrustedWorkspace()
         await this.authentication.requireAuthenticated()
       },
-      prepareSpace: (cwd) => prepared ? Promise.resolve(prepared) : this.initialSpace(cwd),
+      prepareSpace: (cwd) => (prepared ? Promise.resolve(prepared) : this.initialSpace(cwd)),
       onStderr: (_cwd, text) => this.output.append(text),
     })
     host.onEvent((event) => {
@@ -100,7 +100,9 @@ export class CodeMAppServerService implements vscode.Disposable {
       return prepared
     })()
     this.space = opening
-    void opening.catch(() => { if (this.space === opening) this.space = null })
+    void opening.catch(() => {
+      if (this.space === opening) this.space = null
+    })
     return opening
   }
 
@@ -130,11 +132,15 @@ export class CodeMAppServerService implements vscode.Disposable {
       await candidate.listSkills(cwd)
       options.signal.throwIfAborted()
       // The CLI alone persists the active pointer, after all launch checks pass.
-      await commitAppServerSpace(options, projectKey)
+      await commitAppServerSpace({ ...options, signal: undefined }, projectKey)
       options.signal.throwIfAborted()
       const previous = this.host
       // Deliver retirement before publishing the new space and catalog.
-      await previous.close()
+      try {
+        await previous.close()
+      } catch {
+        this.output.error("The previous CodeM space connection did not close cleanly.")
+      }
       options.signal.throwIfAborted()
       this.host = candidate
       candidate = null
@@ -149,7 +155,8 @@ export class CodeMAppServerService implements vscode.Disposable {
   }
 
   private async useHost<T>(operation: (host: AppServerHost) => Promise<T>): Promise<T> {
-    if (this.disposed || this.switching) throw new Error("CodeM is switching spaces or shutting down; retry when ready.")
+    if (this.disposed || this.switching)
+      throw new Error("CodeM is switching spaces or shutting down; retry when ready.")
     const host = this.host
     this.operations++
     try {
@@ -307,7 +314,9 @@ export class CodeMAppServerService implements vscode.Disposable {
 
   renameThread(cwd: string, threadId: string, name: string): Promise<void> {
     requireTrustedWorkspace()
-    return this.useHost((host) => host.control(cwd, "thread/name/set", { threadId, name: exactText(name, "thread name") }).then(() => undefined))
+    return this.useHost((host) =>
+      host.control(cwd, "thread/name/set", { threadId, name: exactText(name, "thread name") }).then(() => undefined),
+    )
   }
 
   archiveThread(cwd: string, threadId: string): Promise<void> {

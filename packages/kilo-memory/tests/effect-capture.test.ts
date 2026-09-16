@@ -715,7 +715,7 @@ describe("MemoryCapture (fake ports)", () => {
       await run({
         root: t.root,
         session: session(view()),
-        memoryModel: "tests/missing-memory-model",
+        memoryModel: "test/missing-memory-model",
         model: model({
           digest: '{"topic":"repo","summary":"Explored repo setup. Next: verify."}',
           typed: '{"operations":[],"skipped":[]}',

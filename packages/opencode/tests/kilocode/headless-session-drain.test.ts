@@ -28,8 +28,8 @@ function environment(home: string, url: string, opts: { plugin?: string; resume?
   const model = base.provider.test.models["test-model"]
   const cfg = {
     ...base,
-    model: "tests/parent",
-    small_model: "tests/parent",
+    model: "test/parent",
+    small_model: "test/parent",
     enabled_providers: ["test"],
     share: "disabled",
     snapshot: false,
@@ -37,8 +37,8 @@ function environment(home: string, url: string, opts: { plugin?: string; resume?
     permission: { "*": "allow" },
     plugin: opts.plugin ? [opts.plugin] : [],
     agent: {
-      code: { model: "tests/parent" },
-      general: { model: "tests/child" },
+      code: { model: "test/parent" },
+      general: { model: "test/child" },
       title: { disable: true },
     },
     provider: {
@@ -245,7 +245,7 @@ function scenario(
       expect(JSON.parse(result.stdout).running).toBe(true)
     }
     const run = yield* opencode.startRun("Exercise background completion.", {
-      model: "tests/parent",
+      model: "test/parent",
       agent: "code",
       format: "json",
       printLogs: true,

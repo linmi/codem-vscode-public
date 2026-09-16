@@ -2,13 +2,13 @@ import { describe, expect, test } from "bun:test"
 import { Context, Effect, Layer } from "effect"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 
-class Value extends Context.Service<Value, { readonly value: string }>()("tests/LayerNodeValue") {}
-class Greeting extends Context.Service<Greeting, { readonly value: string }>()("tests/LayerNodeGreeting") {}
-class Left extends Context.Service<Left, { readonly value: string }>()("tests/LayerNodeLeft") {}
-class Right extends Context.Service<Right, { readonly value: string }>()("tests/LayerNodeRight") {}
-class Database extends Context.Service<Database, { readonly name: string }>()("tests/GraphDatabase") {}
-class Users extends Context.Service<Users, { readonly list: Effect.Effect<string[]> }>()("tests/GraphUsers") {}
-class App extends Context.Service<App, { readonly run: Effect.Effect<string[]> }>()("tests/GraphApp") {}
+class Value extends Context.Service<Value, { readonly value: string }>()("test/LayerNodeValue") {}
+class Greeting extends Context.Service<Greeting, { readonly value: string }>()("test/LayerNodeGreeting") {}
+class Left extends Context.Service<Left, { readonly value: string }>()("test/LayerNodeLeft") {}
+class Right extends Context.Service<Right, { readonly value: string }>()("test/LayerNodeRight") {}
+class Database extends Context.Service<Database, { readonly name: string }>()("test/GraphDatabase") {}
+class Users extends Context.Service<Users, { readonly list: Effect.Effect<string[]> }>()("test/GraphUsers") {}
+class App extends Context.Service<App, { readonly run: Effect.Effect<string[]> }>()("test/GraphApp") {}
 
 const tags = LayerNode.tags({ app: [] })
 const make = tags.make("app")
@@ -67,7 +67,7 @@ describe("layer node", () => {
     const unbound = LayerNode.unbound(Value, tags.values.app)
     const greeting = make({ service: Greeting, layer: greetingLayer, deps: [unbound] })
     const tree = LayerNode.group([greeting])
-    expect(() => LayerNode.compile(tree)).toThrow("Unbound layer node: tests/LayerNodeValue")
+    expect(() => LayerNode.compile(tree)).toThrow("Unbound layer node: test/LayerNodeValue")
     const layer = LayerNode.compile(tree, [[unbound, value]]) as Layer.Layer<Greeting>
     const program = Effect.map(Greeting, (item) => item.value).pipe(Effect.provide(layer))
     expect(await Effect.runPromise(program)).toBe("hello production")
@@ -233,7 +233,7 @@ describe("layer node", () => {
     })
 
     expect(() => LayerNode.hoist(LayerNode.group([left, right]), tags.values.global)).toThrow(
-      "Tag global has conflicting implementations for tests/GraphDatabase",
+      "Tag global has conflicting implementations for test/GraphDatabase",
     )
   })
 

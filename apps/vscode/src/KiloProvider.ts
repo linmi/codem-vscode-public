@@ -523,13 +523,14 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
           },
         })
       : null
-    this.appServerEvent =
-      this.opts.appServer ? vscode.Disposable.from(
-        this.opts.appServer.onEvent((event) => this.appServerController?.acceptEvent(event)),
-        this.opts.appServer.onDidChangeSpace((space) => {
-          if (space) void this.appServerController?.refreshSpace()
-        }),
-      ) : null
+    this.appServerEvent = this.opts.appServer
+      ? vscode.Disposable.from(
+          this.opts.appServer.onEvent((event) => this.appServerController?.acceptEvent(event)),
+          this.opts.appServer.onDidChangeSpace((space) => {
+            if (space) void this.appServerController?.refreshSpace()
+          }),
+        )
+      : null
     this.codeMAuthenticationChange =
       this.opts.authentication?.onDidChange((status) => {
         this.postMessage({ type: "profileData", data: codeMWebviewProfile(status) })

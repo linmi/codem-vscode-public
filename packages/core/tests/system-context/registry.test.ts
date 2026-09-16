@@ -32,8 +32,8 @@ describe("SystemContextRegistry", () => {
   it.effect("loads scoped entries in stable key order", () =>
     Effect.gen(function* () {
       const registry = yield* SystemContextRegistry.Service
-      yield* registry.register(entry("tests/second", "second"))
-      yield* registry.register(entry("tests/first", "first"))
+      yield* registry.register(entry("test/second", "second"))
+      yield* registry.register(entry("test/first", "first"))
 
       expect((yield* SystemContext.initialize(yield* registry.load())).baseline).toBe("first\n\nsecond")
     }),
@@ -44,7 +44,7 @@ describe("SystemContextRegistry", () => {
       const registry = yield* SystemContextRegistry.Service
       let loads = 0
       yield* registry.register({
-        key: SystemContext.Key.make("tests/dynamic"),
+        key: SystemContext.Key.make("test/dynamic"),
         load: Effect.sync(() => {
           loads++
           return SystemContext.empty
@@ -62,7 +62,7 @@ describe("SystemContextRegistry", () => {
     Effect.gen(function* () {
       const registry = yield* SystemContextRegistry.Service
       const failure = new Error("entry failed")
-      yield* registry.register({ key: SystemContext.Key.make("tests/failure"), load: Effect.die(failure) })
+      yield* registry.register({ key: SystemContext.Key.make("test/failure"), load: Effect.die(failure) })
 
       const exit = yield* registry.load().pipe(Effect.exit)
 
@@ -74,15 +74,15 @@ describe("SystemContextRegistry", () => {
   it.effect("rejects duplicate source keys from separate entries", () =>
     Effect.gen(function* () {
       const registry = yield* SystemContextRegistry.Service
-      yield* registry.register(entry("tests/first", "first", "tests/duplicate"))
-      yield* registry.register(entry("tests/second", "second", "tests/duplicate"))
+      yield* registry.register(entry("test/first", "first", "test/duplicate"))
+      yield* registry.register(entry("test/second", "second", "test/duplicate"))
 
       const exit = yield* registry.load().pipe(Effect.exit)
 
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) {
         expect(Cause.squash(exit.cause)).toBeInstanceOf(SystemContext.DuplicateKeyError)
-        expect(Cause.squash(exit.cause)).toMatchObject({ key: SystemContext.Key.make("tests/duplicate") })
+        expect(Cause.squash(exit.cause)).toMatchObject({ key: SystemContext.Key.make("test/duplicate") })
       }
     }),
   )
@@ -90,9 +90,9 @@ describe("SystemContextRegistry", () => {
   it.effect("rejects duplicate entry keys", () =>
     Effect.gen(function* () {
       const registry = yield* SystemContextRegistry.Service
-      yield* registry.register(entry("tests/duplicate", "first"))
+      yield* registry.register(entry("test/duplicate", "first"))
 
-      const exit = yield* registry.register(entry("tests/duplicate", "second", "tests/other")).pipe(Effect.exit)
+      const exit = yield* registry.register(entry("test/duplicate", "second", "test/other")).pipe(Effect.exit)
 
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) expect(Cause.pretty(exit.cause)).toContain("Duplicate system context entry key")
@@ -103,7 +103,7 @@ describe("SystemContextRegistry", () => {
     Effect.gen(function* () {
       const registry = yield* SystemContextRegistry.Service
       const scope = yield* Scope.make()
-      yield* registry.register(entry("tests/scoped", "scoped")).pipe(Scope.provide(scope))
+      yield* registry.register(entry("test/scoped", "scoped")).pipe(Scope.provide(scope))
 
       expect((yield* SystemContext.initialize(yield* registry.load())).baseline).toBe("scoped")
 

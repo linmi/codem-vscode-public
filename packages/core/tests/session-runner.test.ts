@@ -151,13 +151,13 @@ const echo = Layer.effectDiscard(
     }),
   ),
 )
-const echoNode = makeLocationNode({ name: "tests/session-runner-tools", layer: echo, deps: [ToolRegistry.node] })
+const echoNode = makeLocationNode({ name: "test/session-runner-tools", layer: echo, deps: [ToolRegistry.node] })
 let modelResolveHook = Effect.void
 let currentModel = model
 const models = SessionRunnerModel.layerWith((session) =>
   modelResolveHook.pipe(Effect.as(session.model?.id === "replacement" ? replacementModel : currentModel)),
 )
-const systemContextKey = SystemContext.Key.make("tests/context")
+const systemContextKey = SystemContext.Key.make("test/context")
 let systemBaseline = "Initial context"
 let systemRemoved = false
 let systemUnavailable = false
@@ -183,7 +183,7 @@ const systemContext = Layer.effectDiscard(
                     ),
                     baseline: String,
                     update: (_previous, current) => current,
-                    removed: () => "System context source removed: tests/context",
+                    removed: () => "System context source removed: test/context",
                   }),
                 ],
           ),
@@ -197,7 +197,7 @@ const skillGuidance = Layer.mock(SkillGuidance.Service, {
     Effect.succeed(
       skillBaselines.has(agent.id)
         ? SystemContext.make({
-            key: SystemContext.Key.make("tests/skill-guidance"),
+            key: SystemContext.Key.make("test/skill-guidance"),
             codec: Schema.toCodecJson(Schema.String),
             load: Effect.succeed(skillBaselines.get(agent.id)!),
             baseline: String,
@@ -995,7 +995,7 @@ describe("SessionRunnerLLM", () => {
 
       expect(requests[1]?.messages.map((message) => message.role)).toEqual(["user", "user", "system"])
       expect(requests[1]?.messages.at(-1)?.content).toEqual([
-        { type: "text", text: "System context source removed: tests/context" },
+        { type: "text", text: "System context source removed: test/context" },
       ])
       expect(yield* session.messages({ sessionID })).toHaveLength(3)
     }),

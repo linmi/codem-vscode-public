@@ -104,6 +104,7 @@ async function callSpaceBroker(
     child.kill("SIGKILL")
   }
   child.once("error", () => fail(`Could not start CodeM ${name} broker`))
+  child.stdin.on("error", () => fail(`CodeM ${name} broker input closed`))
   let bytes = 0
   child.stdout.on("data", (chunk: Buffer) => {
     bytes += chunk.length
@@ -121,11 +122,19 @@ async function callSpaceBroker(
   options.signal?.addEventListener("abort", abort, { once: true })
   if (options.signal?.aborted) abort()
   try {
-    const initialized = object(await peer.request("initialize", {
-      protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "codem-editor-spaces", version: "1" },
-    }))
+    const initialized = object(
+      await peer.request("initialize", {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "codem-editor-spaces", version: "1" },
+      }),
+    )
     const server = object(initialized.serverInfo)
-    if (initialized.protocolVersion !== "2025-03-26" || server.name !== "codem__host" || server.version !== options.runtime.cliVersion)
+    if (
+      initialized.protocolVersion !== "2025-03-26" ||
+      server.name !== "codem__host" ||
+      server.version !== options.runtime.cliVersion
+    )
       throw new Error("CodeM space broker version/protocol mismatch; reinstall the pinned runtime")
     peer.notify("notifications/initialized", {})
     const result = object(await peer.request("tools/call", { name, arguments: args }))
@@ -134,7 +143,11 @@ async function callSpaceBroker(
     const content = object(result.content[0])
     if (content.type !== "text" || typeof content.text !== "string") throw new Error(`Invalid CodeM ${name} response`)
     let payload: JsonObject
-    try { payload = object(JSON.parse(content.text)) } catch { throw new Error(`Invalid CodeM ${name} payload`) }
+    try {
+      payload = object(JSON.parse(content.text))
+    } catch {
+      throw new Error(`Invalid CodeM ${name} payload`)
+    }
     if (payload.ok !== true) throw new Error(`CodeM ${name} failed; refresh your space list and login before retrying`)
     if (failure) throw failure
     return payload
@@ -158,7 +171,8 @@ function object(value: unknown): JsonObject {
 }
 
 function textValue(value: unknown, label: string): string {
-  if (typeof value !== "string" || !value.trim() || /[\x00-\x1f\x7f]/.test(value)) throw new Error(`Invalid CodeM ${label}`)
+  if (typeof value !== "string" || !value.trim() || /[\x00-\x1f\x7f]/.test(value))
+    throw new Error(`Invalid CodeM ${label}`)
   return value
 }
 

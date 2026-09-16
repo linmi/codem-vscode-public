@@ -43,7 +43,7 @@ describe("ConfigValidation.check", () => {
   test("reports JSONC syntax errors", async () => {
     await using tmp = await tmpdir({ git: true })
     const filepath = path.join(tmp.path, "kilo.json")
-    await Filesystem.write(filepath, '{ "model": "tests/model" "extra": true }')
+    await Filesystem.write(filepath, '{ "model": "test/model" "extra": true }')
 
     const result = await provideTestInstance({
       directory: tmp.path,

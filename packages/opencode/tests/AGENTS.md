@@ -35,7 +35,7 @@ await using tmp = await tmpdir({ git: true })
 
 ```typescript
 await using tmp = await tmpdir({
-  config: { model: "tests/model", username: "testuser" },
+  config: { model: "test/model", username: "testuser" },
 })
 ```
 

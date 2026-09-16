@@ -10,10 +10,10 @@ import { Project } from "@opencode-ai/core/project"
 import { AbsolutePath } from "@opencode-ai/core/schema"
 import { tmpdir } from "../../fixture/tmpdir"
 
-class Value extends Context.Service<Value, { readonly value: string }>()("tests/TagValue") {}
-class Result extends Context.Service<Result, { readonly value: string }>()("tests/TagResult") {}
-class CycleA extends Context.Service<CycleA, {}>()("tests/NodeBuildA") {}
-class CycleB extends Context.Service<CycleB, { readonly directory: AbsolutePath }>()("tests/NodeBuildB") {}
+class Value extends Context.Service<Value, { readonly value: string }>()("test/TagValue") {}
+class Result extends Context.Service<Result, { readonly value: string }>()("test/TagResult") {}
+class CycleA extends Context.Service<CycleA, {}>()("test/NodeBuildA") {}
+class CycleB extends Context.Service<CycleB, { readonly directory: AbsolutePath }>()("test/NodeBuildB") {}
 
 describe("node build", () => {
   test("does not build a location service map when the graph does not require it", async () => {

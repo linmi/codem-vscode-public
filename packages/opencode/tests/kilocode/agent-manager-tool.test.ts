@@ -28,7 +28,7 @@ const providers = {
         variants: { low: {}, high: {} },
       },
       // "Shared" is also offered by the kilo provider, to exercise provider resolution.
-      "tests/shared": { id: "tests/shared", providerID: "test", name: "Shared", variants: { low: {}, high: {} } },
+      "test/shared": { id: "test/shared", providerID: "test", name: "Shared", variants: { low: {}, high: {} } },
     },
   } as unknown as Provider.Info,
   kilo: {
@@ -273,7 +273,7 @@ describe("agent_manager tool", () => {
             "[null]",
             "[{}]",
             JSON.stringify([{ prompt: 42 }]),
-            JSON.stringify([{ name: "Prepared", model: "tests/reasoning/model" }]),
+            JSON.stringify([{ name: "Prepared", model: "test/reasoning/model" }]),
             JSON.stringify(Array.from({ length: 21 }, () => ({ prompt: "Fix" }))),
           ]) {
             const result = yield* tool
@@ -813,7 +813,7 @@ describe("agent_manager tool", () => {
   })
 
   test("explicit model and variant override the invoking selection", async () => {
-    const task = await publish(runtime, { prompt: "Fix", model: "tests/reasoning/model", variant: "high" }, [
+    const task = await publish(runtime, { prompt: "Fix", model: "test/reasoning/model", variant: "high" }, [
       message("msg_current", "kilo", "kilo/shared", "low"),
     ])
 
@@ -844,7 +844,7 @@ describe("agent_manager tool", () => {
 
   test.each(["array", "JSON-encoded"])("publishes validated selections from %s tasks", async (encoding) => {
     const tool: Tool.Def = await init()
-    const tasks = [{ prompt: "Fix issue", model: "tests/reasoning/model", variant: "high" }]
+    const tasks = [{ prompt: "Fix issue", model: "test/reasoning/model", variant: "high" }]
 
     const event = await runtime.runPromise(
       provideTmpdirInstance(() =>
@@ -878,7 +878,7 @@ describe("agent_manager tool", () => {
   test("resolves a model by name to the preferred (default) provider", async () => {
     const task = await publish(runtime, { prompt: "Fix", model: "Shared", variant: "low" })
     expect(String(task?.model?.providerID)).toBe("test")
-    expect(String(task?.model?.modelID)).toBe("tests/shared")
+    expect(String(task?.model?.modelID)).toBe("test/shared")
     expect(task?.variant).toBe("low")
   })
 
@@ -1008,7 +1008,7 @@ describe("agent_manager tool", () => {
         tool.execute(
           {
             mode: "local",
-            tasks: [{ prompt: "Fix issue", model: "tests/reasoning/model", variant: "toString" }],
+            tasks: [{ prompt: "Fix issue", model: "test/reasoning/model", variant: "toString" }],
           },
           { ...ctx, ask: (input: unknown) => Effect.sync(() => calls.push(input)) },
         ),
@@ -1065,7 +1065,7 @@ describe("agent_manager tool", () => {
       runtime.runPromise(
         provideTmpdirInstance(() =>
           tool.execute(
-            { mode: "local", tasks: [{ name: "Prepared session", model: "tests/reasoning/model" }] },
+            { mode: "local", tasks: [{ name: "Prepared session", model: "test/reasoning/model" }] },
             { ...ctx, ask: () => Effect.void },
           ),
         ).pipe(Effect.scoped),

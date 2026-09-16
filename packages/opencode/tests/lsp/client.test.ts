@@ -31,7 +31,7 @@ describe("LSPClient interop", () => {
         }),
     })
 
-    await client.connection.sendNotification("tests/trigger", {
+    await client.connection.sendNotification("test/trigger", {
       method: "workspace/workspaceFolders",
     })
 
@@ -55,7 +55,7 @@ describe("LSPClient interop", () => {
         }),
     })
 
-    await client.connection.sendNotification("tests/trigger", {
+    await client.connection.sendNotification("test/trigger", {
       method: "client/registerCapability",
     })
 
@@ -79,7 +79,7 @@ describe("LSPClient interop", () => {
         }),
     })
 
-    await client.connection.sendNotification("tests/trigger", {
+    await client.connection.sendNotification("test/trigger", {
       method: "client/unregisterCapability",
     })
 
@@ -103,7 +103,7 @@ describe("LSPClient interop", () => {
         }),
     })
 
-    const params = await client.connection.sendRequest<any>("tests/get-initialize-params", {})
+    const params = await client.connection.sendRequest<any>("test/get-initialize-params", {})
     expect(params.capabilities.workspace.diagnostics.refreshSupport).toBe(false)
     expect(params.capabilities.textDocument.publishDiagnostics.versionSupport).toBe(false)
 
@@ -134,7 +134,7 @@ describe("LSPClient interop", () => {
         }),
     })
 
-    const response = await client.connection.sendRequest<any[]>("tests/request-configuration", {
+    const response = await client.connection.sendRequest<any[]>("test/request-configuration", {
       items: [{ section: "alpha" }, { section: "alpha.beta" }, { section: "missing" }, {}],
     })
 
@@ -170,7 +170,7 @@ describe("LSPClient interop", () => {
             range?: { start: { line: number; character: number }; end: { line: number; character: number } }
             text: string
           }[]
-        }>("tests/get-last-change", {})
+        }>("test/get-last-change", {})
         expect(change.textDocument.version).toBe(1)
         expect(change.contentChanges).toEqual([
           {
@@ -206,7 +206,7 @@ describe("LSPClient interop", () => {
 
         const version = await client.notify.open({ path: file })
         const wait = client.waitForDiagnostics({ path: file, version, mode: "document" })
-        await client.connection.sendNotification("tests/publish-diagnostics", {
+        await client.connection.sendNotification("test/publish-diagnostics", {
           uri: pathToFileURL(file).href,
           version,
           diagnostics: [
@@ -226,7 +226,7 @@ describe("LSPClient interop", () => {
         expect(diagnostics).toHaveLength(1)
         expect(diagnostics[0]?.message).toBe("push diagnostic")
 
-        const count = await client.connection.sendRequest("tests/get-diagnostic-request-count", {})
+        const count = await client.connection.sendRequest("test/get-diagnostic-request-count", {})
         expect(count).toBe(0)
 
         await client.shutdown()
@@ -252,7 +252,7 @@ describe("LSPClient interop", () => {
         })
 
         const version = await client.notify.open({ path: file })
-        await client.connection.sendNotification("tests/publish-diagnostics", {
+        await client.connection.sendNotification("test/publish-diagnostics", {
           uri: pathToFileURL(file).href,
           version,
           diagnostics: [
@@ -299,7 +299,7 @@ describe("LSPClient interop", () => {
           instance: ctx,
         })
 
-        await client.connection.sendRequest("tests/configure-pull-diagnostics", {
+        await client.connection.sendRequest("test/configure-pull-diagnostics", {
           registerOn: "didOpen",
           registrations: [{ identifier: "DocumentCompilerSemantic" }],
           documentDiagnosticsByIdentifier: {
@@ -323,7 +323,7 @@ describe("LSPClient interop", () => {
         expect(diagnostics).toHaveLength(1)
         expect(diagnostics[0]?.message).toBe("pull diagnostic")
 
-        const count = await client.connection.sendRequest("tests/get-diagnostic-request-count", {})
+        const count = await client.connection.sendRequest("test/get-diagnostic-request-count", {})
         expect(count).toBeGreaterThan(0)
 
         await client.shutdown()
@@ -348,7 +348,7 @@ describe("LSPClient interop", () => {
           instance: ctx,
         })
 
-        await client.connection.sendRequest("tests/configure-pull-diagnostics", {
+        await client.connection.sendRequest("test/configure-pull-diagnostics", {
           registrations: [{ identifier: "fast" }, { identifier: "slow" }],
           documentDiagnosticsByIdentifier: {
             fast: [
@@ -369,14 +369,14 @@ describe("LSPClient interop", () => {
         })
 
         const version = await client.notify.open({ path: file })
-        await client.connection.sendRequest("tests/register-configured-pull-diagnostics", {})
+        await client.connection.sendRequest("test/register-configured-pull-diagnostics", {})
         await new Promise((resolve) => setTimeout(resolve, 100))
         const started = Date.now()
         await client.waitForDiagnostics({ path: file, version, mode: "document" })
 
         expect(Date.now() - started).toBeLessThan(1_000)
         expect(client.diagnostics.get(file)?.[0]?.message).toBe("fast diagnostic")
-        expect(await client.connection.sendRequest("tests/get-diagnostic-request-count", {})).toBeGreaterThan(1)
+        expect(await client.connection.sendRequest("test/get-diagnostic-request-count", {})).toBeGreaterThan(1)
 
         await client.shutdown()
       },
@@ -402,7 +402,7 @@ describe("LSPClient interop", () => {
           instance: ctx,
         })
 
-        await client.connection.sendRequest("tests/configure-pull-diagnostics", {
+        await client.connection.sendRequest("test/configure-pull-diagnostics", {
           registerOn: "didOpen",
           registrations: [
             { identifier: "DocumentCompilerSemantic" },
@@ -467,7 +467,7 @@ describe("LSPClient interop", () => {
           instance: ctx,
         })
 
-        await client.connection.sendRequest("tests/configure-pull-diagnostics", {
+        await client.connection.sendRequest("test/configure-pull-diagnostics", {
           registerOn: "didOpen",
           registrations: [{ identifier: "WorkspaceDocumentsAndProject", workspaceDiagnostics: true }],
           workspaceDiagnosticsByIdentifier: {

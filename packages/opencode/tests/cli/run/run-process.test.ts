@@ -72,7 +72,7 @@ describe("opencode run (non-interactive subprocess)", () => {
     ({ opencode }) =>
       Effect.gen(function* () {
         const result = yield* opencode.run("say hi", {
-          model: "tests/nonexistent-model",
+          model: "test/nonexistent-model",
           timeoutMs: 15_000,
         })
         expect(result.exitCode).not.toBe(0)
@@ -210,7 +210,7 @@ describe("opencode run (non-interactive subprocess)", () => {
     ({ opencode }) =>
       Effect.gen(function* () {
         const result = yield* opencode.run("use an unknown model", {
-          model: "tests/nonexistent-model",
+          model: "test/nonexistent-model",
           format: "json",
         })
 
@@ -230,7 +230,7 @@ describe("opencode run (non-interactive subprocess)", () => {
             error: expect.any(Object),
           })
         }
-        expect(JSON.stringify(events)).toContain("Model not found: tests/nonexistent-model")
+        expect(JSON.stringify(events)).toContain("Model not found: test/nonexistent-model")
         expect(result.stdout.split("\n").filter(Boolean)).toHaveLength(2)
       }),
     30_000,

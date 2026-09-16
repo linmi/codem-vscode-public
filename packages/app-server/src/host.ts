@@ -912,6 +912,7 @@ export class AppServerHost {
   private async openConnection(cwd: string): Promise<ConnectionState> {
     await this.options.assertAuthenticated(cwd)
     const space = this.options.prepareSpace ? appServerSpaceLaunch(await this.options.prepareSpace(cwd)) : null
+    if (this.closing) throw new Error("CodeM App Server host is shutting down")
     let state: ConnectionState | null = null
     const connection = await startAppServerConnection({
       runtime: this.options.runtime,
@@ -1405,14 +1406,22 @@ export function appServerHostEnvironment(
   base: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
   const environment = { ...base }
+  const owned = [
+    ROUTER_CREDENTIAL_HOST_COMMAND_ENV,
+    SESSION_SOURCE_ENV,
+    "CODEM_HOST_CHANNEL_CMD",
+    "CODEM_PROJECT_LIST",
+    "CODEM_MANAGED_DIR",
+  ]
   for (const key of Object.keys(environment)) {
-    if (key.toLowerCase() === ROUTER_CREDENTIAL_HOST_COMMAND_ENV.toLowerCase()) delete environment[key]
-    if (key.toLowerCase() === SESSION_SOURCE_ENV.toLowerCase()) delete environment[key]
+    if (owned.some((name) => name.toLowerCase() === key.toLowerCase())) delete environment[key]
   }
   return {
     ...environment,
     [ROUTER_CREDENTIAL_HOST_COMMAND_ENV]: JSON.stringify([runtime.authExecutablePath, "__host-serve"]),
     [SESSION_SOURCE_ENV]: "vscode",
+    CODEM_HOST_CHANNEL_CMD: JSON.stringify([runtime.authExecutablePath, "__host-serve"]),
+    CODEM_MANAGED_DIR: "",
   }
 }
 

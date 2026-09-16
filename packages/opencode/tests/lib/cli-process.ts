@@ -39,7 +39,7 @@ const cliArgs = process.env[TestCli.ENV]
   : ["run", "--conditions=browser", "--preload=@opentui/solid/preload", cliEntry]
 // kilocode_change end
 
-export const testModelID = "tests/test-model"
+export const testModelID = "test/test-model"
 
 // Wrap a Bun subprocess pipe (or any ReadableStream<Uint8Array>) as a Stream.
 // Centralizes the `evaluate` + `onError` boilerplate and tags errors with the

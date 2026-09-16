@@ -6,7 +6,7 @@ import type * as ModelsDev from "@opencode-ai/core/models-dev"
 
 function mockModel(overrides: Partial<any> = {}): any {
   return {
-    id: "tests/test-model",
+    id: "test/test-model",
     providerID: "test",
     api: {
       id: "test-model",

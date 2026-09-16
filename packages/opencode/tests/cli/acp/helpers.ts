@@ -39,7 +39,7 @@ export function verifierConfig(llmUrl: string, skills?: string) {
   const config = testProviderConfig(llmUrl)
   return {
     ...config,
-    model: "tests/test-model",
+    model: "test/test-model",
     ...(skills ? { skills: { paths: [skills] } } : {}),
     provider: {
       test: {

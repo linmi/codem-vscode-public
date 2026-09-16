@@ -283,10 +283,42 @@ describe("AppServerHost", () => {
       PATH: process.env.PATH,
       codem_router_credential_host_cmd: "untrusted",
       CODEM_SESSION_SOURCE: "untrusted",
+      codem_managed_dir: "/untrusted",
+      CODEM_PROJECT_LIST: "/untrusted/list",
+      CODEM_HOST_CHANNEL_CMD: "untrusted",
     })
     assert.equal(environment.codem_router_credential_host_cmd, undefined)
     assert.deepEqual(JSON.parse(environment.CODEM_ROUTER_CREDENTIAL_HOST_CMD!), ["/bin/true", "__host-serve"])
     assert.equal(environment.CODEM_SESSION_SOURCE, "vscode")
+    assert.equal(environment.codem_managed_dir, undefined)
+    assert.equal(environment.CODEM_PROJECT_LIST, undefined)
+    assert.equal(environment.CODEM_MANAGED_DIR, "")
+    assert.deepEqual(JSON.parse(environment.CODEM_HOST_CHANNEL_CMD!), ["/bin/true", "__host-serve"])
+  })
+
+  it("launches Core in the prepared space and refuses a failed preparation", async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "space-test", version: "1" },
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
+      assertAuthenticated: () => {},
+      prepareSpace: async () => ({ projectKey: "proj_test", displayName: "Test", managedDirectory: fixture.root }),
+    })
+    try {
+      await host.prepareConnection(fixture.root)
+      const capture = JSON.parse(readFileSync(fixture.capturePath, "utf8").split("\n")[0])
+      assert.deepEqual(capture.argv, ["--final-answer-tool", "--project-key", "proj_test", "app-server"])
+      assert.equal(capture.environment.managedDirectory, fixture.root)
+    } finally { await host.close() }
+    const rejected = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "space-test", version: "1" },
+      assertAuthenticated: () => {},
+      prepareSpace: async () => { throw new Error("space access denied") },
+    })
+    try { await assert.rejects(rejected.prepareConnection(fixture.root), /space access denied/) }
+    finally { await rejected.close() }
   })
 })
 
@@ -319,7 +351,7 @@ function fixtureSource(capabilities: Record<string, unknown>): string {
 const fs = require("node:fs")
 const readline = require("node:readline")
 const capture = (value) => fs.appendFileSync(process.env.CAPTURE_PATH, JSON.stringify(value) + "\\n")
-capture({ argv: process.argv.slice(2), environment: { credentialHost: JSON.parse(process.env.CODEM_ROUTER_CREDENTIAL_HOST_CMD), source: process.env.CODEM_SESSION_SOURCE } })
+capture({ argv: process.argv.slice(2), environment: { credentialHost: JSON.parse(process.env.CODEM_ROUTER_CREDENTIAL_HOST_CMD), source: process.env.CODEM_SESSION_SOURCE, managedDirectory: process.env.CODEM_MANAGED_DIR } })
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n")
 const modes = new Map()
 const mode = (threadId) => modes.get(threadId) ?? { revision: 0, permissionEpoch: 0, permissionMode: "default", workMode: "normal" }

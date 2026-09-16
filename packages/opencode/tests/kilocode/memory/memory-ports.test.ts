@@ -290,9 +290,9 @@ describe("memory ports", () => {
     const port = MemoryModel.port({ provider: provider({ seen }) })
 
     const configured = await Effect.runPromise(
-      port.resolve({ configured: "tests/memory-config-model", session: ref }),
+      port.resolve({ configured: "test/memory-config-model", session: ref }),
     )
-    const fallback = await Effect.runPromise(port.resolve({ configured: "tests/missing-memory-model", session: ref }))
+    const fallback = await Effect.runPromise(port.resolve({ configured: "test/missing-memory-model", session: ref }))
 
     expect(configured.fallback).toBeUndefined()
     expect(fallback.fallback).toEqual({ reason: "model unavailable" })

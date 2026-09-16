@@ -1583,7 +1583,7 @@ const scenarios: Scenario[] = [
     .at((ctx) => ({
       path: route("/session/{sessionID}/command", { sessionID: ctx.state.id }),
       headers: ctx.headers(),
-      body: { command: "init", arguments: "", model: "tests/test-model" },
+      body: { command: "init", arguments: "", model: "test/test-model" },
     }))
     .jsonEffect(
       200,

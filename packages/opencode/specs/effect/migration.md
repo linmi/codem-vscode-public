@@ -43,7 +43,7 @@ genuinely outside `AppLayer`.
 ## Tests During Migration
 
 When migrating code, migrate touched tests toward
-[`tests/EFFECT_TEST_MIGRATION.md`](../../test/EFFECT_TEST_MIGRATION.md):
+[`tests/EFFECT_TEST_MIGRATION.md`](../../tests/EFFECT_TEST_MIGRATION.md):
 
 - `testEffect(...)`
 - `it.effect`, `it.live`, or `it.instance`

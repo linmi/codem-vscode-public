@@ -25,7 +25,7 @@ describe("opencode acp config option subprocess", () => {
         const model = expectSelectOption((yield* newSession(acp, home)).configOptions, "model")
 
         expect(model.category).toBe("model")
-        expect(model.currentValue).toBe("tests/test-model")
+        expect(model.currentValue).toBe("test/test-model")
         expect(flattenSelectOptions(model).length).toBeGreaterThanOrEqual(2)
       }),
     60_000,
@@ -42,8 +42,8 @@ describe("opencode acp config option subprocess", () => {
         yield* initialize(acp)
         const session = yield* newSession(acp, home)
         const model = expectSelectOption(session.configOptions, "model")
-        const nextModel = flattenSelectOptions(model).find((option) => option.value === "tests/second-model")?.value
-        expect(nextModel).toBe("tests/second-model")
+        const nextModel = flattenSelectOptions(model).find((option) => option.value === "test/second-model")?.value
+        expect(nextModel).toBe("test/second-model")
 
         const updated = expectOk(
           yield* acp.request<SetSessionConfigOptionResponse>("session/set_config_option", {

@@ -56,7 +56,7 @@ it.instance("background tickets stay paused after a later continuation", () =>
 
 function config(url: string) {
   return {
-    model: "tests/test-model",
+    model: "test/test-model",
     enabled_providers: ["test"],
     snapshot: false,
     subagent_depth: 3,

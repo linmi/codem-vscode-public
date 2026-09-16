@@ -676,7 +676,7 @@ it.instance("does not derive tui path from KILO_CONFIG", () =>
       const test = yield* TestInstance
       const customDir = path.join(test.directory, "custom")
       yield* fs.makeDirectory(customDir, { recursive: true })
-      yield* fs.writeJson(path.join(customDir, "kilo.json"), { model: "tests/model" })
+      yield* fs.writeJson(path.join(customDir, "kilo.json"), { model: "test/model" })
       yield* fs.writeJson(path.join(customDir, "tui.json"), { theme: "should-not-load" })
 
       yield* withEnv(

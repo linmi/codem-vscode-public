@@ -5,7 +5,7 @@ Short roadmap for Effect cleanup in `packages/opencode`.
 Current patterns and examples live in [`guide.md`](./guide.md). Error
 boundary migration details live in
 [`error-boundaries-plan.md`](./error-boundaries-plan.md). Test migration rules live in
-[`tests/EFFECT_TEST_MIGRATION.md`](../../test/EFFECT_TEST_MIGRATION.md).
+[`tests/EFFECT_TEST_MIGRATION.md`](../../tests/EFFECT_TEST_MIGRATION.md).
 Older deep-dive notes in this directory may still be useful, but treat
 this roadmap and the guide as the current entry points.
 
@@ -59,7 +59,7 @@ P6  OA
   [`Flag`](../../../core/src/flag/flag.ts) reads into typed runtime/config
   services.
   Shrinks: [`flag.ts`](../../../core/src/flag/flag.ts),
-  [`tests/fixture/flag.ts`](../../test/fixture/flag.ts).
+  [`tests/fixture/flag.ts`](../../tests/fixture/flag.ts).
 - `GLOBAL` Global paths / import side effects — make global path state
   explicit and testable instead of mutable module state.
   Shrinks: [`global.ts`](../../../core/src/global.ts) import-time side
@@ -152,7 +152,7 @@ grep` to build a current inventory.
 ## P1: Tests
 
 When touching tests, migrate them toward the ideal patterns in
-[`tests/EFFECT_TEST_MIGRATION.md`](../../test/EFFECT_TEST_MIGRATION.md):
+[`tests/EFFECT_TEST_MIGRATION.md`](../../tests/EFFECT_TEST_MIGRATION.md):
 
 - Use `testEffect(...)` with explicit layers.
 - Prefer `it.instance(...)` for service tests that need an instance.
@@ -190,7 +190,7 @@ Remaining cleanup:
       callsites still import [`flag.ts`](../../../core/src/flag/flag.ts).
       Decide per-callsite whether to route through RuntimeFlags, accept
       as legitimate env/config boundary, or migrate to typed `Config`.
-- [ ] Delete [`tests/fixture/flag.ts`](../../test/fixture/flag.ts) once
+- [ ] Delete [`tests/fixture/flag.ts`](../../tests/fixture/flag.ts) once
       tests no longer mutate `Flag`.
 - [ ] Delete [`flag.ts`](../../../core/src/flag/flag.ts) once no packages
       import it.

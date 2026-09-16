@@ -496,7 +496,7 @@ describe("ACP service sessions", () => {
     )
 
     expect(forked.sessionId).toBe("fork_ses_parent")
-    expect(select(forked, "model")?.currentValue).toBe("tests/second-model")
+    expect(select(forked, "model")?.currentValue).toBe("test/second-model")
     expect(select(forked, "effort")?.currentValue).toBe("medium")
     expect(select(updated, "effort")?.currentValue).toBe("low")
     expect(forks).toEqual(["ses_parent"])
@@ -649,7 +649,7 @@ describe("ACP service sessions", () => {
     const sdk = {
       config: {
         providers: () => Promise.resolve({ data: { providers: [provider], default: { test: modelID } } }),
-        get: () => Promise.resolve({ data: { model: "tests/configured-model" } }),
+        get: () => Promise.resolve({ data: { model: "test/configured-model" } }),
       },
       app: {
         agents: () => Promise.resolve({ data: [{ name: "build", mode: "primary", permission: [], options: {} }] }),
@@ -671,7 +671,7 @@ describe("ACP service sessions", () => {
     const result = await Effect.runPromise(service.newSession({ cwd: "/workspace", mcpServers: [] }))
 
     expect(result.sessionId).toBe("configured-model")
-    expect(result.configOptions?.find((option) => option.id === "model")?.currentValue).toBe("tests/configured-model")
+    expect(result.configOptions?.find((option) => option.id === "model")?.currentValue).toBe("test/configured-model")
   })
 
   it("does not scan last-used sessions when resolving the new session default", async () => {
@@ -710,7 +710,7 @@ describe("ACP service sessions", () => {
     const result = await Effect.runPromise(service.newSession({ cwd: "/workspace", mcpServers: [] }))
 
     expect(result.sessionId).toBe("test-model")
-    expect(result.configOptions?.find((option) => option.id === "model")?.currentValue).toBe("tests/test-model")
+    expect(result.configOptions?.find((option) => option.id === "model")?.currentValue).toBe("test/test-model")
     expect(historyCalls).toEqual([])
   })
 
@@ -721,11 +721,11 @@ describe("ACP service sessions", () => {
       service.setSessionConfigOption({
         sessionId: session.sessionId,
         configId: "model",
-        value: "tests/second-model",
+        value: "test/second-model",
       }),
     )
 
-    expect(select(updated, "model")?.currentValue).toBe("tests/second-model")
+    expect(select(updated, "model")?.currentValue).toBe("test/second-model")
     expect(select(updated, "effort")?.currentValue).toBe("low")
     expect(flattenSelectOptions(select(updated, "effort")).map((option) => option.value)).toEqual(["low", "medium"])
   })
@@ -764,7 +764,7 @@ describe("ACP service sessions", () => {
 
     const results = await Promise.all(
       [
-        { configId: "model", value: "tests/missing-model" },
+        { configId: "model", value: "test/missing-model" },
         { configId: "effort", value: "max" },
         { configId: "mode", value: "missing-mode" },
         { configId: "missing", value: "value" },
@@ -883,11 +883,11 @@ describe("ACP service sessions", () => {
       service.setSessionConfigOption({
         sessionId: session.sessionId,
         configId: "model",
-        value: "tests/second-model",
+        value: "test/second-model",
       }),
     )
 
-    expect(select(updated, "model")?.currentValue).toBe("tests/second-model")
+    expect(select(updated, "model")?.currentValue).toBe("test/second-model")
     expect(calls).toEqual({ providers: 1, agents: 1, commands: 1, skills: 1 })
   })
 
@@ -1142,7 +1142,7 @@ describe("ACP service sessions", () => {
         sessionID: session.sessionId,
         command: "init",
         arguments: "now",
-        model: "tests/test-model",
+        model: "test/test-model",
         variant: "default",
         agent: "build",
         directory: "/workspace",

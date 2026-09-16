@@ -70,7 +70,7 @@ it.live(
       )
       const tmp = yield* tmpdirScoped({
         config: {
-          model: "tests/test-model",
+          model: "test/test-model",
           enabled_providers: ["test"],
           formatter: false,
           lsp: false,

@@ -110,7 +110,7 @@ describe("stats subagent cost", () => {
         yield* tool(child.id, childMsg.id)
 
         const stats = yield* aggregateSessionStats()
-        const model = stats.modelUsage["tests/test-model"]!
+        const model = stats.modelUsage["test/test-model"]!
         expect(stats.totalCost).toBeCloseTo(1.5, 6)
         expect(stats.totalSessions).toBe(2)
         expect(stats.totalMessages).toBe(4)

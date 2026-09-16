@@ -1740,7 +1740,7 @@ describe("QdrantVectorStore", () => {
 
       test("should not apply filter when directoryPrefix has trailing slashes", async () => {
         const queryVector = [0.1, 0.2, 0.3]
-        const directoryPrefix = "./"
+        const directoryPrefix = ".///"
         const mockQdrantResults = { points: [] }
 
         mockQuery.mockResolvedValue(mockQdrantResults)

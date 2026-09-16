@@ -153,11 +153,11 @@ describe("config overlay routes", () => {
       scope: "project",
       directory: project.path,
       expected: target,
-      set: { model: "tests/model" },
+      set: { model: "test/model" },
     })
 
     expect(result.ok).toBe(true)
-    expect(await Bun.file(target.path).text()).toContain('"model": "tests/model"')
+    expect(await Bun.file(target.path).text()).toContain('"model": "test/model"')
   })
 
   test("ignores a nested unset path when the project target is missing", async () => {
@@ -204,9 +204,9 @@ describe("config overlay routes", () => {
     expect(first.raw).toEqual({})
     expect(first.revision).toBe(second.revision)
 
-    await Filesystem.write(first.path, '{\n  // preserved\n  "model": "tests/model"\n}\n')
+    await Filesystem.write(first.path, '{\n  // preserved\n  "model": "test/model"\n}\n')
     const saved = await KilocodeConfigOverlay.target({ scope: "project", directory: project.path })
-    expect(saved.raw).toEqual({ model: "tests/model" })
+    expect(saved.raw).toEqual({ model: "test/model" })
     expect(saved.revision).not.toBe(first.revision)
   })
 
@@ -224,7 +224,7 @@ describe("config overlay routes", () => {
           path: before.targets.project.path,
           revision: before.targets.project.revision,
         },
-        set: { model: "tests/model" },
+        set: { model: "test/model" },
       }),
     })
 
@@ -246,7 +246,7 @@ describe("config overlay routes", () => {
           path: before.targets.project.path,
           revision: before.targets.project.revision,
         },
-        set: { model: "tests/model" },
+        set: { model: "test/model" },
       }),
     })
 
@@ -271,7 +271,7 @@ describe("config overlay routes", () => {
         }),
       })
 
-    const responses = await Promise.all([update("tests/first"), update("tests/second")])
+    const responses = await Promise.all([update("test/first"), update("test/second")])
     expect(responses.map((response) => response.status).sort()).toEqual([200, 409])
   })
 
@@ -292,7 +292,7 @@ describe("config overlay routes", () => {
           path: before.targets.project.path,
           revision: before.targets.project.revision,
         },
-        set: { model: "tests/model" },
+        set: { model: "test/model" },
       }),
     })
 
@@ -303,7 +303,7 @@ describe("config overlay routes", () => {
   test("does not expose partial content when an atomic replacement fails", async () => {
     await using project = await tmpdir()
     const file = path.join(project.path, "kilo.jsonc")
-    await Filesystem.write(file, '{\n  "model": "tests/before"\n}\n')
+    await Filesystem.write(file, '{\n  "model": "test/before"\n}\n')
     const target = await KilocodeConfigOverlay.target({ scope: "project", directory: project.path })
 
     await expect(
@@ -311,13 +311,13 @@ describe("config overlay routes", () => {
         scope: "project",
         directory: project.path,
         expected: target,
-        set: { model: "tests/after" },
+        set: { model: "test/after" },
         write: async () => {
           throw new Error("simulated replacement failure")
         },
       }),
     ).rejects.toThrow("simulated replacement failure")
-    expect(await Bun.file(file).text()).toContain("tests/before")
+    expect(await Bun.file(file).text()).toContain("test/before")
   })
 
   test("rechecks missing target parents before replacement", async () => {
@@ -330,7 +330,7 @@ describe("config overlay routes", () => {
       scope: "project",
       directory: project.path,
       expected: target,
-      set: { model: "tests/model" },
+      set: { model: "test/model" },
       beforeWrite: async () => {
         await rm(path.dirname(target.path), { recursive: true })
         await symlink(outside.path, path.dirname(target.path), "dir")
@@ -353,7 +353,7 @@ describe("config overlay routes", () => {
       scope: "project",
       directory: project.path,
       expected: target,
-      set: { model: "tests/model" },
+      set: { model: "test/model" },
     })
 
     expect(result.ok).toBe(true)
@@ -381,12 +381,12 @@ describe("config overlay routes", () => {
       {
         root: ".opencode",
         source: "opencode",
-        value: { username: "opencode", model: "tests/opencode", small_model: "tests/opencode" },
+        value: { username: "opencode", model: "test/opencode", small_model: "test/opencode" },
       },
       {
         root: ".kilocode",
         source: "kilocode",
-        value: { username: "kilocode", model: "tests/kilocode" },
+        value: { username: "kilocode", model: "test/kilocode" },
       },
       {
         root: ".kilo",
@@ -417,7 +417,7 @@ describe("config overlay routes", () => {
     })
 
     expect(body.project.username).toBe("kilo")
-    expect(body.project.model).toBe("tests/kilocode")
+    expect(body.project.model).toBe("test/kilocode")
     expect(body.project.small_model).toBeUndefined()
     expect(body.project.agent?.shared).toMatchObject({
       description: "kilo agent",

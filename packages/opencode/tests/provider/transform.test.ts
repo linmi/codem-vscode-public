@@ -815,7 +815,7 @@ describe("ProviderTransform.options - gateway", () => {
 describe("ProviderTransform.providerOptions", () => {
   const createModel = (overrides: Partial<any> = {}) =>
     ({
-      id: "tests/test-model",
+      id: "test/test-model",
       providerID: "test",
       api: {
         id: "test-model",
@@ -2067,7 +2067,7 @@ describe("ProviderTransform.message - DeepSeek reasoning content", () => {
 
 describe("ProviderTransform.message - surrogate sanitization", () => {
   const model = {
-    id: "tests/test-model",
+    id: "test/test-model",
     providerID: "test",
     api: {
       id: "test-model",
@@ -3866,7 +3866,7 @@ describe("ProviderTransform.reasoningVariants", () => {
 
 describe("ProviderTransform.variants", () => {
   const createMockModel = (overrides: Partial<any> = {}): any => ({
-    id: "tests/test-model",
+    id: "test/test-model",
     providerID: "test",
     api: {
       id: "test-model",
@@ -4080,7 +4080,7 @@ describe("ProviderTransform.variants", () => {
 
   test("glm-5.2 falls back to provider defaults for other packages", () => {
     const model = createMockModel({
-      id: "tests/glm-5.2",
+      id: "test/glm-5.2",
       api: {
         id: "glm-5.2",
         url: "https://api.test.com",

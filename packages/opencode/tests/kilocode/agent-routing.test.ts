@@ -31,7 +31,7 @@ test("config subagent routing survives a colliding primary agent markdown file",
       agent: {
         architect: {
           mode: "subagent",
-          model: "tests/configured-subagent",
+          model: "test/configured-subagent",
         },
       },
     },
@@ -64,7 +64,7 @@ test("config-only custom agent keeps its default all mode across a primary colli
     config: {
       agent: {
         architect: {
-          model: "tests/configured-subagent",
+          model: "test/configured-subagent",
         },
       },
     },

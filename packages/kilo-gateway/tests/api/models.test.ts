@@ -6,7 +6,7 @@ import { fetchKiloModels, fetchKiloTranscriptionModels } from "../../src/api/mod
 const VALID_RESPONSE = JSON.stringify({
   data: [
     {
-      id: "tests/model-a",
+      id: "test/model-a",
       name: "Test Model A",
       context_length: 128000,
       max_completion_tokens: 16384,
@@ -25,7 +25,7 @@ const VALID_RESPONSE = JSON.stringify({
 const VALID_BENCH_RESPONSE = JSON.stringify({
   data: [
     {
-      id: "tests/model-a",
+      id: "test/model-a",
       name: "Test Model A",
       context_length: 128000,
       max_completion_tokens: 16384,
@@ -64,7 +64,7 @@ const VALID_AUTO_ROUTING_RESPONSE = JSON.stringify({
 const INVALID_BENCH_RESPONSE = JSON.stringify({
   data: [
     {
-      id: "tests/model-a",
+      id: "test/model-a",
       name: "Test Model A",
       context_length: 128000,
       max_completion_tokens: 16384,
@@ -194,7 +194,7 @@ test("returns models without error on success", async () => {
   ;(globalThis as any).fetch = orig
 
   expect(result.error).toBeUndefined()
-  expect(result.models["tests/model-a"]).toMatchObject({
+  expect(result.models["test/model-a"]).toMatchObject({
     isFree: false,
     mayTrainOnYourPrompts: true,
     hasUserByokAvailable: true,
@@ -216,7 +216,7 @@ test("preserves Terminal Bench metadata as a dedicated model field", async () =>
   ;(globalThis as any).fetch = orig
 
   expect(result.error).toBeUndefined()
-  expect(result.models["tests/model-a"].terminalBench).toEqual({
+  expect(result.models["test/model-a"].terminalBench).toEqual({
     overallScore: 0.551,
     avgAttemptCostUsd: 53.37,
   })
@@ -257,7 +257,7 @@ test("omits malformed Terminal Bench metadata without rejecting the catalog", as
   ;(globalThis as any).fetch = orig
 
   expect(result.error).toBeUndefined()
-  expect(result.models["tests/model-a"].terminalBench).toBeUndefined()
+  expect(result.models["test/model-a"].terminalBench).toBeUndefined()
 })
 
 test("returns error with kind=schema when response body is invalid JSON", async () => {
@@ -314,7 +314,7 @@ const MIXED_MODALITY_RESPONSE = JSON.stringify({
       supported_parameters: ["tools"],
     },
     {
-      id: "tests/no-tools",
+      id: "test/no-tools",
       name: "No Tools Model",
       context_length: 128000,
       max_completion_tokens: 16384,
@@ -325,7 +325,7 @@ const MIXED_MODALITY_RESPONSE = JSON.stringify({
       supported_parameters: ["temperature"],
     },
     {
-      id: "tests/model-a",
+      id: "test/model-a",
       name: "Test Model A",
       context_length: 128000,
       max_completion_tokens: 16384,
@@ -356,8 +356,8 @@ test("keeps image-output models with tools and drops models without tools", asyn
   expect(result.models["openrouter/auto"]).toBeDefined()
   expect(result.models["openrouter/auto-beta"]).toBeDefined()
   expect(result.models["black-forest-labs/flux-1.1-pro"]).toBeDefined()
-  expect(result.models["tests/model-a"]).toBeDefined()
-  expect(result.models["tests/no-tools"]).toBeUndefined()
+  expect(result.models["test/model-a"]).toBeDefined()
+  expect(result.models["test/no-tools"]).toBeUndefined()
 })
 
 test("fetches and filters the transcription catalog", async () => {
@@ -436,7 +436,7 @@ test("omits cost when pricing contains negative values (dynamic/auto-routed pric
               },
             },
             {
-              id: "tests/fixed-price",
+              id: "test/fixed-price",
               name: "Fixed Price Model",
               context_length: 128000,
               max_completion_tokens: 16384,
@@ -468,7 +468,7 @@ test("omits cost when pricing contains negative values (dynamic/auto-routed pric
   expect(result.error).toBeUndefined()
   expect(result.models["openrouter/auto"]).toBeDefined()
   expect(result.models["openrouter/auto"].cost).toBeUndefined()
-  expect(result.models["tests/fixed-price"].cost).toEqual({
+  expect(result.models["test/fixed-price"].cost).toEqual({
     input: 3,
     output: 15,
     cache_read: 0.3,

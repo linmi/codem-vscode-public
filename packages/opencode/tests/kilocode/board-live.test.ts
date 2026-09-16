@@ -105,7 +105,7 @@ const it = testEffect(
 )
 
 const cfg = {
-  model: "tests/test-model",
+  model: "test/test-model",
   enabled_providers: ["test"],
   snapshot: false,
   provider: {

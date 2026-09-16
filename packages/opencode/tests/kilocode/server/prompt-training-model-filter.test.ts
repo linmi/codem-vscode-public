@@ -17,7 +17,7 @@ void Log.init({ print: false })
 const response = {
   data: [
     {
-      id: "tests/training",
+      id: "test/training",
       name: "Training",
       context_length: 128000,
       max_completion_tokens: 4096,
@@ -26,7 +26,7 @@ const response = {
       mayTrainOnYourPrompts: true,
     },
     {
-      id: "tests/private",
+      id: "test/private",
       name: "Private",
       context_length: 128000,
       max_completion_tokens: 4096,
@@ -107,9 +107,9 @@ for (const scenario of [
                 return Response.json({
                   defaultModel:
                     scenario === "valid"
-                      ? "tests/z-last"
+                      ? "test/z-last"
                       : scenario === "disallowed"
-                        ? "tests/training"
+                        ? "test/training"
                         : scenario === "empty-default"
                           ? ""
                           : undefined,
@@ -122,7 +122,7 @@ for (const scenario of [
                 return Response.json({
                   data: [
                     ...response.data,
-                    { ...response.data.at(1), id: "tests/z-last", name: "Last", preferredIndex: 0 },
+                    { ...response.data.at(1), id: "test/z-last", name: "Last", preferredIndex: 0 },
                   ],
                 })
               }
@@ -148,7 +148,7 @@ for (const scenario of [
               provider: {
                 kilo: {
                   options: { kilocodeOrganizationId: "org-config" },
-                  ...(scenario === "filtered" ? { whitelist: ["tests/training"] } : {}),
+                  ...(scenario === "filtered" ? { whitelist: ["test/training"] } : {}),
                 },
                 external: {
                   npm: "@ai-sdk/openai-compatible",
@@ -169,10 +169,10 @@ for (const scenario of [
         organizationId: "org-env",
       })
       const unavailable = ["empty", "error", "unauthorized", "filtered"].includes(scenario)
-      expect(models(all, "all")).toEqual(unavailable ? [] : ["tests/private", "tests/z-last"])
-      expect(models(connected, "providers")).toEqual(unavailable ? [] : ["tests/private", "tests/z-last"])
+      expect(models(all, "all")).toEqual(unavailable ? [] : ["test/private", "test/z-last"])
+      expect(models(connected, "providers")).toEqual(unavailable ? [] : ["test/private", "test/z-last"])
       expect(connected.default.kilo).toBe(
-        unavailable ? undefined : scenario === "valid" ? "tests/z-last" : "tests/private",
+        unavailable ? undefined : scenario === "valid" ? "test/z-last" : "test/private",
       )
       expect(all.default.kilo).toBe(connected.default.kilo)
       expect(connected.default.external).toBe("independent")
@@ -194,11 +194,11 @@ for (const scenario of [
             Effect.gen(function* () {
               const retained = yield* request("/provider", tmp.path)
               const configured = yield* request("/config/providers", tmp.path)
-              expect(models(retained, "all")).toEqual(["tests/private", "tests/z-last"])
-              expect(models(configured, "providers")).toEqual(["tests/private", "tests/z-last"])
+              expect(models(retained, "all")).toEqual(["test/private", "test/z-last"])
+              expect(models(configured, "providers")).toEqual(["test/private", "test/z-last"])
               expect(retained.connected).toEqual(all.connected)
               expect(retained.failed).toEqual(["kilo"])
-              expect(retained.default).toEqual({ external: "independent", kilo: "tests/private" })
+              expect(retained.default).toEqual({ external: "independent", kilo: "test/private" })
               expect(configured.default).toEqual(retained.default)
               expect(paths.filter((path) => path.endsWith("/defaults"))).toHaveLength(2)
               expect(paths.filter((path) => path.endsWith("/models"))).toHaveLength(1)
@@ -207,7 +207,7 @@ for (const scenario of [
         )
         const recovered = yield* request("/provider", tmp.path)
         const configured = yield* request("/config/providers", tmp.path)
-        expect(recovered.default.kilo).toBe("tests/z-last")
+        expect(recovered.default.kilo).toBe("test/z-last")
         expect(configured.default.kilo).toBe(recovered.default.kilo)
         expect(recovered.failed).toEqual([])
         expect(paths.filter((path) => path.endsWith("/defaults"))).toHaveLength(4)
@@ -286,7 +286,7 @@ it.live(
     const all = yield* request("/provider", tmp.path)
     const connected = yield* request("/config/providers", tmp.path)
 
-    expect(models(all, "all")).toEqual(["tests/private"])
-    expect(models(connected, "providers")).toEqual(["tests/private"])
+    expect(models(all, "all")).toEqual(["test/private"])
+    expect(models(connected, "providers")).toEqual(["test/private"])
   }),
 )

@@ -1210,8 +1210,8 @@ describe("project config directory precedence", () => {
         source: "opencode",
         config: {
           username: "opencode",
-          model: "tests/opencode",
-          small_model: "tests/opencode",
+          model: "test/opencode",
+          small_model: "test/opencode",
         },
         names: ["shared", "legacy", "opencode-only"],
       },
@@ -1220,7 +1220,7 @@ describe("project config directory precedence", () => {
         source: "kilocode",
         config: {
           username: "kilocode",
-          model: "tests/kilocode",
+          model: "test/kilocode",
         },
         names: ["shared", "legacy"],
       },
@@ -1259,7 +1259,7 @@ describe("project config directory precedence", () => {
         const config = await load()
 
         expect(config.username).toBe("kilo")
-        expect(config.model).toBe("tests/kilocode")
+        expect(config.model).toBe("test/kilocode")
         expect(config.small_model).toBeUndefined()
 
         expect(config.command?.shared).toMatchObject({
@@ -1295,13 +1295,13 @@ describe("linked worktree config", () => {
   test("uses primary config directories as local fallbacks", async () => {
     await using primary = await tmpdir({ git: true })
     const worktree = path.join(path.dirname(primary.path), `${path.basename(primary.path)}-config-feature`)
-    await Bun.write(path.join(primary.path, "kilo.json"), JSON.stringify({ model: "tests/primary" }))
+    await Bun.write(path.join(primary.path, "kilo.json"), JSON.stringify({ model: "test/primary" }))
     await $`git add kilo.json`.cwd(primary.path).quiet()
     await $`git commit -m config`.cwd(primary.path).quiet()
     await $`git worktree add -b config-sibling-worktree ${worktree}`.cwd(primary.path).quiet()
 
     try {
-      await Bun.write(path.join(worktree, "kilo.json"), JSON.stringify({ model: "tests/worktree" }))
+      await Bun.write(path.join(worktree, "kilo.json"), JSON.stringify({ model: "test/worktree" }))
       await Bun.write(
         path.join(primary.path, ".kilo", "kilo.jsonc"),
         JSON.stringify({ username: "primary-dir", indexing: { enabled: true } }),
@@ -1310,7 +1310,7 @@ describe("linked worktree config", () => {
 
       const config = await provideTestInstance({ directory: worktree, fn: load })
 
-      expect(config.model).toBe("tests/worktree")
+      expect(config.model).toBe("test/worktree")
       expect(config.username).toBe("worktree-dir")
       expect(config.indexing?.enabled).toBe(true)
     } finally {
@@ -1383,7 +1383,7 @@ describe("opencode config migration notice", () => {
   test("detects a project .opencode directory", async () => {
     await using globalTmp = await tmpdir()
     await using tmp = await tmpdir()
-    await Filesystem.write(path.join(tmp.path, ".opencode", "opencode.json"), JSON.stringify({ model: "tests/legacy" }))
+    await Filesystem.write(path.join(tmp.path, ".opencode", "opencode.json"), JSON.stringify({ model: "test/legacy" }))
 
     // Isolate the global config dir so a real ~/.config/opencode on the host cannot interfere.
     await withGlobalConfig(path.join(globalTmp.path, "kilo"), () => {
@@ -1396,7 +1396,7 @@ describe("opencode config migration notice", () => {
     await using globalTmp = await tmpdir()
     await using tmp = await tmpdir()
     const opencodeDir = path.join(globalTmp.path, "opencode")
-    await Filesystem.write(path.join(opencodeDir, "opencode.json"), JSON.stringify({ model: "tests/legacy" }))
+    await Filesystem.write(path.join(opencodeDir, "opencode.json"), JSON.stringify({ model: "test/legacy" }))
 
     await withGlobalConfig(path.join(globalTmp.path, "kilo"), () => {
       const found = KilocodeConfig.detectOpencodeConfig({ directory: tmp.path, scanProject: true })
@@ -1407,7 +1407,7 @@ describe("opencode config migration notice", () => {
   test("skips the project scan when disabled", async () => {
     await using globalTmp = await tmpdir()
     await using tmp = await tmpdir()
-    await Filesystem.write(path.join(tmp.path, ".opencode", "opencode.json"), JSON.stringify({ model: "tests/legacy" }))
+    await Filesystem.write(path.join(tmp.path, ".opencode", "opencode.json"), JSON.stringify({ model: "test/legacy" }))
 
     await withGlobalConfig(path.join(globalTmp.path, "kilo"), () => {
       const found = KilocodeConfig.detectOpencodeConfig({ directory: tmp.path, scanProject: false })
@@ -1418,7 +1418,7 @@ describe("opencode config migration notice", () => {
   test("builds a dismissible notification when opencode config exists", async () => {
     await using globalTmp = await tmpdir()
     await using tmp = await tmpdir()
-    await Filesystem.write(path.join(tmp.path, ".opencode", "opencode.json"), JSON.stringify({ model: "tests/legacy" }))
+    await Filesystem.write(path.join(tmp.path, ".opencode", "opencode.json"), JSON.stringify({ model: "test/legacy" }))
 
     await withGlobalConfig(path.join(globalTmp.path, "kilo"), () => {
       const notice = KilocodeConfig.opencodeConfigNotification({ directory: tmp.path, scanProject: true })
@@ -1580,11 +1580,11 @@ describe("bash permission migration", () => {
 
     try {
       await KilocodeConfig.migrateBashPermission()
-      await writeConfig(tmp.path, { model: "tests/model" }, "kilo.jsonc")
+      await writeConfig(tmp.path, { model: "test/model" }, "kilo.jsonc")
       await KilocodeConfig.migrateBashPermission()
 
       expect(JSON.parse(await Filesystem.readText(path.join(tmp.path, "kilo.jsonc")))).toEqual({
-        model: "tests/model",
+        model: "test/model",
       })
     } finally {
       ;(Global.Path as { config: string }).config = prev
