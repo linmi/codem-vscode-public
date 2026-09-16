@@ -38,7 +38,6 @@ class KiloBackendCliManagerEnvTest {
         assertEquals("jetbrains", env["KILO_CLIENT"])
         assertEquals("true", env["KILO_ENABLE_QUESTION_TOOL"])
         assertEquals("jetbrains", env["KILO_PLATFORM"])
-        assertEquals("kilo-code", env["KILO_APP_NAME"])
         assertEquals("off", env["KILO_TELEMETRY_LEVEL"])
         assertEquals("true", env["KILO_DISABLE_CLAUDE_CODE"])
         assertEquals("jetbrains-plugin", env["KILOCODE_FEATURE"])
@@ -46,10 +45,17 @@ class KiloBackendCliManagerEnvTest {
     }
 
     @Test
+    fun `production overrides inherited telemetry opt-in`() {
+        val env = manager.buildEnv("pwd123", mapOf("KILO_TELEMETRY_LEVEL" to "all"))
+        assertEquals("off", env["KILO_TELEMETRY_LEVEL"])
+        assertFalse(env.containsKey("KILO_MACHINE_ID"))
+    }
+
+    @Test
     fun `dev mode disables CLI telemetry`() {
         System.setProperty("idea.plugin.in.sandbox.mode", "true")
 
-        val env = manager.buildEnv("pwd123", emptyMap())
+        val env = manager.buildEnv("pwd123", mapOf("KILO_TELEMETRY_LEVEL" to "all"))
 
         assertEquals("off", env["KILO_TELEMETRY_LEVEL"])
     }

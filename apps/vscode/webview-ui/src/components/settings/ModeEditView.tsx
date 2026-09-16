@@ -17,7 +17,7 @@ import { buildExport } from "./mode-io"
 import { modelPatch } from "./mode-model"
 import PermissionEditor from "./PermissionEditor"
 import { ModelSelectorBase } from "../shared/ModelSelector"
-import { ThinkingSelectorBase } from "../shared/ThinkingSelector"
+import { PromptOptionSelector } from "../shared/PromptOptionSelector"
 
 interface Props {
   name: string
@@ -193,7 +193,7 @@ const ModeEditView: Component<Props> = (props) => {
             title={language.t("settings.agentBehaviour.variantOverride.title")}
             description={language.t("settings.agentBehaviour.variantOverride.description")}
           >
-            <ThinkingSelectorBase
+            <PromptOptionSelector
               variants={variants()}
               value={cfg().variant ?? undefined}
               onSelect={selectVariant}

@@ -1,3 +1,4 @@
+import type { createThreadPermissions } from "./thread-permissions"
 import type { Accessor } from "solid-js"
 import type { ReviewMessageData } from "../../../src/shared/review-comments"
 import type { BrowserFeedbackData } from "../../../src/shared/browser-feedback"
@@ -142,6 +143,8 @@ export interface SessionContextValue {
   setSessionModel: (sessionID: string, providerID: string, modelID: string) => void
   setSessionAgent: (sessionID: string, name: string) => void
   setSessionVariant: (sessionID: string, providerID: string, modelID: string, value: string, agent?: string) => void
+
+  threadPermissions: ReturnType<typeof createThreadPermissions>
 
   // Thinking variant for the selected model
   variantList: (sessionID?: string) => string[]

@@ -127,7 +127,7 @@ describe("MatureUiAppServerController", () => {
     assert.equal(loaded.mode, "reconcile")
   })
 
-  it("passes the exact Core model and intelligence when a send creates a thread", async () => {
+  it("passes the preselected model, intelligence and permission mode with the first send", async () => {
     const fixture = createFixture()
     await fixture.controller.handle({
       type: "sendMessage",
@@ -136,10 +136,53 @@ describe("MatureUiAppServerController", () => {
       providerID: "codem-router",
       modelID: "auto",
       variant: "high",
+      permissionMode: "yolo",
     })
     assert.deepEqual(fixture.calls.startThread, [
-      { cwd: "/workspace", model: "codem-router/auto", intelligence: "high" },
+      { cwd: "/workspace", model: "codem-router/auto", intelligence: "high", permissionMode: "yolo" },
     ])
+  })
+
+  it("creates a draft in a new thread even when the controller previously selected another thread", async () => {
+    const fixture = createFixture()
+    await fixture.controller.handle({ type: "createSession" })
+    await fixture.controller.handle({
+      type: "sendMessage",
+      draftID: "draft-2",
+      text: "New",
+      variant: "medium",
+      permissionMode: "auto",
+    })
+    assert.equal(fixture.calls.startThread.length, 2)
+    assert.equal(fixture.calls.startThread[1]?.permissionMode, "auto")
+  })
+
+  it("rejects invalid initial modes and attempts to bypass revision-checked changes on existing threads", async () => {
+    const fixture = createFixture()
+    await fixture.controller.handle({ type: "sendMessage", text: "Invalid", permissionMode: "acceptEdits" as never })
+    assert.equal(fixture.calls.startThread.length, 0)
+    await fixture.controller.handle({
+      type: "sendMessage",
+      sessionID: "thread-1",
+      text: "Bypass",
+      permissionMode: "yolo",
+    })
+    assert.equal(fixture.calls.startTurn.length, 0)
+    assert.equal(fixture.messages.filter((message) => message.type === "sendMessageFailed").length, 2)
+  })
+
+  it("forwards initial presets through slash commands", async () => {
+    const fixture = createFixture()
+    await fixture.controller.handle({
+      type: "sendCommand",
+      draftID: "draft",
+      command: "help",
+      arguments: "",
+      variant: "medium",
+      permissionMode: "auto",
+    })
+    assert.equal(fixture.calls.startThread[0]?.permissionMode, "auto")
+    assert.equal(fixture.calls.startThread[0]?.intelligence, "medium")
   })
 
   it("applies a changed intelligence tier before the next idle turn", async () => {
@@ -343,8 +386,8 @@ function createFixture(options: { readonly prepareError?: Error } = {}) {
   const service: MatureUiAppServerPort = {
     readModes: async () => ({ revision: 0, permissionEpoch: 0, permissionMode: "default", workMode: "normal" }),
     setModes: async () => ({ revision: 1, permissionEpoch: 1, permissionMode: "auto", workMode: "normal" }),
-    startThread: async (cwd, model, intelligence) => {
-      calls.startThread.push({ cwd, model, intelligence })
+    startThread: async (cwd, model, intelligence, permissionMode) => {
+      calls.startThread.push({ cwd, model, intelligence, ...(permissionMode ? { permissionMode } : {}) })
       return thread.id
     },
     resumeThread: async (cwd, threadId, model, intelligence) => {

@@ -1,3 +1,4 @@
+import type { AppServerPermissionMode } from "@codem/app-server/modes"
 import type { FileAttachment } from "./parts"
 import type { MessageLoadMode } from "./sessions"
 import type { PermissionFileDiff } from "./permissions"
@@ -31,6 +32,8 @@ export interface SendMessageRequest {
   modelID?: string
   agent?: string
   variant?: string
+  /** Initial choice for a new thread only; existing threads use revision-checked mode changes. */
+  permissionMode?: AppServerPermissionMode
   files?: FileAttachment[]
   review?: ReviewMessageData
   browserFeedback?: BrowserFeedbackData
@@ -339,6 +342,8 @@ export interface SendCommandRequest {
   modelID?: string
   agent?: string
   variant?: string
+  /** Initial choice for a new thread only; existing threads use revision-checked mode changes. */
+  permissionMode?: AppServerPermissionMode
   files?: FileAttachment[]
   agentManagerContext?: string
   contextDirectory?: string

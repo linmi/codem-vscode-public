@@ -6,7 +6,7 @@ import { useConfig } from "../../../context/config"
 import { useLanguage } from "../../../context/language"
 import { useProvider } from "../../../context/provider"
 import { ModelSelectorBase } from "../../shared/ModelSelector"
-import { ThinkingSelectorBase } from "../../shared/ThinkingSelector"
+import { PromptOptionSelector } from "../../shared/PromptOptionSelector"
 import { parseModelString } from "../../../../../src/shared/provider-model"
 import type { CommandConfig } from "../../../types/messages"
 import { preserveVariant } from "../../../context/session-variant-store"
@@ -177,7 +177,7 @@ const WorkflowsTab: Component = () => {
                           description={language.t("settings.agentBehaviour.workflows.modelDescription")}
                         />
                         <Show when={variants(cmd, name).length > 0 || !!variant(cmd, name)}>
-                          <ThinkingSelectorBase
+                          <PromptOptionSelector
                             variants={variants(cmd, name)}
                             value={variant(cmd, name)}
                             onSelect={(variant) => update(name, { variant })}

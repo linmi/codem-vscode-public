@@ -1,3 +1,4 @@
+import { DEFAULT_PROMPT_SETTINGS } from "../../../../src/shared/prompt-defaults"
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { readFileSync } from "node:fs"
@@ -70,6 +71,13 @@ describe("thread permission presentation", () => {
       false,
     )
     assert.equal("codem.autoApprove.enabled" in manifest.contributes.configuration.properties, false)
-    assert.equal(manifest.contributes.configuration.properties["codem.permissionMode"].default, "auto")
+    assert.equal(
+      manifest.contributes.configuration.properties["codem.permissionMode"].default,
+      DEFAULT_PROMPT_SETTINGS.permissionMode,
+    )
+    assert.equal(
+      manifest.contributes.configuration.properties["codem.intelligence"].default,
+      DEFAULT_PROMPT_SETTINGS.intelligence,
+    )
   })
 })

@@ -10,7 +10,7 @@ import { useSession } from "../../context/session"
 import { useSpeechToTextModels } from "../../context/speech-to-text-models"
 import { parseModelString } from "../../../../src/shared/provider-model"
 import { ModelSelectorBase } from "../shared/ModelSelector"
-import { ThinkingSelectorBase } from "../shared/ThinkingSelector"
+import { PromptOptionSelector } from "../shared/PromptOptionSelector"
 import SettingsRow from "./SettingsRow"
 import { DEFAULT_SPEECH_TO_TEXT_MODEL } from "../../../../src/speech-to-text/models"
 import { hasSpeechToTextAccess, selectedSpeechToTextModel } from "../speech-to-text/availability"
@@ -164,7 +164,7 @@ const ModelsTab: Component = () => {
               description={language.t("settings.providers.subagentModel.description")}
             />
             <Show when={subagentVariants().length > 0}>
-              <ThinkingSelectorBase
+              <PromptOptionSelector
                 variants={subagentVariants()}
                 value={subagentVariant()}
                 onSelect={(value) => updateSubagentVariant(value)}

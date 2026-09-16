@@ -10,6 +10,9 @@
  * don't throw.
  */
 
+import { createThreadPermissions } from "../context/thread-permissions"
+import type { ThreadPermissionView } from "../utils/thread-permission-state"
+import type { AppServerPermissionMode } from "@codem/app-server/modes"
 import { createSignal, createMemo, type ParentComponent } from "solid-js"
 import { VSCodeProvider } from "../context/vscode"
 import { ServerProvider } from "../context/server"
@@ -179,6 +182,28 @@ export function mockSessionValue(overrides?: {
   closeReason?: SessionCloseReason
 }) {
   const id = overrides?.id ?? "story-session-001"
+  const [modeViews, setModeViews] = createSignal<Record<string, ThreadPermissionView>>({})
+  const [draftModes, setDraftModes] = createSignal<Record<string, AppServerPermissionMode>>({})
+  const threadPermissions = createThreadPermissions({
+    views: modeViews,
+    setView: (id, view) => setModeViews((views) => ({ ...views, [id]: view })),
+    drafts: draftModes,
+    setDraft: (id, mode) => setDraftModes((drafts) => ({ ...drafts, [id]: mode })),
+    deleteDraft: (id) =>
+      setDraftModes((drafts) => {
+        const next = { ...drafts }
+        delete next[id]
+        return next
+      }),
+    defaultMode: () => "auto",
+    post: noop,
+  })
+  threadPermissions.accept({
+    type: "threadModesChanged",
+    sessionID: id,
+    state: { revision: 0, permissionEpoch: 0, permissionMode: "auto", workMode: "normal" },
+  })
+
   const permissions = overrides?.permissions ?? []
   const qs = overrides?.questions ?? []
   const suggestions = overrides?.suggestions ?? []
@@ -261,8 +286,9 @@ export function mockSessionValue(overrides?: {
     recentModels: () => [],
     modelUsageHistory: () => ({}),
     toggleFavorite: noop,
-    variantList: () => [],
-    currentVariant: () => undefined,
+    threadPermissions,
+    variantList: () => ["low", "medium", "high", "xhigh"],
+    currentVariant: () => "medium",
     variantForAgent: () => undefined,
     selectVariant: noop,
     sendMessage: () => true,

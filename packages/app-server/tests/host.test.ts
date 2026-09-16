@@ -242,6 +242,60 @@ describe("AppServerHost", () => {
     }
   })
 
+  it("coalesces mode reads, uses broadcasts until conflict, and reads again after retirement", async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "mode-cache", version: "1" },
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, DELAY_MODE_READ: "1" },
+      assertAuthenticated: () => {},
+    })
+    const reads = () =>
+      readFileSync(fixture.capturePath, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line))
+        .filter((entry) => entry.method === "thread/mode/read").length
+    try {
+      const id = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      await Promise.all([host.readModes(fixture.root, id), host.readModes(fixture.root, id)])
+      await host.readModes(fixture.root, id)
+      assert.equal(reads(), 1)
+      await host.setModes({ cwd: fixture.root, threadId: id, expectedRevision: 0, permissionMode: "yolo" })
+      assert.equal((await host.readModes(fixture.root, id)).permissionMode, "yolo")
+      assert.equal(reads(), 1)
+      await assert.rejects(
+        host.setModes({ cwd: fixture.root, threadId: id, expectedRevision: 0, permissionMode: "auto" }),
+        /revision conflict/,
+      )
+      assert.equal((await host.readModes(fixture.root, id)).permissionMode, "yolo")
+      assert.equal(reads(), 2)
+      await host.unsubscribeThread(fixture.root, id)
+      await host.resumeThread(fixture.root, id, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      assert.equal((await host.readModes(fixture.root, id)).permissionMode, "yolo")
+      assert.equal(reads(), 3)
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("clears a rejected mode read so retry can succeed", async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "mode-retry", version: "1" },
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, FAIL_FIRST_MODE_READ: "1" },
+      assertAuthenticated: () => {},
+    })
+    try {
+      const id = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      await assert.rejects(host.readModes(fixture.root, id), /mode read failed/)
+      assert.equal((await host.readModes(fixture.root, id)).permissionMode, "default")
+    } finally {
+      await host.close()
+    }
+  })
+
   it("rejects the obsolete empty unsubscribe result instead of pretending the thread was released", async () => {
     const fixture = createFixture()
     const host = new AppServerHost({
@@ -361,6 +415,7 @@ const capture = (value) => fs.appendFileSync(process.env.CAPTURE_PATH, JSON.stri
 capture({ argv: process.argv.slice(2), environment: { credentialHost: JSON.parse(process.env.CODEM_ROUTER_CREDENTIAL_HOST_CMD), source: process.env.CODEM_SESSION_SOURCE, managedDirectory: process.env.CODEM_MANAGED_DIR } })
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n")
 const modes = new Map()
+let failedModeRead = false
 const mode = (threadId) => modes.get(threadId) ?? { revision: 0, permissionEpoch: 0, permissionMode: "default", workMode: "normal" }
 const lines = readline.createInterface({ input: process.stdin })
 lines.on("close", () => process.exit(0))
@@ -373,6 +428,10 @@ lines.on("line", (line) => {
   if (frame.method === "thread/resume") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: frame.params.threadId } } })
   if (frame.method === "thread/unsubscribe") return send({ id: frame.id, result: process.env.OLD_UNSUBSCRIBE_RESULT ? {} : { status: "unsubscribed" } })
   if (frame.method === "thread/mode/read") {
+    if (process.env.FAIL_FIRST_MODE_READ && !failedModeRead) {
+      failedModeRead = true
+      return send({ id: frame.id, error: { code: -32000, message: "mode read failed" } })
+    }
     const result = { threadId: frame.params.threadId, state: mode(frame.params.threadId) }
     if (process.env.DELAY_MODE_READ) return setTimeout(() => send({ id: frame.id, result }), 50)
     return send({ id: frame.id, result })

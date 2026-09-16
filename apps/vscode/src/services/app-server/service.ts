@@ -14,6 +14,8 @@ import {
   type AppServerThreadSettings,
   type AppServerThreadSummary,
 } from "@codem/app-server"
+import { DEFAULT_PROMPT_SETTINGS } from "../../shared/prompt-defaults"
+import type { AppServerPermissionMode } from "@codem/app-server/modes"
 import type { CodeMAuthenticationService } from "./authentication"
 
 export class CodeMAppServerService implements vscode.Disposable {
@@ -184,11 +186,16 @@ export class CodeMAppServerService implements vscode.Disposable {
     return this.useHost((host) => host.prepareConnection(cwd))
   }
 
-  async startThread(cwd: string, requestedModel?: string, intelligence?: string): Promise<string> {
+  async startThread(
+    cwd: string,
+    requestedModel?: string,
+    intelligence?: string,
+    permissionMode?: AppServerPermissionMode,
+  ): Promise<string> {
     requireTrustedWorkspace()
     return this.useHost(async (host) => {
       const model = await this.resolveModel(host, cwd, requestedModel)
-      return host.startThread(cwd, threadSettings(model, intelligence))
+      return host.startThread(cwd, threadSettings(model, intelligence, permissionMode))
     })
   }
 
@@ -384,12 +391,16 @@ function accountIdentity(status: AppServerAuthStatus | null): string | null {
   return status?.loggedIn ? JSON.stringify([status.serverUrl, status.tenantId, status.userId]) : null
 }
 
-function threadSettings(model: string, intelligence?: string): AppServerThreadSettings {
+function threadSettings(
+  model: string,
+  intelligence?: string,
+  permissionMode?: AppServerPermissionMode,
+): AppServerThreadSettings {
   const configuration = vscode.workspace.getConfiguration("codem")
   return {
     model,
-    intelligence: intelligence ?? configuration.get("intelligence", "medium"),
-    permissionMode: configuration.get("permissionMode", "auto"),
+    intelligence: intelligence ?? configuration.get("intelligence", DEFAULT_PROMPT_SETTINGS.intelligence),
+    permissionMode: permissionMode ?? configuration.get("permissionMode", DEFAULT_PROMPT_SETTINGS.permissionMode),
     workMode: configuration.get("workMode", "default"),
     additionalDirectories: [],
     mcpServers: [],

@@ -4,6 +4,7 @@
  * Also owns global (extension-lifetime) model selection (provider context is catalog-only).
  */
 
+import { createPromptSettings } from "./prompt-settings"
 import {
   createContext,
   useContext,
@@ -537,7 +538,10 @@ export const SessionProvider: ParentComponent = (props) => {
     })
   }
 
+  const promptSettings = createPromptSettings(currentSessionID, draftSessionID)
+
   const variants = createSessionVariants({
+    defaultVariant: () => promptSettings.defaults().intelligence,
     selections: () => store.variantSelections,
     set: (key, value) => setStore("variantSelections", key, value),
     selected,
@@ -549,7 +553,6 @@ export const SessionProvider: ParentComponent = (props) => {
     listen: vscode.onMessage,
   })
   const { carry: carryVariant, list: variantList, agent: variantForAgent, current: currentVariant } = variants
-  const selectVariant = variants.select
   const models = createModelSelector({
     current: currentSessionID,
     agent: agentForScope,
@@ -897,6 +900,7 @@ export const SessionProvider: ParentComponent = (props) => {
   }
 
   function handleExtensionMessage(message: ExtensionMessage): void {
+    promptSettings.accept(message)
     // Route suggestion messages (extracted to stay within complexity limit)
     routeSuggestionMessage(message)
     if (handleModelUsageMessage(message)) return
@@ -2253,6 +2257,7 @@ export const SessionProvider: ParentComponent = (props) => {
     dismiss(sid)
 
     const effectiveDraftID = !sid && !draftID ? crypto.randomUUID() : draftID
+    const initialMode = promptSettings.initialMode(sid, draftID, effectiveDraftID)
     const scope = effectiveDraftID ?? sid
     if (!sid && !draftID && effectiveDraftID) agentDrafts.seed(effectiveDraftID)
     if (scope) {
@@ -2273,6 +2278,7 @@ export const SessionProvider: ParentComponent = (props) => {
       modelID: settings.model?.modelID,
       agent: settings.agent,
       variant: settings.variant,
+      ...initialMode,
       files,
       review,
       browserFeedback,
@@ -2313,6 +2319,7 @@ export const SessionProvider: ParentComponent = (props) => {
     if (!control && !available(effectiveSelection)) return false
 
     const effectiveDraftID = !sid && !draftID ? crypto.randomUUID() : draftID
+    const initialMode = promptSettings.initialMode(sid, draftID, effectiveDraftID)
     const scope = effectiveDraftID ?? sid
     if (!sid && !draftID && effectiveDraftID) agentDrafts.seed(effectiveDraftID)
 
@@ -2324,7 +2331,7 @@ export const SessionProvider: ParentComponent = (props) => {
         selectModel(effectiveSelection.providerID, effectiveSelection.modelID, scope)
       }
       if (overrides?.variant) {
-        selectVariant(overrides.variant, scope)
+        variants.select(overrides.variant, scope)
       }
       recordModelUsage(effectiveSelection.providerID, effectiveSelection.modelID)
     }
@@ -2377,6 +2384,7 @@ export const SessionProvider: ParentComponent = (props) => {
       sessionID: sid,
       draftID: effectiveDraftID,
       ...settings,
+      ...initialMode,
       files,
       agentManagerContext: context,
     })
@@ -3028,8 +3036,9 @@ export const SessionProvider: ParentComponent = (props) => {
     toggleFavorite,
     variantList,
     currentVariant,
+    threadPermissions: promptSettings.permissions,
     variantForAgent,
-    selectVariant,
+    selectVariant: variants.select,
     revert,
     revertedCount,
     summary,

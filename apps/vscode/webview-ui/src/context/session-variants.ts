@@ -9,6 +9,7 @@ interface Model {
 type Message = { type: "requestVariants" } | { type: "persistVariant"; key: string; value: string }
 
 interface Options {
+  defaultVariant: Accessor<string>
   selections: Accessor<Record<string, string>>
   set: (key: string, value: string) => void
   selected: (sessionID?: string) => ModelSelection | null
@@ -35,7 +36,10 @@ export function createSessionVariants(options: Options) {
 
   const agent = (name: string, selection: ModelSelection | null) => {
     if (!selection) return undefined
-    return getAgentVariant(options.selections(), selection, options.find(selection), name, configured(name, selection))
+    return (
+      getAgentVariant(options.selections(), selection, options.find(selection), name, configured(name, selection)) ??
+      preserveVariant(options.defaultVariant(), Object.keys(options.find(selection)?.variants ?? {}))
+    )
   }
 
   const current = (sessionID?: string) => {
@@ -45,11 +49,13 @@ export function createSessionVariants(options: Options) {
     const variants = list(sid)
     if (variants.length === 0) return undefined
     const name = options.agent(sid)
-    return getVariant(options.selections(), selection, variants, name, sid, configured(name, selection))
+    return (
+      getVariant(options.selections(), selection, variants, name, sid, configured(name, selection)) ??
+      preserveVariant(options.defaultVariant(), variants)
+    )
   }
 
-  const request = (sessionID?: string) =>
-    current(sessionID) ?? (list(sessionID).length > 0 ? DEFAULT_VARIANT : undefined)
+  const request = current
 
   const select = (value: string | undefined, sessionID?: string) => {
     const sid = sessionID ?? options.session()

@@ -1,4 +1,5 @@
-import { emptyThreadPermissionView, acceptThreadPermissionMessage } from "../../utils/thread-permission-state"
+import { permissionMode as parsePermissionMode } from "@codem/app-server/modes"
+import { PromptOptionSelector } from "../shared/PromptOptionSelector"
 /**
  * PromptInput component
  * Text input with send/abort buttons, ghost-text autocomplete, and @ file mention support
@@ -355,45 +356,23 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const [reviewComments, setReviewComments] = createSignal<ReviewCommentEntry[]>([])
   const [browsers, setBrowsers] = createSignal<BrowserReference[]>([])
   const [enhancing, setEnhancing] = createSignal(false)
-  const [permissionView, setPermissionView] = createSignal(emptyThreadPermissionView(null))
-  let permissionSelect: HTMLSelectElement | undefined
+  const permissionView = () => {
+    const id = session.currentSessionID()
+    return id ? session.threadPermissions.view(id) : null
+  }
+  const permissionValue = () => session.currentSessionID()
+    ? permissionView()?.state?.permissionMode
+    : session.threadPermissions.draftMode(sid())
+  const selectPermissionMode = (value: string) => {
+    const mode = parsePermissionMode(value)
+    const id = session.currentSessionID()
+    if (id) session.threadPermissions.select(id, mode)
+    else session.threadPermissions.selectDraft(mode, sid())
+  }
   const readPermissionMode = () => {
-    const sessionID = session.currentSessionID()
-    if (!sessionID) return
-    const requestID = crypto.randomUUID()
-    setPermissionView((view) => ({ ...view, requestID, error: null }))
-    vscode.postMessage({ type: "requestThreadModes", sessionID, requestID })
+    const id = session.currentSessionID()
+    if (id) session.threadPermissions.read(id, true)
   }
-  createEffect(
-    on(
-      () => session.currentSessionID(),
-      (sessionID) => {
-        setPermissionView(emptyThreadPermissionView(sessionID ?? null))
-        if (sessionID) readPermissionMode()
-      },
-    ),
-  )
-  const selectPermissionMode = (event: Event & { currentTarget: HTMLSelectElement }) => {
-    const view = permissionView()
-    const permissionMode = event.currentTarget.value
-    event.currentTarget.value = view.state?.permissionMode ?? ""
-    if (!view.sessionID || !view.state || view.requestID) return
-    if (permissionMode !== "default" && permissionMode !== "auto" && permissionMode !== "yolo") return
-    const requestID = crypto.randomUUID()
-    setPermissionView({ ...view, requestID, error: null })
-    vscode.postMessage({
-      type: "setThreadPermissionMode",
-      sessionID: view.sessionID,
-      requestID,
-      expectedRevision: view.state.revision,
-      permissionMode,
-    })
-  }
-  const focusPermissionMode = () => {
-    permissionSelect?.focus()
-  }
-  window.addEventListener("selectPermissionMode", focusPermissionMode)
-  onCleanup(() => window.removeEventListener("selectPermissionMode", focusPermissionMode))
   const [sandboxes, setSandboxes] = createSignal<Record<string, SandboxState>>({})
   const [sandboxDefault, setSandboxDefault] = createSignal<SandboxDefaultState>()
   const [sandboxRequests, setSandboxRequests] = createSignal<Record<string, string>>({})
@@ -845,11 +824,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     ),
   )
 
-  const unsubscribePermissionMode = vscode.onMessage((message) => {
-    if (message.type === "threadModesChanged" || message.type === "threadModesResult")
-      setPermissionView((view) => acceptThreadPermissionMessage(view, message))
-  })
-
   const restoreFailed = (failed: SendMessageFailedMessage) => {
     const restored = failedPrompt(failed)
     if (!restored) return
@@ -1127,7 +1101,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     // Persist current draft before unmounting
     saveDraft(draftKey(), text(), reviewComments(), imageAttach.images())
     if (sandboxRetry) clearTimeout(sandboxRetry)
-    unsubscribePermissionMode()
     unsubscribe()
   })
 
@@ -1290,7 +1263,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       if (settings()["chat.shiftTabCyclesVariant"] === false) return
       const list = session.variantList(sid())
       if (list.length === 0) return
-      const next = cycleVariant(session.currentVariant(sid()), list)
+      const next = cycleVariant(session.currentVariant(sid()), list) ?? list[0]
       e.preventDefault()
       session.selectVariant(next, sid())
       return
@@ -1963,6 +1936,29 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           <ModeSwitcher sessionID={sid} blocked={props.blocked?.() ?? false} />
           <ModelSelector sessionID={sid} blocked={props.blocked?.() ?? false} />
           <ThinkingSelector sessionID={sid} blocked={props.blocked?.() ?? false} />
+          <div class="thread-permission-mode">
+            <PromptOptionSelector
+              variants={["default", "auto", "yolo"]}
+              value={permissionValue()}
+              formatLabel={(mode) => language.t(`prompt.permission.${parsePermissionMode(mode)}`)}
+              clearLabel={language.t("prompt.permission.unavailable")}
+              label={language.t("prompt.permission.label")}
+              tooltip={permissionView()?.error ?? language.t("prompt.permission.description")}
+              busy={Boolean(permissionView()?.requestID)}
+              blocked={Boolean(props.blocked?.() || (permissionView() && (!permissionView()?.state || permissionView()?.requestID || permissionView()?.error)))}
+              triggerEvent="selectPermissionMode"
+              placement="top-start"
+              onSelect={selectPermissionMode}
+            />
+            <Show when={permissionView() && !permissionView()?.state && !permissionView()?.requestID}>
+              <Button variant="ghost" size="small" onClick={readPermissionMode}>
+                {language.t("prompt.permission.retry")}
+              </Button>
+            </Show>
+            <Show when={permissionView()?.error}>
+              <span role="alert">{permissionView()?.error}</span>
+            </Show>
+          </div>
         </div>
         <div class="prompt-input-hint-actions">
           <Show when={showIndexing()}>
@@ -1977,32 +1973,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               />
             </Tooltip>
           </Show>
-          <div class="thread-permission-mode">
-            <select
-              ref={permissionSelect}
-              aria-label={language.t("prompt.permission.label")}
-              title={permissionView().error ?? language.t("prompt.permission.description")}
-              aria-busy={permissionView().requestID !== null}
-              disabled={!permissionView().state || permissionView().requestID !== null}
-              value={permissionView().state?.permissionMode ?? ""}
-              onChange={selectPermissionMode}
-            >
-              <option value="" disabled>
-                {language.t("prompt.permission.unavailable")}
-              </option>
-              <option value="default">{language.t("prompt.permission.default")}</option>
-              <option value="auto">{language.t("prompt.permission.auto")}</option>
-              <option value="yolo">{language.t("prompt.permission.yolo")}</option>
-            </select>
-            <Show when={permissionView().sessionID && !permissionView().state && !permissionView().requestID}>
-              <button type="button" onClick={readPermissionMode}>
-                {language.t("prompt.permission.retry")}
-              </button>
-            </Show>
-            <Show when={permissionView().error}>
-              <span role="alert">{permissionView().error}</span>
-            </Show>
-          </div>
           <Show when={sandboxVisible()}>
             <SandboxButtonBase
               enabled={sandboxEnabled()}

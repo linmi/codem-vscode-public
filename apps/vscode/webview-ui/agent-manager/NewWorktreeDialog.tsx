@@ -29,7 +29,7 @@ import { ModelSelectorBase } from "../src/components/shared/ModelSelector"
 import { ModeSwitcherBase } from "../src/components/shared/ModeSwitcher"
 import { SpeechToTextButton } from "../src/components/speech-to-text/SpeechToTextButton"
 import { canUseSpeechToText, selectedSpeechToTextModel } from "../src/components/speech-to-text/availability"
-import { ThinkingSelectorBase } from "../src/components/shared/ThinkingSelector"
+import { PromptOptionSelector } from "../src/components/shared/PromptOptionSelector"
 import { SandboxButtonBase, SandboxTooltipContent } from "../src/components/shared/SandboxButton"
 import {
   MultiModelSelector,
@@ -832,7 +832,7 @@ export const NewWorktreeDialog: Component<{
                       portal={false}
                       deferDismiss
                     />
-                    <ThinkingSelectorBase
+                    <PromptOptionSelector
                       variants={variants()}
                       value={effectiveVariant()}
                       onSelect={setVariant}

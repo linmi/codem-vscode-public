@@ -385,6 +385,8 @@ interface ThreadState {
   activeTurn: ActiveTurn | null
   sideQuestion: ActiveSideQuestion | null
   modes: AppServerModeState | null
+  modesValid: boolean
+  modeRead: Promise<AppServerModeState> | null
 }
 
 interface ActiveSideQuestion {
@@ -647,8 +649,17 @@ export class AppServerHost {
 
   async readModes(cwd: string, threadId: string): Promise<AppServerModeState> {
     const thread = this.requireThread(cwd, threadId)
-    const result = await thread.connection.connection.request("thread/mode/read", { threadId })
-    return this.acceptModes(thread, result)
+    if (thread.modesValid && thread.modes) return thread.modes
+    if (thread.modeRead) return thread.modeRead
+    const reading = thread.connection.connection
+      .request("thread/mode/read", { threadId })
+      .then((result) => this.acceptModes(thread, result))
+    thread.modeRead = reading
+    try {
+      return await reading
+    } finally {
+      if (thread.modeRead === reading) thread.modeRead = null
+    }
   }
 
   async setModes(input: {
@@ -666,12 +677,19 @@ export class AppServerHost {
     if (input.permissionMode !== undefined) permissionMode(input.permissionMode)
     if (input.workMode !== undefined && input.workMode !== "normal" && input.workMode !== "plan")
       throw new Error("Invalid CodeM workMode")
-    const result = await thread.connection.connection.request("thread/mode/set", {
-      threadId: input.threadId,
-      expectedRevision: input.expectedRevision,
-      ...(input.permissionMode === undefined ? {} : { permissionMode: input.permissionMode }),
-      ...(input.workMode === undefined ? {} : { workMode: input.workMode }),
-    })
+    const result = await thread.connection.connection
+      .request("thread/mode/set", {
+        threadId: input.threadId,
+        expectedRevision: input.expectedRevision,
+        ...(input.permissionMode === undefined ? {} : { permissionMode: input.permissionMode }),
+        ...(input.workMode === undefined ? {} : { workMode: input.workMode }),
+      })
+      .catch((error: unknown) => {
+        // A conflict may mean Core has newer state whose notification is still in flight.
+        // Keep the revision for reconciliation, but require a read before retrying.
+        thread.modesValid = false
+        throw error
+      })
     return this.acceptModes(thread, result)
   }
 
@@ -679,6 +697,7 @@ export class AppServerHost {
     if (this.threads.get(thread.id) !== thread)
       throw new Error(`CodeM mode response belongs to retired thread ${thread.id}`)
     const state = reconcileAppServerModes(thread.modes, parseAppServerModes(result, thread.id))
+    thread.modesValid = true
     if (state !== thread.modes) {
       thread.modes = state
       this.emit({ type: "thread-modes-updated", threadId: thread.id, state })
@@ -964,6 +983,8 @@ export class AppServerHost {
       activeTurn: null,
       sideQuestion: null,
       modes: null,
+      modesValid: false,
+      modeRead: null,
     }
     thread.settings = settings
     this.threads.set(threadId, thread)

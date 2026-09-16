@@ -1,6 +1,5 @@
 package ai.kilocode.backend.cli
 
-import ai.kilocode.KiloPlugin
 import ai.kilocode.backend.dev.KiloDevMode
 import ai.kilocode.log.KiloLog
 import com.intellij.execution.process.OSProcessUtil
@@ -21,7 +20,6 @@ import java.io.InputStreamReader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.SecureRandom
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -159,7 +157,7 @@ class KiloBackendCliManager(
             workDir()?.let { builder.directory(it) }
 
             log.info("Starting CLI: ${cmd.joinToString(" ")}")
-            log.info("CLI env: KILO_CLIENT=jetbrains KILO_PLATFORM=jetbrains KILO_APP_NAME=kilo-code")
+            log.info("CLI env: KILO_CLIENT=jetbrains KILO_PLATFORM=jetbrains")
             log.info("CLI cwd: ${builder.directory()?.absolutePath ?: "<inherited>"}")
             val proc = try {
                 builder.start()
@@ -603,13 +601,13 @@ internal fun buildKiloCliEnv(
     put("KILO_CLIENT", "jetbrains")
     put("KILO_ENABLE_QUESTION_TOOL", "true")
     put("KILO_PLATFORM", "jetbrains")
-    put("KILO_APP_NAME", "kilo-code")
-    put("KILO_TELEMETRY_LEVEL", "off")
     if (!KiloClaudeCompatSettings.get()) put("KILO_DISABLE_CLAUDE_CODE", "true")
     put("KILOCODE_FEATURE", "jetbrains-plugin")
     putIfAbsent("KILO_CONFIG_CONTENT", DEFAULT_CONFIG)
     ideEnv(log).forEach { entry -> put(entry.key, entry.value) }
     devStorageEnv(log)?.forEach { entry -> put(entry.key, entry.value) }
+    // The separately distributed legacy CLI still contains analytics.
+    put("KILO_TELEMETRY_LEVEL", "off")
 }
 
 /**
@@ -634,27 +632,8 @@ private fun ideEnv(log: KiloLog): Map<String, String> = buildMap {
         val info = ApplicationInfo.getInstance()
         val name = info.fullApplicationName
         val build = info.build.asString()
-        put("KILO_EDITOR_NAME", name)
         put("KILOCODE_EDITOR_NAME", "$name $build")
     }.onFailure { log.info("Could not read ApplicationInfo: ${it.message}") }
-
-    runCatching {
-        val version = KiloPlugin.version()
-        if (version != null) put("KILO_APP_VERSION", version)
-    }.onFailure { log.info("Could not read plugin version: ${it.message}") }
-
-    runCatching {
-        put("KILO_MACHINE_ID", machineId())
-    }.onFailure { log.info("Could not read machine ID: ${it.message}") }
-}
-
-private fun machineId(): String {
-    val file = File(PathManager.getSystemPath(), "kilo/machine-id")
-    if (file.exists()) return file.readText().trim()
-    val id = UUID.randomUUID().toString()
-    file.parentFile.mkdirs()
-    file.writeText(id)
-    return id
 }
 
 private fun devStorageEnv(log: KiloLog): Map<String, String>? {

@@ -49,10 +49,13 @@ export async function run(): Promise<void> {
   let threadId: string | undefined
   try {
     await authentication.requireAuthenticated()
-    threadId = await service.startThread(cwd)
+    threadId = await service.startThread(cwd, undefined, "high", "yolo")
+    assert.equal((await service.readModes(cwd, threadId)).permissionMode, "yolo")
     await a.handle({ type: "requestThreadModes", sessionID: threadId, requestID: "a-read" })
     await b.handle({ type: "requestThreadModes", sessionID: threadId, requestID: "b-read" })
+    await service.resumeThread(cwd, threadId, undefined, "medium")
     let state = await service.readModes(cwd, threadId)
+    assert.equal(state.permissionMode, "yolo", "Changing thinking effort must preserve Core permission mode")
     for (const permissionMode of ["default", "auto", "yolo", "default"] as const) {
       await a.handle({
         type: "setThreadPermissionMode",
@@ -89,7 +92,7 @@ export async function run(): Promise<void> {
     await service.resumeThread(cwd, threadId)
     assert.equal((await service.readModes(cwd, threadId)).permissionMode, "default")
     console.log(
-      "PERMISSION_MODE_EXTENSION_HOST_PASS: commands, real Core, two surfaces, CAS conflict, unsubscribe/resume",
+      "PERMISSION_MODE_EXTENSION_HOST_PASS: presets, intelligence change, real Core, two surfaces, CAS conflict, unsubscribe/resume",
     )
   } finally {
     try {

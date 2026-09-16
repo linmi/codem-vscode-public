@@ -1,3 +1,4 @@
+import type { PromptDefaults } from "../../../../src/shared/prompt-defaults"
 import type { ProviderAuthAuthorization, ProviderAuthMethod } from "@kilocode/sdk/v2/client"
 import type { DiffSourceCapabilities, DiffSourceDescriptor } from "../../../../src/diff/sources/types"
 import type { PRComment, PRReactionContent } from "../../../agent-manager/pr/pr-types"
@@ -91,6 +92,11 @@ export interface BackgroundJobInfo {
 // ============================================
 // Messages FROM extension TO webview
 // ============================================
+
+export interface PromptDefaultsMessage {
+  type: "promptDefaults"
+  defaults: PromptDefaults
+}
 
 export interface ReadyMessage {
   type: "ready"
@@ -1528,6 +1534,7 @@ export interface AgentManagerBrowserDevtoolsMessage {
 }
 
 export type ExtensionMessage =
+  | PromptDefaultsMessage
   | {
       type: "agentManager.resolveCommentResult" | "agentManager.unresolveCommentResult"
       projectId?: string

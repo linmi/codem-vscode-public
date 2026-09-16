@@ -1,3 +1,4 @@
+import { permissionMode as parsePermissionMode, type AppServerPermissionMode } from "@codem/app-server/modes"
 import { randomUUID } from "node:crypto"
 import type {
   AppServerHostEvent,
@@ -64,7 +65,12 @@ export interface MatureUiPrompt {
 export interface MatureUiAppServerPort {
   readModes: import("./service").CodeMAppServerService["readModes"]
   setModes: import("./service").CodeMAppServerService["setModes"]
-  startThread(cwd: string, model?: string, intelligence?: string): Promise<string>
+  startThread(
+    cwd: string,
+    model?: string,
+    intelligence?: string,
+    permissionMode?: AppServerPermissionMode,
+  ): Promise<string>
   resumeThread(cwd: string, threadId: string, model?: string, intelligence?: string): Promise<void>
   listThreads(
     cwd: string,
@@ -264,9 +270,14 @@ export class MatureUiAppServerController {
     })
   }
 
-  private async createSession(draftId?: string, model?: string, intelligence?: string): Promise<void> {
+  private async createSession(
+    draftId?: string,
+    model?: string,
+    intelligence?: string,
+    permissionMode?: AppServerPermissionMode,
+  ): Promise<void> {
     const cwd = this.options.cwdForThread()
-    const threadId = await this.service.startThread(cwd, model, intelligence)
+    const threadId = await this.service.startThread(cwd, model, intelligence, permissionMode)
     this.loadedThreads.add(threadId)
     this.setCurrentThread(threadId)
     const thread = await this.findThread(cwd, threadId)
@@ -318,11 +329,20 @@ export class MatureUiAppServerController {
   }
 
   private async sendMessage(message: Extract<WebviewMessage, { readonly type: "sendMessage" }>): Promise<void> {
-    let threadId = message.sessionID ?? this.currentThreadId
+    let threadId = message.sessionID ?? (message.draftID ? null : this.currentThreadId)
     const model = selectedModel(message)
     const intelligence = selectedIntelligence(message.variant)
+    const permissionMode =
+      message.permissionMode === undefined ? undefined : parsePermissionMode(message.permissionMode)
+    if (threadId && permissionMode !== undefined)
+      throw new Error("Initial permissionMode is only valid for a new CodeM thread; use revision-checked mode changes")
     if (!threadId) {
-      await this.createSession(typeof message.draftID === "string" ? message.draftID : undefined, model, intelligence)
+      await this.createSession(
+        typeof message.draftID === "string" ? message.draftID : undefined,
+        model,
+        intelligence,
+        permissionMode,
+      )
       threadId = this.currentThreadId
     }
     if (!threadId) throw new Error("CodeM could not create a thread")
@@ -352,6 +372,7 @@ export class MatureUiAppServerController {
       ...(message.modelID ? { modelID: message.modelID } : {}),
       ...(message.agent ? { agent: message.agent } : {}),
       ...(message.variant ? { variant: message.variant } : {}),
+      ...(message.permissionMode !== undefined ? { permissionMode: message.permissionMode } : {}),
       ...(message.files ? { files: message.files } : {}),
       ...(message.agentManagerContext ? { agentManagerContext: message.agentManagerContext } : {}),
       ...(message.contextDirectory ? { contextDirectory: message.contextDirectory } : {}),
@@ -426,7 +447,12 @@ export class MatureUiAppServerController {
   private async ensureLoaded(cwd: string, threadId: string, model?: string, intelligence?: string): Promise<void> {
     if (this.loadedThreads.has(threadId) && !model && !intelligence) return
     await this.service.resumeThread(cwd, threadId, model, intelligence)
+    const restored = !this.loadedThreads.has(threadId)
     this.loadedThreads.add(threadId)
+    if (restored) {
+      const state = await this.service.readModes(cwd, threadId)
+      this.post({ type: "threadModesChanged", sessionID: threadId, state })
+    }
   }
 
   private async findThread(cwd: string, threadId: string): Promise<AppServerThreadSummary> {

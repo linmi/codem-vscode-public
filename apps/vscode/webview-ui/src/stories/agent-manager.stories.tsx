@@ -29,7 +29,7 @@ import { IconButton } from "@kilocode/kilo-ui/icon-button"
 import { Icon } from "@kilocode/kilo-ui/icon"
 import { TooltipKeybind } from "@kilocode/kilo-ui/tooltip"
 import { ContextMenu } from "@kilocode/kilo-ui/context-menu"
-import { ThinkingSelectorBase } from "../components/shared/ThinkingSelector"
+import { PromptOptionSelector } from "../components/shared/PromptOptionSelector"
 import { DeferredPopover } from "../components/shared/DeferredPopover"
 import { ProjectSelect } from "../../agent-manager/ProjectSelect"
 import { PRComments } from "../../agent-manager/pr/PRComments"
@@ -1549,7 +1549,7 @@ export const SideTerminalPanelTabs: Story = {
 // by .am-nv-dialog-content (overflow-y: auto) and .am-prompt-input-container
 // (overflow: hidden) because the overflow escape hatch only covered the model
 // picker. This fixture reproduces the real clipping chain (same CSS classes +
-// the real inline ThinkingSelectorBase with portal={false}) so a screenshot
+// the real inline PromptOptionSelector with portal={false}) so a screenshot
 // baseline catches any future regression. Rendered inline (no dialog portal)
 // because the visual-regression harness screenshots #storybook-root.
 // ---------------------------------------------------------------------------
@@ -1589,7 +1589,7 @@ export const NewWorktreeVariantDropdown1280: Story = {
             >
               <div class="prompt-input-hint">
                 <div class="prompt-input-hint-selectors">
-                  <ThinkingSelectorBase
+                  <PromptOptionSelector
                     variants={["low", "medium", "high"]}
                     value="low"
                     onSelect={() => {}}

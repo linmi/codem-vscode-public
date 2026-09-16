@@ -1098,6 +1098,12 @@
           "default": "",
           "description": "Absolute path to a PEM file containing extra CA certificates to trust when the CodeM backend makes HTTPS requests (sets NODE_EXTRA_CA_CERTS on the CLI process). Use this if you're behind a corporate proxy that performs SSL inspection. Leave empty to rely on the OS trust store."
         },
+        "codem.intelligence": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "xhigh"],
+          "default": "medium",
+          "description": "Default Core reasoning effort when the composer has no explicit choice."
+        },
         "codem.permissionMode": {
           "type": "string",
           "enum": ["default", "auto", "yolo"],

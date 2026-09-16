@@ -1,6 +1,6 @@
 # Thread permission mode acceptance
 
-This test activates the development extension in a real VS Code Extension Host, checks the new command and removal of the global toggle, then exercises two controllers sharing the VS Code service and bundled Core. It verifies mode broadcasts, stale-revision rejection and unsubscribe/resume without sending an agent turn. The credential broker must already be signed in; the test does not initiate login or read credential files.
+This test activates the development extension in a real VS Code Extension Host, checks the new command and removal of the global toggle, then exercises two controllers sharing the VS Code service and bundled Core. It verifies an explicit initial approval preset, preservation of that mode while changing thinking effort, mode broadcasts, stale-revision rejection and unsubscribe/resume without sending an agent turn. The credential broker must already be signed in; the test does not initiate login or read credential files.
 
 Build from the repository root:
 

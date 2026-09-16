@@ -5,12 +5,14 @@ import type { ExtensionMessage, ModelSelection } from "../../webview-ui/src/type
 const model: ModelSelection = { providerID: "anthropic", modelID: "claude-sonnet-4" }
 
 function setup(session?: string, configured?: string) {
+  const defaults = { intelligence: "medium" }
   const config = { model: "anthropic/claude-sonnet-4", variant: configured }
   const selections: Record<string, string> = {}
   const messages: Array<{ type: string; key?: string; value?: string }> = []
   const order: string[] = []
   let handler: ((message: ExtensionMessage) => void) | undefined
   const variants = createSessionVariants({
+    defaultVariant: () => defaults.intelligence,
     selections: () => selections,
     set: (key, value) => {
       selections[key] = value
@@ -19,7 +21,7 @@ function setup(session?: string, configured?: string) {
     session: () => session,
     agent: () => "code",
     config: () => config,
-    find: () => ({ variants: { low: {}, high: {}, max: {} } }),
+    find: () => ({ variants: { low: {}, medium: {}, high: {}, max: {} } }),
     post: (message) => {
       order.push("post")
       messages.push(message)
@@ -30,10 +32,25 @@ function setup(session?: string, configured?: string) {
       return () => order.push("unsub")
     },
   })
-  return { variants, config, selections, messages, order, dispatch: (message: ExtensionMessage) => handler?.(message) }
+  return { variants, defaults, config, selections, messages, order, dispatch: (message: ExtensionMessage) => handler?.(message) }
 }
 
 describe("session variants", () => {
+  it("displays and submits the configured preset without loading it, while preserving explicit session choices", () => {
+    const state = setup("draft-a")
+    expect(state.variants.current()).toBe("medium")
+    expect(state.variants.request()).toBe("medium")
+    expect(state.messages).toEqual([])
+    state.defaults.intelligence = "high"
+    expect(state.variants.current()).toBe("high")
+    state.variants.select("low")
+    state.defaults.intelligence = "medium"
+    expect(state.variants.current()).toBe("low")
+    expect(state.variants.request()).toBe("low")
+    expect(state.variants.current("draft-b")).toBe("medium")
+    expect(state.messages).toEqual([])
+  })
+
   it("subscribes before requesting persisted variants and returns cleanup", () => {
     const state = setup()
     const unsub = state.variants.load()
@@ -73,24 +90,24 @@ describe("session variants", () => {
   it("does not apply a configured variant to another model", () => {
     const state = setup("pending-new", "max")
     state.config.model = "anthropic/another-model"
-    expect(state.variants.current()).toBeUndefined()
-    expect(state.variants.agent("code", model)).toBeUndefined()
+    expect(state.variants.current()).toBe("medium")
+    expect(state.variants.agent("code", model)).toBe("medium")
   })
 
-  it("sends an explicit model default instead of inheriting the configured agent variant", () => {
+  it("resolves a cleared selection to the explicit product default instead of sending an empty variant", () => {
     const state = setup("session-a", "max")
     state.variants.select(undefined)
-    expect(state.variants.current()).toBeUndefined()
-    expect(state.variants.request()).toBe("")
+    expect(state.variants.current()).toBe("medium")
+    expect(state.variants.request()).toBe("medium")
     expect(state.variants.current("session-b")).toBe("max")
     expect(state.variants.request("session-b")).toBe("max")
   })
 
-  it.each(["sidebar-pending:new", "pending:new"])("keeps a pre-submit Default choice scoped to %s", (id) => {
+  it.each(["sidebar-pending:new", "pending:new"])("resolves a pre-submit cleared choice to Medium within %s", (id) => {
     const state = setup(undefined, "max")
     state.variants.select(undefined, id)
-    expect(state.variants.current(id)).toBeUndefined()
-    expect(state.variants.request(id)).toBe("")
+    expect(state.variants.current(id)).toBe("medium")
+    expect(state.variants.request(id)).toBe("medium")
     expect(state.variants.current("another-draft")).toBe("max")
     expect(state.messages).toEqual([])
   })
@@ -108,12 +125,12 @@ describe("session variants", () => {
     expect(scoped.messages).toEqual([])
   })
 
-  it("persists an explicit default selection", () => {
+  it("persists a reset choice but displays and sends the concrete default", () => {
     const state = setup()
     state.selections["agent/code/anthropic/claude-sonnet-4"] = "high"
     state.variants.select(undefined)
     expect(state.selections).toEqual({ "agent/code/anthropic/claude-sonnet-4": "" })
-    expect(state.variants.current()).toBeUndefined()
+    expect(state.variants.current()).toBe("medium")
     expect(state.messages).toEqual([{ type: "persistVariant", key: "agent/code/anthropic/claude-sonnet-4", value: "" }])
   })
 

@@ -6,16 +6,20 @@ process.chdir(dir)
 
 import { $ } from "bun"
 import path from "path"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
 
 import { createClient } from "@hey-api/openapi-ts"
 
 const opencode = path.resolve(dir, "../../opencode")
 
-await $`bun dev generate > ${dir}/openapi.json`.cwd(opencode)
+const schemaDirectory = await mkdtemp(path.join(tmpdir(), "codem-sdk-openapi-"))
+const schemaPath = path.join(schemaDirectory, "openapi.json")
+await $`bun dev generate > ${schemaPath}`.cwd(opencode)
 
-await Bun.write(path.resolve(dir, "../openapi.json"), await Bun.file("./openapi.json").text())
+await Bun.write(path.resolve(dir, "../openapi.json"), await Bun.file(schemaPath).text())
 
-const document = (await Bun.file("./openapi.json").json()) as {
+const document = (await Bun.file(schemaPath).json()) as {
   components?: { schemas?: Record<string, unknown> }
   [key: string]: unknown
 }
@@ -43,11 +47,11 @@ if (schemas) {
   for (const name of Object.keys(schemas)) {
     if (/^SessionNext\w+1$/.test(name) && !reachable.has(name)) delete schemas[name]
   }
-  await Bun.write("./openapi.json", JSON.stringify(document))
+  await Bun.write(schemaPath, JSON.stringify(document))
 }
 
 await createClient({
-  input: "./openapi.json",
+  input: schemaPath,
   output: {
     path: "./src/v2/gen",
     tsConfigPath: path.join(dir, "tsconfig.json"),
@@ -137,4 +141,4 @@ await Bun.write(
 await $`bun prettier --write src/gen src/v2`
 await $`rm -rf dist tsconfig.tsbuildinfo`
 await $`bun tsc`
-await $`rm openapi.json`
+await rm(schemaDirectory, { recursive: true, force: true })

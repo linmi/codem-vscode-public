@@ -1,3 +1,4 @@
+import { DEFAULT_PROMPT_SETTINGS, type PromptDefaults } from "./shared/prompt-defaults"
 import * as path from "path"
 import { existsSync } from "fs"
 import * as vscode from "vscode"
@@ -518,6 +519,10 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       : null
     this.appServerEvent = this.opts.appServer
       ? vscode.Disposable.from(
+          vscode.workspace.onDidChangeConfiguration((event) => {
+            if (event.affectsConfiguration("codem.intelligence") || event.affectsConfiguration("codem.permissionMode"))
+              this.postPromptDefaults()
+          }),
           this.opts.appServer.onEvent((event) => this.appServerController?.acceptEvent(event)),
           this.opts.appServer.onDidChangeSpace((space) => {
             if (space) void this.appServerController?.refreshSpace()
@@ -711,6 +716,8 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       console.log("[CodeM New] KiloProvider: ⏭️ syncWebviewState skipped (webview not ready)")
       return
     }
+
+    this.postPromptDefaults()
 
     // Always push connection state first so the UI can render appropriately.
     this.postConnectionState()
@@ -3967,6 +3974,15 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return (await res.json()) as IndexingStatus
+  }
+
+  private postPromptDefaults(): void {
+    const configuration = vscode.workspace.getConfiguration("codem")
+    const defaults: PromptDefaults = {
+      intelligence: configuration.get("intelligence", DEFAULT_PROMPT_SETTINGS.intelligence),
+      permissionMode: configuration.get("permissionMode", DEFAULT_PROMPT_SETTINGS.permissionMode),
+    }
+    this.postMessage({ type: "promptDefaults", defaults })
   }
 
   private configSettings() {
