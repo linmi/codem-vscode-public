@@ -50,7 +50,14 @@ export async function prepareAppServerSpace(
 
 /** Call only after the prepared Core connection has passed preflight. */
 export async function commitAppServerSpace(options: AppServerSpaceOptions, projectKey: string): Promise<void> {
-  await callSpaceBroker(options, "space_commit", { project_key: spaceKey(projectKey) })
+  const key = spaceKey(projectKey)
+  try {
+    await callSpaceBroker(options, "space_commit", { project_key: key })
+  } catch {
+    throw new Error(
+      "CodeM space commit was not confirmed. The account selection may have changed; reopen Select Space and retry.",
+    )
+  }
 }
 
 export function parseAppServerSpaces(payload: JsonObject): AppServerSpaceList {

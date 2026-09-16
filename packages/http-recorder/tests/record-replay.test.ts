@@ -36,7 +36,9 @@ const post = (url: string, body: object) =>
 const recordings = path.join(import.meta.dir, "fixtures", "recordings")
 
 const run = <A, E>(effect: Effect.Effect<A, E, HttpClient.HttpClient>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(HttpRecorder.http("record-replay/multi-step", { directory: recordings }))))
+  Effect.runPromise(
+    effect.pipe(Effect.provide(HttpRecorder.http("record-replay/multi-step", { directory: recordings }))),
+  )
 
 const runWith = <A, E>(
   name: string,

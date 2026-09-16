@@ -464,3 +464,12 @@ Spike 评审通过后，按 Cycle 0→6 顺序实施；每个 Cycle 独立提交
 用户已确认以 Core 原生 `default / auto / yolo` 替换全局自动放行开关。当前线程模式仅由 `thread/mode/read`、带 `expectedRevision` 的 `thread/mode/set` 及 `thread/mode/changed` 决定；Host 不再自动回复 Kilo permission。新会话默认由 `codem.permissionMode` 指定（默认 `auto`），已有会话读取 Core 状态。冲突不盲目重试，断线和旧请求响应不能恢复失效权限显示。旧 `codem.toggleAutoApprove`、`codem.autoApprove.enabled` 和布尔消息入口已删除，不提供兼容别名。
 
 当前命令归属清单为 264 项，其中 20 项已有 App Server 控制器映射，38 项仍有协议/语义缺口，206 项归属 Host 或独立服务；映射数量不代表真实交互验收。设置页面的旧细粒度规则配置尚待单独迁移。
+
+## 2026-09-16 空间选择接入
+
+- 新增 VS Code 原生状态栏入口及 `CodeM: Select Space` 命令。空间元数据来自 CLI 0.1.208 的 `project_list`，不是 Core `space/list` 的空注入快照；该入口属于 CodeM 新能力，不计入旧 Kilo 的 264 项命令清单。
+- 使用 credential broker 的 `space_prepare` 验证成员资格并准备托管配置，将 `--project-key` 和 `CODEM_MANAGED_DIR` 绑定到 Core 子进程；模型与 Skills 仍由该 Core 连接提供。准备失败不回退到旧空间或 Kilo 配置。
+- 空闲时准备候选连接、验证模型和 Skills、调用 `space_commit` 后替换 Host 并刷新表层；运行中或已有请求未完成时拒绝切换。凭证代理是共享空间指针的唯一写入者，因此选择也影响 CLI 后续启动的默认空间。提交响应不确定时明确提示可能已改变账号指针，不声称已回滚。
+- 用户已确认当前开发阶段不处理历史空间迁移。Core 0.8.37 历史接口不暴露空间归属；新建和重新打开的会话均使用当前空间，不新建客户端 thread→space 持久化映射。运行中的会话不热切换。
+- 新 UI 使用 VS Code 状态栏/QuickPick，未扩展旧 Solid 产品 UI。Webview 只接收已有的模型/Skills DTO，托管路径、凭证和 broker 原始响应留在 Host 内。
+- 验证包含 broker 失败/超时/取消/脱敏/非法路径、候选连接失败、提交顺序、并发排斥、退出登录/账号替换、Core 启动参数，以及真实 Extension Host 的当前空间重选、旧线程退订和恢复。真实验证不执行模型回合，也不将账号切换到其他空间。

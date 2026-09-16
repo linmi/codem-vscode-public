@@ -6,6 +6,7 @@ import {
   commitAppServerSpace,
   type AppServerSpace,
   type AppServerPreparedSpace,
+  type AppServerAuthStatus,
   resolveBundledAppServerRuntime,
   type AppServerHostEvent,
   type AppServerPromptAttachment,
@@ -30,6 +31,7 @@ export class CodeMAppServerService implements vscode.Disposable {
   private readonly spaceEvents = new vscode.EventEmitter<AppServerSpace | null>()
   private lifetime = new AbortController()
   private readonly backgroundWork = new Set<string>()
+  private account: string | null
 
   readonly onDidChangeSpace = this.spaceEvents.event
 
@@ -38,10 +40,14 @@ export class CodeMAppServerService implements vscode.Disposable {
   constructor(context: vscode.ExtensionContext, authentication: CodeMAuthenticationService) {
     this.runtime = resolveBundledAppServerRuntime({ extensionRoot: context.extensionPath })
     this.authentication = authentication
+    this.account = accountIdentity(authentication.current)
     this.clientInfo = { name: "codem-vscode", version: context.extension.packageJSON.version as string }
     this.host = this.createHost()
     this.authenticationChange = authentication.onDidChange((status) => {
-      if (status.loggedIn && status.routerCredential === true) return
+      const account = accountIdentity(status)
+      const changed = this.account !== null && this.account !== account
+      this.account = account
+      if (status.loggedIn && status.routerCredential === true && !changed) return
       this.lifetime.abort()
       this.lifetime = new AbortController()
       this.space = null
@@ -54,12 +60,15 @@ export class CodeMAppServerService implements vscode.Disposable {
   }
 
   private createHost(prepared?: AppServerPreparedSpace): AppServerHost {
+    const signal = this.lifetime.signal
     const host = new AppServerHost({
       runtime: this.runtime,
       clientInfo: this.clientInfo,
       assertAuthenticated: async () => {
         requireTrustedWorkspace()
+        signal.throwIfAborted()
         await this.authentication.requireAuthenticated()
+        signal.throwIfAborted()
       },
       prepareSpace: (cwd) => (prepared ? Promise.resolve(prepared) : this.initialSpace(cwd)),
       onStderr: (_cwd, text) => this.output.append(text),
@@ -131,6 +140,8 @@ export class CodeMAppServerService implements vscode.Disposable {
       await candidate.listModels(cwd)
       await candidate.listSkills(cwd)
       options.signal.throwIfAborted()
+      if (this.host.hasActiveWork || this.backgroundWork.size)
+        throw new Error("CodeM work became active while preparing the space; wait and retry.")
       // The CLI alone persists the active pointer, after all launch checks pass.
       await commitAppServerSpace({ ...options, signal: undefined }, projectKey)
       options.signal.throwIfAborted()
@@ -367,6 +378,10 @@ function requireTrustedWorkspace(): void {
   if (!vscode.workspace.isTrusted) {
     throw new Error("Trust this workspace before CodeM starts Core or reads workspace content.")
   }
+}
+
+function accountIdentity(status: AppServerAuthStatus | null): string | null {
+  return status?.loggedIn ? JSON.stringify([status.serverUrl, status.tenantId, status.userId]) : null
 }
 
 function threadSettings(model: string, intelligence?: string): AppServerThreadSettings {

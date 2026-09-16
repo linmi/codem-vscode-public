@@ -310,15 +310,22 @@ describe("AppServerHost", () => {
       const capture = JSON.parse(readFileSync(fixture.capturePath, "utf8").split("\n")[0])
       assert.deepEqual(capture.argv, ["--final-answer-tool", "--project-key", "proj_test", "app-server"])
       assert.equal(capture.environment.managedDirectory, fixture.root)
-    } finally { await host.close() }
+    } finally {
+      await host.close()
+    }
     const rejected = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "space-test", version: "1" },
       assertAuthenticated: () => {},
-      prepareSpace: async () => { throw new Error("space access denied") },
+      prepareSpace: async () => {
+        throw new Error("space access denied")
+      },
     })
-    try { await assert.rejects(rejected.prepareConnection(fixture.root), /space access denied/) }
-    finally { await rejected.close() }
+    try {
+      await assert.rejects(rejected.prepareConnection(fixture.root), /space access denied/)
+    } finally {
+      await rejected.close()
+    }
   })
 })
 
