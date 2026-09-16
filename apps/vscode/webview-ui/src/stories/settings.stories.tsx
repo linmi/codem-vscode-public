@@ -154,17 +154,6 @@ export const ModelsAccessibleLabels: Story = {
   ),
 }
 
-export const ModelsSpeechToText: Story = {
-  name: "ModelsTab — speech-to-text model",
-  render: () => (
-    <StoryProviders kiloAuth config={{ experimental: { speech_to_text_model: "google/chirp-3" } } as any}>
-      <div style={{ "max-height": "700px", overflow: "auto" }}>
-        <ModelsTab />
-      </div>
-    </StoryProviders>
-  ),
-}
-
 function OpenModelPicker(props: { children: any }) {
   let ref: HTMLDivElement | undefined
   onMount(() => {

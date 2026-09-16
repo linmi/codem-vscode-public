@@ -199,7 +199,6 @@ export const dict = {
   "prompt.action.send": "Verzenden",
   "prompt.action.continue": "Doorgaan",
   "prompt.action.send.blocked": "Beantwoord of negeer eerst de openstaande vraag",
-  "prompt.action.send.recording": "Transcriberen en verzenden",
   "prompt.action.stop": "Stop",
   "prompt.action.enhance": "Prompt verbeteren",
   "prompt.action.indexing": "Indexeringsinstellingen",
@@ -224,17 +223,6 @@ export const dict = {
     "Klik om schrijfbewerkingen in het bestandssysteem en netwerktoegang te beperken.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "Klik om schrijfbewerkingen in het bestandssysteem te beperken. Netwerktoegang blijft toegestaan volgens je sandboxinstellingen.",
-
-  "speechToText.tooltip.start": "Spraakinvoer starten met CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "Tik of druk op Cmd/Ctrl+K om de opname te starten of te stoppen; houd de knop ingedrukt terwijl je spreekt en laat deze los om te transcriberen en te verzenden.",
-  "speechToText.tooltip.starting": "Microfoon wordt gestart... Wacht nog even met spreken.",
-  "speechToText.tooltip.stop": "Audio vastleggen stoppen",
-  "speechToText.tooltip.transcribing": "Transcriberen... Klik om te annuleren.",
-  "speechToText.tooltip.error": "Spraakinvoer mislukt. Klik om te wissen.",
-  "speechToText.error.title": "Spraakinvoer mislukt",
-  "speechToText.error.loginRequired": "Meld u aan bij CodeM om spraakinvoer te gebruiken.",
-  "speechToText.error.emptyTranscript": "Er is geen spraak gedetecteerd.",
 
   "prompt.toast.promptSendFailed.title": "Verzenden prompt mislukt",
 
@@ -883,11 +871,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Afbeeldingsmodel",
   "settings.experimental.imageGenerationModel.description": "Afbeeldingsgeneratiemodel",
   "settings.experimental.imageGenerationModel.placeholder": "Standaard (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Schakel de CodeM-provider in en meld u aan om Speech to Text te gebruiken. Speech to Text wordt momenteel alleen ondersteund met CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "Spraak-naar-tekst-model",
-  "settings.models.speechToTextModel.description": "Kies het CodeM Gateway-transcriptiemodel voor spraakinvoer.",
   "settings.experimental.nativeNotebookTools.title": "Native notebooktools",
   "settings.experimental.nativeNotebookTools.description":
     "Experimentele tools inschakelen voor het lezen, bewerken en uitvoeren van VS Code-notebooks",

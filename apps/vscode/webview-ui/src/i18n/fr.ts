@@ -199,7 +199,6 @@ export const dict = {
   "prompt.action.send": "Envoyer",
   "prompt.action.continue": "Continuer",
   "prompt.action.send.blocked": "Répondez ou rejetez d'abord la question en attente",
-  "prompt.action.send.recording": "Transcrire et envoyer",
   "prompt.action.stop": "Arrêter",
   "prompt.action.enhance": "Améliorer le prompt",
   "prompt.action.enhanceDescription":
@@ -224,17 +223,6 @@ export const dict = {
     "Cliquez pour restreindre les écritures dans le système de fichiers et l'accès au réseau.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "Cliquez pour restreindre les écritures dans le système de fichiers. L'accès au réseau reste autorisé par vos paramètres de sandbox.",
-
-  "speechToText.tooltip.start": "Démarrer la saisie vocale avec CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "Touchez ou appuyez sur Cmd/Ctrl+K pour démarrer ou arrêter l’enregistrement ; maintenez la touche pendant que vous parlez, puis relâchez-la pour transcrire et envoyer.",
-  "speechToText.tooltip.starting": "Démarrage du microphone... Attendez avant de parler.",
-  "speechToText.tooltip.stop": "Arrêter la capture audio",
-  "speechToText.tooltip.transcribing": "Transcription en cours... Cliquez pour annuler.",
-  "speechToText.tooltip.error": "La saisie vocale a échoué. Cliquez pour effacer.",
-  "speechToText.error.title": "La saisie vocale a échoué",
-  "speechToText.error.loginRequired": "Connectez-vous à CodeM pour utiliser la saisie vocale.",
-  "speechToText.error.emptyTranscript": "Aucune voix n'a été détectée.",
 
   "prompt.toast.promptSendFailed.title": "Échec de l'envoi du message",
 
@@ -905,12 +893,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Modèle d'image",
   "settings.experimental.imageGenerationModel.description": "Modèle de génération d'images",
   "settings.experimental.imageGenerationModel.placeholder": "Par défaut (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Activez et connectez-vous au fournisseur CodeM pour utiliser Speech to Text. Speech to Text n'est actuellement pris en charge qu'avec CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "Modèle de transcription vocale",
-  "settings.models.speechToTextModel.description":
-    "Choisissez le modèle de transcription CodeM Gateway pour la saisie vocale.",
   "settings.experimental.nativeNotebookTools.title": "Outils de notebook natifs",
   "settings.experimental.nativeNotebookTools.description":
     "Activer les outils expérimentaux pour lire, modifier et exécuter les notebooks VS Code",

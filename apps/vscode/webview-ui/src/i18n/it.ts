@@ -1202,12 +1202,6 @@ export const dict = {
     "Questa sessione ha appena superato la soglia di avviso per sessione di {{limit}} e costa {{cost}}. Continuare?",
   "session.costAlert.stop": "Interrompi",
 
-  // Speech to Text
-  "settings.models.speechToText.disabledDescription":
-    "Abilita e accedi al provider CodeM per usare Da voce a testo. Da voce a testo è attualmente supportato solo tramite CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "Modello Da voce a testo",
-  "settings.models.speechToTextModel.description":
-    "Scegli il modello di trascrizione CodeM Gateway per l'input vocale.",
 
   // Compaction limit
   "settings.context.compactionLimit.title": "Limite compattazione automatica",
@@ -1250,7 +1244,6 @@ export const dict = {
   "provider.connect.prompt.required": "{{field}} è obbligatorio",
 
   // Prompt recording
-  "prompt.action.send.recording": "Trascrivi e invia",
 
   // Session export
   "command.session.export": "Esporta trascrizione sessione",
@@ -1270,17 +1263,6 @@ export const dict = {
   "error.providerAuth.chatgpt.description":
     "Accedi di nuovo con ChatGPT, quindi invia di nuovo il tuo messaggio per continuare a usare i modelli Codex.",
 
-  // Speech to Text tooltips and errors
-  "speechToText.tooltip.start": "Avvia input vocale con CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "Tocca o premi Cmd/Ctrl+K per avviare o interrompere la registrazione; tieni premuto mentre parli e rilascia per trascrivere e inviare.",
-  "speechToText.tooltip.starting": "Avvio del microfono... Attendi prima di parlare.",
-  "speechToText.tooltip.stop": "Interrompi acquisizione",
-  "speechToText.tooltip.transcribing": "Trascrizione... Fai clic per annullare.",
-  "speechToText.tooltip.error": "Input vocale fallito. Fai clic per cancellare.",
-  "speechToText.error.title": "Input vocale fallito",
-  "speechToText.error.loginRequired": "Accedi a CodeM per usare l'input vocale.",
-  "speechToText.error.emptyTranscript": "Nessun parlato rilevato.",
   "chat.search.placeholder": "Cerca nella chat…",
   "chat.search.toggle": "Cerca nella chat",
   "chat.search.matchCase": "Maiuscole/minuscole",

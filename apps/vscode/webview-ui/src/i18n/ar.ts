@@ -194,7 +194,6 @@ export const dict = {
   "prompt.action.send": "إرسال",
   "prompt.action.continue": "متابعة",
   "prompt.action.send.blocked": "أجب عن السؤال المعلق أو تجاهله أولاً",
-  "prompt.action.send.recording": "تفريغ وإرسال",
   "prompt.action.stop": "توقف",
   "prompt.action.enhance": "تحسين النص",
   "prompt.action.enhanceDescription":
@@ -216,17 +215,6 @@ export const dict = {
   "prompt.action.sandbox.description.disabled": "انقر لتقييد الكتابة في نظام الملفات والوصول إلى الشبكة.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "انقر لتقييد الكتابة في نظام الملفات. يظل الوصول إلى الشبكة مسموحًا وفق إعدادات sandbox.",
-
-  "speechToText.tooltip.start": "بدء الإدخال الصوتي باستخدام CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "انقر أو اضغط على Cmd/Ctrl+K لبدء التسجيل أو إيقافه؛ اضغط باستمرار أثناء التحدث ثم اتركه لتحويل الكلام إلى نص وإرساله.",
-  "speechToText.tooltip.starting": "جارٍ تشغيل الميكروفون... يُرجى الانتظار قبل التحدث.",
-  "speechToText.tooltip.stop": "إيقاف التقاط الصوت",
-  "speechToText.tooltip.transcribing": "جاري تحويل الصوت إلى نص... انقر للإلغاء.",
-  "speechToText.tooltip.error": "فشل الإدخال الصوتي. انقر للمسح.",
-  "speechToText.error.title": "فشل الإدخال الصوتي",
-  "speechToText.error.loginRequired": "قم بتسجيل الدخول إلى CodeM لاستخدام الإدخال الصوتي.",
-  "speechToText.error.emptyTranscript": "لم يتم اكتشاف أي كلام.",
 
   "prompt.toast.promptSendFailed.title": "فشل إرسال الموجه",
 
@@ -865,11 +853,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "نموذج الصور",
   "settings.experimental.imageGenerationModel.description": "نموذج توليد الصور",
   "settings.experimental.imageGenerationModel.placeholder": "افتراضي (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "قم بتمكين وتسجيل الدخول إلى مزود CodeM لاستخدام Speech to Text. ميزة Speech to Text مدعومة حاليًا فقط مع CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "نموذج تحويل الصوت إلى نص",
-  "settings.models.speechToTextModel.description": "اختر نموذج نسخ CodeM Gateway للإدخال الصوتي.",
   "settings.experimental.nativeNotebookTools.title": "أدوات الدفاتر الأصلية",
   "settings.experimental.nativeNotebookTools.description":
     "تمكين الأدوات التجريبية لقراءة دفاتر VS Code وتحريرها وتنفيذها",

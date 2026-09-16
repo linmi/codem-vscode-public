@@ -65,7 +65,6 @@ const { terminal } = await import("../../webview-ui/src/context/session-outcome"
 const { PromptInput } = await import("../../webview-ui/src/components/chat/PromptInput")
 const { IndexingProvider } = await import("../../webview-ui/src/context/indexing")
 const { MemoryProvider } = await import("../../webview-ui/src/context/memory")
-const { SpeechToTextModelsProvider } = await import("../../webview-ui/src/context/speech-to-text-models")
 const { drafts, imageDrafts, reviewDrafts, browserDrafts, savePromptDraft } = await import(
   "../../webview-ui/src/utils/draft-store"
 )
@@ -202,9 +201,7 @@ const Probe = () => {
       <Show when={composer()}>
         <IndexingProvider>
           <MemoryProvider>
-            <SpeechToTextModelsProvider>
-              <PromptInput boxId="acceptance" />
-            </SpeechToTextModelsProvider>
+            <PromptInput boxId="acceptance" />
           </MemoryProvider>
         </IndexingProvider>
       </Show>

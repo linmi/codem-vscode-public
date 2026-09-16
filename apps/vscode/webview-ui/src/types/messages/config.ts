@@ -55,7 +55,6 @@ export interface ExperimentalConfig {
   image_generation_model?: string
   task_model_selection?: boolean
   native_notebook_tools?: boolean
-  speech_to_text_model?: string
   primary_tools?: string[]
   continue_loop_on_deny?: boolean
   mcp_timeout?: number

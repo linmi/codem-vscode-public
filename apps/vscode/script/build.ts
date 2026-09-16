@@ -1,13 +1,10 @@
 #!/usr/bin/env bun
 import { $ } from "bun"
-import { join } from "node:path"
-import { existsSync, mkdirSync, rmSync, chmodSync } from "node:fs"
-import {
-  copyKiloSandboxWorker,
-  copySandboxResources,
-  copyTreeSitterResources,
-} from "../src/services/cli-backend/cli-resources"
-import { ensureFfmpegForTarget } from "./ffmpeg-helper"
+import { dirname, join } from "node:path"
+import { existsSync, mkdirSync, rmSync } from "node:fs"
+import { createRequire } from "node:module"
+import { appServerRuntimeTarget } from "@codem/app-server"
+import { stageAppServerRuntime } from "@codem/app-server/build"
 
 const packageJsonPath = join(import.meta.dir, "..", "package.json")
 const packageJson = await Bun.file(packageJsonPath).json()
@@ -22,23 +19,18 @@ if (packageJson.version !== version) {
   await Bun.write(packageJsonPath, JSON.stringify(packageJson, null, 2) + "\n")
 }
 
-const cliDistDir = process.env.CLI_DIST_DIR || join(import.meta.dir, "..", "..", "..", "packages", "opencode", "dist")
-console.log(`Using CLI dist directory: ${cliDistDir}`)
-
-if (!existsSync(cliDistDir)) {
-  throw new Error(`CLI dist directory not found: ${cliDistDir}`)
-}
+const extensionRoot = join(import.meta.dir, "..")
+const require = createRequire(import.meta.url)
+const appServerPackageRoot = join(dirname(require.resolve("@codem/app-server")), "..")
 
 const targets = [
-  { target: "linux-x64", cliDir: "@kilocode/cli-linux-x64", binary: "kilo" },
-  { target: "linux-arm64", cliDir: "@kilocode/cli-linux-arm64", binary: "kilo" },
-  { target: "alpine-x64", cliDir: "@kilocode/cli-linux-x64-musl", binary: "kilo" },
-  { target: "alpine-arm64", cliDir: "@kilocode/cli-linux-arm64-musl", binary: "kilo" },
-  { target: "darwin-x64", cliDir: "@kilocode/cli-darwin-x64", binary: "kilo" },
-  { target: "darwin-arm64", cliDir: "@kilocode/cli-darwin-arm64", binary: "kilo" },
-  { target: "win32-x64", cliDir: "@kilocode/cli-windows-x64", binary: "kilo.exe" },
-  { target: "win32-arm64", cliDir: "@kilocode/cli-windows-arm64", binary: "kilo.exe" },
-]
+  { platform: "linux", arch: "x64" },
+  { platform: "linux", arch: "arm64" },
+  { platform: "darwin", arch: "x64" },
+  { platform: "darwin", arch: "arm64" },
+  { platform: "win32", arch: "x64" },
+  { platform: "win32", arch: "arm64" },
+] as const
 
 const binDir = join(import.meta.dir, "..", "bin")
 const distDir = join(import.meta.dir, "..", "dist")
@@ -64,38 +56,25 @@ await $`bun run lint`
 await $`node ${join(import.meta.dir, "..", "esbuild.js")} --production`
 
 for (const config of targets) {
-  console.log(`\n🎯 Processing target: ${config.target}`)
+  const target = appServerRuntimeTarget(config.platform, config.arch)
+  console.log(`\n🎯 Processing target: ${target}`)
 
   if (existsSync(binDir)) {
     rmSync(binDir, { recursive: true, force: true })
   }
   mkdirSync(binDir, { recursive: true })
 
-  const sourceBinary = join(cliDistDir, config.cliDir, "bin", config.binary)
-  const targetBinary = join(binDir, config.binary)
+  const runtime = stageAppServerRuntime({
+    packageRoot: appServerPackageRoot,
+    extensionRoot,
+    platform: config.platform,
+    arch: config.arch,
+  })
+  console.log(`  ✅ CodeM Core ${runtime.coreVersion} and credential broker ${runtime.cliVersion} ready`)
 
-  if (!existsSync(sourceBinary)) {
-    throw new Error(`CLI binary not found at ${sourceBinary}`)
-  }
-
-  console.log(`  📥 Copying binary from ${config.cliDir}/bin/${config.binary}...`)
-  await $`cp ${sourceBinary} ${targetBinary}`
-  await copyTreeSitterResources(sourceBinary, targetBinary)
-  await copySandboxResources(sourceBinary, targetBinary)
-  await copyKiloSandboxWorker(sourceBinary, targetBinary)
-
-  if (config.binary !== "kilo.exe") {
-    chmodSync(targetBinary, 0o755)
-  }
-
-  console.log(`  ✅ Binary ready at ${targetBinary}`)
-
-  console.log("Adding bundled FFmpeg helper...")
-  await ensureFfmpegForTarget(config.target, binDir)
-
-  console.log(`  📦 Packaging .vsix for ${config.target}${prerelease ? " (pre-release)" : ""}...`)
-  const vsixPath = join(outDir, `codem-vscode-${config.target}.vsix`)
-  const args = ["--no-dependencies", "--skip-license", "--target", config.target, "-o", vsixPath]
+  console.log(`  📦 Packaging .vsix for ${target}${prerelease ? " (pre-release)" : ""}...`)
+  const vsixPath = join(outDir, `codem-vscode-${target}.vsix`)
+  const args = ["--no-dependencies", "--skip-license", "--target", target, "-o", vsixPath]
   if (prerelease) args.push("--pre-release")
   await $`vsce package ${args}`.env({
     ...process.env,

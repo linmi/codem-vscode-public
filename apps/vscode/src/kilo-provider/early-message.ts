@@ -1,7 +1,6 @@
 import { routeSuggestionWebviewMessage } from "./handlers/suggestion"
 import * as ModelState from "./model-state"
-import { routeInputToolMessage } from "../services/input-tools"
-import type { KiloConnectionService } from "../services/cli-backend/connection-service"
+import { routeAutocompleteMessage } from "../services/autocomplete/settings"
 import type { SuggestionContext } from "./handlers/suggestion"
 import type { KiloClient } from "@kilocode/sdk/v2/client"
 import { buildChatSettingsMessage } from "./chat-settings"
@@ -12,8 +11,6 @@ import { handleModelUsageMessage, type ModelUsageMessage } from "./model-usage"
 type Ctx = {
   question: SuggestionContext
   client: KiloClient | null
-  connection: KiloConnectionService
-  dir: string
   post: (msg: unknown) => void
   browserSettings: () => void
   exportTranscript: (sessionID: string) => Promise<void>
@@ -21,7 +18,6 @@ type Ctx = {
   copy: (text: string) => PromiseLike<void>
   openSessions: (ids: string[]) => void
   activity: (state: unknown) => void
-  speechToTextModels: () => Promise<void>
   modelUsage: (message: ModelUsageMessage) => Promise<void>
   backgroundJobs: (sessionID: string, requestID: string) => Promise<void>
   board: (message: Record<string, unknown>) => Promise<boolean>
@@ -138,16 +134,10 @@ export async function routeEarlyMessage(
     ctx.post(buildAutoApprovalReasonSettingMessage())
     return true
   }
-  if (message.type === "requestSpeechToTextModels") {
-    await ctx.speechToTextModels()
-    return true
-  }
   if (message.type === "requestBrowserSettings") {
     ctx.browserSettings()
     return true
   }
   const background = await routeBackgroundMessage(message, ctx)
-  return (
-    background ?? (await routeInputToolMessage(message, { connection: ctx.connection, dir: ctx.dir, post: ctx.post }))
-  )
+  return background ?? (await routeAutocompleteMessage(message, ctx.post))
 }

@@ -22,7 +22,6 @@ import type { BrowserFeedbackData, BrowserReference } from "../../../../src/shar
 import type { PRMergeResult } from "../../../../src/shared/pr-comment-actions"
 import type { QuestionRequest, SuggestionRequest, TodoItem } from "./questions"
 import type { ModelSelection, ModelUsageMap, Provider, ProviderAuthState } from "./providers"
-import type { SpeechToTextModelDef } from "../../../../src/speech-to-text/models"
 import type { AgentInfo, SkillInfo, SlashCommandInfo } from "./agents"
 import type {
   BrowserSettings,
@@ -516,11 +515,6 @@ export interface ImageModelsLoadedMessage {
   models: Array<{ id: string; name: string; description?: string }>
 }
 
-export interface SpeechToTextModelsLoadedMessage {
-  type: "speechToTextModelsLoaded"
-  models: SpeechToTextModelDef[]
-}
-
 export interface ProvidersLoadedMessage {
   type: "providersLoaded"
   providers: Record<string, Provider>
@@ -566,29 +560,6 @@ export interface AutocompleteSettingsLoadedMessage {
 export interface ChatCompletionResultMessage {
   type: "chatCompletionResult"
   text: string
-  requestId: string
-}
-
-export interface SpeechToTextResultMessage {
-  type: "speechToTextResult"
-  text: string
-  requestId: string
-}
-
-export interface SpeechToTextStartedMessage {
-  type: "speechToTextStarted"
-  requestId: string
-}
-
-export interface SpeechToTextCancelledMessage {
-  type: "speechToTextCancelled"
-  requestId: string
-}
-
-export interface SpeechToTextErrorMessage {
-  type: "speechToTextError"
-  error: string
-  code?: string
   requestId: string
 }
 
@@ -1598,7 +1569,6 @@ export type ExtensionMessage =
   | ChatSettingsLoadedMessage
   | KiloEmbeddingModelsLoadedMessage
   | ImageModelsLoadedMessage
-  | SpeechToTextModelsLoadedMessage
   | ProvidersLoadedMessage
   | { type: "providersLoading" }
   | AgentsLoadedMessage
@@ -1606,10 +1576,6 @@ export type ExtensionMessage =
   | CommandsLoadedMessage
   | AutocompleteSettingsLoadedMessage
   | ChatCompletionResultMessage
-  | SpeechToTextStartedMessage
-  | SpeechToTextCancelledMessage
-  | SpeechToTextResultMessage
-  | SpeechToTextErrorMessage
   | FileSearchResultMessage
   | SessionSearchResultMessage
   | FilePickerResultMessage

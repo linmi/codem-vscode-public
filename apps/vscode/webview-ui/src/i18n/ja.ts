@@ -198,7 +198,6 @@ export const dict = {
   "prompt.action.send": "送信",
   "prompt.action.continue": "続行",
   "prompt.action.send.blocked": "最初に保留中の質問に答えるか、閉じてください",
-  "prompt.action.send.recording": "文字起こしして送信",
   "prompt.action.stop": "停止",
   "prompt.action.enhance": "プロンプトを改善",
   "prompt.action.enhanceDescription":
@@ -223,17 +222,6 @@ export const dict = {
     "クリックすると、ファイルシステムへの書き込みとネットワークアクセスを制限します。",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "クリックすると、ファイルシステムへの書き込みを制限します。サンドボックス設定により、ネットワークアクセスは引き続き許可されます。",
-
-  "speechToText.tooltip.start": "CodeM Gatewayで音声入力を開始",
-  "speechToText.tooltip.shortcut":
-    "タップまたは Cmd/Ctrl+K を押して録音を開始／停止し、話している間は押し続け、離すと文字起こしして送信します。",
-  "speechToText.tooltip.starting": "マイクを起動中... まだ話さないでください。",
-  "speechToText.tooltip.stop": "音声キャプチャを停止",
-  "speechToText.tooltip.transcribing": "文字起こし中... クリックしてキャンセル。",
-  "speechToText.tooltip.error": "音声入力に失敗しました。クリックしてクリア。",
-  "speechToText.error.title": "音声入力に失敗しました",
-  "speechToText.error.loginRequired": "音声入力を使用するにはCodeMにサインインしてください。",
-  "speechToText.error.emptyTranscript": "音声が検出されませんでした。",
 
   "prompt.toast.promptSendFailed.title": "プロンプトの送信に失敗しました",
 
@@ -881,11 +869,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "画像モデル",
   "settings.experimental.imageGenerationModel.description": "画像生成モデル",
   "settings.experimental.imageGenerationModel.placeholder": "デフォルト (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Speech to Text を使用するには、CodeM プロバイダーを有効にしてサインインしてください。現在、Speech to Text は CodeM Gateway でのみサポートされています。",
-  "settings.models.speechToTextModel.title": "音声認識モデル",
-  "settings.models.speechToTextModel.description": "音声入力に使用するCodeM Gateway文字起こしモデルを選択します。",
   "settings.experimental.nativeNotebookTools.title": "ネイティブノートブックツール",
   "settings.experimental.nativeNotebookTools.description":
     "VS Codeノートブックの読み取り、編集、実行を行う実験的なツールを有効にします",

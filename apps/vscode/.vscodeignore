@@ -35,12 +35,11 @@ dist/**/*.d.cts
 dist/**/*.d.mts
 dist/tests/**
 
-# Include bin/ directory for the transitional CLI and bundled CodeM App Server runtimes.
-!bin/**
-# .cli-version is a local-source build marker written by local-bin.ts. It must
-# not ship in the VSIX, otherwise production installs are detected as local
-# builds and may inject a dev-only bwrap fallback (see ServerManager.localCli).
-bin/.cli-version
+# Packages carry only the CodeM runtime and credential broker. Exclude legacy
+# Kilo binaries, parsers, sandbox helpers and retired voice assets even when a
+# local development build has left them in bin/.
+bin/**
+!bin/app-server/**
 
 # Include WAV assets used by extension-host notification playback
 !audio-wav/**

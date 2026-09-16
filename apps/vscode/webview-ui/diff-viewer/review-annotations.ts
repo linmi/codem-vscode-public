@@ -74,22 +74,6 @@ export function reviewComposerEdit(composer: ReviewComposer): string | null {
   return edit.comment?.id ?? null
 }
 
-type SpeechDraft = Pick<AnnotationMeta, "file" | "side" | "line" | "endLine">
-
-export function reviewDraftSpeechKey(draft: SpeechDraft): string {
-  return `draft:${draft.file}:${draft.side}:${draft.line}:${draft.endLine ?? draft.line}`
-}
-
-export function reviewEditSpeechKey(id: string): string {
-  return `edit:${id}`
-}
-
-export function reviewAnnotationSpeechKey(meta: AnnotationMeta): string | undefined {
-  if (meta.type === "draft") return reviewDraftSpeechKey(meta)
-  if (!meta.editing || !meta.comment) return undefined
-  return reviewEditSpeechKey(meta.comment.id)
-}
-
 interface AnnotationHandlers {
   diffs: WorktreeFileDiff[]
   editing: string | null
@@ -101,12 +85,6 @@ interface AnnotationHandlers {
   cancelDraft: () => void
   labels: AnnotationLabels
   activeTerminalId: () => string | undefined
-  speech?: {
-    active: () => boolean
-    render: (meta: AnnotationMeta, textarea: HTMLTextAreaElement) => HTMLElement | undefined
-    down: (meta: AnnotationMeta, event: KeyboardEvent, submit: () => void) => boolean
-    up: (meta: AnnotationMeta, event: KeyboardEvent) => boolean
-  }
 }
 
 function focusWhenConnected(el: HTMLTextAreaElement): void {
@@ -277,8 +255,6 @@ export function buildReviewAnnotation(
       sendButton.disabled = disabled
     }
 
-    const speech = handlers.speech?.render(meta, textarea)
-    if (speech) actions.appendChild(speech)
     actions.appendChild(cancelButton)
     actions.appendChild(submitButton)
     actions.appendChild(sendButton)
@@ -290,7 +266,6 @@ export function buildReviewAnnotation(
     update()
 
     const submit = () => {
-      if (handlers.speech?.active()) return
       const text = textarea.value.trim()
       if (!text) return
       const diff = handlers.diffs.find((item) => item.file === meta.file)
@@ -300,7 +275,6 @@ export function buildReviewAnnotation(
     }
 
     const send = () => {
-      if (handlers.speech?.active()) return
       const text = textarea.value.trim()
       if (!text) return
       const diff = handlers.diffs.find((item) => item.file === meta.file)
@@ -325,11 +299,6 @@ export function buildReviewAnnotation(
     })
 
     textarea.addEventListener("keydown", (event) => {
-      if (handlers.speech?.down(meta, event, send)) {
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
       if (event.key === "Escape") {
         event.preventDefault()
         handlers.cancelDraft()
@@ -340,11 +309,6 @@ export function buildReviewAnnotation(
         event.stopPropagation()
         submit()
       }
-    })
-    textarea.addEventListener("keyup", (event) => {
-      if (!handlers.speech?.up(meta, event)) return
-      event.preventDefault()
-      event.stopPropagation()
     })
     textarea.addEventListener("input", update)
 
@@ -375,8 +339,6 @@ export function buildReviewAnnotation(
     saveButton.className = "am-annotation-btn am-annotation-btn-submit"
     saveButton.textContent = handlers.labels.save
 
-    const speech = handlers.speech?.render(meta, textarea)
-    if (speech) actions.appendChild(speech)
     actions.appendChild(cancelButton)
     actions.appendChild(saveButton)
     wrapper.appendChild(header)
@@ -391,7 +353,6 @@ export function buildReviewAnnotation(
     })
 
     const save = () => {
-      if (handlers.speech?.active()) return
       const text = textarea.value.trim()
       if (!text) return
       handlers.updateComment(comment.id, text)
@@ -403,11 +364,6 @@ export function buildReviewAnnotation(
     })
 
     textarea.addEventListener("keydown", (event) => {
-      if (handlers.speech?.down(meta, event, save)) {
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
       if (event.key === "Escape") {
         event.preventDefault()
         handlers.setEditing(null)
@@ -418,11 +374,6 @@ export function buildReviewAnnotation(
         event.stopPropagation()
         save()
       }
-    })
-    textarea.addEventListener("keyup", (event) => {
-      if (!handlers.speech?.up(meta, event)) return
-      event.preventDefault()
-      event.stopPropagation()
     })
 
     return wrapper

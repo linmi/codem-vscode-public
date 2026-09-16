@@ -193,7 +193,6 @@ export const dict = {
   "prompt.action.send": "发送",
   "prompt.action.continue": "继续",
   "prompt.action.send.blocked": "请先回答或忽略待处理的问题",
-  "prompt.action.send.recording": "转录并发送",
   "prompt.action.stop": "停止",
   "prompt.permission.label": "当前会话权限模式",
   "prompt.permission.description":
@@ -201,7 +200,7 @@ export const dict = {
   "prompt.permission.unavailable": "权限状态未就绪",
   "prompt.permission.default": "默认审批",
   "prompt.permission.auto": "自动审核",
-  "prompt.permission.yolo": "YOLO · 跳过审批",
+  "prompt.permission.yolo": "YOLO",
   "prompt.permission.retry": "重新读取权限",
   "prompt.action.enhance": "优化提示词",
   "prompt.action.enhanceDescription":
@@ -222,16 +221,6 @@ export const dict = {
   "prompt.action.sandbox.description.disabled": "点击以限制文件系统写入和网络访问。",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "点击以限制文件系统写入。根据你的沙盒设置，网络访问仍然允许。",
-
-  "speechToText.tooltip.start": "使用 CodeM Gateway 开始语音输入",
-  "speechToText.tooltip.shortcut": "点击或按下 Cmd/Ctrl+K 开始或停止录音；说话时按住，松开后即可转录并提交。",
-  "speechToText.tooltip.starting": "正在启动麦克风... 请稍后再说。",
-  "speechToText.tooltip.stop": "停止捕获音频",
-  "speechToText.tooltip.transcribing": "正在转录... 点击取消。",
-  "speechToText.tooltip.error": "语音输入失败。点击清除。",
-  "speechToText.error.title": "语音输入失败",
-  "speechToText.error.loginRequired": "登录 CodeM 以使用语音输入。",
-  "speechToText.error.emptyTranscript": "未检测到语音。",
 
   "prompt.toast.promptSendFailed.title": "发送提示失败",
 
@@ -861,11 +850,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "图像模型",
   "settings.experimental.imageGenerationModel.description": "图像生成模型",
   "settings.experimental.imageGenerationModel.placeholder": "默认 (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "启用并登录 CodeM 提供商以使用 Speech to Text。Speech to Text 目前仅支持通过 CodeM Gateway 使用。",
-  "settings.models.speechToTextModel.title": "语音转文本模型",
-  "settings.models.speechToTextModel.description": "选择用于语音输入的 CodeM Gateway 转录模型。",
   "settings.experimental.nativeNotebookTools.title": "原生笔记本工具",
   "settings.experimental.nativeNotebookTools.description": "启用用于读取、编辑和执行 VS Code 笔记本的实验性工具",
   "settings.experimental.continueOnDeny.title": "拒绝后继续",

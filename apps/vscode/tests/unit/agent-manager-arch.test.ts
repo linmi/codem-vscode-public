@@ -50,7 +50,6 @@ const TSX_FILES = [
   path.join(ROOT, "webview-ui/diff-viewer/DiffEndMarker.tsx"),
   path.join(ROOT, "webview-ui/diff-viewer/FileTree.tsx"),
   path.join(ROOT, "webview-ui/diff-viewer/review-annotations.ts"),
-  path.join(ROOT, "webview-ui/diff-viewer/review-annotation-speech.tsx"),
   path.join(ROOT, "webview-ui/agent-manager/MultiModelSelector.tsx"),
   path.join(ROOT, "webview-ui/agent-manager/ApplyDialog.tsx"),
   path.join(ROOT, "webview-ui/agent-manager/WorktreeItem.tsx"),
@@ -429,12 +428,8 @@ describe("Agent Manager Worktree Actions", () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf-8")) as {
       contributes: { keybindings: { command: string; key?: string; mac?: string }[] }
     }
-    const dialog = manifest.contributes.keybindings.find(
-      (item) => item.command === "codem.agentManager.newWorktree",
-    )
-    const quick = manifest.contributes.keybindings.find(
-      (item) => item.command === "codem.agentManager.quickWorktree",
-    )
+    const dialog = manifest.contributes.keybindings.find((item) => item.command === "codem.agentManager.newWorktree")
+    const quick = manifest.contributes.keybindings.find((item) => item.command === "codem.agentManager.quickWorktree")
 
     expect(dialog).toMatchObject({ key: "ctrl+n", mac: "cmd+n" })
     expect(quick).toMatchObject({ key: "ctrl+shift+n", mac: "cmd+shift+n" })
@@ -1177,7 +1172,6 @@ describe("Shared webview provider shell", () => {
       "FileComponentProvider",
       "ProviderProvider",
       "ConfigProvider",
-      "SpeechToTextPrewarm",
       "DisplayProvider",
       "IndexingProvider",
       "KiloEmbeddingModelsProvider",

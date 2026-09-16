@@ -21,8 +21,6 @@ import { LanguageBridge } from "./language-bridge"
 import { NotificationsProvider } from "./notifications"
 import { KiloEmbeddingModelsProvider } from "./kilo-embedding-models"
 import { ImageModelsProvider } from "./image-models"
-import { SpeechToTextModelsProvider } from "./speech-to-text-models"
-import { SpeechToTextPrewarm } from "../components/speech-to-text/SpeechToTextPrewarm"
 
 type MermaidImageEvent = CustomEvent<{ dataUrl: string; filename: string }>
 
@@ -58,7 +56,6 @@ const Root: ParentComponent = (props) => (
                   <FileComponentProvider component={File}>
                     <ProviderProvider>
                       <ConfigProvider>
-                        <SpeechToTextPrewarm />
                         <DisplayProvider>{props.children}</DisplayProvider>
                       </ConfigProvider>
                     </ProviderProvider>
@@ -78,11 +75,9 @@ const Session: ParentComponent = (props) => (
   <IndexingProvider>
     <KiloEmbeddingModelsProvider>
       <ImageModelsProvider>
-        <SpeechToTextModelsProvider>
-          <NotificationsProvider>
-            <SessionProvider>{props.children}</SessionProvider>
-          </NotificationsProvider>
-        </SpeechToTextModelsProvider>
+        <NotificationsProvider>
+          <SessionProvider>{props.children}</SessionProvider>
+        </NotificationsProvider>
       </ImageModelsProvider>
     </KiloEmbeddingModelsProvider>
   </IndexingProvider>

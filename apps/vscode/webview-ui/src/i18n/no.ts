@@ -201,7 +201,6 @@ export const dict = {
   "prompt.action.send": "Send",
   "prompt.action.continue": "Fortsett",
   "prompt.action.send.blocked": "Svar på eller avvis det ventende spørsmålet først",
-  "prompt.action.send.recording": "Transkriber og send",
   "prompt.action.stop": "Stopp",
   "prompt.action.enhance": "Forbedre prompt",
   "prompt.action.indexing": "Indekseringsinnstillinger",
@@ -226,17 +225,6 @@ export const dict = {
     "Klikk for å begrense skrivetilgang til filsystemet og nettverkstilgang.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "Klikk for å begrense skrivetilgang til filsystemet. Nettverkstilgang er fortsatt tillatt av sandbox-innstillingene dine.",
-
-  "speechToText.tooltip.start": "Start taleinndata med CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "Trykk på knappen eller bruk Cmd/Ctrl+K for å starte eller stoppe opptaket; hold knappen inne mens du snakker, og slipp den for å transkribere og sende.",
-  "speechToText.tooltip.starting": "Starter mikrofonen... Vent med å snakke.",
-  "speechToText.tooltip.stop": "Stopp lydfangst",
-  "speechToText.tooltip.transcribing": "Transkriberer... Klikk for å avbryte.",
-  "speechToText.tooltip.error": "Taleinndata mislyktes. Klikk for å tømme.",
-  "speechToText.error.title": "Taleinndata mislyktes",
-  "speechToText.error.loginRequired": "Logg på CodeM for å bruke taleinndata.",
-  "speechToText.error.emptyTranscript": "Ingen tale ble oppdaget.",
 
   "prompt.toast.promptSendFailed.title": "Kunne ikke sende forespørsel",
 
@@ -847,11 +835,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Bildemodell",
   "settings.experimental.imageGenerationModel.description": "Bildegenereringsmodell",
   "settings.experimental.imageGenerationModel.placeholder": "Standard (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Aktiver og logg på CodeM-leverandøren for å bruke Speech to Text. Speech to Text støttes for øyeblikket bare med CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "Tale-til-tekst-modell",
-  "settings.models.speechToTextModel.description": "Velg CodeM Gateway-transkripsjonsmodellen for taleinndata.",
   "settings.experimental.nativeNotebookTools.title": "Innebygde notatbok-verktøy",
   "settings.experimental.nativeNotebookTools.description":
     "Aktiver eksperimentelle verktøy for å lese, redigere og kjøre VS Code-notatbøker",

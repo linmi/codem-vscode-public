@@ -24,22 +24,6 @@ describe("splitConfigByScope", () => {
     expect(split.global).toEqual({ indexing: { provider: "ollama" } })
     expect(split.project).toEqual({})
   })
-
-  it("writes the speech-to-text model setting to global config", () => {
-    const split = splitConfigByScope({
-      experimental: {
-        speech_to_text_model: "openai/gpt-4o-mini-transcribe",
-      },
-    })
-
-    expect(split.global).toEqual({
-      experimental: {
-        speech_to_text_model: "openai/gpt-4o-mini-transcribe",
-      },
-    })
-    expect(split.project).toEqual({})
-  })
-
   it("writes the shared agent board setting to global config", () => {
     const split = splitConfigByScope({
       experimental: {

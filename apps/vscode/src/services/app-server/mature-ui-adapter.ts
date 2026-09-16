@@ -621,8 +621,13 @@ export class AppServerMatureUiAdapter {
     const id = `${event.turnId}:hook:${sequence}`
     const input = { event: event.eventName, tool: event.toolName, command: event.command }
     const state: ToolPart["state"] =
-      event.outcome === "success"
-        ? { status: "completed", input, output: event.reason, title: `${event.eventName} · ${event.elapsedMs} ms` }
+      event.outcome === "allow"
+        ? {
+            status: "completed",
+            input,
+            output: event.reason ?? "",
+            title: `${event.eventName} · ${event.elapsedMs} ms`,
+          }
         : { status: "error", input, error: event.reason || `Hook ${event.outcome}` }
     return {
       type: "partUpdated",

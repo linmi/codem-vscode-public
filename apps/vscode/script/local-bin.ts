@@ -13,7 +13,6 @@ import {
   sanitizeSandboxResources,
 } from "../src/services/cli-backend/cli-resources"
 import { currentBwrapTarget, ensureBwrapForTarget } from "./bwrap-helper"
-import { currentFfmpegTarget, ensureFfmpegForTarget } from "./ffmpeg-helper"
 
 const forceRebuild = process.argv.includes("--force")
 const compiledOnly = process.argv.includes("--compiled")
@@ -97,7 +96,6 @@ async function cliInputs() {
     "pnpm-workspace.yaml",
     ...[...dirs].sort(),
     "apps/vscode/script/bwrap-helper.ts",
-    "apps/vscode/script/ffmpeg-helper.ts",
     "apps/vscode/script/local-bin.ts",
     "apps/vscode/src/services/cli-backend/cli-resources.ts",
   ]
@@ -274,7 +272,6 @@ async function bundleKiloSandboxWorker() {
 }
 
 async function ensureLocalHelpers() {
-  await ensureFfmpegForTarget(currentFfmpegTarget(), targetBinDir)
   if (process.env.KILO_SKIP_BUNDLED_BWRAP === "1") return
   if (await sanitizeSandboxResources(targetBinDir, true)) return
   await ensureBwrapForTarget(currentBwrapTarget())

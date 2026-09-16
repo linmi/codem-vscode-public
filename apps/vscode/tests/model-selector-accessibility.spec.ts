@@ -231,13 +231,6 @@ test("settings and mode editing expose distinct model field purposes", async ({ 
     /Override the default model for specific modes/,
   )
 
-  await load(page, "settings--models-speech-to-text")
-  const speech = page.getByRole("button", { name: "Speech to Text Model: Chirp 3" })
-  await expect(speech).toBeEnabled()
-  await speech.click()
-  await page.getByRole("option", { name: "Parakeet TDT 0.6B v3 (NVIDIA)" }).click()
-  await expect(page.getByRole("button", { name: "Speech to Text Model: Parakeet TDT 0.6B v3" })).toBeVisible()
-
   await load(page, "settings--mode-edit-export")
   await expect(page.getByRole("button", { name: /Model Override:/ })).toHaveAccessibleDescription(
     "Override the default model for this agent",

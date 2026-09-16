@@ -192,7 +192,6 @@ export const dict = {
   "prompt.action.send": "傳送",
   "prompt.action.continue": "繼續",
   "prompt.action.send.blocked": "請先回答或忽略待處理的問題",
-  "prompt.action.send.recording": "轉錄並傳送",
   "prompt.action.stop": "停止",
   "prompt.permission.label": "目前會話權限模式",
   "prompt.permission.description":
@@ -200,7 +199,7 @@ export const dict = {
   "prompt.permission.unavailable": "權限狀態未就緒",
   "prompt.permission.default": "預設審批",
   "prompt.permission.auto": "自動審核",
-  "prompt.permission.yolo": "YOLO · 跳過審批",
+  "prompt.permission.yolo": "YOLO",
   "prompt.permission.retry": "重新讀取權限",
   "prompt.action.enhance": "改善提示詞",
   "prompt.action.enhanceDescription":
@@ -220,16 +219,6 @@ export const dict = {
   "prompt.action.sandbox.description.enabled": "寫入僅限於專案和 CodeM 目錄。",
   "prompt.action.sandbox.description.disabled": "點擊以限制檔案系統寫入和網路存取。",
   "prompt.action.sandbox.description.disabledNetworkAllowed": "點擊以限制檔案系統寫入。沙盒設定仍允許網路存取。",
-
-  "speechToText.tooltip.start": "使用 CodeM Gateway 開始語音輸入",
-  "speechToText.tooltip.shortcut": "點擊或按下 Cmd/Ctrl+K 開始或停止錄音；說話時按住，放開後即可轉錄並提交。",
-  "speechToText.tooltip.starting": "正在啟動麥克風... 請稍後再說。",
-  "speechToText.tooltip.stop": "停止擷取音訊",
-  "speechToText.tooltip.transcribing": "正在轉錄... 點擊取消。",
-  "speechToText.tooltip.error": "語音輸入失敗。點擊清除。",
-  "speechToText.error.title": "語音輸入失敗",
-  "speechToText.error.loginRequired": "登入 CodeM 以使用語音輸入。",
-  "speechToText.error.emptyTranscript": "未偵測到語音。",
 
   "prompt.toast.promptSendFailed.title": "傳送提示失敗",
 
@@ -821,11 +810,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "圖像模型",
   "settings.experimental.imageGenerationModel.description": "圖像生成模型",
   "settings.experimental.imageGenerationModel.placeholder": "預設 (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "啟用並登入 CodeM 供應商以使用 Speech to Text。Speech to Text 目前僅支援透過 CodeM Gateway 使用。",
-  "settings.models.speechToTextModel.title": "語音轉文字模型",
-  "settings.models.speechToTextModel.description": "選擇用於語音輸入的 CodeM Gateway 轉錄模型。",
   "settings.experimental.nativeNotebookTools.title": "原生筆記本工具",
   "settings.experimental.nativeNotebookTools.description": "啟用用於讀取、編輯和執行 VS Code 筆記本的實驗性工具",
   "settings.experimental.continueOnDeny.title": "拒絕後繼續",

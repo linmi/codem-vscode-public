@@ -198,7 +198,6 @@ export const dict = {
   "prompt.action.send": "Send",
   "prompt.action.continue": "Fortsæt",
   "prompt.action.send.blocked": "Besvar eller afvis det afventende spørgsmål først",
-  "prompt.action.send.recording": "Transskriber og send",
   "prompt.action.stop": "Stop",
   "prompt.action.enhance": "Forbedr prompt",
   "prompt.action.enhanceDescription":
@@ -221,17 +220,6 @@ export const dict = {
   "prompt.action.sandbox.description.disabled": "Klik for at begrænse skriveadgang til filsystemet og netværksadgang.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "Klik for at begrænse skriveadgang til filsystemet. Netværksadgang er fortsat tilladt ifølge dine sandboxindstillinger.",
-
-  "speechToText.tooltip.start": "Start stemmeinput med CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "Tryk på knappen eller brug Cmd/Ctrl+K til at starte eller stoppe optagelsen; hold knappen nede, mens du taler, og slip den for at transskribere og sende.",
-  "speechToText.tooltip.starting": "Starter mikrofonen... Vent med at tale.",
-  "speechToText.tooltip.stop": "Stop lydoptagelse",
-  "speechToText.tooltip.transcribing": "Transskriberer... Klik for at annullere.",
-  "speechToText.tooltip.error": "Stemmeinput mislykkedes. Klik for at rydde.",
-  "speechToText.error.title": "Stemmeinput mislykkedes",
-  "speechToText.error.loginRequired": "Log ind på CodeM for at bruge stemmeinput.",
-  "speechToText.error.emptyTranscript": "Ingen tale blev registreret.",
 
   "prompt.toast.promptSendFailed.title": "Kunne ikke sende forespørgsel",
 
@@ -886,11 +874,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Billedmodel",
   "settings.experimental.imageGenerationModel.description": "Billedgenereringsmodel",
   "settings.experimental.imageGenerationModel.placeholder": "Standard (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Aktivér og log ind på CodeM-udbyderen for at bruge Speech to Text. Speech to Text understøttes i øjeblikket kun med CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "Model til tale til tekst",
-  "settings.models.speechToTextModel.description": "Vælg CodeM Gateway-transskriptionsmodellen til stemmeinput.",
   "settings.experimental.nativeNotebookTools.title": "Indbyggede notebook-værktøjer",
   "settings.experimental.nativeNotebookTools.description":
     "Aktivér eksperimentelle værktøjer til at læse, redigere og køre VS Code-notebooks",

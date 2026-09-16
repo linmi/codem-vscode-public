@@ -297,8 +297,6 @@ describe("diff preview detail requests", () => {
                   "ConfigProvider",
                   "ProviderProvider",
                   "VSCodeProvider",
-                  "SpeechToTextModelsProvider",
-                  "SpeechToTextPrewarm",
                   "Code",
                   "Diff",
                   "File",

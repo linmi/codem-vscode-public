@@ -199,7 +199,6 @@ export const dict = {
   "prompt.action.send": "Pošalji",
   "prompt.action.continue": "Nastavi",
   "prompt.action.send.blocked": "Prvo odgovorite ili odbacite pitanje na čekanju",
-  "prompt.action.send.recording": "Transkribuj i pošalji",
   "prompt.action.stop": "Zaustavi",
   "prompt.action.enhance": "Poboljšaj prompt",
   "prompt.action.enhanceDescription":
@@ -222,17 +221,6 @@ export const dict = {
   "prompt.action.sandbox.description.disabled": "Kliknite da ograničite pisanje u datotečni sistem i pristup mreži.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "Kliknite da ograničite pisanje u datotečni sistem. Pristup mreži ostaje dozvoljen prema vašim sandbox postavkama.",
-
-  "speechToText.tooltip.start": "Započni glasovni unos sa CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "Dodirnite dugme ili pritisnite Cmd/Ctrl+K da pokrenete ili zaustavite snimanje; držite dugme pritisnutim dok govorite, a zatim ga otpustite da biste pretvorili govor u tekst i poslali ga.",
-  "speechToText.tooltip.starting": "Pokretanje mikrofona... Sačekajte prije nego što progovorite.",
-  "speechToText.tooltip.stop": "Zaustavi hvatanje zvuka",
-  "speechToText.tooltip.transcribing": "Prepisivanje... Kliknite da otkažete.",
-  "speechToText.tooltip.error": "Glasovni unos nije uspio. Kliknite da očistite.",
-  "speechToText.error.title": "Glasovni unos nije uspio",
-  "speechToText.error.loginRequired": "Prijavite se na CodeM da koristite glasovni unos.",
-  "speechToText.error.emptyTranscript": "Govor nije otkriven.",
 
   "prompt.toast.promptSendFailed.title": "Neuspješno slanje upita",
 
@@ -887,11 +875,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Model slike",
   "settings.experimental.imageGenerationModel.description": "Model za generisanje slika",
   "settings.experimental.imageGenerationModel.placeholder": "Zadano (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Omogućite i prijavite se na CodeM provajder da biste koristili Speech to Text. Speech to Text je trenutno podržan samo uz CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "Model govora u tekst",
-  "settings.models.speechToTextModel.description": "Odaberite CodeM Gateway model za transkripciju za glasovni unos.",
   "settings.experimental.nativeNotebookTools.title": "Izvorni alati za bilježnice",
   "settings.experimental.nativeNotebookTools.description":
     "Omogući eksperimentalne alate za čitanje, uređivanje i izvršavanje VS Code bilježnica",

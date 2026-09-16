@@ -25,8 +25,6 @@ import type { PRComment } from "../agent-manager/pr/pr-types"
 import type { PRTarget } from "../../src/shared/pr-comment-actions"
 import { DiffPickerHeader } from "./DiffPickerHeader"
 import { BaseBranchPicker } from "./BaseBranchPicker"
-import { SpeechToTextPrewarm } from "../src/components/speech-to-text/SpeechToTextPrewarm"
-import { SpeechToTextModelsProvider } from "../src/context/speech-to-text-models"
 
 const NOTICE_KEYS: Record<DiffViewerNotice, string> = {
   "snapshots-disabled": "diffViewer.notice.snapshotsDisabled",
@@ -367,10 +365,7 @@ export const DiffViewerApp: Component = () => {
           <ServerProvider>
             <ProviderProvider>
               <ConfigProvider>
-                <SpeechToTextModelsProvider>
-                  <SpeechToTextPrewarm />
-                  <DiffViewerShell />
-                </SpeechToTextModelsProvider>
+                <DiffViewerShell />
               </ConfigProvider>
             </ProviderProvider>
           </ServerProvider>

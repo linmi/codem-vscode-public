@@ -38,7 +38,6 @@ This document tracks remaining work needed for feature parity with the old exten
 | [Settings Sync](non-agent-features/settings-sync-integration.md) | VS Code Settings Sync allowlist registration | Extension-side (VS Code API) | P3 |
 | [Settings UI](non-agent-features/settings-ui.md) | Terminal and Prompts tabs (show "Not implemented"), Workflows subtab stub | CLI exposes config; extension provides settings forms | P1 |
 | [Skills System](non-agent-features/skills-system.md) | Skill execution, discovery, hot-reload (config UI for paths/URLs exists) | CLI has skills runtime; extension provides packaging/UI | P2 |
-| [Speech-to-Text](non-agent-features/speech-to-text.md) | Voice input, streaming STT | Webview (mic capture); CLI-compatible STT optional | P3 |
 
 ---
 

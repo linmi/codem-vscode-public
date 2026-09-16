@@ -13,11 +13,8 @@ import {
   clearReviewComposer,
   createReviewComposer,
   labels,
-  reviewAnnotationSpeechKey,
   reviewComposerDraft,
   reviewComposerEdit,
-  reviewDraftSpeechKey,
-  reviewEditSpeechKey,
 } from "../../webview-ui/diff-viewer/review-annotations"
 import type { WorktreeFileDiff } from "../../webview-ui/src/types/messages"
 import { parseReview, partReview, reviewMetadata } from "../../src/shared/review-comments"
@@ -280,53 +277,6 @@ describe("markdownCommentBlocks", () => {
       { type: "block", start: 1, end: 2 },
       { type: "block", start: 4, end: 5 },
     ])
-  })
-})
-
-// ── review annotation speech keys ───────────────────────────────────────────
-
-describe("review annotation speech keys", () => {
-  it("keeps draft keys scoped to the selected review location", () => {
-    expect(reviewDraftSpeechKey({ file: "src/a.ts", side: "additions", line: 4 })).toBe("draft:src/a.ts:additions:4:4")
-    expect(reviewDraftSpeechKey({ file: "src/a.ts", side: "deletions", line: 4, endLine: 8 })).toBe(
-      "draft:src/a.ts:deletions:4:8",
-    )
-  })
-
-  it("keeps edit keys scoped to the review comment id", () => {
-    expect(reviewEditSpeechKey("c-123")).toBe("edit:c-123")
-  })
-
-  it("only exposes annotation speech keys for active draft and edit composers", () => {
-    const current = comment({ file: "src/a.ts", line: 7 })
-    expect(
-      reviewAnnotationSpeechKey({
-        type: "draft",
-        comment: null,
-        file: "src/a.ts",
-        side: "additions",
-        line: 7,
-      }),
-    ).toBe("draft:src/a.ts:additions:7:7")
-    expect(
-      reviewAnnotationSpeechKey({
-        type: "comment",
-        comment: current,
-        file: current.file,
-        side: current.side,
-        line: current.line,
-        editing: true,
-      }),
-    ).toBe(`edit:${current.id}`)
-    expect(
-      reviewAnnotationSpeechKey({
-        type: "comment",
-        comment: current,
-        file: current.file,
-        side: current.side,
-        line: current.line,
-      }),
-    ).toBeUndefined()
   })
 })
 

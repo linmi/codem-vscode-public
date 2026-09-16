@@ -201,7 +201,6 @@ export const dict = {
   "prompt.action.send": "전송",
   "prompt.action.continue": "계속",
   "prompt.action.send.blocked": "먼저 대기 중인 질문에 답하거나 닫아주세요",
-  "prompt.action.send.recording": "텍스트 변환 및 전송",
   "prompt.action.stop": "중지",
   "prompt.action.enhance": "프롬프트 개선",
   "prompt.action.enhanceDescription":
@@ -224,17 +223,6 @@ export const dict = {
   "prompt.action.sandbox.description.disabled": "클릭하면 파일 시스템 쓰기와 네트워크 액세스를 제한합니다.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "클릭하면 파일 시스템 쓰기를 제한합니다. 샌드박스 설정에 따라 네트워크 액세스는 계속 허용됩니다.",
-
-  "speechToText.tooltip.start": "CodeM Gateway로 음성 입력 시작",
-  "speechToText.tooltip.shortcut":
-    "탭하거나 Cmd/Ctrl+K를 눌러 녹음을 시작하거나 중지하고, 말하는 동안에는 누르고 있다가 놓으면 음성을 텍스트로 변환해 제출합니다.",
-  "speechToText.tooltip.starting": "마이크를 시작하는 중... 잠시 후 말씀해 주세요.",
-  "speechToText.tooltip.stop": "음성 캡처 중지",
-  "speechToText.tooltip.transcribing": "변환 중... 취소하려면 클릭하세요.",
-  "speechToText.tooltip.error": "음성 입력에 실패했습니다. 지우려면 클릭하세요.",
-  "speechToText.error.title": "음성 입력 실패",
-  "speechToText.error.loginRequired": "음성 입력을 사용하려면 CodeM에 로그인하세요.",
-  "speechToText.error.emptyTranscript": "음성이 감지되지 않았습니다.",
 
   "prompt.toast.promptSendFailed.title": "프롬프트 전송 실패",
 
@@ -878,11 +866,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "이미지 모델",
   "settings.experimental.imageGenerationModel.description": "이미지 생성 모델",
   "settings.experimental.imageGenerationModel.placeholder": "기본값 (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Speech to Text를 사용하려면 CodeM 제공자를 활성화하고 로그인하세요. 현재 Speech to Text는 CodeM Gateway에서만 지원됩니다.",
-  "settings.models.speechToTextModel.title": "음성 텍스트 변환 모델",
-  "settings.models.speechToTextModel.description": "음성 입력에 사용할 CodeM Gateway 변환 모델을 선택하세요.",
   "settings.experimental.nativeNotebookTools.title": "네이티브 노트북 도구",
   "settings.experimental.nativeNotebookTools.description":
     "VS Code 노트북을 읽고, 편집하고, 실행하는 실험적 도구를 활성화합니다",

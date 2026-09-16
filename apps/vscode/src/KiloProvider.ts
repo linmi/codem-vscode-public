@@ -160,8 +160,6 @@ import type { ProjectRef, SessionRef, WorktreeRef } from "./agent-manager/projec
 import { indexingConsentStore, registeredProjects } from "./indexing-consent"
 import { fetchKiloEmbeddingModelCatalog } from "@kilocode/kilo-gateway"
 import { fetchImageModels } from "./image-generation/models"
-import { fetchSpeechToTextModels } from "./speech-to-text/catalog"
-import { SPEECH_TO_TEXT_MODELS } from "./speech-to-text/models"
 import { stopSessionProcesses } from "./kilo-provider/background-process"
 import { sandboxDefault, sandboxSessionMetadata } from "./shared/sandbox-session"
 import {
@@ -1100,8 +1098,6 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         await routeEarlyMessage(message, {
           question: this.questionCtx,
           client: this.client,
-          connection: this.connectionService,
-          dir: this.getWorkspaceDirectory(this.currentSession?.id),
           post: (msg) => this.postMessage(msg),
           browserSettings: () => this.sendBrowserSettings(),
           exportTranscript: (sessionID) => this.handleExportSessionTranscript(sessionID),
@@ -1113,7 +1109,6 @@ export class KiloProvider implements vscode.WebviewViewProvider {
             this.activity = state
             this.updateTitle()
           },
-          speechToTextModels: () => this.fetchAndSendSpeechToTextModels(),
           modelUsage: (msg) => handleModelUsageMessage(msg, this.extensionContext, (value) => this.postMessage(value)),
           backgroundJobs: (sessionID, requestID) => this.fetchAndSendBackgroundJobs(sessionID, requestID),
           board: (msg) => this.handleBoardMessage(msg),
@@ -3064,15 +3059,6 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     this.postMessage(message)
   }
 
-  private async fetchAndSendSpeechToTextModels(): Promise<void> {
-    const result = await fetchSpeechToTextModels(this.connectionService, this.getWorkspaceDirectory())
-    if (!result.ok) {
-      this.postMessage({ type: "speechToTextModelsLoaded" as const, models: [...SPEECH_TO_TEXT_MODELS] })
-      return
-    }
-    this.postMessage({ type: "speechToTextModelsLoaded" as const, models: result.models })
-  }
-
   private handleBoardMessage(message: Record<string, unknown>): Promise<boolean> {
     return Board.handle(message, {
       client: this.connectionState === "connected" ? this.client : null,
@@ -4611,7 +4597,6 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       invalidateProviders: () => this.invalidateProviders(),
       fetchAndSendProviders: () => this.fetchAndSendProviders(),
       fetchAndSendAgents: () => this.fetchAndSendAgents(),
-      fetchAndSendSpeechToTextModels: () => this.fetchAndSendSpeechToTextModels(),
     }
   }
 

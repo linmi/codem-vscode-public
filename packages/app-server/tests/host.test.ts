@@ -21,7 +21,51 @@ afterEach(() => {
 })
 
 describe("AppServerHost", () => {
-  it("uses the current main thread contract and projects one correlated turn", async () => {
+  for (const [field, value] of [
+    ["tool", null],
+    ["tool", " "],
+    ["reason", 42],
+    ["reason", undefined],
+    ["elapsedMs", -1],
+  ] as const) {
+    it(`rejects malformed hook ${field}=${String(value)} without projecting it`, { timeout: 5000 }, async () => {
+      const fixture = createFixture({
+        event: "SessionStart",
+        tool: "",
+        command: "check.sh",
+        outcome: "allow",
+        reason: null,
+        elapsedMs: 12,
+        [field]: value,
+      })
+      const host = new AppServerHost({
+        runtime: fixture.runtime,
+        clientInfo: { name: "hook-test", version: "1" },
+        environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
+        assertAuthenticated: () => {},
+      })
+      const events: AppServerHostEvent[] = []
+      const failed = new Promise<string>((resolve) =>
+        host.onEvent((event) => {
+          events.push(event)
+          if (event.type === "protocol-error") resolve(event.message)
+        }),
+      )
+      try {
+        const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+        await host.startTurn({ cwd: fixture.root, threadId, submissionId: "hook-submission", text: "Hello" })
+        assert.match(await failed, new RegExp(`hook/completed run.${field}`))
+        assert.equal(
+          events.some((event) => event.type === "hook-completed"),
+          false,
+        )
+      } finally {
+        await host.close()
+      }
+    })
+  }
+
+  it("uses the current main thread contract and projects one correlated turn", { timeout: 5000 }, async () => {
     const fixture = createFixture()
     const events: AppServerHostEvent[] = []
     let resolveCompleted!: () => void
@@ -89,7 +133,33 @@ describe("AppServerHost", () => {
         },
       ],
     )
-    assert.equal(events.filter((event) => event.type === "hook-completed").length, 1)
+    assert.deepEqual(
+      events.filter((event) => event.type === "hook-completed"),
+      [
+        {
+          type: "hook-completed",
+          threadId,
+          turnId,
+          eventName: "SessionStart",
+          toolName: null,
+          command: "check.sh",
+          outcome: "allow",
+          reason: null,
+          elapsedMs: 12,
+        },
+        {
+          type: "hook-completed",
+          threadId,
+          turnId,
+          eventName: "PostToolUse",
+          toolName: "run_bash",
+          command: "check.sh",
+          outcome: "allow",
+          reason: "ok",
+          elapsedMs: 12,
+        },
+      ],
+    )
     assert.deepEqual(
       events.flatMap((event) => (event.type === "background-wake" ? [`${event.phase}:${event.taskId}`] : [])),
       ["queued:task-1", "started:task-1", "skipped:task-2"],
@@ -383,12 +453,21 @@ describe("AppServerHost", () => {
   })
 })
 
-function createFixture(): { readonly root: string; readonly capturePath: string; readonly runtime: AppServerRuntime } {
+function createFixture(
+  hookRun: Record<string, unknown> = {
+    event: "SessionStart",
+    tool: "",
+    command: "check.sh",
+    outcome: "allow",
+    reason: null,
+    elapsedMs: 12,
+  },
+): { readonly root: string; readonly capturePath: string; readonly runtime: AppServerRuntime } {
   const root = mkdtempSync(join(tmpdir(), "codem-host-"))
   temporaryDirectories.push(root)
   const executablePath = join(root, "codem-core")
   const capturePath = join(root, "capture.jsonl")
-  writeFileSync(executablePath, fixtureSource(completeCapabilities()))
+  writeFileSync(executablePath, fixtureSource(completeCapabilities(), hookRun))
   chmodSync(executablePath, 0o755)
   return {
     root,
@@ -407,7 +486,7 @@ function createFixture(): { readonly root: string; readonly capturePath: string;
   }
 }
 
-function fixtureSource(capabilities: Record<string, unknown>): string {
+function fixtureSource(capabilities: Record<string, unknown>, hookRun: Record<string, unknown>): string {
   return `#!/usr/bin/env node
 const fs = require("node:fs")
 const readline = require("node:readline")
@@ -461,7 +540,8 @@ lines.on("line", (line) => {
     send({ jsonrpc: "2.0", method: "item/fileChange/delta", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "diff-1", callId: "call-1", sequence: 0, delta: diff.slice(0, split), encoding: "json", complete: false } })
     send({ jsonrpc: "2.0", method: "item/fileChange/delta", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "diff-1", callId: "call-1", sequence: 1, delta: diff.slice(split), encoding: "json", complete: true } })
     send({ jsonrpc: "2.0", method: "item/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "tool-1", type: "commandExecution", status: "completed", callId: "call-1", summary: "exit 0", output: "/workspace", isError: false } } })
-    send({ jsonrpc: "2.0", method: "hook/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", run: { event: "PostToolUse", tool: "run_bash", command: "check.sh", outcome: "success", reason: "ok", elapsedMs: 12 } } })
+    send({ jsonrpc: "2.0", method: "hook/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", run: ${JSON.stringify(hookRun)} } })
+    send({ jsonrpc: "2.0", method: "hook/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", run: { event: "PostToolUse", tool: "run_bash", command: "check.sh", outcome: "allow", reason: "ok", elapsedMs: 12 } } })
     send({ jsonrpc: "2.0", method: "backgroundTask/wakeQueued", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-1" } })
     send({ jsonrpc: "2.0", method: "backgroundTask/wakeStarted", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-1" } })
     send({ jsonrpc: "2.0", method: "backgroundTask/wakeSkipped", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-2" } })

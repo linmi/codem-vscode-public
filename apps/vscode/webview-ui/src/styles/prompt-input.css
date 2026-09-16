@@ -538,10 +538,9 @@
 /* Shared status dot for prompt hint controls. Pin it to the icon corner and
    give it a surface-colored ring so it reads as a badge instead of sitting on
    the glyph. The same size, ring, and corner offset are used for the indexing,
-   auto-approve, sandbox, and speech controls. */
+   auto-approve and sandbox controls. */
 .prompt-indexing-button::after,
-.prompt-status-button--active::after,
-.prompt-speech-button--recording::after {
+.prompt-status-button--active::after {
   content: "";
   position: absolute;
   width: 5px;
@@ -625,47 +624,6 @@
 .prompt-status-button--active::after {
   right: 1px;
   bottom: 1px;
-}
-
-.prompt-speech-button {
-  position: relative;
-}
-
-.prompt-speech-button--recording {
-  color: var(--vscode-errorForeground, #f48771);
-
-  [data-component="icon"] {
-    animation: prompt-speech-recording-pulse 1.1s ease-in-out infinite;
-  }
-}
-
-.prompt-speech-button--starting {
-  opacity: 0.7;
-}
-
-.prompt-speech-button[data-loading] {
-  cursor: pointer;
-}
-
-.prompt-speech-button--recording::after {
-  right: 1px;
-  top: 1px;
-}
-
-.prompt-speech-button--error {
-  color: var(--vscode-charts-yellow, #cca700);
-}
-
-@keyframes prompt-speech-recording-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.72;
-    transform: scale(0.94);
-  }
 }
 
 .thread-permission-mode {

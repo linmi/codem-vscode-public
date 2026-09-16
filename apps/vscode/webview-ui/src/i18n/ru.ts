@@ -197,7 +197,6 @@ export const dict = {
   "prompt.action.send": "Отправить",
   "prompt.action.continue": "Продолжить",
   "prompt.action.send.blocked": "Сначала ответьте на ожидающий вопрос или отклоните его",
-  "prompt.action.send.recording": "Расшифровать и отправить",
   "prompt.action.stop": "Остановить",
   "prompt.action.enhance": "Улучшить промпт",
   "prompt.action.indexing": "Настройки индексации",
@@ -220,17 +219,6 @@ export const dict = {
   "prompt.action.sandbox.description.disabled": "Нажмите, чтобы ограничить запись в файловую систему и доступ к сети.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "Нажмите, чтобы ограничить запись в файловую систему. Доступ к сети останется разрешённым согласно настройкам песочницы.",
-
-  "speechToText.tooltip.start": "Начать голосовой ввод с CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "Коснитесь или нажмите Cmd/Ctrl+K, чтобы начать или остановить запись; удерживайте кнопку во время речи, затем отпустите её, чтобы транскрибировать и отправить.",
-  "speechToText.tooltip.starting": "Запуск микрофона... Пока не говорите.",
-  "speechToText.tooltip.stop": "Остановить захват звука",
-  "speechToText.tooltip.transcribing": "Распознавание... Нажмите для отмены.",
-  "speechToText.tooltip.error": "Ошибка голосового ввода. Нажмите, чтобы очистить.",
-  "speechToText.error.title": "Ошибка голосового ввода",
-  "speechToText.error.loginRequired": "Войдите в CodeM, чтобы использовать голосовой ввод.",
-  "speechToText.error.emptyTranscript": "Речь не обнаружена.",
 
   "prompt.toast.promptSendFailed.title": "Не удалось отправить запрос",
 
@@ -884,11 +872,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Модель изображений",
   "settings.experimental.imageGenerationModel.description": "Модель генерации изображений",
   "settings.experimental.imageGenerationModel.placeholder": "По умолчанию (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Включите провайдер CodeM и выполните вход, чтобы использовать Speech to Text. В настоящее время Speech to Text поддерживается только с CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "Модель речи в текст",
-  "settings.models.speechToTextModel.description": "Выберите модель транскрипции CodeM Gateway для голосового ввода.",
   "settings.experimental.nativeNotebookTools.title": "Нативные инструменты блокнотов",
   "settings.experimental.nativeNotebookTools.description":
     "Включить экспериментальные инструменты для чтения, редактирования и выполнения блокнотов VS Code",

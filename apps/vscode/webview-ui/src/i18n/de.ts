@@ -204,7 +204,6 @@ export const dict = {
   "prompt.action.send": "Senden",
   "prompt.action.continue": "Fortsetzen",
   "prompt.action.send.blocked": "Beantworten oder verwerfen Sie zuerst die ausstehende Frage",
-  "prompt.action.send.recording": "Transkribieren und senden",
   "prompt.action.stop": "Stopp",
   "prompt.action.enhance": "Prompt verbessern",
   "prompt.action.enhanceDescription":
@@ -229,17 +228,6 @@ export const dict = {
     "Klicken, um Schreibvorgänge im Dateisystem und den Netzwerkzugriff einzuschränken.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "Klicken, um Schreibvorgänge im Dateisystem einzuschränken. Der Netzwerkzugriff bleibt gemäß deinen Sandbox-Einstellungen erlaubt.",
-
-  "speechToText.tooltip.start": "Spracheingabe mit CodeM Gateway starten",
-  "speechToText.tooltip.shortcut":
-    "Tippe oder drücke Cmd/Ctrl+K, um die Aufnahme zu starten oder zu stoppen; halte beim Sprechen gedrückt und lasse los, um zu transkribieren und abzusenden.",
-  "speechToText.tooltip.starting": "Mikrofon wird gestartet... Bitte noch nicht sprechen.",
-  "speechToText.tooltip.stop": "Audioerfassung beenden",
-  "speechToText.tooltip.transcribing": "Transkribieren... Zum Abbrechen klicken.",
-  "speechToText.tooltip.error": "Spracheingabe fehlgeschlagen. Zum Löschen klicken.",
-  "speechToText.error.title": "Spracheingabe fehlgeschlagen",
-  "speechToText.error.loginRequired": "Melden Sie sich bei CodeM an, um die Spracheingabe zu verwenden.",
-  "speechToText.error.emptyTranscript": "Es wurde keine Sprache erkannt.",
 
   "prompt.toast.promptSendFailed.title": "Eingabe konnte nicht gesendet werden",
 
@@ -903,12 +891,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Bildmodell",
   "settings.experimental.imageGenerationModel.description": "Bildgenerierungsmodell",
   "settings.experimental.imageGenerationModel.placeholder": "Standard (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Aktivieren Sie den CodeM-Anbieter und melden Sie sich an, um Speech to Text zu verwenden. Speech to Text wird derzeit nur mit CodeM Gateway unterstützt.",
-  "settings.models.speechToTextModel.title": "Sprache-zu-Text-Modell",
-  "settings.models.speechToTextModel.description":
-    "Wählen Sie das CodeM Gateway-Transkriptionsmodell für die Spracheingabe.",
   "settings.experimental.nativeNotebookTools.title": "Native Notebook-Tools",
   "settings.experimental.nativeNotebookTools.description":
     "Experimentelle Tools zum Lesen, Bearbeiten und Ausführen von VS Code-Notebooks aktivieren",

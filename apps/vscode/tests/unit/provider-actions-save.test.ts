@@ -664,7 +664,7 @@ describe("fetchProviderData", () => {
     expect(result.response.default).toEqual({ kilo: "kilo-auto/free" })
   })
 
-  it("does not infer CodeM speech access without stored Gateway auth", async () => {
+  it("does not infer stored Gateway auth from a configured CodeM provider", async () => {
     const client = {
       provider: {
         list: async () => ({

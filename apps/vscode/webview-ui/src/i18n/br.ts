@@ -198,7 +198,6 @@ export const dict = {
   "prompt.action.send": "Enviar",
   "prompt.action.continue": "Continuar",
   "prompt.action.send.blocked": "Responda ou feche a pergunta pendente primeiro",
-  "prompt.action.send.recording": "Transcrever e enviar",
   "prompt.action.stop": "Parar",
   "prompt.action.enhance": "Melhorar prompt",
   "prompt.action.enhanceDescription":
@@ -224,17 +223,6 @@ export const dict = {
     "Clique para restringir as operações de escrita no sistema de arquivos e o acesso à rede.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "Clique para restringir as operações de escrita no sistema de arquivos. O acesso à rede continua permitido pelas configurações do sandbox.",
-
-  "speechToText.tooltip.start": "Iniciar entrada de voz com o CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "Toque ou pressione Cmd/Ctrl+K para iniciar ou parar a gravação; mantenha o botão pressionado enquanto fala e solte-o para transcrever e enviar.",
-  "speechToText.tooltip.starting": "Iniciando o microfone... Aguarde antes de falar.",
-  "speechToText.tooltip.stop": "Parar captura",
-  "speechToText.tooltip.transcribing": "Transcrevendo... Clique para cancelar.",
-  "speechToText.tooltip.error": "Falha na entrada de voz. Clique para limpar.",
-  "speechToText.error.title": "Falha na entrada de voz",
-  "speechToText.error.loginRequired": "Faça login no CodeM para usar a entrada de voz.",
-  "speechToText.error.emptyTranscript": "Nenhuma fala foi detectada.",
 
   "prompt.toast.promptSendFailed.title": "Falha ao enviar prompt",
 
@@ -892,12 +880,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Modelo de imagem",
   "settings.experimental.imageGenerationModel.description": "Modelo de geração de imagens",
   "settings.experimental.imageGenerationModel.placeholder": "Padrão (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Ative e faça login no provedor CodeM para usar o Speech to Text. Atualmente, o Speech to Text é compatível apenas com o CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "Modelo de fala para texto",
-  "settings.models.speechToTextModel.description":
-    "Escolha o modelo de transcrição do CodeM Gateway para entrada de voz.",
   "settings.experimental.nativeNotebookTools.title": "Ferramentas nativas de notebook",
   "settings.experimental.nativeNotebookTools.description":
     "Ativar ferramentas experimentais para ler, editar e executar notebooks do VS Code",

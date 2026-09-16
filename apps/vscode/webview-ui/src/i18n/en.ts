@@ -195,7 +195,6 @@ export const dict = {
   "prompt.action.send": "Send",
   "prompt.action.continue": "Continue",
   "prompt.action.send.blocked": "Answer or dismiss the pending question first",
-  "prompt.action.send.recording": "Transcribe and send",
   "prompt.action.stop": "Stop",
   "prompt.permission.label": "Thread permission mode",
   "prompt.permission.description":
@@ -203,7 +202,7 @@ export const dict = {
   "prompt.permission.unavailable": "Permission mode unavailable",
   "prompt.permission.default": "Default",
   "prompt.permission.auto": "Auto",
-  "prompt.permission.yolo": "YOLO — skip approvals",
+  "prompt.permission.yolo": "YOLO",
   "prompt.permission.retry": "Reload permissions",
   "prompt.action.enhance": "Enhance prompt",
   "prompt.action.indexing": "Indexing settings",
@@ -227,16 +226,6 @@ export const dict = {
     "Click to restrict filesystem writes. Network access remains allowed by your sandbox settings.",
   "prompt.action.enhanceDescription":
     "The 'Enhance Prompt' button helps improve your prompt by providing additional context, clarification, or rephrasing. Try typing a prompt in here and clicking the button again to see how it works.",
-  "speechToText.tooltip.start": "Start voice input with CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "Tap to start or stop recording. Hold while speaking, then release to transcribe and submit.",
-  "speechToText.tooltip.starting": "Starting microphone... Wait to speak.",
-  "speechToText.tooltip.stop": "Recording. Click to stop.",
-  "speechToText.tooltip.transcribing": "Transcribing... Click to cancel.",
-  "speechToText.tooltip.error": "Speech input failed. Click to clear.",
-  "speechToText.error.title": "Speech input failed",
-  "speechToText.error.loginRequired": "Sign in to CodeM to use speech input.",
-  "speechToText.error.emptyTranscript": "No speech was detected.",
 
   "prompt.toast.promptSendFailed.title": "Failed to send prompt",
 
@@ -875,11 +864,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Image Model",
   "settings.experimental.imageGenerationModel.description": "Image Generation Model",
   "settings.experimental.imageGenerationModel.placeholder": "Default (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Enable and sign in to the CodeM provider to use Speech to Text. Speech to Text is currently only supported through CodeM Gateway.",
-  "settings.models.speechToTextModel.title": "Speech to Text Model",
-  "settings.models.speechToTextModel.description": "Choose the CodeM Gateway transcription model for voice input.",
   "settings.experimental.nativeNotebookTools.title": "Native Notebook Tools",
   "settings.experimental.nativeNotebookTools.description":
     "Enable experimental tools for reading, editing, and executing VS Code notebooks",

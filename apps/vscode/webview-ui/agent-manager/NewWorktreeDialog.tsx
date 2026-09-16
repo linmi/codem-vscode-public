@@ -27,8 +27,6 @@ import { useConfig } from "../src/context/config"
 import { DEFAULT_VARIANT, cycleVariant, preserveVariant } from "../src/context/session-variant-store"
 import { ModelSelectorBase } from "../src/components/shared/ModelSelector"
 import { ModeSwitcherBase } from "../src/components/shared/ModeSwitcher"
-import { SpeechToTextButton } from "../src/components/speech-to-text/SpeechToTextButton"
-import { canUseSpeechToText, selectedSpeechToTextModel } from "../src/components/speech-to-text/availability"
 import { PromptOptionSelector } from "../src/components/shared/PromptOptionSelector"
 import { SandboxButtonBase, SandboxTooltipContent } from "../src/components/shared/SandboxButton"
 import {
@@ -40,11 +38,7 @@ import {
 } from "./MultiModelSelector"
 import { useLanguage } from "../src/context/language"
 import { useImageAttachments, type ImageAttachment } from "../src/hooks/useImageAttachments"
-import { useSpeechToText } from "../src/components/speech-to-text/useSpeechToText"
-import { useSpeechToTextModels } from "../src/context/speech-to-text-models"
-import { createSpeechShortcut } from "../src/components/speech-to-text/shortcut"
 import { convertToMentionPath, insertPathMentions } from "../src/utils/path-mentions"
-import { insertSpacedText } from "../src/components/chat/prompt-input-utils"
 import { useSlashCommand } from "../src/hooks/useSlashCommand"
 import { BranchSelect, BranchSelectPopover } from "../src/components/shared/BranchSelect"
 import { cycleAgent } from "../src/context/session-agent"
@@ -161,10 +155,6 @@ export const NewWorktreeDialog: Component<{
   const [sandboxRevision, setSandboxRevision] = createSignal(-1)
   const sandboxRequestID = crypto.randomUUID()
   const sandboxVisible = () => features().sandboxControls && globalConfig().sandbox?.enabled === true
-  const speech = useSpeechToText(vscode, server, { t })
-  const speechModels = useSpeechToTextModels()
-  const canUseSpeech = () => canUseSpeechToText(config(), provider.authStates())
-  const speechModel = () => selectedSpeechToTextModel(config(), speechModels.models())
   let prior: string | null = null
   let request: string | undefined
   const cancel = () => {
@@ -383,7 +373,6 @@ export const NewWorktreeDialog: Component<{
 
   const canSubmit = () => {
     if (starting()) return false
-    if (speech.active()) return false
     return selection.canSubmit(compareMode() ? modelAllocations() : undefined)
   }
   const total = () => (compareMode() ? totalAllocations(modelAllocations()) : versions())
@@ -459,12 +448,6 @@ export const NewWorktreeDialog: Component<{
   }
 
   const onKey = (e: KeyboardEvent) => {
-    if (shortcut.down(e)) {
-      e.preventDefault()
-      e.stopPropagation()
-      return
-    }
-
     if (slash.onKeyDown(e, textareaRef, setPromptValue, restorePrompt)) {
       e.stopPropagation()
       return
@@ -497,41 +480,7 @@ export const NewWorktreeDialog: Component<{
     box.style.height = `${Math.min(area.scrollHeight, 200) + chrome}px`
   }
 
-  const insertSpeechText = (value: string) => {
-    const ref = textareaRef
-    const current = prompt()
-    const start = ref?.selectionStart ?? current.length
-    const end = ref?.selectionEnd ?? start
-    const result = insertSpacedText(current, value, start, end)
-
-    cancel()
-    setPrompt(result.text)
-    persistPrompt(result.text)
-    if (!ref) return
-    ref.value = result.text
-    ref.setSelectionRange(result.pos, result.pos)
-    ref.focus()
-    adjustHeight()
-  }
-
-  const startSpeech = () => {
-    speech.start({ model: speechModel(), insert: insertSpeechText })
-  }
-
-  const shortcut = createSpeechShortcut({
-    speech,
-    disabled: () => !canUseSpeech() || starting(),
-    start: startSpeech,
-    finish: (submit) => speech.stop(submit ? { done: handleSubmit } : undefined),
-  })
-  const speechUp = (e: KeyboardEvent) => {
-    if (!shortcut.up(e)) return
-    e.preventDefault()
-    e.stopPropagation()
-  }
-  onCleanup(shortcut.reset)
-
-  const canEnhance = () => !starting() && !enhancing() && !speech.active() && server.isConnected()
+  const canEnhance = () => !starting() && !enhancing() && server.isConnected()
 
   const handleEnhance = () => {
     if (!canEnhance()) return
@@ -795,7 +744,6 @@ export const NewWorktreeDialog: Component<{
                       slash.onInput(val, e.currentTarget.selectionStart ?? val.length)
                     }}
                     onKeyDown={onKey}
-                    onKeyUp={speechUp}
                     onPaste={(e) => imageAttach.handlePaste(e)}
                     rows={3}
                     dir="auto"
@@ -873,9 +821,6 @@ export const NewWorktreeDialog: Component<{
                       tooltipClass="prompt-sandbox-tooltip-content"
                       onToggle={toggleSandbox}
                     />
-                  </Show>
-                  <Show when={canUseSpeech()}>
-                    <SpeechToTextButton speech={speech} disabled={starting()} start={startSpeech} label={t} />
                   </Show>
                 </div>
               </div>

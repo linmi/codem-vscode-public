@@ -15,15 +15,12 @@ import {
   createReviewComposer,
   reviewComposerDraft,
   reviewComposerEdit,
-  reviewDraftSpeechKey,
-  reviewEditSpeechKey,
   sendReviewComments,
   labels,
   type AnnotationMeta,
   type ReviewComposer,
 } from "./review-annotations"
-import { createReviewAnnotationSpeechRenderer } from "./review-annotation-speech"
-import { createReviewSpeech, keepsNativeFocus, reviewFocus } from "./review-setup"
+import { keepsNativeFocus, reviewFocus } from "./review-setup"
 import { createRemoteCommentController, createRemoteFocus, type DiffAnnotationMeta } from "./remote-comment-renderer"
 import { createReviewOpenState } from "./review-state"
 import { createReviewScrollPreserver } from "./review-scroll"
@@ -55,30 +52,9 @@ export function createReviewController(props: Props) {
   const canComment = props.canComment ?? (() => true)
   const [draft, setDraft] = createSignal(reviewComposerDraft(props.composer()))
   const [editing, setEditing] = createSignal(reviewComposerEdit(props.composer()))
-  const [speechKeys, setSpeechKeys] = createSignal(new Set<string>())
-  const voice = createReviewSpeech(props.label)
-  const speech = createReviewAnnotationSpeechRenderer({
-    speech: voice.speech,
-    enabled: voice.enabled,
-    model: voice.model,
-    label: props.label,
-    keys: speechKeys,
-  })
   let nextId = 0
   let draftMeta: AnnotationMeta | null = props.composer().draft
   let editMeta: AnnotationMeta | null = props.composer().edit
-
-  createEffect(
-    on(
-      () => [draft(), editing()] as const,
-      ([current, edit]) => {
-        const keys = new Set<string>()
-        if (current) keys.add(reviewDraftSpeechKey(current))
-        if (edit) keys.add(reviewEditSpeechKey(edit))
-        setSpeechKeys(keys)
-      },
-    ),
-  )
 
   createRenderEffect(
     on(active, (value) => {
@@ -247,7 +223,6 @@ export function createReviewController(props: Props) {
       cancelDraft,
       labels: labels(props.label),
       activeTerminalId: props.activeTerminalId,
-      speech,
     })
 
   const handleGutterClick = (file: string, range: SelectedLineRange) => {

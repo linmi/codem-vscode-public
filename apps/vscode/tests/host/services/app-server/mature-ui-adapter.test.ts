@@ -4,6 +4,37 @@ import type { AppServerFileDiff, AppServerHostEvent, AppServerInteraction } from
 import { AppServerMatureUiAdapter } from "../../../../src/services/app-server/mature-ui-adapter.ts"
 
 describe("AppServerMatureUiAdapter", () => {
+  for (const [outcome, reason, expectedStatus] of [
+    ["allow", null, "completed"],
+    ["allow", "ok", "completed"],
+    ["block", "Policy denied this action", "error"],
+    ["error", "Command failed", "error"],
+    ["timeout", null, "error"],
+    ["success", null, "error"],
+  ] as const) {
+    it(`projects hook ${outcome} with reason ${String(reason)}`, () => {
+      const adapter = new AppServerMatureUiAdapter()
+      adapter.accept({ type: "turn-started", threadId: "thread-1", turnId: "turn-1", submissionId: "submission-1" })
+      const [message] = adapter.accept({
+        type: "hook-completed",
+        threadId: "thread-1",
+        turnId: "turn-1",
+        eventName: "SessionStart",
+        toolName: null,
+        command: "check.sh",
+        outcome,
+        reason,
+        elapsedMs: 12,
+      })
+      if (message?.type !== "partUpdated" || message.part.type !== "tool") assert.fail("expected hook part")
+      assert.equal(message.part.state.status, expectedStatus)
+      if (message.part.state.status === "completed") assert.equal(message.part.state.output, reason ?? "")
+      else if (message.part.state.status === "error")
+        assert.equal(message.part.state.error, reason ?? `Hook ${outcome}`)
+      assert.equal(message.part.state.input.tool, null)
+    })
+  }
+
   it("keeps the mature UI optimistic user message pending until Core history confirms it", () => {
     const adapter = new AppServerMatureUiAdapter()
 
@@ -294,7 +325,7 @@ describe("AppServerMatureUiAdapter", () => {
       eventName: "PostToolUse",
       toolName: "run_bash",
       command: "check.sh",
-      outcome: "success",
+      outcome: "allow",
       reason: "ok",
       elapsedMs: 12,
     })

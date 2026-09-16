@@ -23,3 +23,13 @@ pnpm --dir apps/vscode exec esbuild tests/extension-host/spaces.ts --bundle --pl
 ```
 
 Use the launch setup above with `dist/tests/spaces.cjs`. Success requires exit zero and `SPACES_EXTENSION_HOST_PASS`. A caught failure writes `spaces-failure.txt` into the disposable workspace. On macOS, keep the isolated user-data path short (for example `/tmp/cs-.../u`); a long path exceeds the Unix socket limit before tests start. This is native command/service/controller acceptance; it does not drive QuickPick or inspect the visual status bar.
+
+# Live first-message acceptance
+
+`live-send.ts` sends one real model turn through the service/controller with Medium thinking and Auto permissions. It concurrently reads the new thread's modes and history, requires an actual assistant answer and a successful `turn/completed`, and verifies the connection and permissions remain available. It exercises configured lifecycle hooks, including the Core 0.8.37 `SessionStart` regression (`tool: ""`, `reason: null`, `outcome: "allow"`). Deterministic host and adapter tests cover that shape even on accounts without hooks.
+
+```sh
+pnpm --dir apps/vscode exec esbuild tests/extension-host/live-send.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/tests/live-send.cjs
+```
+
+Use the isolated, disposable trusted workspace setup above with `dist/tests/live-send.cjs`. The credential broker must already be signed in. This test uses model quota and runs the account's configured hooks; it requests no file inspection or workspace tools. It deletes only its own test thread on completion. Success requires exit zero and `LIVE_SEND_EXTENSION_HOST_PASS`; closing the test window before that marker is not a passing result. This verifies real Extension Host integration, not visual Webview rendering.

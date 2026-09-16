@@ -17,7 +17,6 @@ export interface AuthContext {
   invalidateProviders(): void
   fetchAndSendProviders(): Promise<void>
   fetchAndSendAgents(): Promise<void>
-  fetchAndSendSpeechToTextModels(): Promise<void>
 }
 
 /**
@@ -145,11 +144,6 @@ export async function handleSetOrganization(ctx: AuthContext, organizationId: st
     await ctx.fetchAndSendAgents()
   } catch (error) {
     console.error("[CodeM New] KiloProvider: Failed to refresh agents after org switch:", error)
-  }
-  try {
-    await ctx.fetchAndSendSpeechToTextModels()
-  } catch (error) {
-    console.error("[CodeM New] KiloProvider: Failed to refresh speech-to-text models after org switch:", error)
   }
 }
 

@@ -163,3 +163,30 @@ The user approved concrete thinking-effort and approval presets instead of repea
 The webview session owns permission state across composer remounts and tab switches. The App Server host coalesces concurrent reads and reuses confirmed state, updates it through Core notifications, and invalidates it on thread retirement or failed writes. Restoration reads again; failed reads permit explicit retry. Thinking and permission controls share `PromptOptionSelector`, including keyboard access, focus behavior, popup styling and high-contrast borders. This changes selector initialization and first-send parameters, not the overall Core process startup lifecycle.
 
 Validation: focused App Server and VS Code regressions cover presets, exact first-send parameters, rejected initial overrides, slash commands, draft isolation, read coalescing, failed-read retry, conflicts and retired responses. A real Extension Host with Core 0.8.37 accepted the selected initial permission mode, preserved it while changing thinking effort, and passed cross-surface notification, stale-write and unsubscribe/resume checks. No agent turn or tool was executed in that integration check.
+
+## VS Code voice input removal (2026-09-16)
+
+The user explicitly retired voice input from the VS Code client. Removed the chat,
+new-worktree and diff-comment microphone controls, recording shortcuts, prewarm,
+model settings/catalog, Host recording/transcription code and Webview messages.
+Deleted the FFmpeg download helper and both packaging callers; `.vscodeignore`
+excludes old FFmpeg binaries when packaging from an existing output tree.
+The five old inbound commands are no longer in the ownership registry; negative
+regressions prevent their reintroduction. Text input, attachments and review
+comments remain. Historical changelog entries and the imported backend/SDK used
+by other consumers are retained; this cycle does not retire the Kilo runtime.
+
+## Stop bundling the transitional Kilo runtime (2026-09-16)
+
+The user authorized shipping an incomplete development package before all legacy
+features are adapted. VSIX `bin/` now includes only `bin/app-server/`; retained
+local Kilo binaries, Tree-sitter resources and sandbox helpers cannot leak into
+the artifact. The normal package task no longer prepares Kilo. The multi-target
+builder stages the pinned CodeM runtime and broker for the six supported targets,
+without an imported CLI build directory. Missing legacy runtime use reports the
+unmigrated feature instead of instructing users to restore Kilo.
+
+Source-development launch scripts and legacy consumers remain migration input,
+with deletion deferred until their functionality is adapted. This does not
+claim a completed production transport cutover. Packaging regressions cover
+stale POSIX/Windows binaries and preservation of CodeM binaries and licenses.

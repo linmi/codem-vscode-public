@@ -7,7 +7,6 @@ export type CodeMUiInteractionOwner =
   | "editor-host"
   | "agent-manager-host"
   | "autocomplete-service"
-  | "speech-service"
   | "cloud-service"
   | "usage-service"
   | "external-integration"
@@ -233,7 +232,6 @@ export const CODEM_UI_INTERACTION_OWNERS = {
   requestSessionModelUsage: "app-server-control",
   requestSessionSearch: "editor-host",
   requestSkills: "app-server-control",
-  requestSpeechToTextModels: "speech-service",
   requestTerminalContext: "editor-host",
   requestThroughputSetting: "editor-host",
   requestTimelineSetting: "editor-host",
@@ -261,10 +259,6 @@ export const CODEM_UI_INTERACTION_OWNERS = {
   setWorkStyle: "editor-host",
   settingsTabChanged: "editor-host",
   "sidebar.openSessions": "agent-manager-host",
-  speechToTextCancel: "speech-service",
-  speechToTextPrewarm: "speech-service",
-  speechToTextStart: "speech-service",
-  speechToTextStop: "speech-service",
   startMigration: "editor-host",
   streamSessionVisible: "editor-host",
   suggestionAccept: "app-server-live",

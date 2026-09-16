@@ -43,6 +43,8 @@ await connection.close()
 
 The connection owns one long-lived Core child process, drains stderr through the editor-owned logging hook, performs and validates `initialize`, sends `initialized`, correlates concurrent requests, routes notifications and server requests, and fails closed on malformed, duplicate, stale, or unknown frames. Shutdown is bounded: stdin close is followed by `SIGTERM` and then `SIGKILL` when Core does not exit. The pinned Core 0.8.37 currently omits `jsonrpc` on responses, so inbound frames temporarily accept either omission or the exact value `"2.0"`; outbound frames are always JSON-RPC 2.0.
 
+For `hook/completed`, Core 0.8.37 emits an empty `run.tool` for lifecycle hooks such as `SessionStart`, and `run.reason` may be `null`. The host represents both absent associations and absent reasons explicitly as `null`; missing or incorrectly typed wire fields still fail validation. A successful hook verdict is `allow`. Hook failure verdicts remain distinct from the turn's terminal result.
+
 Build scripts import staging from `@codem/app-server/build`:
 
 ```ts

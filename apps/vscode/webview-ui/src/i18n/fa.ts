@@ -199,7 +199,6 @@ export const dict = {
   "prompt.action.send": "ارسال",
   "prompt.action.continue": "ادامه",
   "prompt.action.send.blocked": "ابتدا به سؤال در انتظار پاسخ دهید یا آن را رد کنید",
-  "prompt.action.send.recording": "رونویسی و ارسال",
   "prompt.action.stop": "توقف",
   "prompt.action.enhance": "بهبود پرامپت",
   "prompt.action.indexing": "تنظیمات ایندکس‌گذاری",
@@ -222,16 +221,6 @@ export const dict = {
     "برای محدود کردن نوشتن در سیستم فایل کلیک کنید. دسترسی به شبکه طبق تنظیمات sandbox شما مجاز است.",
   "prompt.action.enhanceDescription":
     "دکمه «بهبود پرامپت» با ارائه زمینه بیشتر، توضیح یا بازنویسی، به بهتر کردن پرامپت شما کمک می‌کند. یک پرامپت تایپ کنید و دوباره روی دکمه کلیک کنید تا نحوه عملکرد آن را ببینید.",
-  "speechToText.tooltip.start": "شروع ورودی صوتی با CodeM Gateway",
-  "speechToText.tooltip.shortcut":
-    "برای شروع یا توقف ضبط، روی دکمه ضربه بزنید یا Cmd/Ctrl+K را فشار دهید؛ هنگام صحبت دکمه را نگه دارید و سپس رها کنید تا گفتار به متن تبدیل و ارسال شود.",
-  "speechToText.tooltip.starting": "در حال راه‌اندازی میکروفون... منتظر بمانید.",
-  "speechToText.tooltip.stop": "در حال ضبط. برای توقف کلیک کنید.",
-  "speechToText.tooltip.transcribing": "در حال رونویسی... برای لغو کلیک کنید.",
-  "speechToText.tooltip.error": "ورودی صوتی ناموفق بود. برای پاک کردن کلیک کنید.",
-  "speechToText.error.title": "ورودی صوتی ناموفق بود",
-  "speechToText.error.loginRequired": "برای استفاده از ورودی صوتی وارد CodeM شوید.",
-  "speechToText.error.emptyTranscript": "هیچ گفتاری شناسایی نشد.",
 
   "prompt.toast.promptSendFailed.title": "ارسال پرامپت ناموفق بود",
 
@@ -870,11 +859,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "مدل تصویر",
   "settings.experimental.imageGenerationModel.description": "مدل تولید تصویر",
   "settings.experimental.imageGenerationModel.placeholder": "پیش‌فرض (مسیریاب خودکار)",
-
-  "settings.models.speechToText.disabledDescription":
-    "برای استفاده از تبدیل گفتار به متن، ارائه‌دهنده CodeM را فعال کرده و وارد شوید. تبدیل گفتار به متن در حال حاضر فقط از طریق CodeM Gateway پشتیبانی می‌شود.",
-  "settings.models.speechToTextModel.title": "مدل تبدیل گفتار به متن",
-  "settings.models.speechToTextModel.description": "مدل رونویسی CodeM Gateway را برای ورودی صوتی انتخاب کنید.",
   "settings.experimental.nativeNotebookTools.title": "ابزارهای بومی Notebook",
   "settings.experimental.nativeNotebookTools.description":
     "ابزارهای آزمایشی برای خواندن، ویرایش و اجرای VS Code notebooks را فعال کنید",

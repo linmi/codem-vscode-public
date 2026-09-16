@@ -283,10 +283,10 @@ export type AppServerHostEvent =
       readonly threadId: string
       readonly turnId: string
       readonly eventName: string
-      readonly toolName: string
+      readonly toolName: string | null
       readonly command: string
       readonly outcome: string
-      readonly reason: string
+      readonly reason: string | null
       readonly elapsedMs: number
     }
   | {
@@ -1117,15 +1117,17 @@ export class AppServerHost {
     }
     if (frame.method === "hook/completed") {
       const run = objectValue(frame.params.run, "hook/completed run")
+      // Lifecycle hooks have no associated tool; Core encodes that as an empty string.
+      const toolName = stringValue(run.tool, "hook/completed run.tool")
       this.emit({
         type: "hook-completed",
         threadId: thread.id,
         turnId,
         eventName: nonBlankString(run.event, "hook/completed run.event"),
-        toolName: nonBlankString(run.tool, "hook/completed run.tool"),
+        toolName: toolName === "" ? null : nonBlankString(toolName, "hook/completed run.tool"),
         command: nonBlankString(run.command, "hook/completed run.command"),
         outcome: nonBlankString(run.outcome, "hook/completed run.outcome"),
-        reason: stringValue(run.reason, "hook/completed run.reason"),
+        reason: run.reason === null ? null : stringValue(run.reason, "hook/completed run.reason"),
         elapsedMs: nonNegativeNumber(run.elapsedMs, "hook/completed run.elapsedMs"),
       })
       return

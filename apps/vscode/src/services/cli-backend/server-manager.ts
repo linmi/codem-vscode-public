@@ -87,7 +87,7 @@ export class ServerManager {
     // Verify the CLI binary exists
     if (!fs.existsSync(cliPath)) {
       throw new Error(
-        `CLI binary not found at expected path: ${cliPath}. Please ensure the CLI is built and bundled with the extension.`,
+        `This development package does not include the legacy Kilo CLI (${cliPath}). This feature still depends on Kilo and has not yet been migrated to CodeM App Server.`,
       )
     }
 

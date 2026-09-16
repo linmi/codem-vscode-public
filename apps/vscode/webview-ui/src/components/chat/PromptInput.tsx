@@ -26,8 +26,6 @@ import { useProvider } from "../../context/provider"
 import { ModelSelector, ModelSelectorBase } from "../shared/ModelSelector"
 import { ModeSwitcher } from "../shared/ModeSwitcher"
 import { SandboxButtonBase, SandboxTooltipContent } from "../shared/SandboxButton"
-import { SpeechToTextButton } from "../speech-to-text/SpeechToTextButton"
-import { canUseSpeechToText, selectedSpeechToTextModel } from "../speech-to-text/availability"
 import { ThinkingSelector } from "../shared/ThinkingSelector"
 import { useFileMention } from "../../hooks/useFileMention"
 import type { MentionResult, WorktreeReference } from "../../hooks/file-mention-utils"
@@ -40,9 +38,6 @@ import { useSlashCommand } from "../../hooks/useSlashCommand"
 import { useGoalComposer } from "./goal/useGoalComposer"
 import { GoalHeader } from "./goal/GoalHeader"
 import { useGhostText } from "../../hooks/useGhostText"
-import { useSpeechToText } from "../speech-to-text/useSpeechToText"
-import { useSpeechToTextModels } from "../../context/speech-to-text-models"
-import { createSpeechShortcut } from "../speech-to-text/shortcut"
 import { useImageAttachments, type ImageAttachment } from "../../hooks/useImageAttachments"
 import { convertToMentionPath, insertPathMentions } from "../../utils/path-mentions"
 import { SessionMentionPicker } from "./SessionMentionPicker"
@@ -55,7 +50,6 @@ import {
   dirName,
   buildHighlightSegments,
   atEnd,
-  insertSpacedText,
   isPromptBusy,
   isPathMention,
   memoryRest,
@@ -360,9 +354,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     const id = session.currentSessionID()
     return id ? session.threadPermissions.view(id) : null
   }
-  const permissionValue = () => session.currentSessionID()
-    ? permissionView()?.state?.permissionMode
-    : session.threadPermissions.draftMode(sid())
+  const permissionValue = () =>
+    session.currentSessionID() ? permissionView()?.state?.permissionMode : session.threadPermissions.draftMode(sid())
   const selectPermissionMode = (value: string) => {
     const mode = parsePermissionMode(value)
     const id = session.currentSessionID()
@@ -510,9 +503,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const ghost = useGhostText(vscode, text, () => server.isConnected())
-  const speech = useSpeechToText(vscode, server, language)
-  const speechModels = useSpeechToTextModels()
-
   const replaceReviewComments = (next: ReviewCommentEntry[]) => {
     setReviewComments(next)
     if (next.length === 0) {
@@ -717,30 +707,20 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       globalConfig(),
     )
   const isDisabled = () => !server.isConnected() || locked() || goal.pending()
-  const canUseSpeech = () => canUseSpeechToText(config(), provider.authStates())
-  const speechModel = () => selectedSpeechToTextModel(config(), speechModels.models())
   const hasInput = () =>
     text().trim().length > 0 || imageAttach.images().length > 0 || reviewComments().length > 0 || browsers().length > 0
   const sendReady = () => !isDisabled() && goalReady() && !terminal.pending() && !git.pending() && !props.blocked?.()
-  const canContinue = () => !goal.active() && speech.state() === "idle" && !hasInput() && session.canResume()
+  const canContinue = () => !goal.active() && !hasInput() && session.canResume()
   const goalReady = () => !goal.pending() && (!goal.active() || (!enhancing() && !imageAttach.pending()))
-  const canSend = () =>
-    sendReady() &&
-    (speech.state() === "recording" ||
-      (!speech.active() && (goal.active() ? goal.ready(text()) : hasInput() || canContinue())))
-  const canSendContinue = () => sendReady() && !speech.active() && canContinue()
+  const canSend = () => sendReady() && (goal.active() ? goal.ready(text()) : hasInput() || canContinue())
+  const canSendContinue = () => sendReady() && canContinue()
   const sendLabel = () => {
     if (props.blocked?.()) return language.t("prompt.action.send.blocked")
-    if (speech.state() === "recording") return language.t("prompt.action.send.recording")
     if (goal.active()) return language.t("prompt.goal.start")
     if (canSendContinue()) return language.t("prompt.action.continue")
     return language.t("prompt.action.send")
   }
-  const showStop = () =>
-    !goal.active() &&
-    (isBusy() || session.currentSession()?.goal?.active) &&
-    !hasInput() &&
-    speech.state() !== "recording"
+  const showStop = () => !goal.active() && (isBusy() || session.currentSession()?.goal?.active) && !hasInput()
   const isAtEnd = () =>
     textareaRef ? atEnd(textareaRef.selectionStart, textareaRef.selectionEnd, textareaRef.value.length) : false
   const highlightMentions = () => {
@@ -765,8 +745,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     }
   }
 
-  const canEdit = () =>
-    server.isConnected() && !hasInput() && !enhancing() && !speech.active() && !terminal.pending() && !git.pending()
+  const canEdit = () => server.isConnected() && !hasInput() && !enhancing() && !terminal.pending() && !git.pending()
   createEffect(() => props.onEditReady?.(canEdit()))
 
   const edit = async (request: NonNullable<PromptInputProps["edit"]>) => {
@@ -1312,83 +1291,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     setEnhancing(true)
     vscode.postMessage({ type: "enhancePrompt", text: draft, requestId: `enhance-${draftKey()}-${enhanceCounter}` })
   }
-
-  const insertSpeechText = (value: string) => {
-    const ref = textareaRef
-    const current = text()
-    const start = ref?.selectionStart ?? current.length
-    const end = ref?.selectionEnd ?? start
-    const result = insertSpacedText(current, value, start, end)
-
-    setText(result.text)
-    if (!ref) return
-    ref.value = result.text
-    ref.setSelectionRange(result.pos, result.pos)
-    ref.focus()
-    adjustHeight()
-    syncHighlightScroll()
-    ghost.scheduleRequest(result.text, ref)
-  }
-
-  const startSpeech = () => {
-    speech.start({ model: speechModel(), insert: insertSpeechText })
-  }
-
-  const transcribeAndSend = () => {
-    const key = draftKey()
-    const id = sid()
-    const context = ctx()
-    const value = text()
-    const comments = reviewComments()
-    const browser = browsers()
-    const images = imageAttach.images()
-    speech.stop({
-      done: () => void handleSend(),
-      ready: () =>
-        draftKey() === key &&
-        sid() === id &&
-        ctx() === context &&
-        text() === value &&
-        reviewComments() === comments &&
-        browsers() === browser &&
-        imageAttach.images() === images,
-    })
-  }
-
-  const shortcut = createSpeechShortcut({
-    speech,
-    disabled: () => !canUseSpeech() || isDisabled(),
-    start: startSpeech,
-    finish: (submit) => {
-      if (submit) {
-        transcribeAndSend()
-        return
-      }
-      speech.stop()
-    },
-  })
-  const speechDown = (e: KeyboardEvent): boolean => {
-    if (!shortcut.down(e)) return false
-    e.preventDefault()
-    e.stopPropagation()
-    return true
-  }
-  const speechUp = (e: KeyboardEvent): boolean => {
-    if (!shortcut.up(e)) return false
-    e.preventDefault()
-    e.stopPropagation()
-    return true
-  }
-  onCleanup(shortcut.reset)
-
-  const handleSendClick = () => {
-    if (speech.state() !== "recording" || !canSend()) {
-      void handleSend()
-      return
-    }
-    transcribeAndSend()
-  }
-
   const runMemory = (memory: NonNullable<ReturnType<typeof parseMemoryCommand>>) => {
     if (memory.kind === "usage") {
       showToast({ variant: "error", title: language.t("chat.memory.command.failed"), description: memory.reason })
@@ -1406,7 +1308,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       adjustHeight()
       return false
     }
-    if (isDisabled() || speech.active() || terminal.pending() || git.pending() || props.blocked?.()) return false
+    if (isDisabled() || terminal.pending() || git.pending() || props.blocked?.()) return false
     const status = projectMemory.status()
     if (
       memory.kind === "operation" &&
@@ -1526,7 +1428,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       return
     }
     const data = review ? { version: 1 as const, comments: pending } : undefined
-    if ((!message && imgs.length === 0) || !sendReady() || speech.active()) return
+    if ((!message && imgs.length === 0) || !sendReady()) return
 
     const mentionFiles = mention.parseFileAttachments(draft)
     const imgFiles = imgs.map((img) => ({ mime: img.mime, url: img.dataUrl, filename: img.filename }))
@@ -1898,17 +1800,13 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             value={text()}
             onInput={handleInput}
             onKeyDown={(e) => {
-              if (speechDown(e)) return
               const key = e.key.toLowerCase()
               if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === "z" || (key === "y" && !e.shiftKey))) {
                 e.stopPropagation()
               }
               handleKeyDown(e)
             }}
-            onKeyUp={(e) => {
-              if (speechUp(e)) return
-              syncGhost()
-            }}
+            onKeyUp={syncGhost}
             onPaste={handlePaste}
             onClick={syncGhost}
             onFocus={() => {
@@ -1945,7 +1843,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               label={language.t("prompt.permission.label")}
               tooltip={permissionView()?.error ?? language.t("prompt.permission.description")}
               busy={Boolean(permissionView()?.requestID)}
-              blocked={Boolean(props.blocked?.() || (permissionView() && (!permissionView()?.state || permissionView()?.requestID || permissionView()?.error)))}
+              blocked={Boolean(
+                props.blocked?.() ||
+                  (permissionView() &&
+                    (!permissionView()?.state || permissionView()?.requestID || permissionView()?.error)),
+              )}
               triggerEvent="selectPermissionMode"
               placement="top-start"
               onSelect={selectPermissionMode}
@@ -1995,9 +1897,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               aria-label={language.t("prompt.action.enhance")}
             />
           </Tooltip>
-          <Show when={canUseSpeech()}>
-            <SpeechToTextButton speech={speech} disabled={isDisabled()} start={startSpeech} label={language.t} />
-          </Show>
+
           <Show
             when={showStop()}
             fallback={
@@ -2009,7 +1909,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       icon="send"
                       variant="ghost"
                       size="small"
-                      onClick={handleSendClick}
+                      onClick={() => void handleSend()}
                       disabled={!canSend()}
                       aria-label={sendLabel()}
                     />
@@ -2019,7 +1919,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     icon="send"
                     variant="ghost"
                     size="small"
-                    onClick={handleSendClick}
+                    onClick={() => void handleSend()}
                     disabled={!canSend()}
                     aria-label={sendLabel()}
                   >

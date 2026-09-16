@@ -39,7 +39,14 @@
       "command": "pnpm",
       "args": ["run", "watch:tsc"],
       "group": "build",
-      "problemMatcher": "$tsc-watch",
+      "problemMatcher": {
+        "base": "$tsc",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^build starting at ",
+          "endsPattern": "^build finished in "
+        }
+      },
       "isBackground": true,
       "presentation": {
         "group": "watch",

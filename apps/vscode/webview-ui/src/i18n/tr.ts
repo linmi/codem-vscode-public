@@ -199,7 +199,6 @@ export const dict = {
   "prompt.action.send": "Gönder",
   "prompt.action.continue": "Devam et",
   "prompt.action.send.blocked": "Bekleyen soruyu önce yanıtlayın veya kapatın",
-  "prompt.action.send.recording": "Yazıya dök ve gönder",
   "prompt.action.stop": "Durdur",
   "prompt.action.enhance": "Komutu geliştir",
   "prompt.action.indexing": "İndeksleme ayarları",
@@ -223,17 +222,6 @@ export const dict = {
     "Dosya sistemi yazma işlemlerini ve ağ erişimini kısıtlamak için tıklayın.",
   "prompt.action.sandbox.description.disabledNetworkAllowed":
     "Dosya sistemi yazma işlemlerini kısıtlamak için tıklayın. Sandbox ayarlarınız ağ erişimine izin vermeye devam ediyor.",
-
-  "speechToText.tooltip.start": "CodeM Gateway ile sesli girişi başlatın",
-  "speechToText.tooltip.shortcut":
-    "Kaydı başlatmak veya durdurmak için dokunun ya da Cmd/Ctrl+K tuşlarına basın; konuşurken basılı tutun, ardından metne dönüştürüp göndermek için bırakın.",
-  "speechToText.tooltip.starting": "Mikrofon başlatılıyor... Henüz konuşmayın.",
-  "speechToText.tooltip.stop": "Ses yakalamayı durdur",
-  "speechToText.tooltip.transcribing": "Metne dönüştürülüyor... İptal etmek için tıklayın.",
-  "speechToText.tooltip.error": "Sesli giriş başarısız oldu. Temizlemek için tıklayın.",
-  "speechToText.error.title": "Sesli giriş başarısız oldu",
-  "speechToText.error.loginRequired": "Sesli girişi kullanmak için CodeM'ya giriş yapın.",
-  "speechToText.error.emptyTranscript": "Hiçbir konuşma algılanmadı.",
 
   "prompt.toast.promptSendFailed.title": "Komut gönderilemedi",
 
@@ -878,11 +866,6 @@ export const dict = {
   "settings.experimental.imageGenerationModel.title": "Görüntü modeli",
   "settings.experimental.imageGenerationModel.description": "Görüntü oluşturma modeli",
   "settings.experimental.imageGenerationModel.placeholder": "Varsayılan (Auto Router)",
-
-  "settings.models.speechToText.disabledDescription":
-    "Speech to Text kullanmak için CodeM sağlayıcısını etkinleştirin ve giriş yapın. Speech to Text şu anda yalnızca CodeM Gateway ile desteklenmektedir.",
-  "settings.models.speechToTextModel.title": "Sesten metne modeli",
-  "settings.models.speechToTextModel.description": "Sesli giriş için CodeM Gateway transkripsiyon modelini seçin.",
   "settings.experimental.nativeNotebookTools.title": "Yerel Not Defteri Araçları",
   "settings.experimental.nativeNotebookTools.description":
     "VS Code not defterlerini okumak, düzenlemek ve çalıştırmak için deneysel araçları etkinleştir",
