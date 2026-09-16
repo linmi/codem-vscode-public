@@ -22,6 +22,26 @@ interface TurnView {
   readonly startedAt: string
 }
 
+type AssistantViewMessage = Message & {
+  role: "assistant"
+  time: { created: number; completed?: number }
+}
+
+// The retained renderer requires time even while streaming. Keep live and
+// durable assistant projections on the same presentation contract.
+function assistantMessage(threadId: string, view: TurnView, completedAt?: number): AssistantViewMessage {
+  return {
+    id: view.messageId,
+    sessionID: threadId,
+    role: "assistant",
+    createdAt: view.startedAt,
+    time: {
+      created: Date.parse(view.startedAt),
+      ...(completedAt === undefined ? {} : { completed: completedAt }),
+    },
+  }
+}
+
 interface ToolView {
   readonly threadId: string
   readonly turnId: string
@@ -320,7 +340,7 @@ export class AppServerMatureUiAdapter {
     return [
       {
         type: "messageCreated",
-        message: { id: view.messageId, sessionID: threadId, role: "assistant", createdAt: startedAt },
+        message: assistantMessage(threadId, view),
       },
       { type: "sessionStatus", sessionID: threadId, status: "busy" },
     ]
@@ -439,7 +459,6 @@ export class AppServerMatureUiAdapter {
           id: `${item.id}:summary`,
           type: "text",
           text: item.finalAnswer.summary,
-          synthetic: true,
           sessionID: threadId,
           messageID: view.messageId,
           metadata: {
@@ -555,6 +574,7 @@ export class AppServerMatureUiAdapter {
     event: Extract<AppServerHostEvent, { readonly type: "turn-completed" }>,
   ): readonly ExtensionMessage[] {
     const key = turnKey(event.threadId, event.turnId)
+    const view = this.turns.get(key)
     this.turns.delete(key)
     this.hookSequenceByTurn.delete(key)
     for (const [id, tool] of this.toolsByItem) {
@@ -565,6 +585,11 @@ export class AppServerMatureUiAdapter {
     }
     const reason = event.outcome === "completed" ? "completed" : event.outcome === "stopped" ? "interrupted" : "error"
     return [
+      // Upsert metadata only: the Webview preserves already-streamed parts.
+      // Live terminal authority settles rendering without waiting for JSONL.
+      ...(view
+        ? ([{ type: "messageCreated", message: assistantMessage(event.threadId, view, Date.now()) }] as const)
+        : []),
       { type: "sessionStatus", sessionID: event.threadId, status: "idle" },
       { type: "sessionTurnClosed", sessionID: event.threadId, eventID: event.turnId, reason },
       ...(event.error ? ([{ type: "error", message: event.error, sessionID: event.threadId }] as const) : []),
@@ -685,14 +710,12 @@ function historyMessages(
     const parts = historyParts(entries)
     if (parts.length > 0) {
       messages.push({
-        id: assistantMessageId(turn.id),
-        sessionID: threadId,
-        role: "assistant",
-        createdAt: turn.startedAt,
+        ...assistantMessage(
+          threadId,
+          { messageId: assistantMessageId(turn.id), startedAt: turn.startedAt },
+          turn.completedAt ? Date.parse(turn.completedAt) : undefined,
+        ),
         parts: parts.map((part) => ({ ...part, sessionID: threadId, messageID: assistantMessageId(turn.id) })),
-        ...(turn.completedAt
-          ? { time: { created: Date.parse(turn.startedAt), completed: Date.parse(turn.completedAt) } }
-          : {}),
       })
     }
   }
@@ -754,7 +777,6 @@ function historyPart(item: AppServerHistoryItem): Part[] {
       id: `${item.id}:summary`,
       type: "text",
       text: item.finalAnswer.summary,
-      synthetic: true,
       metadata: {
         appServerFinalAnswer: true,
         status: item.finalAnswer.status,

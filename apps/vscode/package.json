@@ -2,7 +2,7 @@
   "name": "codem",
   "displayName": "CodeM",
   "description": "Development build of the CodeM editor client for VS Code.",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "icon": "assets/icons/codem.png",
   "galleryBanner": {
     "color": "#FFFFFF",
@@ -1259,7 +1259,7 @@
     "knip": "knip",
     "check-kilocode-change": "! grep -rIn 'kilocode_change' . ../../packages/legacy/kilo-ui/ --exclude='package.json' --exclude='*.md' --exclude-dir='node_modules' --exclude-dir='dist' | grep -v '`kilocode_change`'",
     "lint": "eslint --cache --cache-strategy content --cache-location node_modules/.cache/eslint src webview-ui",
-    "test": "bun test src/services/app-server/*.test.ts --dots",
+    "test": "bun test src/services/app-server/*.test.ts tests/unit/app-server-text-render.test.ts --dots",
     "test:unit": "bun test tests/unit/ --dots",
     "rebuild-sdk": "bun run --cwd ../../packages/sdk/js build",
     "storybook": "storybook dev -p 6007",

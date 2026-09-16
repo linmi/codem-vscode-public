@@ -33,6 +33,7 @@ describe("AppServerMatureUiAdapter", () => {
         sessionID: threadId,
         role: "assistant",
         createdAt: "<timestamp>",
+        time: { created: Date.parse(messages[0].message.createdAt) },
       },
     )
     assert.deepEqual(messages[1], { type: "sessionStatus", sessionID: threadId, status: "busy" })
@@ -109,6 +110,78 @@ describe("AppServerMatureUiAdapter", () => {
     assert.match(completed[0].part.state.metadata?.filediff?.patch as string, /^--- a\/src\/example\.ts/mu)
   })
 
+  for (const outcome of ["completed", "stopped", "failed"] as const) {
+    it(`settles assistant rendering on ${outcome} before durable history arrives`, () => {
+      const adapter = new AppServerMatureUiAdapter()
+      const identity = { threadId: "thread-1", turnId: "turn-1" }
+      const [start] = adapter.accept({ type: "turn-started", ...identity, submissionId: "submission-1" })
+      if (start?.type !== "messageCreated") assert.fail("expected assistant message")
+      assert.ok(Number.isFinite(start.message.time?.created))
+      assert.equal(start.message.time?.completed, undefined)
+      assert.deepEqual(adapter.accept({ type: "turn-started", ...identity, submissionId: "submission-1" }), [])
+      const other = adapter.accept({
+        type: "turn-started",
+        threadId: "thread-2",
+        turnId: "turn-1",
+        submissionId: "submission-2",
+      })
+      const terminal: AppServerHostEvent = {
+        type: "turn-completed",
+        ...identity,
+        outcome,
+        stopReason: outcome,
+        error: outcome === "failed" ? "Core failed" : null,
+      }
+      const updates = adapter.accept(terminal)
+      const end = updates[0]
+      if (end?.type !== "messageCreated") assert.fail("expected completed assistant metadata")
+      assert.equal(end.message.id, start.message.id)
+      assert.equal(end.message.sessionID, identity.threadId)
+      assert.equal(end.message.createdAt, start.message.createdAt)
+      assert.equal(end.message.time?.created, start.message.time?.created)
+      assert.ok(Number.isFinite(end.message.time?.completed))
+      assert.equal(end.message.parts, undefined, "metadata update must not replace streamed parts")
+      assert.deepEqual(updates[1], { type: "sessionStatus", sessionID: identity.threadId, status: "idle" })
+      assert.deepEqual(updates[2], {
+        type: "sessionTurnClosed",
+        sessionID: identity.threadId,
+        eventID: identity.turnId,
+        reason: outcome === "stopped" ? "interrupted" : outcome === "failed" ? "error" : "completed",
+      })
+      assert.equal(
+        adapter.accept(terminal).some((event) => event.type === "messageCreated"),
+        false,
+      )
+      assert.equal(other[0]?.type === "messageCreated" && other[0].message.time?.completed, undefined)
+    })
+  }
+
+  it("supplies creation time for unfinished history as well as completed history", () => {
+    const adapter = new AppServerMatureUiAdapter()
+    for (const completedAt of [null, "2026-09-15T00:00:01.000Z"]) {
+      const loaded = adapter.messagesLoaded({
+        threadId: "thread-1",
+        turns: [
+          {
+            id: "turn-1",
+            input: "Hello",
+            submissionId: "submission-1",
+            startedAt: "2026-09-15T00:00:00.000Z",
+            completedAt,
+            status: completedAt ? "completed" : "inProgress",
+            itemsView: "full",
+          },
+        ],
+        items: [historyItem({ id: "answer-1", type: "agentMessage", text: "Hello", recordSeq: 1 })],
+      })
+      if (loaded.type !== "messagesLoaded") assert.fail("expected history")
+      assert.deepEqual(loaded.messages[1]?.time, {
+        created: Date.parse("2026-09-15T00:00:00.000Z"),
+        ...(completedAt ? { completed: Date.parse(completedAt) } : {}),
+      })
+    }
+  })
+
   it("maps permission choices without inventing an unoffered response", () => {
     const adapter = new AppServerMatureUiAdapter()
     const interaction: AppServerInteraction = {
@@ -166,7 +239,7 @@ describe("AppServerMatureUiAdapter", () => {
       assert.fail("expected final-answer text")
     }
     assert.equal(completed[1].part.text, "Implemented the adapter.")
-    assert.equal(completed[1].part.synthetic, true)
+    assert.equal(completed[1].part.synthetic, undefined)
   })
 
   it("preserves background sub-agents, hooks, and prompt enhancement on the mature message wire", () => {
