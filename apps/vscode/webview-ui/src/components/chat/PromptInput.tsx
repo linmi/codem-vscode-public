@@ -1,4 +1,4 @@
-import { permissionMode as parsePermissionMode } from "@codem/app-server/modes"
+import { parseCodemPermissionMode as parsePermissionMode } from "@codem/protocol"
 import { PromptOptionSelector } from "../shared/PromptOptionSelector"
 /**
  * PromptInput component

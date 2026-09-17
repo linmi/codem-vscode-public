@@ -143,10 +143,10 @@ describe("useSlashCommand sandbox action", () => {
     const ctx = setup(() => {}, { include: new Set(["models", "agents", "variant", "sandbox"]) })
 
     ctx.fire({
-      type: "commandsLoaded",
-      commands: [
-        { name: "merge", description: "Merge changes", hints: [] },
-        { name: "models", description: "Server model command", hints: [] },
+      type: "codemSkillsLoaded",
+      skills: [
+        { name: "merge", description: "Merge changes" },
+        { name: "models", description: "Server model command" },
       ],
     })
     ctx.slash.onInput("/merge", 6)
@@ -285,8 +285,8 @@ describe("useSlashCommand sandbox action", () => {
 
     ctx.slash.onInput("/sandbox", 8)
     ctx.fire({
-      type: "commandsLoaded",
-      commands: [{ name: "sandbox", description: "Server sandbox command", hints: [] }],
+      type: "codemSkillsLoaded",
+      skills: [{ name: "sandbox", description: "Server sandbox command" }],
     })
     expect(ctx.slash.results()).toEqual([])
 
@@ -368,30 +368,24 @@ describe("useSlashCommand sandbox action", () => {
     ctx.dispose()
   })
 
-  it("preserves model, agent, and variant metadata on loaded server commands", () => {
+  it("maps Core skills into slash entries without inventing Kilo command metadata", () => {
     const ctx = setup(() => {})
 
     ctx.fire({
-      type: "commandsLoaded",
-      commands: [
-        {
-          name: "ship",
-          description: "Ship PR",
-          agent: "code",
-          model: "openai/gpt-5.6-luna-fast",
-          variant: "xhigh",
-          hints: ["deploy"],
-        },
-      ],
+      type: "codemSkillsLoaded",
+      skills: [{ name: "ship", description: "Ship PR" }],
     })
 
     ctx.slash.onInput("/ship", 5)
     const matches = ctx.slash.results()
     expect(matches).toHaveLength(1)
     expect(matches[0]?.name).toBe("ship")
-    expect(matches[0]?.agent).toBe("code")
-    expect(matches[0]?.model).toBe("openai/gpt-5.6-luna-fast")
-    expect(matches[0]?.variant).toBe("xhigh")
+    expect(matches[0]?.description).toBe("Ship PR")
+    expect(matches[0]?.source).toBe("skill")
+    expect(matches[0]?.hints).toEqual([])
+    expect(matches[0]?.agent).toBeUndefined()
+    expect(matches[0]?.model).toBeUndefined()
+    expect(matches[0]?.variant).toBeUndefined()
     ctx.dispose()
   })
 })
@@ -416,8 +410,8 @@ describe("slash command keyboard selection", () => {
     } as unknown as KeyboardEvent
 
     ctx.fire({
-      type: "commandsLoaded",
-      commands: [{ name: "verify", description: "Verify changes", hints: [] }],
+      type: "codemSkillsLoaded",
+      skills: [{ name: "verify", description: "Verify changes" }],
     })
     ctx.slash.onInput(draft, cursor)
     expect(ctx.slash.results()[0]?.name).toBe(name)
@@ -456,8 +450,8 @@ describe("slash command keyboard selection", () => {
 
     ctx.slash.onInput(state.text, state.text.length)
     ctx.fire({
-      type: "commandsLoaded",
-      commands: [{ name: "refresh", description: "Run the custom refresh command", hints: [] }],
+      type: "codemSkillsLoaded",
+      skills: [{ name: "refresh", description: "Run the custom refresh command" }],
     })
 
     expect(ctx.slash.results().map((command) => command.name)).toEqual(["reload", "refresh"])
@@ -483,8 +477,8 @@ describe("slash command keyboard selection", () => {
 
     ctx.slash.onInput(state.text, state.text.length)
     ctx.fire({
-      type: "commandsLoaded",
-      commands: [{ name: "refresh", description: "Run the custom refresh command", hints: [] }],
+      type: "codemSkillsLoaded",
+      skills: [{ name: "refresh", description: "Run the custom refresh command" }],
     })
 
     const down = {

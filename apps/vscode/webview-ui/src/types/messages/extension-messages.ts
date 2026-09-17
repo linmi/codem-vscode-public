@@ -23,6 +23,7 @@ import type { PRMergeResult } from "../../../../src/shared/pr-comment-actions"
 import type { QuestionRequest, SuggestionRequest, TodoItem } from "./questions"
 import type { ModelSelection, ModelUsageMap, Provider, ProviderAuthState } from "./providers"
 import type { AgentInfo, SkillInfo, SlashCommandInfo } from "./agents"
+import type { CodemModelCatalog, CodemModeState, CodemSkillSummary } from "@codem/protocol"
 import type {
   BrowserSettings,
   Config,
@@ -527,6 +528,18 @@ export interface ProvidersLoadedMessage {
   authStates: Record<string, ProviderAuthState>
 }
 
+/** Extension→Webview：Core model/list，不再先收成 providersLoaded。 */
+export interface CodemModelsLoadedMessage {
+  type: "codemModelsLoaded"
+  catalog: CodemModelCatalog
+}
+
+/** Extension→Webview：Core skills/list，Skills 与斜杠共用，不再收成 commandsLoaded。 */
+export interface CodemSkillsLoadedMessage {
+  type: "codemSkillsLoaded"
+  skills: readonly CodemSkillSummary[]
+}
+
 export interface AgentsLoadedMessage {
   type: "agentsLoaded"
   agents: AgentInfo[]
@@ -1006,14 +1019,14 @@ export interface AgentManagerKeybindingsMessage {
 export interface ThreadModesChangedMessage {
   type: "threadModesChanged"
   sessionID: string
-  state: import("@codem/app-server/modes").AppServerModeState | null
+  state: CodemModeState | null
 }
 
 export interface ThreadModesResultMessage {
   type: "threadModesResult"
   sessionID: string
   requestID: string
-  result: { state: import("@codem/app-server/modes").AppServerModeState } | { error: string }
+  result: { state: CodemModeState } | { error: string }
 }
 
 export interface SandboxStatusMessage {
@@ -1570,6 +1583,8 @@ export type ExtensionMessage =
   | KiloEmbeddingModelsLoadedMessage
   | ImageModelsLoadedMessage
   | ProvidersLoadedMessage
+  | CodemModelsLoadedMessage
+  | CodemSkillsLoadedMessage
   | { type: "providersLoading" }
   | AgentsLoadedMessage
   | SkillsLoadedMessage

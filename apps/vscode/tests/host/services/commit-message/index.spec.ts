@@ -129,9 +129,7 @@ describe("commit-message service", () => {
 
       await commandCallback()
 
-      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        "Failed to connect to CodeM backend. Please try again.",
-      )
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith("尚未迁移到 CodeM App Server")
     })
 
     it("auto-connects backend and generates message when client not yet ready", async () => {

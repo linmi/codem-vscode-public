@@ -23,7 +23,7 @@ const TARGETS = [
 ]
 
 const WATCHED_PROVIDERS = [
-  path.join(ROOT, "src/KiloProvider.ts"),
+  path.join(ROOT, "src/CodeMProvider.ts"),
   path.join(ROOT, "src/diff/DiffViewerProvider.ts"),
   path.join(ROOT, "src/DiffVirtualProvider.ts"),
 ]

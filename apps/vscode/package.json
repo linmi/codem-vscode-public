@@ -1320,6 +1320,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@codem/app-server": "workspace:*",
+    "@codem/protocol": "workspace:*",
     "@codem/session-history": "workspace:*",
     "@kilocode/kilo-gateway": "workspace:*",
     "@kilocode/kilo-indexing": "workspace:*",

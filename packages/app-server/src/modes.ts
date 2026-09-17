@@ -1,17 +1,11 @@
-export type AppServerPermissionMode = "default" | "auto" | "yolo"
+import { parseCodemPermissionMode, type CodemModeState, type CodemPermissionMode } from "@codem/protocol"
 
-export interface AppServerModeState {
-  readonly revision: number
-  readonly permissionEpoch: number
-  readonly permissionMode: AppServerPermissionMode
-  readonly workMode: "normal" | "plan"
-}
+/** Host-facing alias of the shared CodeM mode DTO. Raw-frame parsing stays here. */
+export type AppServerPermissionMode = CodemPermissionMode
+export type AppServerModeState = CodemModeState
 
 export function permissionMode(value: unknown): AppServerPermissionMode {
-  if (value !== "default" && value !== "auto" && value !== "yolo") {
-    throw new Error(`Invalid CodeM permissionMode: ${String(value)}`)
-  }
-  return value
+  return parseCodemPermissionMode(value)
 }
 
 export function parseAppServerModes(value: unknown, threadId: string): AppServerModeState {

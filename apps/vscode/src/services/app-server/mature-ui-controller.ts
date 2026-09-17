@@ -3,14 +3,19 @@ import { randomUUID } from "node:crypto"
 import type {
   AppServerHostEvent,
   AppServerModelSummary,
+  AppServerPermissionProfile,
   AppServerPromptAttachment,
-  AppServerSkillSummary,
   AppServerThreadSummary,
 } from "@codem/app-server"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS } from "@codem/app-server"
 import type { ExtensionMessage } from "../../../webview-ui/src/types/messages/extension-messages"
 import type { WebviewMessage } from "../../../webview-ui/src/types/messages/webview-messages"
 import { AppServerMatureUiAdapter } from "./mature-ui-adapter.ts"
+import {
+  assertPermissionModeSettable,
+  codemModelsLoadedMessage,
+  codemSkillsLoadedMessage,
+} from "./codem-webview-dto.ts"
 
 type AppServerMessageType =
   | "requestThreadModes"
@@ -99,7 +104,8 @@ export interface MatureUiAppServerPort {
   renameThread(cwd: string, threadId: string, name: string): Promise<void>
   deleteThread(cwd: string, threadId: string): Promise<void>
   forkThread(cwd: string, threadId: string): Promise<string>
-  listSkills(cwd: string, threadId?: string): Promise<readonly AppServerSkillSummary[]>
+  listSkills: import("./service").CodeMAppServerService["listSkills"]
+  listPermissionProfiles(cwd: string): Promise<readonly AppServerPermissionProfile[]>
   respondToInteraction(
     requestId: string,
     response: ReturnType<AppServerMatureUiAdapter["permissionResponse" | "questionResponse" | "rejectInteraction"]>,
@@ -165,10 +171,10 @@ export class MatureUiAppServerController {
 
   async refreshSpace(): Promise<void> {
     // Service retires loaded threads before publishing a selected space.
+    // 只刷新一份模型表 + 一份 Skills；requestCommands 与 requestSkills 写同一 DTO，这里不双发。
     this.clearSelection()
     await this.handle({ type: "requestProviders" })
     await this.handle({ type: "requestSkills" })
-    await this.handle({ type: "requestCommands" })
   }
 
   acceptEvent(event: AppServerHostEvent): void {
@@ -185,7 +191,6 @@ export class MatureUiAppServerController {
     }
     if (event.type === "control-changed" && event.method === "skills/changed") {
       void this.loadSkills()
-      void this.loadCommands()
     }
     if (event.type === "turn-started") {
       this.timelineEpoch++
@@ -243,9 +248,8 @@ export class MatureUiAppServerController {
       case "enhancePrompt":
         return this.enhancePrompt(message.text, message.requestId)
       case "requestSkills":
-        return this.loadSkills()
       case "requestCommands":
-        return this.loadCommands()
+        return this.loadSkills()
     }
   }
 
@@ -261,6 +265,9 @@ export class MatureUiAppServerController {
     }
     const cwd = this.options.cwdForThread(message.sessionID)
     await this.ensureLoaded(cwd, message.sessionID)
+    if (message.type === "setThreadPermissionMode") {
+      assertPermissionModeSettable(await this.service.listPermissionProfiles(cwd), message.permissionMode)
+    }
     const state =
       message.type === "requestThreadModes"
         ? await this.service.readModes(cwd, message.sessionID)
@@ -429,34 +436,16 @@ export class MatureUiAppServerController {
     await this.service.startSideQuestion(cwd, threadId, requestId, text)
   }
 
+  /** Skills 与斜杠共用同一份 Core skills/list，不再收成 Kilo commandsLoaded。 */
   private async loadSkills(): Promise<void> {
     const cwd = this.options.cwdForThread(this.currentThreadId ?? undefined)
-    const skills = await this.service.listSkills(cwd, this.currentThreadId ?? undefined)
-    this.post({
-      type: "skillsLoaded",
-      skills: skills.map((skill) => ({ ...skill, location: "codem-app-server" })),
-    })
+    this.post(codemSkillsLoadedMessage(await this.service.listSkills(cwd, this.currentThreadId ?? undefined)))
   }
 
-  /** Core 没有独立 slash catalog；skills/list 就是 CodeM 的命令目录。 */
-  private async loadCommands(): Promise<void> {
-    const cwd = this.options.cwdForThread(this.currentThreadId ?? undefined)
-    const skills = await this.service.listSkills(cwd, this.currentThreadId ?? undefined)
-    this.post({
-      type: "commandsLoaded",
-      commands: skills.map((skill) => ({
-        name: skill.name,
-        description: skill.description,
-        source: "skill" as const,
-        hints: [],
-      })),
-    })
-  }
-
+  /** 模型表按 App Server DTO 下发，不再收成 Kilo providersLoaded。 */
   private async loadModels(): Promise<void> {
     const cwd = this.options.cwdForThread(this.currentThreadId ?? undefined)
-    const catalog = await this.service.listModels(cwd)
-    this.post(modelsLoaded(catalog))
+    this.post(codemModelsLoadedMessage(await this.service.listModels(cwd)))
   }
 
   private async ensureLoaded(cwd: string, threadId: string, model?: string, intelligence?: string): Promise<void> {
@@ -517,48 +506,6 @@ export class MatureUiAppServerController {
   }
 }
 
-function modelsLoaded(catalog: {
-  readonly activeModel: string
-  readonly models: readonly AppServerModelSummary[]
-}): Extract<ExtensionMessage, { readonly type: "providersLoaded" }> {
-  const providers: Extract<ExtensionMessage, { readonly type: "providersLoaded" }>["providers"] = {}
-  const defaults: Record<string, string> = {}
-  for (const model of catalog.models) {
-    const selection = splitModel(model.id)
-    const provider = (providers[selection.providerID] ??= {
-      id: selection.providerID,
-      name: selection.providerID.startsWith("codem") ? "CodeM" : selection.providerID,
-      models: {},
-      source: "api",
-    })
-    provider.models[selection.modelID] = {
-      id: selection.modelID,
-      name: model.id === catalog.activeModel ? "CodeM 智能选择" : selection.modelID,
-      contextLength: model.contextWindowTokens,
-      capabilities: {
-        reasoning: true,
-        input: { text: true, image: model.supportsVision, audio: false, video: false, pdf: false },
-      },
-      ...(model.source === "builtin"
-        ? { variants: Object.fromEntries(APP_SERVER_BUILTIN_INTELLIGENCE_TIERS.map((tier) => [tier, {}])) }
-        : {}),
-    }
-  }
-  const active = splitModel(catalog.activeModel)
-  defaults[active.providerID] = active.modelID
-  return {
-    type: "providersLoaded",
-    providers,
-    connected: Object.keys(providers),
-    defaults,
-    organizationId: null,
-    ready: true,
-    defaultSelection: active,
-    authMethods: {},
-    authStates: {},
-  }
-}
-
 function selectedModel(message: { readonly providerID?: string; readonly modelID?: string }): string | undefined {
   if (!message.providerID && !message.modelID) return undefined
   if (!message.providerID || !message.modelID) throw new Error("CodeM model selection is incomplete")
@@ -571,12 +518,6 @@ function selectedIntelligence(variant: string | undefined): string | undefined {
     throw new Error(`CodeM intelligence ${variant} is not supported by the selected model`)
   }
   return variant
-}
-
-function splitModel(model: string): { readonly providerID: string; readonly modelID: string } {
-  const separator = model.indexOf("/")
-  if (separator <= 0 || separator === model.length - 1) throw new Error(`CodeM Core returned invalid model ${model}`)
-  return { providerID: model.slice(0, separator), modelID: model.slice(separator + 1) }
 }
 
 function eventThreadId(event: AppServerHostEvent): string | undefined {

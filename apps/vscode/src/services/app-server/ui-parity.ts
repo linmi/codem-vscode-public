@@ -1,4 +1,5 @@
 import type { WebviewMessage } from "../../../webview-ui/src/types/messages/webview-messages"
+import { KILO_TRANSPORT_RETIRED_MESSAGE } from "../../shared/kilo-transport-retired.ts"
 
 export type CodeMUiInteractionOwner =
   | "app-server-live"
@@ -284,4 +285,13 @@ export type CodeMUiInteractionType = keyof typeof CODEM_UI_INTERACTION_OWNERS
 
 export function codeMUiInteractionOwner(type: CodeMUiInteractionType): CodeMUiInteractionOwner {
   return CODEM_UI_INTERACTION_OWNERS[type]
+}
+
+/** App Server-owned commands must not fall through to Kilo REST/SSE. */
+export function isAppServerOwned(owner: CodeMUiInteractionOwner): boolean {
+  return owner === "app-server-live" || owner === "app-server-control"
+}
+
+export function unmigratedAppServerCommandMessage(command: string): string {
+  return `${KILO_TRANSPORT_RETIRED_MESSAGE}: ${command}`
 }

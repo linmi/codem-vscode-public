@@ -1,5 +1,5 @@
 /**
- * Cloud session handlers — extracted from KiloProvider.
+ * Cloud session handlers — extracted from CodeMProvider.
  *
  * Manages fetching cloud sessions, previewing them, and the "import + send"
  * flow that clones a cloud session locally on first message. No vscode dependency.
@@ -56,7 +56,7 @@ export async function handleRequestCloudSessions(
       nextCursor: result.data?.nextCursor ?? null,
     })
   } catch (error) {
-    console.error("[CodeM New] KiloProvider: Failed to fetch cloud sessions:", error)
+    console.error("[CodeM New] CodeMProvider: Failed to fetch cloud sessions:", error)
     ctx.postMessage({
       type: "error",
       message: error instanceof Error ? error.message : "Failed to fetch cloud sessions",
@@ -152,7 +152,7 @@ export async function handleImportAndSend(
     )
     session = result.data as Session | undefined
   } catch (error) {
-    console.error("[CodeM New] KiloProvider: ❌ Cloud session import failed:", error)
+    console.error("[CodeM New] CodeMProvider: ❌ Cloud session import failed:", error)
     ctx.postMessage({
       type: "cloudSessionImportFailed",
       cloudSessionId,

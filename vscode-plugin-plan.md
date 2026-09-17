@@ -1,6 +1,6 @@
 # 基于 CodeM App Server 与 Kilo Code 的 VS Code 插件方案
 
-版本：v1.2　更新日期：2026-09-17　状态：主聊天已接 App Server；Kilo REST/SSE 仍并行启动；1:1 生产门禁为红。
+版本：v1.3　更新日期：2026-09-17　状态：主聊天已接 App Server；VS Code 不再启动 kilo serve；未迁移表面 fail-closed；1:1 生产门禁为红。
 
 v1.2 核对摘要：以仓库现码与 `matureUiParityReport()` 为准，不再沿用 264 / 18 / 40 的过时清单。当前 Webview 入站命令 **257** 项：199 项归属编辑器 Host 或独立服务，58 项归属 App Server，其中 **21** 项已有严格控制器，**37** 项是 pinned Core v1 协议缺口。`assertMatureUiProductionReady()` 在缺口清零前必然失败。扩展源码版本 `0.1.14`，`@codem/app-server` `0.1.6`，pin 仍是 CLI `0.1.208` / Core `0.8.37`。JetBrains 尚未消费该包。
 
@@ -14,10 +14,10 @@ v1.1 仍是 2026-09-15 的契约来源说明：CodeM `main@d7763f0a`、共享 Ho
 | --- | --- | --- |
 | 共享 Host SDK | `packages/app-server` 已拥有 runtime、bundle、preflight、RPC、按 **canonical `cwd`** 分的连接池、thread/turn、HITL、mode、space broker、受控关闭。无 Electron / VS Code / DOM 依赖。 | Desktop 尚未改为消费该包。`CODEM_SESSION_SOURCE` 仍硬编码 `vscode`。 |
 | 持久化历史 | `@codem/session-history` 读 Core JSONL schema 13；无第二套 transcript store。`thread/turns/list` 与 `thread/items/list` 不再是公开历史源。 | 无持久 SQLite 索引；每次全量流式 replay。 |
-| VS Code 主聊天 | `CodeMAppServerService` + `MatureUiAppServerController` 承接 21 个控制器命令（创建/列表/历史、发送/steer、停止、compact、改名/删除/fork、HITL、模型/Skills/斜杠命令、mode、后台取消、prompt enhancement）。`app-server-live` 未映射命令 fail closed。斜杠目录来自 Core `skills/list`，不再读 Kilo `command.list`。 | rewind / archive / unarchive / 历史翻页 / `cancelSideQuestion` 有 Host API，Webview 未接。`sendCommand` 与 `enhancePrompt` 是语义近似。`requestConfig` 仍走 Kilo，因为 `updateConfig` 写入会形成双存储。 |
+| VS Code 主聊天 | `CodeMAppServerService` + `MatureUiAppServerController` 承接 21 个控制器命令。模式是 **UI 适配 App Server**：Host 直接 post `codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*`。`requestCommands` 与 `requestSkills` 写同一份 Skills DTO，斜杠不再读 `commandsLoaded`。 | rewind / archive / unarchive / 历史翻页 / `cancelSideQuestion` 有 Host API，Webview 未接。`requestAgents` / `requestImageModels` 仍是协议缺口。`requestConfig` / `updateConfig` 报尚未迁移，避免双存储。 |
 | 认证与 space | 登录/注册/退出/刷新走 CLI credential broker。`codem.selectSpace` 走 broker `project_list` / `space_prepare` / `space_commit`。Workspace Trust 在启动 Core 前检查。 | `setOrganization` 仍走 Kilo handler。 |
-| Kilo transport | 激活仍创建 `KiloConnectionService`；打开 Sidebar 仍会 `kilo serve --port 0`。Autocomplete、commit message、notebook、caffeination、diff catalog、Agent Manager 工作流仍用 Kilo。 | 违反“不得同时启动两条 live transport”。 |
-| 路由泄漏 | `handleAppServerMessage` 只对 `app-server-live` fail closed。约 30 个 `app-server-control` 缺口（config / MCP / sandbox / memory / indexing 等）会落到 Kilo 分支。 | 生产切换前必须关掉这条泄漏或删掉对应 UI。 |
+| Kilo transport | 激活仍创建 `KiloConnectionService`，但 `connect()` / `ServerManager.getServer()` fail closed，不再 spawn `kilo serve`。Autocomplete / commit message / Agent Manager 等未迁移表面报 `尚未迁移到 CodeM App Server`。 | 源码仍保留 Kilo 类与 `@kilocode/sdk` 类型；`packages/opencode` 尚未删除。 |
+| 路由泄漏 | `handleAppServerMessage` 对 `app-server-live` 与 `app-server-control` 均 fail closed，不再落到 Kilo。 | 37 个 Core v1 协议缺口仍在；生产门禁保持红色。 |
 | 门禁 | 257 = 199 + 21 + 0 pending + 37 gaps；`ready: false`。 | 扩 Core 契约或产品砍掉缺口后才能原子删 Kilo。 |
 | 验证 | 2026-09-17：`pnpm test:app-server` 74、`typecheck:app-server`、VS Code host App Server 单测 54 通过。 | 本轮未重跑 Extension Host live turn / HITL / 重启历史；非 darwin 目标未做 clean-host。 |
 
@@ -25,9 +25,9 @@ v1.1 仍是 2026-09-15 的契约来源说明：CodeM `main@d7763f0a`、共享 Ho
 
 **推荐采用“CodeM 单一运行时 + Kilo 交互选择性复用 + `@codem/ui` Solid 组件”的路线。**插件位于 `apps/vscode`，复用 Kilo 已验证的 Activity Bar、Sidebar/Open in Tab、上下文引用、diff/review、历史导出、后台子 Agent 和 Agent Manager 交互设计，但不把 Kilo backend 当作目标依赖。Webview 使用 Solid 与仓库自有的 `packages/ui`（`@codem/ui/components/*`）；唯一 agent 后端是 `codem app-server` stdio JSON-RPC，Core JSONL 是持久化会话权威。
 
-该路线不是长期维护两套运行时。过渡期允许一个有明确退出条件的“成熟 UI presentation adapter”：它只把严格 CodeM DTO 投影为现有 Webview 的 message/part 词汇，不读取 raw frame、不拥有 durable history、也不在 App Server 失败时回退 Kilo。第一阶段把 App Server host、会话契约和事件投影收敛成可复用包；第二阶段让现有完整 VS Code 表层逐项接到该 SDK；第三阶段一次性切换生产 agent transport 并删除兼容层。
+该路线不是长期维护两套运行时。目录 / 模式面（模型表、Skills、thread modes）由 Extension 直接 post CodeM 原生 DTO，UI 适配 App Server，不再把 Host 控制面收成 Kilo `providersLoaded` / `commandsLoaded` / `agentsLoaded`。会话时间线仍允许一个有明确退出条件的 presentation adapter，把 turn/part DTO 映射为现有 message/part 词汇；它不读取 raw frame、不拥有 durable history、也不在 App Server 失败时回退 Kilo。第一阶段把 App Server host、会话契约和事件投影收敛成可复用包；第二阶段让现有完整 VS Code 表层逐项接到该 SDK；第三阶段一次性切换生产 agent transport 并删除兼容层。
 
-CodeM `main@d7763f0a` 已包含正式 App Server Desktop 实现与 active contract；本仓库不再以旧集成分支作为当前行为依据。线上 CLI `0.1.208` 与 Core `0.8.37` 仍是本 Cycle 的精确制品 pin。VS Code Sidebar 已把控制器就绪的主聊天接到 App Server，同时仍启动 Kilo 兼容入口；在 37 个协议缺口关闭、control 泄漏消除之前，不得宣称生产调用链已切换，完成后也不保留 Kilo transport 作为 fallback。
+CodeM `main@d7763f0a` 已包含正式 App Server Desktop 实现与 active contract；本仓库不再以旧集成分支作为当前行为依据。线上 CLI `0.1.208` 与 Core `0.8.37` 仍是本 Cycle 的精确制品 pin。VS Code Sidebar 已把控制器就绪的主聊天接到 App Server，并且不再启动 `kilo serve`；在 37 个协议缺口关闭、Kilo 源码与 `@kilocode/sdk` 删除之前，不得宣称生产调用链已切换，完成后也不保留 Kilo transport 作为 fallback。
 
 # 2. 已验证的当前事实
 
@@ -49,7 +49,7 @@ CodeM `main@d7763f0a` 已包含正式 App Server Desktop 实现与 active contra
 
 本方案更新为基于 2026-09-11 的 Kilo Code 官方主干 `c36e2263`，VS Code 包版本为 `7.6.2`，最低 VS Code API 仍为 `^1.105.1`。其插件使用一个 Extension Host 级 `KiloConnectionService`，按需启动 `kilo serve --port 0`，再通过 HTTP REST + SSE 和自动生成 SDK 通信；Sidebar、Open in Tab、后台子 Agent 面板与 Agent Manager 共享该连接。
 
-Kilo Webview 使用 Solid.js；本仓库已把共享控件迁到 `@codem/ui`。Extension 与 Webview 通过 `postMessage` 通信。当前 `KiloProvider.ts` 为 5745 行，Webview 源文件约 335 个，Agent Manager 源文件约 110 个；其可用表层已扩展到 JSONC 配置、细粒度权限、自定义 Agent、Skills、Workflows、后台子 Agent、图表、会话导出、上下文引用、PR 导入和多模型对比，但这些能力仍通过 Kilo Session 与共享 REST/SSE runtime 路由。这说明 UI/Host 与 Kilo 后端耦合较深，不适合保留现有 Provider 后只替换 URL。
+Kilo Webview 使用 Solid.js；本仓库已把共享控件迁到 `@codem/ui`。Extension 与 Webview 通过 `postMessage` 通信。当前 `CodeMProvider.ts` 为 5745 行，Webview 源文件约 335 个，Agent Manager 源文件约 110 个；其可用表层已扩展到 JSONC 配置、细粒度权限、自定义 Agent、Skills、Workflows、后台子 Agent、图表、会话导出、上下文引用、PR 导入和多模型对比，但这些能力仍通过 Kilo Session 与共享 REST/SSE runtime 路由。这说明 UI/Host 与 Kilo 后端耦合较深，不适合保留现有 Provider 后只替换 URL。
 
 Kilo Code 使用 MIT License，允许商业使用、修改与分发，但复制或实质性复用时必须保留 Kilo Code 与 opencode 的版权及许可声明。MIT 授权不等于商标授权，Kilo 名称、图标、服务端点和品牌资产应从新插件中移除。
 
@@ -87,7 +87,7 @@ Kilo Code 使用 MIT License，允许商业使用、修改与分发，但复制�
 | 路线                                             | 收益                                                                                                                | 代价与风险                                                                                                                        | 结论                 |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
 | 完整 fork Kilo monorepo，再替换后端              | 最快得到可运行的 Kilo UI、Agent Manager 与发布脚本。                                                                | 保留大量 Kilo gateway、SDK、provider、autocomplete 与 workspace 包；上游 merge 会反复把被删除的会话模型带回，长期存在双权威风险。 | 不推荐作为目标架构。 |
-| 在 CodeM monorepo 中选择性抽取 Kilo VS Code 表层 | 能复用成熟 IDE 交互，同时让 Desktop 与 VS Code 共用 App Server host、session contract 和 projection；目标模型单一。 | 首期需要拆解 KiloProvider 和工作区依赖，UI 搬运速度略慢。                                                                         | **推荐。**           |
+| 在 CodeM monorepo 中选择性抽取 Kilo VS Code 表层 | 能复用成熟 IDE 交互，同时让 Desktop 与 VS Code 共用 App Server host、session contract 和 projection；目标模型单一。 | 首期需要拆解 CodeMProvider 和工作区依赖，UI 搬运速度略慢。                                                                         | **推荐。**           |
 | 从空白 VS Code 插件开始                          | 依赖最少、代码完全自有。                                                                                            | 会重复建设 Webview、主题、diff、文件引用、工作树、可访问性和发布验证，无法发挥 Kilo 代码价值。                                    | 只适合极小 PoC。     |
 
 **推荐实施形态。**在 CodeM 仓库新增 `apps/vscode`，以 Kilo 官方 commit `c36e2263` 作为一次性上游基线，按文件记录来源；复用内容进入自有模块后立即改成 CodeM 命名与 DTO。后续不做整仓 merge，只按明确需求选择性移植上游修复，并通过 `UPSTREAM.md` 记录来源 commit、变更文件、许可证和本地替代模块。
@@ -187,7 +187,7 @@ VS Code reload 后，Extension 从 profile/session root 重建 catalog 和 proje
 | 不复用 | Kilo Session/message/store、Gateway、登录、余额、团队、provider 和 Cloud Agent/Cloud Review                                                       | 删除                                | Core JSONL、CodeM 认证、模型与组织策略是唯一权威；未来云能力必须独立定义产品契约。                                                                |
 | 不复用 | Kilo telemetry、名称、图标、URL 与服务端点                                                                                                        | 删除                                | 使用 CodeM 自有遥测与品牌；保留代码来源、MIT License 和第三方通知。                                                                               |
 
-迁移以“生产代码不再依赖 Kilo 后端与领域类型”为准出条件，而不是把旧类型改成 optional。对于当前 5745 行的 `KiloProvider.ts`，应先按 View Host、Thread Controller、Workspace Adapter、Interaction Presenter 与 Settings Bridge 拆出无 Kilo backend 依赖的表层，再接 CodeM Host SDK；不能整体复制后堆叠 transport 条件分支。
+迁移以“生产代码不再依赖 Kilo 后端与领域类型”为准出条件，而不是把旧类型改成 optional。对于当前 5745 行的 `CodeMProvider.ts`，应先按 View Host、Thread Controller、Workspace Adapter、Interaction Presenter 与 Settings Bridge 拆出无 Kilo backend 依赖的表层，再接 CodeM Host SDK；不能整体复制后堆叠 transport 条件分支。
 
 # 8. MVP 范围与非目标
 
@@ -242,7 +242,7 @@ codem/
 
 **`app-server`。**唯一、编辑器无关的 Node package，拥有线上 Core pin、六平台包映射、可执行文件与许可证解析、target-specific staging、manifest、SHA-256 校验、initialize preflight、严格 JSON-RPC peer、按 `cwd` 分的连接池、thread/turn、server request broker 与受控 process lifecycle。它不包含凭据、编辑器 API 或 Webview DTO；其他插件通过 `@codem/app-server` 和 `@codem/app-server/build` 消费，不复制 runtime 或协议实现。线上 CLI 的平台入口会先执行 daemon-service 管理且体积更大，因此 package 直接启动同版本 Core。Durable history 由 `@codem/session-history` 读取，不在本包内再实现第二套 JSONL parser。VS Code 平台 adapter 只负责工作目录、Trust、credential broker UI、日志和生命周期 hook。Desktop 仍未改用该包。
 
-**Webview 消息。**当前 Extension ↔ Webview 类型仍住在 `apps/vscode/webview-ui`，尚未拆成独立 `vscode-protocol` 包。入站消息必须能被 ownership registry 穷举；未知命令 fail closed。畸形消息必须拒绝并写诊断。
+**Webview 消息。**目录 / 模式 DTO（models、skills、thread modes）由 `packages/protocol`（`@codem/protocol`）同构导出，Host 与 Webview 共同 import。其余 Extension ↔ Webview 消息仍住在 `apps/vscode/webview-ui`。入站消息必须能被 ownership registry 穷举；未知命令 fail closed。畸形消息必须拒绝并写诊断。
 
 **Kilo 来源管理。**`third_party/kilocode` 不保存整份上游仓库，只保存许可、NOTICE 与来源映射。被复制或实质修改的文件在映射中记录 upstream path、commit、local path 和变更摘要；自动检查每个登记文件仍有许可声明。Kilo workspace-only 依赖不得未经审计整体引入。
 
@@ -295,7 +295,7 @@ codem/
 
 **交付结果。**基于登记过来源的 Kilo 壳展示 CodeM Sidebar 与 Open in Tab；初始化时通过 bundled CLI broker 检查登录态并提供登录/注册/退出，在受信任工作区内可懒启动 pinned App Server、完成 initialize、展示诊断并干净关闭。
 
-**状态：部分交付。** CodeM 认证、Trust、App Server 懒启动与 Output Channel 已接。打开 Sidebar 仍会启动 `kilo serve`，VSIX 已不再分发 Kilo binary，但源码仍依赖 `@kilocode/sdk`。准出第 1、5 条未满足。
+**状态：部分交付。** CodeM 认证、Trust、App Server 懒启动与 Output Channel 已接。打开 Sidebar 不再启动 `kilo serve`，VSIX 已不再分发 Kilo binary，但源码仍依赖 `@kilocode/sdk`。准出第 5 条未满足。
 
 **变更边界。**只接 activation、views、CSP、typed postMessage、Output Channel、Workspace Trust、runtime preflight 和 Extension deactivate；聊天历史在 Cycle 3。
 
@@ -329,7 +329,7 @@ codem/
 
 **1:1 门禁。**`apps/vscode/src/services/app-server/ui-parity.ts` 必须穷举现有 **257** 个 Webview 入站命令，并为每项指定唯一 owner；`app-server-live` 与 `app-server-control` 全部由严格 DTO adapter 承接，且 **不得再落到 Kilo 分支**。`editor-host`／`agent-manager-host` 保持真实 VS Code/Git/终端行为，Autocomplete、认证、云和本地用量统计继续走各自专用服务；语音输入与旧 Kilo telemetry 已移除。owner 登记不是“已完成”标记；生产切换前还必须为每项建立成功、失败和身份关联验证。不得隐藏未迁移按钮、返回伪成功或把 unsupported 当作完成。
 
-**状态：未交付。** 21 个控制器已接，37 个协议缺口仍使 `ready === false`；`app-server-control` 缺口会泄漏到 Kilo。
+**状态：未交付。** 21 个控制器已接，37 个协议缺口仍使 `ready === false`；未映射的 App Server 命令 fail closed。
 
 **准出标准。**
 
@@ -399,7 +399,7 @@ codem/
 | App Server 主干演进          | 当前基线已更新为 CodeM `main@d7763f0a`；移动的 `main` 不能直接成为不可复现的发布输入。                                           | 每个升级 Cycle 记录精确主干提交、CLI/Core pin 与 capability 变化。                              |
 | 线上 response 省略 `jsonrpc` | Core `0.8.37` 的真实 initialize response 省略该字段；无边界兼容会掩盖显式错误版本。                                              | 仅允许省略或精确 `"2.0"`，预检结果暴露实际形状；pinned runtime 开始返回字段后删除例外。         |
 | Electron host 耦合           | 本仓库已有无 Electron 的 `@codem/app-server` Host；Desktop 仍保留 Electron Main 副本，两套生命周期风险仍在。                       | Desktop 改为消费同一 Host SDK 后再删除 Main 副本。                                     |
-| Kilo UI/后端深耦合           | Kilo 7.6.2 的 `KiloProvider.ts` 为 5745 行，Sidebar、Open in Tab、子 Agent 和 Agent Manager 共享 Kilo REST/SSE 与 Session 路由。 | 按领域拆解并设置负向搜索门禁；不以 transport adapter 掩盖 Session 模型差异。                    |
+| Kilo UI/后端深耦合           | Kilo 7.6.2 的 `CodeMProvider.ts` 为 5745 行，Sidebar、Open in Tab、子 Agent 和 Agent Manager 共享 Kilo REST/SSE 与 Session 路由。 | 按领域拆解并设置负向搜索门禁；不以 transport adapter 掩盖 Session 模型差异。                    |
 | Extension Host Node 能力     | CodeM projection 直接使用 `node:sqlite`；目标 VS Code runtime 的实际可用性尚未在本项目验证。                                     | Cycle 1 在真实 Extension Host 做能力探测并固定最低 VS Code 版本；失败时只选择一种正式存储方案。 |
 | Linux/Remote 缺口            | 线上 Core `0.8.37` 已发布 Linux arm64/x64 平台包，但本仓库尚未做 Linux / Remote SSH / Container 的 clean-host 验收。             | 首发仍限定已验收的本地目标；Remote 必须另做 Extension Host 验收 Cycle。                    |
 | 跨客户端并发写同一 thread    | Desktop 与 VS Code 若共享 sessions root，可能同时 resume/操作相同 thread；当前方案没有跨 host lease 证据。                       | MVP 默认隔离 VS Code session root；共享历史需先定义跨客户端 lease/read-only/fork 语义。         |

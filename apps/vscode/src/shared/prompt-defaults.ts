@@ -1,8 +1,8 @@
-import type { AppServerPermissionMode } from "@codem/app-server/modes"
+import type { CodemPermissionMode } from "@codem/protocol"
 
 export interface PromptDefaults {
   readonly intelligence: string
-  readonly permissionMode: AppServerPermissionMode
+  readonly permissionMode: CodemPermissionMode
 }
 
 /** Product defaults, also declared by the codem.* configuration manifest. */

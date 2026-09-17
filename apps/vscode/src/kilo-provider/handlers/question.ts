@@ -1,5 +1,5 @@
 /**
- * Question handlers — extracted from KiloProvider.
+ * Question handlers — extracted from CodeMProvider.
  *
  * Manages question reply and reject flows from the tool question UI,
  * plus recovery of pending questions after SSE reconnections or child-session syncs.
@@ -72,7 +72,7 @@ export async function fetchAndSendPendingQuestions(
         const { data, error } = await ctx.client.question.list({ directory: dir })
         if (error) {
           failed.add(dir)
-          console.error(`[CodeM New] KiloProvider: Failed to fetch pending questions for ${dir}:`, error)
+          console.error(`[CodeM New] CodeMProvider: Failed to fetch pending questions for ${dir}:`, error)
           continue
         }
         scanned.add(dir)
@@ -105,7 +105,7 @@ export async function fetchAndSendPendingQuestions(
       return { seen, complete: failed.size === 0 }
     }
   } catch (error) {
-    console.error("[CodeM New] KiloProvider: Failed to fetch pending questions:", error)
+    console.error("[CodeM New] CodeMProvider: Failed to fetch pending questions:", error)
   }
 }
 
@@ -137,12 +137,12 @@ async function resolve(
         ctx.clearQuestionDirectory(requestID)
         return true
       } catch (retry) {
-        console.error(`[CodeM New] KiloProvider: Failed to ${operation} recovered question:`, retry)
+        console.error(`[CodeM New] CodeMProvider: Failed to ${operation} recovered question:`, retry)
         ctx.postMessage({ type: "questionError", requestID })
         return false
       }
     }
-    console.error(`[CodeM New] KiloProvider: Failed to ${operation} question:`, error)
+    console.error(`[CodeM New] CodeMProvider: Failed to ${operation} question:`, error)
     ctx.postMessage({ type: "questionError", requestID })
     return false
   }

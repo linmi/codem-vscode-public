@@ -58,7 +58,7 @@ export async function fetchAndSendNotifications(ctx: NotificationsContext): Prom
     ctx.set(message)
     ctx.post(message)
   } catch (error) {
-    console.error("[CodeM New] KiloProvider: Failed to fetch notifications:", error)
+    console.error("[CodeM New] CodeMProvider: Failed to fetch notifications:", error)
   }
 }
 

@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { KiloProvider } from "./KiloProvider"
+import { CodeMProvider } from "./CodeMProvider"
 import type { KiloConnectionService } from "./services/cli-backend"
 import type { CodeMAuthenticationService } from "./services/app-server/authentication"
 import type { CodeMAppServerService } from "./services/app-server/service"
@@ -10,12 +10,12 @@ import type { CodeMAppServerService } from "./services/app-server/service"
  * Each child session ID maps to at most one panel — calling openPanel()
  * again with the same ID reveals the existing panel.
  *
- * Uses a full KiloProvider so the viewer has backend connectivity
+ * Uses a full CodeMProvider so the viewer has backend connectivity
  * (messages, parts, SSE events) identical to the sidebar.
  */
 export class SubAgentViewerProvider implements vscode.Disposable {
   private panels = new Map<string, vscode.WebviewPanel>()
-  private providers = new Map<string, KiloProvider>()
+  private providers = new Map<string, CodeMProvider>()
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -46,7 +46,7 @@ export class SubAgentViewerProvider implements vscode.Disposable {
       dark: vscode.Uri.joinPath(this.extensionUri, "assets", "icons", "codem-dark.svg"),
     }
 
-    const provider = new KiloProvider(this.extensionUri, this.connectionService, this.context, {
+    const provider = new CodeMProvider(this.extensionUri, this.connectionService, this.context, {
       authentication: this.authentication,
       appServer: this.appServer,
       hideTopBar: true,

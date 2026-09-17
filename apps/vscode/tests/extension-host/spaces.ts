@@ -74,7 +74,7 @@ async function runSpaces(): Promise<void> {
     await switching
     await refresh
     assert.ok(events.includes("thread-closed"))
-    assert.ok(messages.some((message) => message.type === "providersLoaded"))
+    assert.ok(messages.some((message) => message.type === "codemModelsLoaded"))
     assert.ok(messages.some((message) => message.type === "skillsLoaded"))
     await assert.rejects(service.readModes(cwd, threadId), /not loaded/)
     await service.resumeThread(cwd, threadId)

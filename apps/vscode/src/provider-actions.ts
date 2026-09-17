@@ -1,5 +1,5 @@
 /**
- * Provider action handlers extracted from KiloProvider to stay under max-lines.
+ * Provider action handlers extracted from CodeMProvider to stay under max-lines.
  * These are pure async functions that operate on the SDK client — no vscode dependency.
  */
 import type { Config, KiloClient } from "@kilocode/sdk/v2"
@@ -178,7 +178,7 @@ export function buildActionContext(
       // Shared State.dispose() now has a hard per-disposer timeout, so this
       // wait is bounded without needing a client-side timeout here.
       await client.global.dispose().catch((error: unknown) => {
-        console.warn(`[CodeM New] KiloProvider: global.dispose() after ${reason} failed:`, error)
+        console.warn(`[CodeM New] CodeMProvider: global.dispose() after ${reason} failed:`, error)
       })
     },
     fetchAndSendProviders: refresh,

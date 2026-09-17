@@ -1,6 +1,7 @@
+// leftover HttpApi cursor contract; seeded with leftover protocol so @codem/protocol stays CodeM-only
 import { describe, expect, test } from "bun:test"
 import { Effect, Schema } from "effect"
-import { SessionHistoryQuery, SessionsCursor } from "../src/groups/session"
+import { SessionHistoryQuery, SessionsCursor } from "../src/protocol/groups/session"
 import { Session } from "@opencode-ai/schema/session"
 
 describe("SessionsCursor", () => {

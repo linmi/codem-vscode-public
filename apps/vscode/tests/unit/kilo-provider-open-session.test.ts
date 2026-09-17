@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { KiloProvider } from "../../src/KiloProvider"
+import { CodeMProvider } from "../../src/CodeMProvider"
 
-describe("KiloProvider.openSession", () => {
+describe("CodeMProvider.openSession", () => {
   test("waits for the webview before selecting a session", async () => {
-    const provider = new KiloProvider({} as never, {} as never)
+    const provider = new CodeMProvider({} as never, {} as never)
     const messages: unknown[] = []
     const state = provider as unknown as {
       webview: { postMessage: (message: unknown) => Promise<boolean> }

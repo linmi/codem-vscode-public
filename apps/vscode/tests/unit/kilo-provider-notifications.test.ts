@@ -3,7 +3,7 @@ import { dismissNotification, fetchAndSendNotifications } from "../../src/kilo-p
 
 const KEY = "kilo.dismissedNotificationIds"
 
-describe("KiloProvider local notifications", () => {
+describe("CodeMProvider local notifications", () => {
   it("passes local notifications through without requiring a profile", async () => {
     const items = [
       {

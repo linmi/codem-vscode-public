@@ -45,7 +45,8 @@ import { SessionImportApi } from "@/kilocode/server/httpapi/groups/session-impor
 import { SuggestionApi } from "@/kilocode/server/httpapi/groups/suggestion"
 import { MemoryApi } from "@/kilocode/server/httpapi/groups/memory" // kilocode_change
 // kilocode_change end
-import { makeApi } from "@opencode-ai/protocol/api"
+// leftover HttpApi schema is seeded under leftover @opencode-ai/server; do not import @opencode-ai/protocol
+import { makeApi } from "@opencode-ai/server/protocol/api"
 import { LocationMiddleware } from "@opencode-ai/server/location"
 import { SessionLocationMiddleware } from "@opencode-ai/server/middleware/session-location"
 import { GlobalApi } from "./groups/global"

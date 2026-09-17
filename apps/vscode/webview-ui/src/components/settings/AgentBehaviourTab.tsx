@@ -187,6 +187,8 @@ const AgentBehaviourTab: Component = () => {
               variant="primary"
               size="large"
               onClick={() => {
+                // CodeM skills/list 没有磁盘路径；删除技能仍是协议缺口。
+                if (!skill.location) return
                 session.removeSkill(skill.location)
                 dialog.close()
               }}

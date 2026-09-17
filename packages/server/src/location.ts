@@ -5,7 +5,7 @@ import { WorkspaceV2 } from "@opencode-ai/core/workspace"
 import { Effect, Layer } from "effect"
 import { HttpServerRequest } from "effect/unstable/http"
 import { HttpApiMiddleware } from "effect/unstable/httpapi"
-import { InvalidRequestError } from "@opencode-ai/protocol/errors" // kilocode_change
+import { InvalidRequestError } from "./protocol/errors" // leftover seeded HttpApi; kilocode_change
 
 export type LocationServices = Layer.Success<ReturnType<(typeof LocationServiceMap.Service)["get"]>>
 

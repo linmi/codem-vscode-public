@@ -142,7 +142,7 @@ export interface ModelSelectorBaseProps {
 }
 
 export const ModelSelectorBase: Component<ModelSelectorBaseProps> = (props) => {
-  const { connected, models, findModel } = useProvider()
+  const { catalog, connected, models, findModel } = useProvider()
   const language = useLanguage()
   // Session context is optional — ModelSelectorBase is also used in Settings
   // where SessionProvider may not be mounted.
@@ -186,6 +186,8 @@ export const ModelSelectorBase: Component<ModelSelectorBaseProps> = (props) => {
   // kilo-auto/small is excluded unless includeAutoSmall is explicitly true.
   const visibleModels = createMemo(() => {
     if (props.models) return props.models
+    // CodeM 模型表已在 context 里展开为选择器行；不再等 Kilo providersLoaded。
+    if (catalog()) return models()
     const c = connected()
     return models().filter((m) => {
       if (!props.includeAutoSmall && isSmall(m)) return false

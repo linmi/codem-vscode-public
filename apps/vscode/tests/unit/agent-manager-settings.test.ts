@@ -67,7 +67,7 @@ describe("Agent Manager application settings", () => {
     [true, "", true, ""],
   ] as const)("loads and saves naming preferences (%s, %s)", async (enabled, prefix, expected, text) => {
     const vscode = await import("vscode")
-    const { KiloProvider } = await import("../../src/KiloProvider")
+    const { CodeMProvider } = await import("../../src/CodeMProvider")
     const original = vscode.workspace.getConfiguration
     const values = new Map<string, unknown>()
     if (enabled !== undefined) values.set("autoBranchNaming", enabled)
@@ -82,7 +82,7 @@ describe("Agent Manager application settings", () => {
       },
     })) as typeof original
     try {
-      const provider = new KiloProvider({} as never, {} as never) as unknown as {
+      const provider = new CodeMProvider({} as never, {} as never) as unknown as {
         configSettings(): Record<string, unknown>
         handleUpdateSetting(key: string, value: unknown): Promise<void>
       }
@@ -126,7 +126,7 @@ describe("Claude migration application setting", () => {
 
   it("loads and saves the migration setting globally", async () => {
     const vscode = await import("vscode")
-    const { KiloProvider } = await import("../../src/KiloProvider")
+    const { CodeMProvider } = await import("../../src/CodeMProvider")
     const original = vscode.workspace.getConfiguration
     const values = new Map<string, unknown>()
     const writes: unknown[] = []
@@ -139,7 +139,7 @@ describe("Claude migration application setting", () => {
       },
     })) as typeof original
     try {
-      const provider = new KiloProvider({} as never, {} as never) as unknown as {
+      const provider = new CodeMProvider({} as never, {} as never) as unknown as {
         configSettings(): Record<string, unknown>
         handleUpdateSetting(key: string, value: unknown): Promise<void>
       }

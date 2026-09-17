@@ -10,7 +10,7 @@ import type { Session } from "@kilocode/sdk/v2/client"
 import type { Host, PanelContext, OutputHandle, SessionProvider, Disposable } from "./host"
 import { ProjectRouteService } from "./project/route"
 import type { KiloConnectionService } from "../services/cli-backend"
-import { KiloProvider } from "../KiloProvider"
+import { CodeMProvider } from "../CodeMProvider"
 import { PLATFORM, SNAPSHOT_INITIALIZATION } from "./constants"
 import { DiffVirtualProvider } from "../DiffVirtualProvider"
 import { buildWebviewHtml } from "../utils"
@@ -106,7 +106,7 @@ export class VscodeHost implements Host {
       frameSrc: ["localhost", "127.0.0.1"].map((host) => `http://${host}:*`).join(" "),
     })
 
-    const provider = new KiloProvider(this.extensionUri, this.connectionService, this.context, {
+    const provider = new CodeMProvider(this.extensionUri, this.connectionService, this.context, {
       authentication: this.authentication,
       appServer: this.appServer,
       tabTitle: (title) => {

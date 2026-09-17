@@ -6,6 +6,6 @@ Health check has a 3s timeout via `AbortController`. SSE has a 15s heartbeat tim
 
 ## Remaining Work
 
-- Add configurable request timeout (default: 60s) around SDK calls in KiloProvider
+- Add configurable request timeout (default: 60s) around SDK calls in CodeMProvider
 - Add shorter connect timeout where possible (default: 10s)
 - Ensure timeout cleanup on successful response (no leaked timers)

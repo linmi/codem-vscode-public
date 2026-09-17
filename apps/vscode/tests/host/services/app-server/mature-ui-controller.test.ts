@@ -43,47 +43,70 @@ describe("MatureUiAppServerController", () => {
     assert.equal(fixture.messages[0]?.type, "sessionsLoaded")
   })
 
-  it("projects the online Core model catalog as the CodeM model selector", async () => {
+  it("posts the online Core model catalog as a CodeM native DTO", async () => {
     const fixture = createFixture()
     await fixture.controller.handle({ type: "requestProviders" })
     assert.deepEqual(fixture.messages.at(-1), {
-      type: "providersLoaded",
-      providers: {
-        "codem-router": {
-          id: "codem-router",
-          name: "CodeM",
-          source: "api",
-          models: {
-            auto: {
-              id: "auto",
-              name: "CodeM 智能选择",
-              contextLength: 256000,
-              capabilities: {
-                reasoning: true,
-                input: { text: true, image: false, audio: false, video: false, pdf: false },
-              },
-              variants: { low: {}, medium: {}, high: {}, xhigh: {} },
-            },
+      type: "codemModelsLoaded",
+      catalog: {
+        activeModel: "codem-router/auto",
+        models: [
+          {
+            id: "codem-router/auto",
+            source: "builtin",
+            contextWindowTokens: 256000,
+            supportsVision: false,
           },
-        },
+        ],
       },
-      connected: ["codem-router"],
-      defaults: { "codem-router": "auto" },
-      organizationId: null,
-      ready: true,
-      defaultSelection: { providerID: "codem-router", modelID: "auto" },
-      authMethods: {},
-      authStates: {},
     })
   })
 
-  it("projects Core skills as the slash-command catalog", async () => {
+  it("posts Core skills as the shared Skills and slash catalog", async () => {
     const fixture = createFixture()
     await fixture.controller.handle({ type: "requestCommands" })
     assert.deepEqual(fixture.messages.at(-1), {
-      type: "commandsLoaded",
-      commands: [{ name: "review", description: "Review code", source: "skill", hints: [] }],
+      type: "codemSkillsLoaded",
+      skills: [{ name: "review", description: "Review code" }],
     })
+  })
+
+  it("posts the same Core skills DTO for requestSkills", async () => {
+    const fixture = createFixture()
+    await fixture.controller.handle({ type: "requestSkills" })
+    assert.deepEqual(fixture.messages.at(-1), {
+      type: "codemSkillsLoaded",
+      skills: [{ name: "review", description: "Review code" }],
+    })
+  })
+
+  it("does not impersonate a Kilo agent or image-model catalog", async () => {
+    const fixture = createFixture()
+    assert.equal(await fixture.controller.handle({ type: "requestAgents" }), false)
+    assert.equal(await fixture.controller.handle({ type: "requestImageModels" }), false)
+    assert.equal(
+      fixture.messages.some(
+        (message) => message.type === "agentsLoaded" || message.type === "imageModelsLoaded" || message.type === "providersLoaded",
+      ),
+      false,
+    )
+  })
+
+  it("refreshes only the CodeM model and skill catalogs after a space change", async () => {
+    const fixture = createFixture()
+    await fixture.controller.refreshSpace()
+    assert.equal(fixture.messages.filter((message) => message.type === "codemModelsLoaded").length, 1)
+    assert.equal(fixture.messages.filter((message) => message.type === "codemSkillsLoaded").length, 1)
+    assert.equal(
+      fixture.messages.some(
+        (message) =>
+          message.type === "providersLoaded" ||
+          message.type === "commandsLoaded" ||
+          message.type === "agentsLoaded" ||
+          message.type === "imageModelsLoaded",
+      ),
+      false,
+    )
   })
 
   it("creates Core-owned thread ids and starts or steers correlated submissions", async () => {
@@ -406,6 +429,26 @@ describe("MatureUiAppServerController", () => {
     })
   })
 
+  it("rejects a permission mode that Core marks not settable at runtime", async () => {
+    const fixture = createFixture()
+    fixture.service.listPermissionProfiles = async () => [
+      { id: "yolo", name: "Yolo", description: "", settableAtRuntime: false },
+    ]
+    await fixture.controller.handle({
+      type: "setThreadPermissionMode",
+      sessionID: "thread-1",
+      requestID: "locked-1",
+      expectedRevision: 0,
+      permissionMode: "yolo",
+    })
+    assert.deepEqual(fixture.messages.at(-1), {
+      type: "threadModesResult",
+      sessionID: "thread-1",
+      requestID: "locked-1",
+      result: { error: "CodeM permission mode yolo is not settable at runtime" },
+    })
+  })
+
   it("broadcasts confirmed mode changes and invalidates the mode after a connection closes", async () => {
     const fixture = createFixture()
     await fixture.controller.handle({ type: "createSession" })
@@ -508,6 +551,11 @@ function createFixture(options: { readonly prepareError?: Error } = {}) {
     deleteThread: async () => undefined,
     forkThread: async () => thread.id,
     listSkills: async () => [{ name: "review", description: "Review code" }],
+    listPermissionProfiles: async () => [
+      { id: "default", name: "Default", description: "", settableAtRuntime: true },
+      { id: "auto", name: "Auto", description: "", settableAtRuntime: true },
+      { id: "yolo", name: "Yolo", description: "", settableAtRuntime: true },
+    ],
     respondToInteraction: async (requestId, response) => {
       calls.responses.push({ requestId, response })
     },

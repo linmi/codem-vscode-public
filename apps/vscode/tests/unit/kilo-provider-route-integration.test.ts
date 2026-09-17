@@ -8,7 +8,7 @@ import type { DiffViewerProvider } from "../../src/diff/DiffViewerProvider"
 import type { PRReviewCommentData } from "../../src/shared/review-comments"
 
 // vscode mock is provided by the shared preload (tests/setup/vscode-mock.ts)
-const { KiloProvider } = await import("../../src/KiloProvider")
+const { CodeMProvider } = await import("../../src/CodeMProvider")
 
 type SessionGetParams = { sessionID: string; directory: string }
 
@@ -88,7 +88,7 @@ function mockConnection(getImpl?: (p: SessionGetParams) => Promise<unknown>, vcs
       resolveEventSessionId: () => undefined,
       recordMessageSessionId: () => undefined,
       notifyNotificationDismissed: () => undefined,
-    } as unknown as ConstructorParameters<typeof KiloProvider>[1],
+    } as unknown as ConstructorParameters<typeof CodeMProvider>[1],
   }
 }
 
@@ -148,7 +148,7 @@ function connect(internal: ProviderInternals): void {
   internal.initConnectionPromise = Promise.resolve()
 }
 
-describe("KiloProvider route integration", () => {
+describe("CodeMProvider route integration", () => {
   const comment: PRReviewCommentData = {
     id: "thread-one",
     origin: "pr",
@@ -160,7 +160,7 @@ describe("KiloProvider route integration", () => {
 
   it("opens PR comments beside a chat tab and sends them back to the originating session", async () => {
     const { connection } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       rootDirectory: () => "/active/root",
       topBarSurface: "tab",
     })
@@ -196,7 +196,7 @@ describe("KiloProvider route integration", () => {
     "keeps PR comment delivery alive after the originating provider is disposed (%s)",
     async (id, target, send) => {
       const { connection } = mockConnection()
-      const provider = new KiloProvider({} as never, connection, undefined, {
+      const provider = new CodeMProvider({} as never, connection, undefined, {
         rootDirectory: () => "/active/root",
       })
       provider.setSessionDirectory(id, "/repo/origin")
@@ -224,7 +224,7 @@ describe("KiloProvider route integration", () => {
     routes.registerSession({ projectId: "a", sessionId: "same" }, "/repo/a", 1)
     routes.registerSession({ projectId: "b", sessionId: "same" }, "/repo/b", 1)
     const { connection } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       routeService: routes,
       rootDirectory: () => "/active/root",
     })
@@ -240,7 +240,7 @@ describe("KiloProvider route integration", () => {
       const source = path.join(root, "src")
       await fs.mkdir(source)
       const { connection, projectCalls } = mockConnection(undefined, "none")
-      const provider = new KiloProvider({} as never, connection, undefined, {
+      const provider = new CodeMProvider({} as never, connection, undefined, {
         rootDirectory: () => source,
       })
       const internal = provider as unknown as ProviderInternals
@@ -264,7 +264,7 @@ describe("KiloProvider route integration", () => {
       await fs.mkdir(source)
       const parent = path.dirname(root)
       const { connection } = mockConnection(undefined, "none")
-      const provider = new KiloProvider({} as never, connection, undefined, {
+      const provider = new CodeMProvider({} as never, connection, undefined, {
         rootDirectory: () => parent,
       })
       const internal = provider as unknown as ProviderInternals
@@ -297,7 +297,7 @@ describe("KiloProvider route integration", () => {
       if (result.exitCode !== 0) throw new Error(Buffer.from(result.stderr).toString())
 
       const { connection } = mockConnection(undefined, "none")
-      const provider = new KiloProvider({} as never, connection, undefined, {
+      const provider = new CodeMProvider({} as never, connection, undefined, {
         rootDirectory: () => root,
       })
       const internal = provider as unknown as ProviderInternals
@@ -339,7 +339,7 @@ describe("KiloProvider route integration", () => {
   it("caches an inactive child repo without changing the visible Git status", async () => {
     await withNestedRepo(async (root) => {
       const { connection } = mockConnection(undefined, "none")
-      const provider = new KiloProvider({} as never, connection, undefined, {
+      const provider = new CodeMProvider({} as never, connection, undefined, {
         rootDirectory: () => path.dirname(root),
       })
       const internal = provider as unknown as ProviderInternals
@@ -358,7 +358,7 @@ describe("KiloProvider route integration", () => {
   it("does no Git work for non-mutating part updates", async () => {
     await withNestedRepo(async (root) => {
       const { connection, projectCalls } = mockConnection(undefined, "none")
-      const provider = new KiloProvider({} as never, connection, undefined, {
+      const provider = new CodeMProvider({} as never, connection, undefined, {
         rootDirectory: () => root,
       })
       const internal = provider as unknown as ProviderInternals
@@ -383,7 +383,7 @@ describe("KiloProvider route integration", () => {
 
   it("checks Git capability in the active project directory", async () => {
     const { connection, projectCalls } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       rootDirectory: () => "/workspace/parent/project-b",
       projectQualifier: () => ({ projectId: "project-b" }),
     })
@@ -406,7 +406,7 @@ describe("KiloProvider route integration", () => {
     routes.registerProject("a", "/repo/a", 1)
     routes.registerSession({ projectId: "a", sessionId: "ses-local" }, "/repo/a", 1)
     const { connection, calls } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       routeService: routes,
       rootDirectory: () => "/active/root",
     })
@@ -428,7 +428,7 @@ describe("KiloProvider route integration", () => {
     routes.registerWorktree({ projectId: "a", worktreeId: "wt" }, "/repo/a/.kilo/wt", 1)
     routes.registerSession({ projectId: "a", sessionId: "ses-wt" }, "/repo/a/.kilo/wt", 1)
     const { connection, calls } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       routeService: routes,
       rootDirectory: () => "/active/root",
     })
@@ -449,7 +449,7 @@ describe("KiloProvider route integration", () => {
     routes.registerSession({ projectId: "a", sessionId: "same" }, "/repo/a", 1)
     routes.registerSession({ projectId: "b", sessionId: "same" }, "/repo/b", 1)
     const { connection, calls } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       routeService: routes,
       rootDirectory: () => "/active/root",
     })
@@ -470,7 +470,7 @@ describe("KiloProvider route integration", () => {
     routes.registerSession({ projectId: "a", sessionId: "same" }, "/repo/a", 1)
     routes.registerSession({ projectId: "b", sessionId: "same" }, "/repo/b", 1)
     const { connection, calls } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       routeService: routes,
       rootDirectory: () => "/active/root",
     })
@@ -493,7 +493,7 @@ describe("KiloProvider route integration", () => {
     routes.registerSession({ projectId: "a", sessionId: "same" }, "/repo/a", 1)
     routes.registerSession({ projectId: "b", sessionId: "same" }, "/repo/b", 1)
     const { connection, calls } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       routeService: routes,
       rootDirectory: () => "/active/root",
       projectQualifier: () => ({ projectId: "b" }),
@@ -509,7 +509,7 @@ describe("KiloProvider route integration", () => {
 
   it("falls back to sessionDirectories when no route service is configured (non-Agent-Manager)", async () => {
     const { connection, calls } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       rootDirectory: () => "/active/root",
     })
     provider.setSessionDirectory("ses-plain", "/some/dir")
@@ -525,7 +525,7 @@ describe("KiloProvider route integration", () => {
   it("exposes route registration helpers that forward to the route service", () => {
     const routes = new ProjectRouteService()
     const { connection } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       routeService: routes,
       rootDirectory: () => "/active/root",
     })
@@ -550,7 +550,7 @@ describe("KiloProvider route integration", () => {
     routes.registerSession({ projectId: "a", sessionId: "same" }, "/repo/a", 1)
     routes.registerSession({ projectId: "b", sessionId: "same" }, "/repo/b", 1)
     const { connection, calls } = mockConnection()
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       routeService: routes,
       rootDirectory: () => "/active/root",
     })
@@ -591,7 +591,7 @@ describe("KiloProvider route integration", () => {
             }
       ) as Awaited<ReturnType<typeof client.session.command>>
     }
-    const internal = new KiloProvider({} as never, connection, undefined, {
+    const internal = new CodeMProvider({} as never, connection, undefined, {
       rootDirectory: () => "/goal/worktree",
     }) as unknown as ProviderInternals
     connect(internal)
@@ -709,7 +709,7 @@ describe("KiloProvider route integration", () => {
         },
       }
     }
-    const provider = new KiloProvider({} as never, connection, undefined, {
+    const provider = new CodeMProvider({} as never, connection, undefined, {
       routeService: routes,
       rootDirectory: () => "/active/root",
     })

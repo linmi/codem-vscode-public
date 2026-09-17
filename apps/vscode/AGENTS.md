@@ -5,7 +5,7 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 ## Status and scope
 
 - This directory is the imported Kilo 7.6.2 VS Code baseline with a CodeM-branded shell and public `codem.*` identifiers. Source version is `0.1.14`. It is not a finished CodeM extension.
-- Controller-ready chat (21 Webview commands) goes through `@codem/app-server`. Activation still constructs `KiloConnectionService` and opening a Sidebar still starts `kilo serve` for unmigrated surfaces. `app-server-control` protocol gaps currently fall through to Kilo; do not add new callers there.
+- Controller-ready chat (21 Webview commands) goes through `@codem/app-server`. The catalog/mode path is UI-adapts-to-App-Server: Host posts `codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*`, not Kilo `providersLoaded` / `commandsLoaded` / `agentsLoaded`. Activation still constructs `KiloConnectionService` for leftover Host coordination, but `connect()` / `getServer()` fail closed and never spawn `kilo serve`. Unmigrated `app-server-control` commands report `尚未迁移到 CodeM App Server` instead of falling through to Kilo.
 - The executable parity inventory is 257 commands: 199 host/service, 21 App Server controllers, 37 Core v1 gaps. The production gate is red until the gaps close and Kilo is deleted atomically.
 - Preserve useful VS Code surfaces while migrating the runtime and product model to CodeM App Server.
 - Do not extend Kilo REST/SSE, `kilo serve`, Kilo Session/provider stores, Gateway behavior, Kilo branding, or old command/view IDs for new CodeM work.
@@ -16,7 +16,7 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 - `src/extension.ts`: activation; creates both `CodeMAppServerService` and `KiloConnectionService`.
 - `src/services/app-server/`: CodeM Host adapter, mature UI controller, ownership registry, space selector, credential-broker UI.
 - `src/services/cli-backend/`: imported Kilo process and transport boundary; migration source, not target architecture.
-- `src/kilo-provider/` and `src/KiloProvider.ts`: current host/webview coordination; App Server messages are handled first.
+- `src/kilo-provider/` and `src/CodeMProvider.ts`: current host/webview coordination; App Server messages are handled first.
 - `src/agent-manager/`: worktree, terminal, Git, and Agent Manager host integration; still Kilo-backed.
 - `webview-ui/`: current SolidJS webview implementation.
 - `tests/unit/`: package unit tests; run only focused files relevant to the current Cycle.
@@ -35,7 +35,7 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 ## Host boundaries
 
 - Extension Host owns child processes, VS Code APIs, workspace trust, path validation, subscriptions, pending RPC state, and SecretStorage.
-- Webviews consume strict product DTOs only. Never expose raw App Server frames, secrets, environment dumps, arbitrary filesystem paths, or process handles.
+- Webviews consume strict product DTOs only. Catalog and mode surfaces import `@codem/protocol` (`packages/protocol`) and use CodeM native messages (`codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*`). Never expose raw App Server frames, secrets, environment dumps, arbitrary filesystem paths, or process handles.
 - On Windows, spawn child processes through the wrappers in `src/util/process.ts` or explicitly set `windowsHide: true`.
 - Do not raise Agent Manager file-size caps. Extract VS Code-free helpers when a changed file would exceed its enforced cap.
 

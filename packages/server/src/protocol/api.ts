@@ -1,3 +1,8 @@
+/**
+ * Leftover OpenCode HttpApi schema, seeded into `@opencode-ai/server`.
+ * CodeM hosts/webviews must import `@codem/protocol` (packages/protocol) only.
+ * Do not move this leftover schema into `@codem/protocol`.
+ */
 import { Context } from "effect"
 import { HttpApi, HttpApiGroup, HttpApiMiddleware, OpenApi } from "effect/unstable/httpapi"
 import { SchemaErrorMiddleware } from "./middleware/schema-error"

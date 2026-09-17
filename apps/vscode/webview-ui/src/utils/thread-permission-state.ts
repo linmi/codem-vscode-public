@@ -1,10 +1,10 @@
-import type { AppServerModeState } from "@codem/app-server/modes"
+import type { CodemModeState } from "@codem/protocol"
 import type { ThreadModesChangedMessage, ThreadModesResultMessage } from "../types/messages/extension-messages"
 
 export interface ThreadPermissionView {
   readonly sessionID: string | null
   readonly requestID: string | null
-  readonly state: AppServerModeState | null
+  readonly state: CodemModeState | null
   readonly error: string | null
 }
 
@@ -18,7 +18,7 @@ export function acceptThreadPermissionMessage(
 ): ThreadPermissionView {
   if (message.sessionID !== view.sessionID) return view
   if (message.type === "threadModesResult" && message.requestID !== view.requestID) return view
-  let state: AppServerModeState | null
+  let state: CodemModeState | null
   if (message.type === "threadModesChanged") state = message.state
   else {
     if ("error" in message.result) return { ...view, requestID: null, state: null, error: message.result.error }

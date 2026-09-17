@@ -1,5 +1,5 @@
 /**
- * Suggestion handlers — extracted from KiloProvider.
+ * Suggestion handlers — extracted from CodeMProvider.
  *
  * Manages suggestion accept and dismiss flows plus recovery after SSE reconnects.
  * No vscode dependency.
@@ -62,7 +62,7 @@ export async function handleSuggestionAccept(
       { throwOnError: true },
     )
   } catch (error) {
-    console.error("[CodeM New] KiloProvider: Failed to accept suggestion:", error)
+    console.error("[CodeM New] CodeMProvider: Failed to accept suggestion:", error)
     ctx.postMessage({ type: "suggestionError", requestID })
   }
 }
@@ -83,7 +83,7 @@ export async function handleSuggestionDismiss(
       { throwOnError: true },
     )
   } catch (error) {
-    console.error("[CodeM New] KiloProvider: Failed to dismiss suggestion:", error)
+    console.error("[CodeM New] CodeMProvider: Failed to dismiss suggestion:", error)
     ctx.postMessage({ type: "suggestionError", requestID })
   }
 }
@@ -105,6 +105,6 @@ export async function fetchAndSendPendingSuggestions(ctx: SuggestionContext): Pr
       }
     }
   } catch (error) {
-    console.error("[CodeM New] KiloProvider: Failed to fetch pending suggestions:", error)
+    console.error("[CodeM New] CodeMProvider: Failed to fetch pending suggestions:", error)
   }
 }

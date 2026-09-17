@@ -10,7 +10,7 @@ This repository builds CodeM editor clients as a pnpm monorepo. The frozen Kilo 
 - Shared CodeM packages live under `packages/`.
 - Imported packages that remain necessary only for the Kilo baseline are transitional legacy dependencies. Do not add new CodeM behavior to them.
 - The VS Code shell, manifest, public commands, views, settings, task type, visible product copy, and distributable filename use the CodeM brand and `codem.*` namespace. Legacy Kilo names may remain only where they truthfully identify the imported runtime, protocol, migration inputs, or retained licensed source.
-- The VS Code webview is SolidJS and imports shared components from `@codem/ui`. Do not describe the current checkout as a finished CodeM extension: the controller-ready chat path uses App Server, but activation still starts Kilo REST/SSE, and `assertMatureUiProductionReady()` is red (257 commands / 21 controllers / 37 protocol gaps).
+- The VS Code webview is SolidJS and imports shared components from `@codem/ui`. Do not describe the current checkout as a finished CodeM extension: the controller-ready chat path uses App Server; activation no longer starts `kilo serve`; unmigrated Kilo surfaces fail closed with `尚未迁移到 CodeM App Server`. Host and Webview import catalog/mode DTOs from `@codem/protocol` (`codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*`); the UI adapts to App Server and must not project Core catalogs into Kilo `providersLoaded` / `commandsLoaded` / `agentsLoaded`. `assertMatureUiProductionReady()` is red (257 commands / 21 controllers / 37 protocol gaps). `packages/opencode` remains in-tree for JetBrains unpin builds, Console embed, and leftover SDK types.
 - Online CLI 0.1.208 binds Core 0.8.37. `packages/app-server` owns that exact runtime pin, distributable artifact contract, and host protocol boundary. Connection pooling is keyed by canonical `cwd`; permission mode is per-thread. App Server responses currently omit the `jsonrpc` member; the package may accept only omission or the exact value `"2.0"`, must expose which shape was observed, and must reject every other value. Delete the omission exception when the pinned online runtime emits the field.
 - Durable history is `packages/session-history` reading Core JSONL schema 13. Do not add a second transcript store or restore `thread/turns/list` as a history source.
 - Work in one independently verifiable Cycle at a time. Do not combine unrelated dependency upgrades or speculative abstractions with a migration Cycle.
@@ -32,6 +32,7 @@ This repository builds CodeM editor clients as a pnpm monorepo. The frozen Kilo 
 - `apps/vscode/`: imported VS Code application and primary migration surface.
 - `apps/jetbrains/`: imported JetBrains application. It uses native IntelliJ UI; `@codem/ui` applies to web surfaces, not Swing/Jewel screens.
 - `packages/app-server/`: reusable Node-only CodeM Core version, platform resolution, extension staging, license, bundle-integrity, protocol, and lifecycle boundary. It may not depend on editor APIs, Electron, VS Code, or DOM APIs. VS Code consumes it; JetBrains does not yet.
+- `packages/protocol/`: isomorphic CodeM catalog/mode DTOs (`@codem/protocol`) shared by Host and Webview. Handwritten, aligned with `@codem/app-server` catalog/mode shapes. Zero Node / VS Code / Electron / DOM, and no leftover SDK packages as dependencies or type sources. Not a UI package and not an `@codem/app-server/dto` subpath. Leftover OpenCode HttpApi schema is not this package.
 - `packages/session-history/`: Node-only JSONL schema 13 history reader shared by editor hosts.
 - `packages/ui/`: CodeM Solid design-system source, including the absorbed OpenCode primitives and CLI Console widgets. VS Code webviews import it as `@codem/ui/components/*`.
 - `packages/legacy/console/`: imported CLI Console application (`@codem/console`). It imports shared widgets from `@codem/ui`.
@@ -83,6 +84,8 @@ pnpm install --frozen-lockfile
 Run the smallest relevant checks first:
 
 ```bash
+pnpm test:protocol
+pnpm typecheck:protocol
 pnpm test:app-server
 pnpm typecheck:app-server
 pnpm typecheck:ui

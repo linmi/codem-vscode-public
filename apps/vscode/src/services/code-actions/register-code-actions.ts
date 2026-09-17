@@ -1,14 +1,14 @@
 import * as vscode from "vscode"
-import type { KiloProvider } from "../../KiloProvider"
+import type { CodeMProvider } from "../../CodeMProvider"
 import type { AgentManagerProvider } from "../../agent-manager/AgentManagerProvider"
 import { getEditorContext } from "./editor-utils"
 import { createPrompt } from "./support-prompt"
 
 export function registerCodeActions(
   context: vscode.ExtensionContext,
-  provider: KiloProvider,
+  provider: CodeMProvider,
   agentManager?: AgentManagerProvider,
-  activeTabProvider?: () => KiloProvider | undefined,
+  activeTabProvider?: () => CodeMProvider | undefined,
 ): void {
   const target = () => (agentManager?.isActive() ? agentManager : (activeTabProvider?.() ?? provider))
   const reveal = async () => {
@@ -27,7 +27,7 @@ export function registerCodeActions(
   // Propagate that so callers skip posting instead of delivering the
   // message to whatever panel happens to be active by the time the wait
   // settles.
-  const revealTarget = async (view: KiloProvider | AgentManagerProvider): Promise<boolean> => {
+  const revealTarget = async (view: CodeMProvider | AgentManagerProvider): Promise<boolean> => {
     if (view === provider) {
       await reveal()
       return true

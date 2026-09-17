@@ -110,7 +110,12 @@ import { handleSetOrganization, type AuthContext } from "./kilo-provider/handler
 import { codeMWebviewProfile } from "./services/app-server/authentication-ui"
 import { MatureUiAppServerController } from "./services/app-server/mature-ui-controller"
 import { prepareMatureUiPrompt } from "./services/app-server/mature-ui-prompt"
-import { CODEM_UI_INTERACTION_OWNERS, type CodeMUiInteractionType } from "./services/app-server/ui-parity"
+import {
+  CODEM_UI_INTERACTION_OWNERS,
+  isAppServerOwned,
+  type CodeMUiInteractionType,
+  unmigratedAppServerCommandMessage,
+} from "./services/app-server/ui-parity"
 import {
   handleRequestCloudSessions,
   handleRequestCloudSessionData,
@@ -154,7 +159,7 @@ import { fetchOpenAIModels, FetchModelsError } from "./shared/fetch-models"
 import type { Agent } from "@kilocode/sdk/v2/client"
 import { configFeatures, serverFeatures } from "./features"
 import { fetchSnapshot } from "./kilo-provider/config-snapshot"
-import type { KiloProviderOptions } from "./kilo-provider/options"
+import type { CodeMProviderOptions } from "./kilo-provider/options"
 import type { ProjectRef, SessionRef, WorktreeRef } from "./agent-manager/project/route"
 import { indexingConsentStore, registeredProjects } from "./indexing-consent"
 import { fetchKiloEmbeddingModelCatalog } from "@kilocode/kilo-gateway"
@@ -333,7 +338,8 @@ type ContextRequestMessage =
   | { type: "requestFilePicker"; requestId: string }
   | { type: "requestTerminalContext"; requestId: string; sessionID?: string; agentManagerContext?: string }
 
-export class KiloProvider implements vscode.WebviewViewProvider {
+/** VS Code host/webview coordinator. App Server commands go through the mature UI controller first. */
+export class CodeMProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "codem.SidebarProvider"
   private readonly instanceId = crypto.randomUUID()
 
@@ -494,7 +500,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     private readonly extensionUri: vscode.Uri,
     private readonly connectionService: KiloConnectionService,
     private readonly extensionContext?: vscode.ExtensionContext,
-    private readonly opts: KiloProviderOptions = {},
+    private readonly opts: CodeMProviderOptions = {},
   ) {
     this.projectDirectory = opts.projectDirectory
     this.slimEditMetadata = opts.slimEditMetadata ?? true
@@ -699,7 +705,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
 
   private async syncWebviewState(reason: string): Promise<void> {
     const serverInfo = this.connectionService.getServerInfo()
-    console.log("[CodeM New] KiloProvider: 🔄 syncWebviewState()", {
+    console.log("[CodeM New] CodeMProvider: 🔄 syncWebviewState()", {
       reason,
       isWebviewReady: this.isWebviewReady,
       connectionState: this.connectionState,
@@ -708,7 +714,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     })
 
     if (!this.isWebviewReady) {
-      console.log("[CodeM New] KiloProvider: ⏭️ syncWebviewState skipped (webview not ready)")
+      console.log("[CodeM New] CodeMProvider: ⏭️ syncWebviewState skipped (webview not ready)")
       return
     }
 
@@ -718,17 +724,16 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     this.postConnectionState()
 
     // Re-send ready so the webview can recover after refresh.
-    if (serverInfo) {
-      const langConfig = vscode.workspace.getConfiguration("codem")
-      this.postMessage({
-        type: "ready",
-        serverInfo,
-        extensionVersion: this.extensionVersion,
-        vscodeLanguage: vscode.env.language,
-        languageOverride: langConfig.get<string>("language"),
-        workspaceDirectory: this.getProjectDirectory(this.currentSession?.id),
-      })
-    }
+    const langConfig = vscode.workspace.getConfiguration("codem")
+    this.postMessage({
+      type: "ready",
+      ...(serverInfo ? { serverInfo } : {}),
+      extensionVersion: this.extensionVersion,
+      vscodeLanguage: vscode.env.language,
+      languageOverride: langConfig.get<string>("language"),
+      fontSize: getWebviewFontSize(),
+      workspaceDirectory: this.getProjectDirectory(this.currentSession?.id),
+    })
 
     const authentication = this.opts.authentication
     if (authentication) {
@@ -919,7 +924,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     return retry(() => client.session.get({ sessionID: sessionId, directory }, { throwOnError: true }))
       .then((result) => result.data)
       .catch((error: unknown) => {
-        console.warn("[CodeM New] KiloProvider: Failed to resolve managed session:", error)
+        console.warn("[CodeM New] CodeMProvider: Failed to resolve managed session:", error)
         return undefined
       })
   }
@@ -1050,10 +1055,12 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       return true
     }
     if (await this.appServerController.handle(message)) return true
-    if (CODEM_UI_INTERACTION_OWNERS[message.type as CodeMUiInteractionType] !== "app-server-live") return false
+    const owner = CODEM_UI_INTERACTION_OWNERS[message.type as CodeMUiInteractionType]
+    // app-server-control used to fall through to Kilo; that leak is closed.
+    if (!isAppServerOwned(owner)) return false
     this.postMessage({
       type: "error",
-      message: `CodeM App Server does not support ${message.type} yet`,
+      message: unmigratedAppServerCommandMessage(message.type),
       ...(typeof message.sessionID === "string" ? { sessionID: message.sessionID } : {}),
     })
     return true
@@ -1153,7 +1160,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       if (this.handleNotificationSettingsMessage(message)) return
       switch (message.type) {
         case "webviewReady":
-          console.log("[CodeM New] KiloProvider: ✅ webviewReady received")
+          console.log("[CodeM New] CodeMProvider: ✅ webviewReady received")
           this.isWebviewReady = true
           for (const event of this.connectionService.getPendingCompletions()) {
             this.postMessage(mapSSEEventToWebviewMessage(event, event.properties.sessionID))
@@ -1271,13 +1278,13 @@ export class KiloProvider implements vscode.WebviewViewProvider {
           )
           break
         case "retryConnection":
-          console.log("[CodeM New] KiloProvider: 🔄 Retrying connection...")
+          console.log("[CodeM New] CodeMProvider: 🔄 Retrying connection...")
           this.initializeConnection().catch((e) =>
-            console.error("[CodeM New] KiloProvider: ❌ Retry connection failed:", e),
+            console.error("[CodeM New] CodeMProvider: ❌ Retry connection failed:", e),
           )
           break
         case "reload":
-          this.handleReload().catch((e) => console.error("[CodeM New] KiloProvider: Reload failed:", e))
+          this.handleReload().catch((e) => console.error("[CodeM New] CodeMProvider: Reload failed:", e))
           break
         case "openSubAgentViewer":
           vscode.commands.executeCommand(
@@ -1575,7 +1582,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
             .catch((err: unknown) => {
               const raw = getErrorMessage(err) || "Failed to enhance prompt"
               const msg = normalizeEnhancePromptErrorMessage(raw)
-              console.error("[CodeM New] KiloProvider: Failed to enhance prompt:", err)
+              console.error("[CodeM New] CodeMProvider: Failed to enhance prompt:", err)
               vscode.window.showErrorMessage(`Enhance prompt failed: ${msg}`)
               this.postMessage({
                 type: "enhancePromptError",
@@ -1844,7 +1851,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
   }
 
   private async doInitializeConnection(): Promise<void> {
-    console.log("[CodeM New] KiloProvider: 🔧 Starting initializeConnection...")
+    console.log("[CodeM New] CodeMProvider: 🔧 Starting initializeConnection...")
 
     this.connectionState = "connecting"
     this.connectionGeneration++
@@ -1861,10 +1868,8 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     this.unsubscribeDirectoryProvider?.()
 
     try {
-      const workspaceDir = this.settingsDirectory()
-
-      // Connect the shared service (no-op if already connected)
-      await this.connectionService.connect(workspaceDir)
+      // App Server is the only live transport. Do not start kilo serve here.
+      // Test fixtures may still inject a Kilo client; production connect() fail-closes.
       this.flushPendingKiloModel()
 
       // Subscribe to SSE events for this webview (filtered by tracked sessions)
@@ -1899,7 +1904,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
           }
 
           // session.status must always pass through — even for sessions not tracked by this
-          // KiloProvider instance. The Settings panel is a separate provider with no tracked
+          // CodeMProvider instance. The Settings panel is a separate provider with no tracked
           // sessions, but it needs session.status to populate sessionStatusMap and allStatusMap
           // for the busy-session warning on Save.
           if (event.type === "session.status") return true
@@ -1943,7 +1948,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
             await this.flushPendingSessionRefresh("sse-connected")
             this.recoverPendingPrompts()
           } catch (error) {
-            console.error("[CodeM New] KiloProvider: ❌ Failed during connected state handling:", error)
+            console.error("[CodeM New] CodeMProvider: ❌ Failed during connected state handling:", error)
             this.postMessage({
               type: "error",
               message: getErrorMessage(error) || "Failed to sync after connecting",
@@ -1952,17 +1957,17 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         }
       })
 
-      // Subscribe to notification dismiss broadcast from other KiloProvider instances
+      // Subscribe to notification dismiss broadcast from other CodeMProvider instances
       this.unsubscribeNotificationDismiss = this.connectionService.onNotificationDismissed(() => {
         this.fetchAndSendNotifications()
       })
 
-      // Subscribe to language change broadcast from other KiloProvider instances
+      // Subscribe to language change broadcast from other CodeMProvider instances
       this.unsubscribeLanguageChange = this.connectionService.onLanguageChanged((locale) => {
         this.postMessage({ type: "languageChanged", locale })
       })
 
-      // Subscribe to favorites change broadcast from other KiloProvider instances
+      // Subscribe to favorites change broadcast from other CodeMProvider instances
       this.unsubscribeFavoritesChange = this.connectionService.onFavoritesChanged((favorites) => {
         this.postMessage({ type: "favoritesLoaded", favorites })
       })
@@ -1977,30 +1982,21 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         return [this.getWorkspaceDirectory(), ...this.sessionDirectories.values()]
       })
 
-      // Get current state and push to webview
+      // Host is ready for App Server chat without a Kilo REST/SSE process.
       const serverInfo = this.connectionService.getServerInfo()
-      this.connectionState = this.connectionService.getConnectionState()
-
-      if (serverInfo) {
-        const langConfig = vscode.workspace.getConfiguration("codem")
-        this.postMessage({
-          type: "ready",
-          serverInfo,
-          extensionVersion: this.extensionVersion,
-          vscodeLanguage: vscode.env.language,
-          languageOverride: langConfig.get<string>("language"),
-          fontSize: getWebviewFontSize(),
-          workspaceDirectory: this.getProjectDirectory(this.currentSession?.id),
-        })
-      }
+      this.connectionState = "connected"
+      const langConfig = vscode.workspace.getConfiguration("codem")
+      this.postMessage({
+        type: "ready",
+        ...(serverInfo ? { serverInfo } : {}),
+        extensionVersion: this.extensionVersion,
+        vscodeLanguage: vscode.env.language,
+        languageOverride: langConfig.get<string>("language"),
+        fontSize: getWebviewFontSize(),
+        workspaceDirectory: this.getProjectDirectory(this.currentSession?.id),
+      })
       this.postConnectionState()
-
-      // connect() can resolve after SSE reaches "connected" but before this
-      // provider subscribes to onStateChange(). In that case the initial
-      // connected callback is missed, so run the warning check here too.
-      if (this.connectionState === "connected") {
-        void this.checkConfigWarnings("init")
-      }
+      void this.checkConfigWarnings("init")
 
       await this.syncWebviewState("initializeConnection")
       await this.flushPendingSessionRefresh("initializeConnection")
@@ -2023,9 +2019,9 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       this.postMessage(buildAutoApprovalReasonSettingMessage())
       this.postMessage({ type: "extensionDataReady" })
 
-      console.log("[CodeM New] KiloProvider: ✅ initializeConnection completed successfully")
+      console.log("[CodeM New] CodeMProvider: ✅ initializeConnection completed successfully")
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: ❌ Failed to initialize connection:", error)
+      console.error("[CodeM New] CodeMProvider: ❌ Failed to initialize connection:", error)
       this.connectionState = "error"
       this.postMessage({
         type: "connectionState",
@@ -2073,7 +2069,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         session: this.sessionToWebview(this.currentSession!),
       })
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to create session:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to create session:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to create session",
@@ -2110,7 +2106,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         return r.data
       })
       .catch((e: unknown) => {
-        console.warn("[CodeM New] KiloProvider: getSession failed (non-critical):", e)
+        console.warn("[CodeM New] CodeMProvider: getSession failed (non-critical):", e)
         return undefined
       })
     this.postMessage({ type: "workspaceDirectoryChanged", directory: this.getWorkspaceDirectory(sessionID) })
@@ -2140,7 +2136,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
           if (this.accept(sid, status, dir, epoch)) this.publish(sid, status)
         }
       })
-      .catch((error: unknown) => console.error("[CodeM New] KiloProvider: Failed to fetch session statuses:", error))
+      .catch((error: unknown) => console.error("[CodeM New] CodeMProvider: Failed to fetch session statuses:", error))
   }
 
   private fetchAndSendSessionModelUsage(sessionID: string, requestID: string): Promise<void> {
@@ -2153,7 +2149,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         this.postMessage({ type: "sessionModelUsageLoaded", sessionID, requestID, data: response.data })
       })
       .catch((error: unknown) => {
-        console.warn("[CodeM New] KiloProvider: Failed to load session model usage:", error)
+        console.warn("[CodeM New] CodeMProvider: Failed to load session model usage:", error)
         this.postMessage({ type: "sessionModelUsageLoaded", sessionID, requestID })
       })
   }
@@ -2251,7 +2247,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       this.recoverPendingPrompts()
     } catch (error) {
       if (abort?.signal.aborted) return
-      console.error("[CodeM New] KiloProvider: Failed to load messages:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to load messages:", error)
       this.postMessage({ type: "error", message: getErrorMessage(error) || "Failed to load messages", sessionID })
     }
   }
@@ -2318,7 +2314,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       this.recoverPendingPrompts()
     } catch (err) {
       this.syncedChildSessions.delete(sessionID)
-      console.error("[CodeM New] KiloProvider: Failed to sync child session:", err)
+      console.error("[CodeM New] CodeMProvider: Failed to sync child session:", err)
     }
   }
 
@@ -2368,7 +2364,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
    */
   private async flushPendingSessionRefresh(reason: string): Promise<void> {
     if (!this.pendingSessionRefresh) return
-    console.log("[CodeM New] KiloProvider: 🔄 Flushing deferred sessions refresh", { reason })
+    console.log("[CodeM New] CodeMProvider: 🔄 Flushing deferred sessions refresh", { reason })
     const revision = ++this.sessionRefreshRevision
     const scope = this.opts.projectQualifier?.()?.projectId
     if (scope !== undefined) this.projectID = undefined
@@ -2377,7 +2373,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       const resolved = await flushPendingSessionRefreshUtil(ctx)
       if (resolved && scope === this.opts.projectQualifier?.()?.projectId) this.projectID = resolved
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to flush session refresh:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to flush session refresh:", error)
     }
     this.pendingSessionRefresh = ctx.pendingSessionRefresh
   }
@@ -2394,7 +2390,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       const resolved = await loadSessionsUtil(ctx)
       if (resolved && scope === this.opts.projectQualifier?.()?.projectId) this.projectID = resolved
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to load sessions:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to load sessions:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to load sessions",
@@ -2528,7 +2524,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       }
       this.postMessage({ type: "sessionDeleted", sessionID })
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to delete session:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to delete session:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to delete session",
@@ -2557,7 +2553,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       )
       this.postMessage({ ...result, success: response.data === true })
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to delete message:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to delete message:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to delete message",
@@ -2581,7 +2577,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       if (this.currentSession?.id === sessionID) this.setCurrentSession(updated)
       this.postMessage({ type: "sessionUpdated", session: this.sessionToWebview(updated) })
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to rename session:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to rename session:", error)
       this.postMessage({ type: "error", message: getErrorMessage(error) || "Failed to rename session" })
     }
   }
@@ -2602,7 +2598,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       })
       if (saved) void vscode.window.showInformationMessage("Session transcript exported as Markdown.")
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to export session transcript:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to export session transcript:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to export session transcript",
@@ -2627,7 +2623,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     const result = await (
       force ? client.kilocode.providerUsage.refresh({ directory }) : client.kilocode.providerUsage.get({ directory })
     ).catch((error) => {
-      console.error("[CodeM New] KiloProvider: Failed to fetch provider usage:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to fetch provider usage:", error)
       return undefined
     })
     if (generation !== this.providerUsageGeneration) return
@@ -2712,7 +2708,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
             generation = this.providersGeneration
             continue
           }
-          console.error("[CodeM New] KiloProvider: Failed to fetch providers:", error)
+          console.error("[CodeM New] CodeMProvider: Failed to fetch providers:", error)
         }
         if (!this.providersQueued) return
         generation = this.providersGeneration
@@ -2793,6 +2789,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
    * Fetch agents (modes) from the backend and send to webview.
    */
   private async fetchAndSendAgents(): Promise<void> {
+    if (this.appServerController) return
     if (!this.client) {
       if (this.cachedAgentsMessage) {
         this.postMessage(this.cachedAgentsMessage)
@@ -2817,11 +2814,15 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       this.cachedAgentsMessage = message
       this.postMessage(message)
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to fetch agents:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to fetch agents:", error)
     }
   }
 
   private async fetchAndSendSkills(): Promise<void> {
+    if (this.appServerController) {
+      await this.appServerController.handle({ type: "requestSkills" })
+      return
+    }
     if (!this.client) {
       if (this.cachedSkillsMessage) {
         this.postMessage(this.cachedSkillsMessage)
@@ -2842,17 +2843,16 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       this.cachedSkillsMessage = message
       this.postMessage(message)
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to fetch skills:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to fetch skills:", error)
     }
   }
 
-  /** 模型 / Skills / 斜杠目录走 App Server；无控制器时才退回 Kilo 测试夹具。 */
+  /** 模型 / Skills / 斜杠目录走 App Server 原生 DTO；无控制器时才退回 Kilo 测试夹具。 */
   private async refreshLiveCatalogs(): Promise<void> {
     if (this.appServerController) {
       await Promise.all([
         this.appServerController.handle({ type: "requestProviders" }),
         this.appServerController.handle({ type: "requestSkills" }),
-        this.appServerController.handle({ type: "requestCommands" }),
       ])
       return
     }
@@ -2904,7 +2904,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
   private async handleRemoveMcp(name: string): Promise<void> {
     const removed = await removeMcp(this.removeConfigItemCtx, name)
     if (!removed) {
-      console.error("[CodeM New] KiloProvider: Failed to remove MCP server:", name)
+      console.error("[CodeM New] CodeMProvider: Failed to remove MCP server:", name)
     }
   }
 
@@ -2929,7 +2929,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         this.postMessage(message)
       }
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to fetch MCP status:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to fetch MCP status:", error)
     }
   }
 
@@ -2957,7 +2957,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     try {
       await this.refreshConfig("configLoaded")
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to fetch config:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to fetch config:", error)
     }
   }
 
@@ -2969,7 +2969,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       this.cachedGlobalConfig = config ?? null
       this.postMessage({ type: "globalConfigLoaded", config })
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to fetch global config:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to fetch global config:", error)
     }
   }
 
@@ -3012,7 +3012,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       this.cachedIndexingStatusMessage = message
       this.postMessage(message)
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to fetch indexing status:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to fetch indexing status:", error)
     }
   }
 
@@ -3024,6 +3024,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
   }
 
   private async fetchAndSendImageModels(): Promise<void> {
+    if (this.appServerController) return
     const dir = this.getWorkspaceDirectory()
     const result = await fetchImageModels(this.connectionService, dir)
     if (!result.ok) {
@@ -3061,7 +3062,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       )
       this.postMessage({ type: "backgroundJobsLoaded", sessionID, requestID, jobs: data })
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to fetch background jobs:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to fetch background jobs:", error)
       this.postMessage({
         type: "backgroundJobsLoaded",
         sessionID,
@@ -3085,7 +3086,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       )
       await this.fetchAndSendBackgroundJobs(sessionID, requestID)
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to cancel background job:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to cancel background job:", error)
       this.postMessage({
         type: "backgroundJobsLoaded",
         sessionID,
@@ -3105,7 +3106,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         { throwOnError: true },
       )
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to promote background job:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to promote background job:", error)
     }
   }
 
@@ -3183,7 +3184,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     try {
       await this.refreshConfig("configUpdated")
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to fetch config after update:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to fetch config after update:", error)
     }
   }
 
@@ -3194,25 +3195,25 @@ export class KiloProvider implements vscode.WebviewViewProvider {
    */
   private async checkConfigWarnings(from: string): Promise<void> {
     if (this.configWarningsShown) {
-      console.log("[CodeM New] KiloProvider: config warnings already shown", { from })
+      console.log("[CodeM New] CodeMProvider: config warnings already shown", { from })
       return
     }
     if (!this.client) {
-      console.log("[CodeM New] KiloProvider: config warnings skipped (no client)", { from })
+      console.log("[CodeM New] CodeMProvider: config warnings skipped (no client)", { from })
       return
     }
     try {
       const dir = this.getWorkspaceDirectory()
-      console.log("[CodeM New] KiloProvider: checking config warnings", { from, dir })
+      console.log("[CodeM New] CodeMProvider: checking config warnings", { from, dir })
       const result = await this.client.config.warnings({ directory: dir })
       const list = result?.data ?? []
-      console.log("[CodeM New] KiloProvider: config warnings fetched", { from, count: list.length })
+      console.log("[CodeM New] CodeMProvider: config warnings fetched", { from, count: list.length })
       if (list.length === 0) return
       this.configWarningsShown = true
 
       const first = list[0]!
       const summary = list.length === 1 ? first.message : `${first.message} (and ${list.length - 1} more)`
-      console.warn("[CodeM New] KiloProvider: showing config warnings", { from, count: list.length, path: first.path })
+      console.warn("[CodeM New] CodeMProvider: showing config warnings", { from, count: list.length, path: first.path })
 
       const action = await vscode.window.showWarningMessage(`Config: ${summary}`, "Show Details")
       if (action === "Show Details") {
@@ -3226,7 +3227,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         channel.show()
       }
     } catch (err) {
-      console.warn("[CodeM New] KiloProvider: checkConfigWarnings failed:", { from, err })
+      console.warn("[CodeM New] CodeMProvider: checkConfigWarnings failed:", { from, err })
     }
   }
 
@@ -3629,7 +3630,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       await Promise.all([
         refreshProviders ? this.fetchAndSendProviders() : Promise.resolve(),
         refreshAgents ? this.fetchAndSendAgents() : Promise.resolve(),
-      ]).catch((error) => console.error("[CodeM New] KiloProvider: Post-config refresh failed:", error))
+      ]).catch((error) => console.error("[CodeM New] CodeMProvider: Post-config refresh failed:", error))
     } catch (error) {
       this.postConfigFailure(error, completed, snapshot, dir)
     } finally {
@@ -3670,7 +3671,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     snapshot?: ConfigSnapshot,
     directory?: string,
   ): void {
-    console.error("[CodeM New] KiloProvider: Failed to update config:", error)
+    console.error("[CodeM New] CodeMProvider: Failed to update config:", error)
     const bindings = snapshot && directory ? this.bindingsFor(directory, snapshot.targets) : undefined
     this.postMessage({
       type: "configUpdateFailed",
@@ -3812,7 +3813,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         }
 
         const delay = backoff(attempt, result.response?.headers)
-        console.log(`[CodeM New] KiloProvider: Retry on ${status}, attempt ${attempt}/${MAX_RETRIES}, delay ${delay}ms`)
+        console.log(`[CodeM New] CodeMProvider: Retry on ${status}, attempt ${attempt}/${MAX_RETRIES}, delay ${delay}ms`)
 
         this.postMessage({
           type: "sessionStatus",
@@ -4227,7 +4228,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       }
 
       await this.checkpoints.get(sid)
-      await runWithMessageConfirmation(this.confirmations, messageID, "KiloProvider: Message request", () =>
+      await runWithMessageConfirmation(this.confirmations, messageID, "CodeMProvider: Message request", () =>
         this.withRetry(
           () =>
             this.client!.session.promptAsync({
@@ -4246,7 +4247,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         ),
       )
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to send message:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to send message:", error)
       this.postMessage({
         type: "sendMessageFailed",
         error: getErrorMessage(error) || "Failed to send message",
@@ -4327,7 +4328,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
           parts,
           snapshotInitialization: this.opts.snapshotInitialization,
         })
-      await runWithMessageConfirmation(this.confirmations, messageID, "KiloProvider: Command request", async () => {
+      await runWithMessageConfirmation(this.confirmations, messageID, "CodeMProvider: Command request", async () => {
         if (command !== "goal") return this.withRetry(send, sid, messageID)
         const result = await send()
         if (result.error) throw result.error
@@ -4342,7 +4343,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         this.postMessage({ type: "sessionCommandCompleted", messageID })
       }
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to send command:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to send command:", error)
       this.postMessage({
         type: "sendMessageFailed",
         error: getErrorMessage(error) || "Failed to send command",
@@ -4431,7 +4432,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     const dir = this.getWorkspaceDirectory(sessionID)
     const { data, error } = await this.client.session.revert({ sessionID, messageID, partID, directory: dir })
     if (error) {
-      console.error("[CodeM New] KiloProvider: Failed to revert session:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to revert session:", error)
       this.postMessage({ type: "error", message: "Failed to revert session", sessionID })
       throw error
     }
@@ -4446,7 +4447,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     const dir = this.getWorkspaceDirectory(sessionID)
     const { data, error } = await this.client.session.unrevert({ sessionID, directory: dir })
     if (error) {
-      console.error("[CodeM New] KiloProvider: Failed to unrevert session:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to unrevert session:", error)
       this.postMessage({ type: "error", message: "Failed to redo session", sessionID })
       throw error
     }
@@ -4470,12 +4471,12 @@ export class KiloProvider implements vscode.WebviewViewProvider {
 
     const target = sessionID || this.currentSession?.id
     if (!target) {
-      console.error("[CodeM New] KiloProvider: No sessionID for compact")
+      console.error("[CodeM New] CodeMProvider: No sessionID for compact")
       return
     }
 
     if (!providerID || !modelID) {
-      console.error("[CodeM New] KiloProvider: No model selected for compact")
+      console.error("[CodeM New] CodeMProvider: No model selected for compact")
       this.postMessage({
         type: "error",
         message: "No model selected. Connect a provider to compact this session.",
@@ -4490,7 +4491,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         { throwOnError: true },
       )
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to compact session:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to compact session:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to compact session",
@@ -4589,7 +4590,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
 
     await this.client.global
       .dispose()
-      .catch((e: unknown) => console.warn("[CodeM New] KiloProvider: global.dispose() after org switch failed:", e))
+      .catch((e: unknown) => console.warn("[CodeM New] CodeMProvider: global.dispose() after org switch failed:", e))
 
     // Org switch succeeded — refresh profile and providers independently (best-effort)
     try {
@@ -4597,12 +4598,12 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       // Broadcast to all webviews (sidebar, profile tab, agent manager, etc.)
       this.connectionService.notifyProfileChanged(profileResult.data ?? null)
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to refresh profile after org switch:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to refresh profile after org switch:", error)
     }
     try {
       await this.fetchAndSendProviders()
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to refresh providers after org switch:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to refresh providers after org switch:", error)
     }
   }
 
@@ -4973,7 +4974,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     }
 
     // session.status events pass the onEventFiltered pre-filter for all providers (see line 842),
-    // so this runs on every KiloProvider instance — including the Settings panel which has no
+    // so this runs on every CodeMProvider instance — including the Settings panel which has no
     // tracked sessions. Update sessionStatusMap and forward to webview before the
     // trackedSessionIds guard so the Settings panel's allStatusMap stays current for the
     // busy-session warning on Save.
@@ -5084,7 +5085,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       }
       const childId = childID(part)
       if (childId && !this.trackedSessionIds.has(childId)) {
-        console.log("[CodeM New] KiloProvider: 🔗 Auto-adopting child session from task tool", { childId })
+        console.log("[CodeM New] CodeMProvider: 🔗 Auto-adopting child session from task tool", { childId })
         void this.handleSyncSession(childId, part.sessionID ?? sessionID)
       }
     }
@@ -5160,12 +5161,12 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         typeof (message as { type?: unknown }).type === "string"
           ? (message as { type: string }).type
           : "<unknown>"
-      console.warn("[CodeM New] KiloProvider: ⚠️ postMessage dropped (no webview)", { type })
+      console.warn("[CodeM New] CodeMProvider: ⚠️ postMessage dropped (no webview)", { type })
       return
     }
 
     void this.webview.postMessage(message).then(undefined, (error) => {
-      console.error("[CodeM New] KiloProvider: ❌ postMessage failed", error)
+      console.error("[CodeM New] CodeMProvider: ❌ postMessage failed", error)
     })
   }
 
@@ -5181,7 +5182,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     this.pendingReviewComments.push({ comments, autoSend, ...(sessionID ? { sessionID } : {}) })
 
     if (!this.webview) {
-      await vscode.commands.executeCommand(`${KiloProvider.viewType}.focus`)
+      await vscode.commands.executeCommand(`${CodeMProvider.viewType}.focus`)
     }
 
     this.flushPendingReviewComments()
@@ -5198,7 +5199,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         void vscode.window.showInformationMessage(`Project memory ${operation === "enable" ? "enabled" : "disabled"}.`)
       }
     } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to toggle memory:", error)
+      console.error("[CodeM New] CodeMProvider: Failed to toggle memory:", error)
       void vscode.window.showErrorMessage(getErrorMessage(error) || "Failed to toggle memory")
     }
   }
@@ -5229,7 +5230,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       const remote = repo.state?.remotes?.find((r: { name: string }) => r.name === "origin")
       return remote?.fetchUrl ?? remote?.pushUrl
     } catch (error) {
-      console.warn("[CodeM New] KiloProvider: Failed to get git remote URL:", error)
+      console.warn("[CodeM New] CodeMProvider: Failed to get git remote URL:", error)
       return undefined
     }
   }
@@ -5333,7 +5334,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     // Ambiguous ids degrade to the legacy resolution instead of throwing: this
     // runs eagerly per webview message, where a throw would drop the message.
     if (routed === null)
-      console.warn(`[CodeM New] KiloProvider: session ${sessionId} is ambiguous across projects, using workspace root`)
+      console.warn(`[CodeM New] CodeMProvider: session ${sessionId} is ambiguous across projects, using workspace root`)
     if (routed) return routed
     return resolveWorkspaceDirectory({
       sessionID: sessionId,
@@ -5346,7 +5347,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     const routed = this.routeSessionDirectory(sessionId)
     if (routed === null)
       console.warn(
-        `[CodeM New] KiloProvider: session ${sessionId} is ambiguous across projects, using tracked directory`,
+        `[CodeM New] CodeMProvider: session ${sessionId} is ambiguous across projects, using tracked directory`,
       )
     if (routed) return routed
     return this.sessionDirectories.get(sessionId) ?? session?.directory ?? this.getRootDirectory()
@@ -5449,7 +5450,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     const history = await retry(() =>
       this.client!.session.messages({ sessionID, directory, limit: 0 }, { throwOnError: true }),
     ).catch((error: unknown) => {
-      console.warn("[CodeM New] KiloProvider: Failed to recover session Git directory:", error)
+      console.warn("[CodeM New] CodeMProvider: Failed to recover session Git directory:", error)
       return undefined
     })
     if (!history) {

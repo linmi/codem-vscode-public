@@ -3,7 +3,7 @@
  *
  * ## Why this exists
  *
- * The sidebar KiloProvider always uses `getWorkspaceDirectory()`, which returns
+ * The sidebar CodeMProvider always uses `getWorkspaceDirectory()`, which returns
  * `workspaceFolders[0]`. That works because the sidebar is tied to the window
  * and there's an implicit "current workspace" context.
  *
@@ -24,10 +24,10 @@
  *    **disable project-scope operations** (they default to global scope).
  *    This prevents silently writing config into the wrong project.
  *
- * ## How KiloProvider uses this
+ * ## How CodeMProvider uses this
  *
- * Each KiloProvider instance can receive an explicit `projectDirectory` via
- * `KiloProviderOptions`. When set:
+ * Each CodeMProvider instance can receive an explicit `projectDirectory` via
+ * `CodeMProviderOptions`. When set:
  *
  * - A string value overrides the workspace directory for project-scoped operations
  * - `null` explicitly disables project scope (forces global-only)
@@ -52,13 +52,13 @@ export function resolvePanelProjectDirectory(
 }
 
 /**
- * Resolve the effective project directory for a KiloProvider instance.
+ * Resolve the effective project directory for a CodeMProvider instance.
  *
- * @param override - Explicit directory from KiloProviderOptions. `undefined`
+ * @param override - Explicit directory from CodeMProviderOptions. `undefined`
  *   means "not set" (fall through), `null` means "disable project scope",
  *   and a string is a direct override.
  * @param fallback - Callback to get the default workspace directory (typically
- *   `getWorkspaceDirectory(sessionId)` from KiloProvider).
+ *   `getWorkspaceDirectory(sessionId)` from CodeMProvider).
  */
 export function resolveProjectDirectory(
   override: string | null | undefined,

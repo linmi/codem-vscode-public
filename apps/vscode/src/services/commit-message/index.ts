@@ -60,7 +60,7 @@ export function registerCommitMessageService(
         client = await connectionService.getClientAsync(path)
       } catch (err) {
         console.error("[CodeM New] Failed to connect to CodeM backend:", err)
-        vscode.window.showErrorMessage("Failed to connect to CodeM backend. Please try again.")
+        vscode.window.showErrorMessage("尚未迁移到 CodeM App Server")
         return
       }
 

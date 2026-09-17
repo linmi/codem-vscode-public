@@ -29,7 +29,7 @@ export interface OutputHandle {
 }
 
 // ---------------------------------------------------------------------------
-// Session provider (abstracts KiloProvider interactions)
+// Session provider (abstracts CodeMProvider interactions)
 // ---------------------------------------------------------------------------
 
 export interface SessionProvider {
@@ -111,7 +111,7 @@ export interface PanelContext {
 export interface Host {
   /**
    * Create (or restore) a webview panel wired with a session provider.
-   * The host handles HTML generation, icon paths, CSP, and KiloProvider setup.
+   * The host handles HTML generation, icon paths, CSP, and CodeMProvider setup.
    *
    * @param opts.onBeforeMessage — interceptor for messages from the webview
    */

@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { KiloProvider } from "./KiloProvider"
+import { CodeMProvider } from "./CodeMProvider"
 import { resolvePanelProjectDirectory } from "./project-directory"
 import type { KiloConnectionService } from "./services/cli-backend"
 import type { RemoteStatusService } from "./services/RemoteStatusService"
@@ -22,13 +22,13 @@ const PANEL_TITLES: Record<PanelView, string> = {
  * Each view type is a singleton panel — calling openPanel() again
  * reveals the existing panel instead of creating a duplicate.
  *
- * Uses a full KiloProvider under the hood so each panel has
+ * Uses a full CodeMProvider under the hood so each panel has
  * the same backend connectivity (config, providers, profile, auth)
  * as the sidebar.
  */
 export class SettingsEditorProvider implements vscode.Disposable {
   private panels = new Map<PanelView, vscode.WebviewPanel>()
-  private providers = new Map<PanelView, KiloProvider>()
+  private providers = new Map<PanelView, CodeMProvider>()
   private tabs = new Map<PanelView, string>()
   private projects = new Map<PanelView, string>()
   private remoteService: RemoteStatusService | null = null
@@ -105,9 +105,9 @@ export class SettingsEditorProvider implements vscode.Disposable {
       dark: vscode.Uri.joinPath(this.extensionUri, "assets", "icons", "codem-dark.svg"),
     }
 
-    // Create a dedicated KiloProvider for this panel so it has full
+    // Create a dedicated CodeMProvider for this panel so it has full
     // backend connectivity (config, providers, agents, profile, auth).
-    const provider = new KiloProvider(this.extensionUri, this.connectionService, this.context, {
+    const provider = new CodeMProvider(this.extensionUri, this.connectionService, this.context, {
       authentication: this.authentication,
       appServer: this.appServer,
       projectDirectory,
@@ -130,7 +130,7 @@ export class SettingsEditorProvider implements vscode.Disposable {
     // "Developer: Reload Webviews" which re-creates the JS context).
     const readyDisposable = panel.webview.onDidReceiveMessage((msg) => {
       if (msg.type === "webviewReady") {
-        // Small delay to let KiloProvider's own webviewReady handler finish first
+        // Small delay to let CodeMProvider's own webviewReady handler finish first
         setTimeout(() => {
           provider.postMessage({
             type: "navigate",

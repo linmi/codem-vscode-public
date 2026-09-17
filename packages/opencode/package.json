@@ -112,7 +112,6 @@
     "@openauthjs/openauth": "catalog:",
     "@opencode-ai/codemode": "workspace:*",
     "@opencode-ai/llm": "workspace:*",
-    "@opencode-ai/protocol": "workspace:*",
     "@opencode-ai/schema": "workspace:*",
     "@opencode-ai/script": "workspace:*",
     "@opencode-ai/server": "workspace:*",

@@ -24,7 +24,8 @@ import {
   SessionPaths,
 } from "../../src/server/routes/instance/httpapi/groups/session"
 import { PtyPaths } from "../../src/server/routes/instance/httpapi/groups/pty"
-import { SessionMessagesQuery } from "@opencode-ai/protocol/groups/message"
+// leftover HttpApi schema is seeded under leftover @opencode-ai/server; do not import @opencode-ai/protocol
+import { SessionMessagesQuery } from "@opencode-ai/server/protocol/groups/message"
 import { QueryBoolean, QueryBooleanOpenApi } from "../../src/server/routes/instance/httpapi/groups/query"
 import { resetDatabase } from "../fixture/db"
 import { disposeAllInstances, tmpdir } from "../fixture/fixture"

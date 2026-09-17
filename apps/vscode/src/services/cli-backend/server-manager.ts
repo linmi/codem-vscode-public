@@ -7,6 +7,7 @@ import * as vscode from "vscode"
 import { resolveLocalBwrapEnv, resolveTreeSitterEnv } from "./cli-resources"
 import { t } from "./i18n"
 import { scanServerPort } from "./server-utils"
+import { kiloTransportRetiredError } from "../../shared/kilo-transport-retired"
 
 export interface ServerInstance {
   port: number
@@ -53,29 +54,10 @@ export class ServerManager {
   ) {}
 
   /**
-   * Get or start the server instance
+   * Retired production entry: never spawn `kilo serve --port 0`.
    */
   async getServer(): Promise<ServerInstance> {
-    console.log("[CodeM New] ServerManager: 🔍 getServer called")
-    if (this.instance) {
-      console.log("[CodeM New] ServerManager: ♻️ Returning existing instance:", { port: this.instance.port })
-      return this.instance
-    }
-
-    if (this.startupPromise) {
-      console.log("[CodeM New] ServerManager: ⏳ Startup already in progress, waiting...")
-      return this.startupPromise
-    }
-
-    console.log("[CodeM New] ServerManager: 🚀 Starting new server instance...")
-    this.startupPromise = this.startServer()
-    try {
-      this.instance = await this.startupPromise
-      console.log("[CodeM New] ServerManager: ✅ Server started successfully:", { port: this.instance.port })
-      return this.instance
-    } finally {
-      this.startupPromise = null
-    }
+    throw kiloTransportRetiredError("kilo serve")
   }
 
   private async startServer(): Promise<ServerInstance> {

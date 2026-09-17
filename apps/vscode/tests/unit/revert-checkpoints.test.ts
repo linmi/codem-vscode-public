@@ -4,7 +4,7 @@ import path from "node:path"
 
 const ROOT = path.resolve(import.meta.dir, "../..")
 const TURN_FILE = path.join(ROOT, "webview-ui/src/components/chat/TranscriptRow.tsx")
-const PROVIDER_FILE = path.join(ROOT, "src/KiloProvider.ts")
+const PROVIDER_FILE = path.join(ROOT, "src/CodeMProvider.ts")
 const BANNER_FILE = path.join(ROOT, "webview-ui/src/components/chat/RevertBanner.tsx")
 const SESSION_FILE = path.join(ROOT, "webview-ui/src/types/messages/sessions.ts")
 const SDK_FILE = path.join(ROOT, "../../packages/sdk/js/src/v2/gen/types.gen.ts")

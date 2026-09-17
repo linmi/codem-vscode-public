@@ -1,7 +1,7 @@
 /**
  * Source contract tests for session-presence registration.
  *
- * Static analysis — reads KiloProvider.ts, AgentManagerProvider.ts,
+ * Static analysis — reads CodeMProvider.ts, AgentManagerProvider.ts,
  * vscode-host.ts, and connection-service.ts and verifies the locked
  * viewed/presence behavior from the presence plan:
  *
@@ -21,7 +21,7 @@ import fs from "node:fs"
 import path from "node:path"
 
 const ROOT = path.resolve(import.meta.dir, "../..")
-const KILOPROVIDER_FILE = path.join(ROOT, "src/KiloProvider.ts")
+const KILOPROVIDER_FILE = path.join(ROOT, "src/CodeMProvider.ts")
 const AGENT_MANAGER_PROVIDER_FILE = path.join(ROOT, "src/agent-manager/AgentManagerProvider.ts")
 const VSCODE_HOST_FILE = path.join(ROOT, "src/agent-manager/vscode-host.ts")
 const CONNECTION_SERVICE_FILE = path.join(ROOT, "src/services/cli-backend/connection-service.ts")
@@ -30,7 +30,7 @@ function readFile(filePath: string): string {
   return fs.readFileSync(filePath, "utf-8")
 }
 
-describe("KiloProvider editor-panel visible registration contract", () => {
+describe("CodeMProvider editor-panel visible registration contract", () => {
   const source = readFile(KILOPROVIDER_FILE)
   // The bindPanel callback installed in resolveWebviewPanel.
   const match = source.match(
@@ -65,7 +65,7 @@ describe("KiloProvider editor-panel visible registration contract", () => {
   })
 })
 
-describe("KiloProvider disableViewedRegistration contract", () => {
+describe("CodeMProvider disableViewedRegistration contract", () => {
   const kiloProvider = readFile(KILOPROVIDER_FILE)
   const vscodeHost = readFile(VSCODE_HOST_FILE)
 
@@ -112,7 +112,7 @@ describe("KiloProvider disableViewedRegistration contract", () => {
   })
 
   it("embedded Agent Manager providers disable generic viewed registration", () => {
-    // Each Agent Manager panel hosts a full KiloProvider; the "agent-manager"
+    // Each Agent Manager panel hosts a full CodeMProvider; the "agent-manager"
     // keys own presence there, so the embedded provider must not
     // double-register under its own instanceId.
     expect(vscodeHost).toContain("disableViewedRegistration: true")

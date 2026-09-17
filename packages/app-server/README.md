@@ -59,7 +59,7 @@ stageAppServerRuntime({ packageRoot, extensionRoot })
 
 Each target-specific extension contains its matching Core executable, authentication broker executable, both published licenses, and `bin/app-server/runtime.json`. Consumers fail closed when either platform, version, executable metadata, or SHA-256 differs.
 
-Thread permission modes use `readModes` / `setModes` and the strict `AppServerModeState` DTO. Pass the revision the user actually saw as `expectedRevision`; a conflict must remain visible, not become an unconditional write. `thread-modes-updated` events carry validated Core state, including permission epoch. Old responses from a retired thread are rejected; stale revisions cannot overwrite a newer snapshot. The browser-safe `@codem/app-server/modes` export exposes these types without pulling in process/runtime code.
+Thread permission modes use `readModes` / `setModes` and the strict `AppServerModeState` DTO, which is a re-export of `@codem/protocol`. Pass the revision the user actually saw as `expectedRevision`; a conflict must remain visible, not become an unconditional write. `thread-modes-updated` events carry validated Core state, including permission epoch. Old responses from a retired thread are rejected; stale revisions cannot overwrite a newer snapshot. `@codem/app-server/modes` keeps raw-frame parsers; hosts and webviews import the shared DTO from `@codem/protocol`.
 
 The pinned Core unsubscribe acknowledgement contains a `status` of `unsubscribed` or `notSubscribed`. An empty acknowledgement is invalid for this runtime.
 

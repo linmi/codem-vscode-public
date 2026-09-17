@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import type { KiloClient } from "@kilocode/sdk/v2/client"
 
 // vscode mock is provided by the shared preload (tests/setup/vscode-mock.ts)
-const { KiloProvider } = await import("../../src/KiloProvider")
+const { CodeMProvider } = await import("../../src/CodeMProvider")
 
 type Internals = {
   currentSession: { id: string } | null
@@ -28,7 +28,7 @@ function status(root: string) {
   }
 }
 
-describe("KiloProvider memory events", () => {
+describe("CodeMProvider memory events", () => {
   it("routes tracked background memory events to their session directory", async () => {
     const calls: string[] = []
     const posts: unknown[] = []
@@ -40,7 +40,7 @@ describe("KiloProvider memory events", () => {
         },
       },
     } as unknown as KiloClient
-    const provider = new KiloProvider(
+    const provider = new CodeMProvider(
       {} as never,
       {
         getClient: () => client,
@@ -86,7 +86,7 @@ describe("KiloProvider memory events", () => {
         },
       },
     } as unknown as KiloClient
-    const provider = new KiloProvider(
+    const provider = new CodeMProvider(
       {} as never,
       {
         getClient: () => client,
@@ -138,7 +138,7 @@ describe("KiloProvider memory events", () => {
         },
       },
     } as unknown as KiloClient
-    const provider = new KiloProvider(
+    const provider = new CodeMProvider(
       {} as never,
       {
         getClient: () => client,
@@ -179,7 +179,7 @@ describe("KiloProvider memory events", () => {
       },
     } as unknown as KiloClient
     const posts: unknown[] = []
-    const provider = new KiloProvider(
+    const provider = new CodeMProvider(
       {} as never,
       {
         getClient: () => client,

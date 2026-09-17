@@ -12,7 +12,7 @@
 
 import { createThreadPermissions } from "../context/thread-permissions"
 import type { ThreadPermissionView } from "../utils/thread-permission-state"
-import type { AppServerPermissionMode } from "@codem/app-server/modes"
+import type { CodemPermissionMode } from "@codem/protocol"
 import { createSignal, createMemo, type ParentComponent } from "solid-js"
 import { VSCodeProvider } from "../context/vscode"
 import { ServerProvider } from "../context/server"
@@ -108,6 +108,7 @@ const MockProviderProvider: ParentComponent<{ kiloAuth?: boolean; training?: boo
     })),
   )
   const value = {
+    catalog: () => null,
     providers: () => MOCK_PROVIDERS as any,
     connected: () => ["kilo"],
     defaults: () => ({}),
@@ -182,7 +183,7 @@ export function mockSessionValue(overrides?: {
 }) {
   const id = overrides?.id ?? "story-session-001"
   const [modeViews, setModeViews] = createSignal<Record<string, ThreadPermissionView>>({})
-  const [draftModes, setDraftModes] = createSignal<Record<string, AppServerPermissionMode>>({})
+  const [draftModes, setDraftModes] = createSignal<Record<string, CodemPermissionMode>>({})
   const threadPermissions = createThreadPermissions({
     views: modeViews,
     setView: (id, view) => setModeViews((views) => ({ ...views, [id]: view })),

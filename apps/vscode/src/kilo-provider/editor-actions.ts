@@ -58,7 +58,7 @@ function previewImage(dir: vscode.Uri | undefined, dataUrl: string, filename: st
             Promise.resolve(vscode.workspace.fs.delete(vscode.Uri.joinPath(root, name), { recursive: true })).then(
               undefined,
               (err: unknown) => {
-                console.warn("[CodeM New] KiloProvider: Failed to delete stale preview:", err)
+                console.warn("[CodeM New] CodeMProvider: Failed to delete stale preview:", err)
               },
             ),
           ),
@@ -75,7 +75,7 @@ function previewImage(dir: vscode.Uri | undefined, dataUrl: string, filename: st
     .createDirectory(root)
     .then(() => vscode.workspace.fs.writeFile(uri, img.data))
     .then(() => clean())
-    .then(open, (err) => console.error("[CodeM New] KiloProvider: Failed to preview image:", err))
+    .then(open, (err) => console.error("[CodeM New] CodeMProvider: Failed to preview image:", err))
 }
 
 export function handleEditorAction(
@@ -127,7 +127,7 @@ export function handleEditorAction(
       // worktree during an Agent Manager session switch).
       validateFiles(opts.dir(message.sessionID), paths).then(
         (existing) => post({ type: "validateFilesResult", id, existing }),
-        (err) => console.error("[CodeM New] KiloProvider: validateFiles failed:", err),
+        (err) => console.error("[CodeM New] CodeMProvider: validateFiles failed:", err),
       )
     }
     return true
@@ -150,7 +150,7 @@ export function handleEditorAction(
 function openContent(content: string, language?: string): void {
   vscode.workspace.openTextDocument({ content, language: language || "log" }).then(
     (doc) => vscode.window.showTextDocument(doc, { preview: true }),
-    (err) => console.error("[CodeM New] KiloProvider: Failed to open content:", err),
+    (err) => console.error("[CodeM New] CodeMProvider: Failed to open content:", err),
   )
 }
 
@@ -165,9 +165,9 @@ function show(uri: vscode.Uri, line?: number, column?: number): void {
       }
       vscode.window
         .showTextDocument(doc, options)
-        .then(undefined, (err) => console.error("[CodeM New] KiloProvider: Failed to show document:", uri.fsPath, err))
+        .then(undefined, (err) => console.error("[CodeM New] CodeMProvider: Failed to show document:", uri.fsPath, err))
     },
-    (err) => console.error("[CodeM New] KiloProvider: Failed to open file:", uri.fsPath, err),
+    (err) => console.error("[CodeM New] CodeMProvider: Failed to open file:", uri.fsPath, err),
   )
 }
 
@@ -194,13 +194,13 @@ function findFallback(dir: string, filePath: string, line?: number, column?: num
           (pick) => {
             if (pick) show(pick.uri, line, column)
           },
-          (err) => console.error("[CodeM New] KiloProvider: showQuickPick failed:", err),
+          (err) => console.error("[CodeM New] CodeMProvider: showQuickPick failed:", err),
         )
         return
       }
       vscode.window.showWarningMessage(`File not found: ${filePath}`)
     },
-    (err: unknown) => console.error("[CodeM New] KiloProvider: findFiles failed:", err),
+    (err: unknown) => console.error("[CodeM New] CodeMProvider: findFiles failed:", err),
   )
 }
 

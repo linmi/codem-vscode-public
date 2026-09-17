@@ -370,7 +370,7 @@ const AppContent: Component = () => {
     <SidebarEmptyState onSelectSession={handleSelectSession} onShowHistory={() => setCurrentView("history")} />
   )
 
-  // Set synchronously in the webview HTML by KiloProvider so it's available
+  // Set synchronously in the webview HTML by CodeMProvider so it's available
   // before this component ever mounts (see buildWebviewHtml/_getHtmlForWebview).
   // False for dedicated single-purpose panels (Settings, Profile, Sub-Agent
   // Viewer) always, and for the Sidebar/"Open in Tab" outside Cursor — real

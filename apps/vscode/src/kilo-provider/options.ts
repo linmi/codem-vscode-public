@@ -5,7 +5,7 @@ import type { CodeMAppServerService } from "../services/app-server/service"
 
 export type AgentManagerSettingsHandler = SettingsHandler
 
-export type KiloProviderOptions = {
+export type CodeMProviderOptions = {
   /** CodeM credential broker shared by every mature Webview surface. */
   authentication?: CodeMAuthenticationService
   /** CodeM Core transport used by the mature chat bridge. */

@@ -112,13 +112,13 @@ Before publishing this extension to the VS Code Marketplace or deploying to user
 
 ### Security
 
-- [ ] **Review and tighten CSP** — The current policy in [`KiloProvider._getHtmlForWebview()`](../src/KiloProvider.ts:829) has several areas to audit:
+- [ ] **Review and tighten CSP** — The current policy in [`CodeMProvider._getHtmlForWebview()`](../src/CodeMProvider.ts:829) has several areas to audit:
   - `style-src 'unsafe-inline'` is broadly permissive — investigate whether nonce-based style loading is feasible now that kilo-ui styles are bundled
   - `connect-src http://127.0.0.1:* http://localhost:*` allows connections to _any_ localhost port — tighten to the actual CLI server port once known at runtime
   - `img-src … https:` allows images from any HTTPS origin — scope to `${webview.cspSource} data:` unless external images are explicitly needed
   - `'wasm-unsafe-eval'` in `script-src` was added for shiki — confirm it is still required and document the reason
   - `ws://` connections to any localhost port — same concern as `connect-src`
-- [ ] **Validate `openExternal` URLs** — The [`openExternal` handler](../src/KiloProvider.ts:186) passes any URL from the webview directly to `vscode.env.openExternal()` with no allowlist or scheme check. Restrict to `https:` (and possibly `vscode:`) schemes, or allowlist specific hosts
+- [ ] **Validate `openExternal` URLs** — The [`openExternal` handler](../src/CodeMProvider.ts:186) passes any URL from the webview directly to `vscode.env.openExternal()` with no allowlist or scheme check. Restrict to `https:` (and possibly `vscode:`) schemes, or allowlist specific hosts
 - [ ] **Audit credential storage** — CLI stores credentials as plaintext JSON with `chmod 0600`. Evaluate whether VS Code's `SecretStorage` API should be used for extension-side secrets, and document the threat model for CLI-managed credentials
 - [ ] **Audit workspace path containment** — CLI's path traversal checks are lexical only; symlinks and Windows cross-drive paths can escape the workspace boundary. Determine if additional hardening (realpath canonicalization) is needed before production
 
@@ -144,7 +144,7 @@ Before publishing this extension to the VS Code Marketplace or deploying to user
 ### Logging & Observability
 
 - [ ] **Dedicated output channel** — All logging currently goes to `console.log` mixed with other extensions ([details](infrastructure/dedicated-output-channel.md)). Create a dedicated "Kilo Code" output channel before production
-- [ ] **Remove or guard verbose logging** — Many `console.log` calls with emojis and debug detail exist in [`KiloProvider.ts`](../src/KiloProvider.ts). Gate behind a debug flag or move to the output channel at appropriate log levels
+- [ ] **Remove or guard verbose logging** — Many `console.log` calls with emojis and debug detail exist in [`CodeMProvider.ts`](../src/CodeMProvider.ts). Gate behind a debug flag or move to the output channel at appropriate log levels
 
 ---
 

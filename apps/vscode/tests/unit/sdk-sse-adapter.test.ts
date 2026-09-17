@@ -196,7 +196,7 @@ describe("KiloConnectionService backend crash", () => {
     expect(service.getConnectionError()?.message).toContain("CLI background process exited with code 9")
     expect(service.getServerConfig()).toBeNull()
     expect(service.getServerInfo()).toBeNull()
-    expect(() => service.getClient()).toThrow("Not connected")
+    expect(() => service.getClient()).toThrow("尚未迁移到 CodeM App Server")
     expect(states).toEqual([
       { state: "error", error: "CLI background process exited with code 9. Retry to reconnect." },
     ])
@@ -208,44 +208,18 @@ describe("KiloConnectionService backend crash", () => {
     ;(service as any).client = {}
     ;(service as any).state = "connecting"
 
-    expect(() => service.getClient()).toThrow("Not connected")
+    expect(() => service.getClient()).toThrow("尚未迁移到 CodeM App Server")
     service.dispose()
   })
 })
 
 describe("KiloConnectionService SSE startup", () => {
-  it("waits through an initial SSE fetch failure until the stream opens", async () => {
-    const original = globalThis.fetch
-    const chunk = new TextEncoder().encode(
-      'data: {"payload":{"id":"evt_connected","type":"server.connected","properties":{}}}\n\n',
-    )
-    let calls = 0
-    globalThis.fetch = (async () => {
-      calls += 1
-      if (calls === 1) throw new TypeError("fetch failed")
-      return new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(chunk)
-          },
-        }),
-        {
-          status: 200,
-          headers: { "content-type": "text/event-stream" },
-        },
-      )
-    }) as typeof fetch
-
+  it("does not open a Kilo SSE stream because kilo serve is retired", async () => {
     const service = new KiloConnectionService({} as any)
     ;(service as any).serverManager.getServer = async () => ({ port: 52512, password: "secret", process: {} })
 
-    try {
-      await expect(service.connect("/tmp/workspace")).resolves.toBeUndefined()
-      expect(calls).toBe(2)
-      expect(service.getConnectionState()).toBe("connected")
-    } finally {
-      service.dispose()
-      globalThis.fetch = original
-    }
+    await expect(service.connect("/tmp/workspace")).rejects.toThrow("尚未迁移到 CodeM App Server")
+    expect(service.getConnectionState()).toBe("disconnected")
+    service.dispose()
   })
 })

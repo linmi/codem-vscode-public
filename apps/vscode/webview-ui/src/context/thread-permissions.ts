@@ -1,4 +1,4 @@
-import type { AppServerPermissionMode } from "@codem/app-server/modes"
+import type { CodemPermissionMode } from "@codem/protocol"
 import type { ExtensionMessage, WebviewMessage } from "../types/messages"
 import {
   acceptThreadPermissionMessage,
@@ -9,10 +9,10 @@ import {
 interface Options {
   views: () => Record<string, ThreadPermissionView>
   setView: (id: string, view: ThreadPermissionView) => void
-  drafts: () => Record<string, AppServerPermissionMode>
-  setDraft: (id: string, mode: AppServerPermissionMode) => void
+  drafts: () => Record<string, CodemPermissionMode>
+  setDraft: (id: string, mode: CodemPermissionMode) => void
   deleteDraft: (id: string) => void
-  defaultMode: () => AppServerPermissionMode
+  defaultMode: () => CodemPermissionMode
   post: (message: WebviewMessage) => void
 }
 
@@ -20,7 +20,7 @@ interface Options {
 export function createThreadPermissions(options: Options) {
   const view = (id: string) => options.views()[id] ?? emptyThreadPermissionView(id)
   const draftMode = (id?: string) => options.drafts()[id ?? ""] ?? options.defaultMode()
-  const selectDraft = (mode: AppServerPermissionMode, id?: string) => options.setDraft(id ?? "", mode)
+  const selectDraft = (mode: CodemPermissionMode, id?: string) => options.setDraft(id ?? "", mode)
 
   function submitDraft(source?: string, target?: string) {
     const mode = draftMode(source)
@@ -39,7 +39,7 @@ export function createThreadPermissions(options: Options) {
     options.post({ type: "requestThreadModes", sessionID: id, requestID })
   }
 
-  function select(id: string, permissionMode: AppServerPermissionMode) {
+  function select(id: string, permissionMode: CodemPermissionMode) {
     const current = view(id)
     if (!current.state || current.requestID || current.error || current.state.permissionMode === permissionMode) return
     const requestID = crypto.randomUUID()

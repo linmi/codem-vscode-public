@@ -58,7 +58,7 @@ The webview uses the Kilo-owned background-job API for authoritative lifecycle s
 | per-agent cancellation | `POST /kilocode/background-jobs/:jobID/cancel`, resolved in the owning parent directory and cancelling the child session tree |
 | foreground promotion | the existing `experimental.session.background` route |
 | child permission/question attention | scoped session permission and question state |
-| child sessions stay tracked while the card is closed | `KiloProvider` auto-adopts them from task parts |
+| child sessions stay tracked while the card is closed | `CodeMProvider` auto-adopts them from task parts |
 
 The per-session tool index matters for correctness, not only cost. `allParts()` holds the parts of every loaded session, so deriving from it would make one session's strip list agents started by another session, which is wrong in Agent Manager where several sessions are loaded at once. The index is keyed by session, so the strip lists only agents this session started. Agents started by a sub-agent appear in that sub-agent's own header, not in the root strip.
 

@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { basename } from "node:path"
-import { KiloProvider } from "./KiloProvider"
+import { CodeMProvider } from "./CodeMProvider"
 import { AgentManagerProvider } from "./agent-manager/AgentManagerProvider"
 import { VscodeHost } from "./agent-manager/vscode-host"
 import { DiffViewerProvider } from "./diff/DiffViewerProvider"
@@ -122,7 +122,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // NOTE: The editor/title toolbar for tab panels intentionally omits Agent Manager
   // and Marketplace buttons (unlike the sidebar). Too many icons causes VS Code to
   // collapse them into a "..." overflow menu, hiding important buttons like Settings.
-  const tabPanels = new Map<vscode.WebviewPanel, KiloProvider>()
+  const tabPanels = new Map<vscode.WebviewPanel, CodeMProvider>()
   const activeTabProvider = () => {
     for (const [panel, p] of tabPanels) {
       if (panel.active) return p
@@ -131,7 +131,7 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 
   // Create the provider with shared service
-  const provider = new KiloProvider(context.extensionUri, connectionService, context, {
+  const provider = new CodeMProvider(context.extensionUri, connectionService, context, {
     authentication: codeMAuthentication,
     appServer: codeMAppServer,
     focusContext: "codem.sidebarFocused",
@@ -156,7 +156,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Register the webview view provider for the sidebar.
   // retainContextWhenHidden keeps the webview alive when switching to other sidebar panels.
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(KiloProvider.viewType, provider, {
+    vscode.window.registerWebviewViewProvider(CodeMProvider.viewType, provider, {
       webviewOptions: { retainContextWhenHidden: true },
     }),
   )
@@ -283,7 +283,7 @@ export async function activate(context: vscode.ExtensionContext) {
     },
   })
 
-  // Prewarm only after all global event consumers are ready.
+  // Autocomplete must not start kilo serve; the helper is now a no-op.
   ensureBackendForAutocomplete(connectionService)
 
   // Register serializer so Agent Manager restores when VS Code restarts
@@ -307,7 +307,7 @@ export async function activate(context: vscode.ExtensionContext) {
   )
 
   const attach = (panel: vscode.WebviewPanel) => {
-    const tabProvider = new KiloProvider(context.extensionUri, connectionService, context, {
+    const tabProvider = new CodeMProvider(context.extensionUri, connectionService, context, {
       authentication: codeMAuthentication,
       appServer: codeMAppServer,
       tabTitle: panelTitleHandler(panel),
@@ -631,7 +631,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const sessionId = sessionMatch?.[1]
         if (sessionId) {
           console.log("[CodeM New] URI handler: opening cloud session:", sessionId)
-          await vscode.commands.executeCommand(`${KiloProvider.viewType}.focus`)
+          await vscode.commands.executeCommand(`${CodeMProvider.viewType}.focus`)
           provider.openCloudSession(sessionId)
           return
         }
@@ -642,7 +642,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const agent = params.get("agent") || undefined
         if (!modelID && !agent) return
         console.log("[CodeM New] URI handler: applying linked CodeM selection:", { modelID, agent })
-        await vscode.commands.executeCommand(`${KiloProvider.viewType}.focus`)
+        await vscode.commands.executeCommand(`${CodeMProvider.viewType}.focus`)
         provider.selectKiloModel(modelID, agent)
       },
     }),
@@ -702,8 +702,8 @@ export async function deactivate() {
 
 function openKiloInNewTab(
   context: vscode.ExtensionContext,
-  tabPanels: Map<vscode.WebviewPanel, KiloProvider>,
-  attach: (panel: vscode.WebviewPanel) => KiloProvider,
+  tabPanels: Map<vscode.WebviewPanel, CodeMProvider>,
+  attach: (panel: vscode.WebviewPanel) => CodeMProvider,
 ) {
   const panel = vscode.window.createWebviewPanel("codem.TabPanel", EXTENSION_DISPLAY_NAME, vscode.ViewColumn.Active, {
     enableScripts: true,

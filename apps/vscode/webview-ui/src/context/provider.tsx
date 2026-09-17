@@ -7,14 +7,19 @@
 import { batch, createContext, useContext, createSignal, createMemo, onCleanup } from "solid-js"
 import type { ParentComponent, Accessor } from "solid-js"
 import { useVSCode } from "./vscode"
+import type { CodemModelCatalog } from "@codem/protocol"
+import { CODEM_BUILTIN_INTELLIGENCE_TIERS } from "@codem/protocol"
 import type { Provider, ProviderModel, ModelSelection, ExtensionMessage, ProviderAuthState } from "../types/messages"
 import type { ProviderAuthMethod } from "@kilocode/sdk/v2/client"
 import { flattenModels, findModel as _findModel, isModelValid as isValid } from "./provider-utils"
 import { KILO_AUTO } from "../../../src/shared/provider-model"
 
+export type { CodemModelCatalog }
+
 export type EnrichedModel = ProviderModel & { providerID: string; providerName: string }
 
 interface ProviderContextValue {
+  catalog: Accessor<CodemModelCatalog | null>
   providers: Accessor<Record<string, Provider>>
   connected: Accessor<string[]>
   defaults: Accessor<Record<string, string>>
@@ -33,6 +38,7 @@ export const ProviderContext = createContext<ProviderContextValue>()
 export const ProviderProvider: ParentComponent = (props) => {
   const vscode = useVSCode()
 
+  const [catalog, setCatalog] = createSignal<CodemModelCatalog | null>(null)
   const [providers, setProviders] = createSignal<Record<string, Provider>>({})
   const [connected, setConnected] = createSignal<string[]>([])
   const [defaults, setDefaults] = createSignal<Record<string, string>>({})
@@ -42,7 +48,10 @@ export const ProviderProvider: ParentComponent = (props) => {
   const [authMethods, setAuthMethods] = createSignal<Record<string, ProviderAuthMethod[]>>({})
   const [authStates, setAuthStates] = createSignal<Record<string, ProviderAuthState>>({})
 
-  const models = createMemo<EnrichedModel[]>(() => flattenModels(providers()))
+  const models = createMemo<EnrichedModel[]>(() => {
+    const loaded = catalog()
+    return loaded ? catalogToPickerModels(loaded) : flattenModels(providers())
+  })
 
   function findModel(selection: ModelSelection | null): EnrichedModel | undefined {
     return _findModel(models(), selection)
@@ -52,8 +61,7 @@ export const ProviderProvider: ParentComponent = (props) => {
     return isValid(providers(), connected(), selection)
   }
 
-  // Register handler immediately (not in onMount) so we never miss
-  // a providersLoaded message that arrives before the DOM mount.
+  // Register immediately so the first codemModelsLoaded is not missed before mount.
   const unsubscribe = vscode.onMessage((message: ExtensionMessage) => {
     if (message.type === "providersLoading") {
       batch(() => {
@@ -73,17 +81,21 @@ export const ProviderProvider: ParentComponent = (props) => {
       })
       return
     }
-    if (message.type !== "providersLoaded") return
+    // 模型选择器只吃 CodeM 原生目录；不再双读 Kilo providersLoaded。
+    if (message.type !== "codemModelsLoaded") return
 
     batch(() => {
-      setProviders(message.providers)
-      setConnected(message.connected)
-      setDefaults(message.defaults)
-      setOrganizationId(message.ready === false ? undefined : (message.organizationId ?? null))
-      setReady(message.ready ?? true)
-      setDefaultSelection(message.defaultSelection)
-      setAuthMethods(message.authMethods)
-      setAuthStates(message.authStates)
+      setCatalog(message.catalog)
+      setProviders(catalogToProviders(message.catalog))
+      setReady(true)
+      setOrganizationId(null)
+      setDefaultSelection(splitCoreModel(message.catalog.activeModel))
+      setConnected([...new Set(message.catalog.models.map((model) => splitCoreModel(model.id).providerID))])
+      setDefaults({
+        [splitCoreModel(message.catalog.activeModel).providerID]: splitCoreModel(message.catalog.activeModel).modelID,
+      })
+      setAuthMethods({})
+      setAuthStates({})
     })
   })
 
@@ -94,7 +106,7 @@ export const ProviderProvider: ParentComponent = (props) => {
   vscode.postMessage({ type: "requestProviders" })
 
   const fallback = setTimeout(() => {
-    if (Object.keys(providers()).length === 0) {
+    if (catalog() === null && Object.keys(providers()).length === 0) {
       vscode.postMessage({ type: "requestProviders" })
     }
   }, 3000)
@@ -103,7 +115,7 @@ export const ProviderProvider: ParentComponent = (props) => {
     if (message.type !== "extensionDataReady") return
     unsubReady()
     clearTimeout(fallback)
-    if (Object.keys(providers()).length === 0) {
+    if (catalog() === null && Object.keys(providers()).length === 0) {
       vscode.postMessage({ type: "requestProviders" })
     }
   })
@@ -114,6 +126,7 @@ export const ProviderProvider: ParentComponent = (props) => {
   })
 
   const value: ProviderContextValue = {
+    catalog,
     providers,
     connected,
     defaults,
@@ -128,6 +141,48 @@ export const ProviderProvider: ParentComponent = (props) => {
   }
 
   return <ProviderContext.Provider value={value}>{props.children}</ProviderContext.Provider>
+}
+
+/** 选择器行在 Webview 内从 Core 模型表展开；Host 不再 post providersLoaded。 */
+function catalogToPickerModels(catalog: CodemModelCatalog): EnrichedModel[] {
+  return catalog.models.map((model) => {
+    const selection = splitCoreModel(model.id)
+    return {
+      id: selection.modelID,
+      providerID: selection.providerID,
+      providerName: selection.providerID.startsWith("codem") ? "CodeM" : selection.providerID,
+      name: model.id === catalog.activeModel ? model.id : selection.modelID,
+      contextLength: model.contextWindowTokens,
+      capabilities: {
+        reasoning: true,
+        input: { text: true, image: model.supportsVision, audio: false, video: false, pdf: false },
+      },
+      ...(model.source === "builtin"
+        ? { variants: Object.fromEntries(CODEM_BUILTIN_INTELLIGENCE_TIERS.map((tier) => [tier, {}])) }
+        : {}),
+    }
+  })
+}
+
+/** 把 Core 模型表展开成现有选择器/session resolver 需要的本地行，不回写成 Host 消息。 */
+function catalogToProviders(catalog: CodemModelCatalog): Record<string, Provider> {
+  const providers: Record<string, Provider> = {}
+  for (const model of catalogToPickerModels(catalog)) {
+    const { providerID, providerName, ...rest } = model
+    const existing = providers[providerID]
+    if (!existing) {
+      providers[providerID] = { id: providerID, name: providerName, models: { [model.id]: rest } }
+      continue
+    }
+    existing.models[model.id] = rest
+  }
+  return providers
+}
+
+function splitCoreModel(model: string): ModelSelection {
+  const separator = model.indexOf("/")
+  if (separator <= 0 || separator === model.length - 1) return { providerID: "codem", modelID: model }
+  return { providerID: model.slice(0, separator), modelID: model.slice(separator + 1) }
 }
 
 export function useProvider(): ProviderContextValue {

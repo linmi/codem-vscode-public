@@ -15,7 +15,7 @@ const ROOT = path.resolve(import.meta.dir, "../..")
 const PKG_JSON_FILE = path.join(ROOT, "package.json")
 const SRC_DIR = path.join(ROOT, "src")
 const EXTENSION_FILE = path.join(ROOT, "src/extension.ts")
-const KILO_PROVIDER_FILE = path.join(ROOT, "src/KiloProvider.ts")
+const KILO_PROVIDER_FILE = path.join(ROOT, "src/CodeMProvider.ts")
 const SETTINGS_PROVIDER_FILE = path.join(ROOT, "src/SettingsEditorProvider.ts")
 const VSCODE_HOST_FILE = path.join(ROOT, "src/agent-manager/vscode-host.ts")
 
@@ -200,7 +200,7 @@ describe("Extension — package.json command sync", () => {
 })
 
 // ---------------------------------------------------------------------------
-// KiloProvider handler wiring — every new KiloProvider() must get
+// CodeMProvider handler wiring — every new CodeMProvider() must get
 // setContinueInWorktreeHandler() called before resolving its webview.
 //
 // Regression: tab panels created via openKiloInNewTab() and the TabPanel
@@ -208,23 +208,23 @@ describe("Extension — package.json command sync", () => {
 // spin forever because the webview message was silently dropped.
 // ---------------------------------------------------------------------------
 
-describe("Extension — KiloProvider handler wiring", () => {
+describe("Extension — CodeMProvider handler wiring", () => {
   const ext = fs.readFileSync(EXTENSION_FILE, "utf-8")
 
   /**
-   * Every `new KiloProvider(` in extension.ts must be followed (before the
-   * next `new KiloProvider(`) by a `setContinueInWorktreeHandler` call.
+   * Every `new CodeMProvider(` in extension.ts must be followed (before the
+   * next `new CodeMProvider(`) by a `setContinueInWorktreeHandler` call.
    * This prevents future tab/panel additions from silently missing the handler.
    */
-  it("every KiloProvider instance gets setContinueInWorktreeHandler wired", () => {
-    const pattern = /new KiloProvider\(/g
+  it("every CodeMProvider instance gets setContinueInWorktreeHandler wired", () => {
+    const pattern = /new CodeMProvider\(/g
     const instances: number[] = []
     let match
     while ((match = pattern.exec(ext)) !== null) {
       instances.push(match.index)
     }
 
-    expect(instances.length, "expected sidebar and shared tab KiloProvider constructors").toBeGreaterThanOrEqual(2)
+    expect(instances.length, "expected sidebar and shared tab CodeMProvider constructors").toBeGreaterThanOrEqual(2)
 
     const missing: string[] = []
     for (let i = 0; i < instances.length; i++) {
@@ -234,13 +234,13 @@ describe("Extension — KiloProvider handler wiring", () => {
 
       if (!region.includes("setContinueInWorktreeHandler")) {
         const line = ext.slice(0, start).split("\n").length
-        missing.push(`KiloProvider at line ${line}`)
+        missing.push(`CodeMProvider at line ${line}`)
       }
     }
 
     expect(
       missing,
-      `These KiloProvider instances are missing setContinueInWorktreeHandler.\n` +
+      `These CodeMProvider instances are missing setContinueInWorktreeHandler.\n` +
         `Without it, "Continue in Worktree" silently no-ops and the spinner\n` +
         `stays stuck on "Capturing changes..." forever.\n\n` +
         missing.map((m) => `  - ${m}`).join("\n"),
@@ -311,7 +311,7 @@ describe("Extension — editor panel placement", () => {
 })
 
 // ---------------------------------------------------------------------------
-// KiloProvider — continueInWorktree error fallback
+// CodeMProvider — continueInWorktree error fallback
 //
 // Regression: when continueInWorktreeHandler is null, the message handler
 // must send an error back to the webview so the spinner resets. Previously
@@ -337,7 +337,7 @@ describe("Extension — Agent Manager remote wiring", () => {
   })
 })
 
-describe("KiloProvider — remote focus lifecycle", () => {
+describe("CodeMProvider — remote focus lifecycle", () => {
   const provider = fs.readFileSync(KILO_PROVIDER_FILE, "utf-8")
 
   it("registers newly created sessions and uses the synchronous session ID", () => {
@@ -349,7 +349,7 @@ describe("KiloProvider — remote focus lifecycle", () => {
   })
 })
 
-describe("KiloProvider — continueInWorktree error fallback", () => {
+describe("CodeMProvider — continueInWorktree error fallback", () => {
   const helper = fs.readFileSync(path.join(ROOT, "src/kilo-provider/continue-worktree.ts"), "utf-8")
 
   it("sends error progress when handler is missing", () => {

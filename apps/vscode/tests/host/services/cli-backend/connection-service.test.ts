@@ -44,6 +44,15 @@ describe("KiloConnectionService visible sessions", () => {
   })
 })
 
+describe("KiloConnectionService retired transport", () => {
+  test("refuses to start kilo serve", async () => {
+    const service = new KiloConnectionService({} as any)
+    await expect(service.connect("/repo")).rejects.toThrow("尚未迁移到 CodeM App Server")
+    await expect(service.getClientAsync("/repo")).rejects.toThrow("尚未迁移到 CodeM App Server")
+    expect(() => service.getClient()).toThrow("尚未迁移到 CodeM App Server")
+  })
+})
+
 describe("KiloConnectionService clients", () => {
   test("returns a connected client without a workspace folder", async () => {
     const service = new KiloConnectionService({} as any)

@@ -45,6 +45,13 @@ import {
 } from "./control-plane.ts"
 
 import {
+  CODEM_BUILTIN_INTELLIGENCE_TIERS,
+  type CodemBuiltinIntelligence,
+  type CodemModelCatalog,
+  type CodemModelSummary,
+  type CodemSkillSummary,
+} from "@codem/protocol"
+import {
   parseAppServerModes,
   reconcileAppServerModes,
   permissionMode,
@@ -56,8 +63,11 @@ const ROUTER_CREDENTIAL_HOST_COMMAND_ENV = "CODEM_ROUTER_CREDENTIAL_HOST_CMD"
 const SESSION_SOURCE_ENV = "CODEM_SESSION_SOURCE"
 
 export type AppServerWorkMode = "default" | "plan"
-export const APP_SERVER_BUILTIN_INTELLIGENCE_TIERS = ["low", "medium", "high", "xhigh"] as const
-export type AppServerBuiltinIntelligence = (typeof APP_SERVER_BUILTIN_INTELLIGENCE_TIERS)[number]
+/** Re-export the shared picker whitelist; Host does not keep a second copy. */
+export const APP_SERVER_BUILTIN_INTELLIGENCE_TIERS = CODEM_BUILTIN_INTELLIGENCE_TIERS
+export type AppServerBuiltinIntelligence = CodemBuiltinIntelligence
+export type AppServerModelSummary = CodemModelSummary
+export type AppServerSkillSummary = CodemSkillSummary
 
 export interface AppServerMcpServer {
   readonly type: "stdio"
@@ -109,18 +119,6 @@ export interface AppServerThreadDetail {
   readonly profile: string
   readonly startedAt: string
   readonly status: string
-}
-
-export interface AppServerModelSummary {
-  readonly id: string
-  readonly source: string
-  readonly contextWindowTokens: number
-  readonly supportsVision: boolean
-}
-
-export interface AppServerSkillSummary {
-  readonly name: string
-  readonly description: string
 }
 
 export type AppServerPermissionPreview =
@@ -760,9 +758,7 @@ export class AppServerHost {
     return detail
   }
 
-  async listModels(
-    cwd: string,
-  ): Promise<{ readonly activeModel: string; readonly models: readonly AppServerModelSummary[] }> {
+  async listModels(cwd: string): Promise<CodemModelCatalog> {
     const connection = await this.connection(cwd)
     const result = objectValue(await connection.connection.request("model/list", { cwd }), "model/list result")
     return {

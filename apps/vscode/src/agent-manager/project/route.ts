@@ -153,7 +153,7 @@ export class ProjectRouteService {
   /**
    * Non-throwing variant of {@link sessionDirectory}. Returns the exact
    * directory for a project-qualified session ref, or `undefined` when the
-   * project or session is unknown. Used by the KiloProvider adapter to route
+   * project or session is unknown. Used by the CodeMProvider adapter to route
    * Agent Manager operations to an exact directory without risking an
    * exception in message-handling paths.
    */

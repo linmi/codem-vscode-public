@@ -1,6 +1,10 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { CODEM_UI_INTERACTION_OWNERS } from "../../../../src/services/app-server/ui-parity.ts"
+import {
+  CODEM_UI_INTERACTION_OWNERS,
+  isAppServerOwned,
+  unmigratedAppServerCommandMessage,
+} from "../../../../src/services/app-server/ui-parity.ts"
 import {
   APP_SERVER_V1_PROTOCOL_GAPS,
   assertMatureUiProductionReady,
@@ -45,5 +49,14 @@ describe("mature UI production parity gate", () => {
       () => assertMatureUiProductionReady(),
       /protocolGaps=.*deleteMessage.*promoteBackgroundJob.*unrevertSession.*updateConfig/u,
     )
+  })
+
+  it("fail-closes App Server control leaks instead of routing them to Kilo", () => {
+    assert.equal(isAppServerOwned("app-server-live"), true)
+    assert.equal(isAppServerOwned("app-server-control"), true)
+    assert.equal(isAppServerOwned("editor-host"), false)
+    assert.equal(CODEM_UI_INTERACTION_OWNERS.requestConfig, "app-server-control")
+    assert.equal(CODEM_UI_INTERACTION_OWNERS.updateConfig, "app-server-control")
+    assert.equal(unmigratedAppServerCommandMessage("requestConfig"), "尚未迁移到 CodeM App Server: requestConfig")
   })
 })

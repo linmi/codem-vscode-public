@@ -1,23 +1,16 @@
 {
-  "$schema": "https://json.schemastore.org/package.json",
-  "name": "@opencode-ai/protocol",
+  "name": "@codem/protocol",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "license": "MIT",
   "exports": {
-    "./*": "./src/*.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsgo --noEmit"
-  },
-  "dependencies": {
-    "@opencode-ai/schema": "workspace:*",
-    "effect": "catalog:"
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@tsconfig/bun": "catalog:",
-    "@types/bun": "catalog:",
-    "@typescript/native-preview": "catalog:"
-  },
-  "version": "7.6.2"
+    "typescript": "catalog:"
+  }
 }

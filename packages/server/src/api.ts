@@ -1,4 +1,5 @@
-import { makeDefaultApi } from "@opencode-ai/protocol/api"
+// leftover HttpApi schema is seeded locally; do not import @opencode-ai/protocol
+import { makeDefaultApi } from "./protocol/api"
 import { LocationMiddleware } from "./location"
 import { SessionLocationMiddleware } from "./middleware/session-location"
 

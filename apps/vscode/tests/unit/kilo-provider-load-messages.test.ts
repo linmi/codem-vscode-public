@@ -5,7 +5,7 @@ import type { PartUpdate } from "../../src/shared/stream-messages"
 import type { AbortRequest } from "../../webview-ui/src/types/messages/webview-messages"
 
 // vscode mock is provided by the shared preload (tests/setup/vscode-mock.ts)
-const { KiloProvider, unwrapSyncEvent } = await import("../../src/KiloProvider")
+const { CodeMProvider, unwrapSyncEvent } = await import("../../src/CodeMProvider")
 const { ProjectRouteService } = await import("../../src/agent-manager/project/route")
 
 type State = "connecting" | "connected" | "disconnected" | "error"
@@ -281,10 +281,10 @@ type ProviderInternals = {
 
 function makeProvider(
   client: ReturnType<typeof createClient> | null,
-  opts?: ConstructorParameters<typeof KiloProvider>[3],
+  opts?: ConstructorParameters<typeof CodeMProvider>[3],
 ) {
   const connection = createConnection(client)
-  const provider = new KiloProvider({} as never, connection as never, undefined, opts)
+  const provider = new CodeMProvider({} as never, connection as never, undefined, opts)
   const internal = provider as unknown as ProviderInternals
   internal.connectionState = client ? "connected" : "disconnected"
   const sent: unknown[] = []
@@ -304,7 +304,7 @@ function mockMaxCost(internal: ProviderInternals, value: number) {
   internal.setMaxCost(value)
 }
 
-describe("KiloProvider.handleAbort", () => {
+describe("CodeMProvider.handleAbort", () => {
   it.each([undefined, "session", "tree"] as const)(
     "forwards %s abort scope without extra child or process stops",
     async (scope) => {
@@ -488,7 +488,7 @@ describe("KiloProvider.handleAbort", () => {
   })
 })
 
-describe("KiloProvider session status reconciliation", () => {
+describe("CodeMProvider session status reconciliation", () => {
   it("rejects a stale busy snapshot after a newer idle event", async () => {
     const pending = defer<{ data: Record<string, SessionStatus> }>()
     const client = createClient({ status: async () => pending.promise })
@@ -630,7 +630,7 @@ describe("KiloProvider session status reconciliation", () => {
   })
 })
 
-describe("KiloProvider sandbox status", () => {
+describe("CodeMProvider sandbox status", () => {
   it("ignores events from another directory for the same session", () => {
     const client = createClient()
     const { internal, sent } = makeProvider(client)
@@ -651,7 +651,7 @@ describe("KiloProvider sandbox status", () => {
   })
 })
 
-describe("KiloProvider sandbox toggle", () => {
+describe("CodeMProvider sandbox toggle", () => {
   it("remembers a blank composer toggle without creating a session", async () => {
     const notice = spyOn(vscode.window, "showInformationMessage").mockResolvedValue(undefined)
     const client = createClient()
@@ -757,7 +757,7 @@ describe("KiloProvider sandbox toggle", () => {
   })
 })
 
-describe("KiloProvider sidebar tabs", () => {
+describe("CodeMProvider sidebar tabs", () => {
   it("creates distinct sessions for explicit drafts even when another session is current", async () => {
     const client = createClient({
       createSession: async (_params, index) => ({ data: { ...mkSession(), id: `s${index + 1}` } }),
@@ -788,7 +788,7 @@ describe("KiloProvider sidebar tabs", () => {
   })
 })
 
-describe("KiloProvider revert ordering", () => {
+describe("CodeMProvider revert ordering", () => {
   it("unwraps the nested sync payload emitted by the live SSE endpoint", () => {
     const event = unwrapSyncEvent({
       type: "sync",
@@ -1031,7 +1031,7 @@ describe("KiloProvider revert ordering", () => {
   })
 })
 
-describe("KiloProvider.handleLoadMessages / focus mode freshness", () => {
+describe("CodeMProvider.handleLoadMessages / focus mode freshness", () => {
   it("recovers the session Git directory from loaded tool history", async () => {
     const client = createClient({
       messagesData: [
@@ -1220,7 +1220,7 @@ describe("KiloProvider.handleLoadMessages / focus mode freshness", () => {
   })
 })
 
-describe("KiloProvider.handleDeleteSession / background processes", () => {
+describe("CodeMProvider.handleDeleteSession / background processes", () => {
   it("stops session background processes in the session directory before deletion", async () => {
     const client = createClient()
     const { internal } = makeProvider(client)
@@ -1252,7 +1252,7 @@ describe("KiloProvider.handleDeleteSession / background processes", () => {
   })
 })
 
-describe("KiloProvider.handleDeleteMessage", () => {
+describe("CodeMProvider.handleDeleteMessage", () => {
   const ids = { sessionID: "s1", messageID: "m1", requestID: "r1" }
 
   it.each([true, false, undefined, "true"])("confirms only a true queued deletion result: %p", async (result) => {
@@ -1277,7 +1277,7 @@ describe("KiloProvider.handleDeleteMessage", () => {
   })
 })
 
-describe("KiloProvider.handleLoadMessages / cold tail", () => {
+describe("CodeMProvider.handleLoadMessages / cold tail", () => {
   const items = [
     mkMessage("m2", "assistant", 20, "m1"),
     mkMessage("m3", "user", 30),
@@ -1386,7 +1386,7 @@ describe("KiloProvider.handleLoadMessages / cold tail", () => {
   })
 })
 
-describe("KiloProvider.handleLoadMessages / slim payload", () => {
+describe("CodeMProvider.handleLoadMessages / slim payload", () => {
   it("shows a cost alert even when cost arrives after the session is idle", () => {
     const client = createClient()
     const { internal, sent } = makeProvider(client)
@@ -1682,7 +1682,7 @@ describe("KiloProvider.handleLoadMessages / slim payload", () => {
   })
 })
 
-describe("KiloProvider.loadMessages / sub-agent viewer", () => {
+describe("CodeMProvider.loadMessages / sub-agent viewer", () => {
   it("uses the same paginated initial load as normal sessions", async () => {
     const page = Array.from({ length: 80 }, (_, i) => mkMessage(`m${i}`, i % 2 === 0 ? "user" : "assistant", i))
     const client = createClient({ messagesData: page })
@@ -1743,7 +1743,7 @@ describe("KiloProvider.loadMessages / sub-agent viewer", () => {
   })
 })
 
-describe("KiloProvider.handleLoadMessages / prepend into deleted session", () => {
+describe("CodeMProvider.handleLoadMessages / prepend into deleted session", () => {
   it("does not post messagesLoaded for a session deleted mid-prepend", async () => {
     // Regression: handleLoadMessages fires fire-and-forget from the webview
     // message dispatcher. If the user deletes the session while a prepend

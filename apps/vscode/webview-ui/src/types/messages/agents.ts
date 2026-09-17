@@ -4,7 +4,8 @@ import type { PermissionConfig, PermissionRuleItem } from "./permissions"
 export interface SkillInfo {
   name: string
   description: string
-  location: string
+  /** Kilo disk path; CodeM skills/list 不提供，Settings 删除技能仍是协议缺口。 */
+  location?: string
 }
 
 // Slash command info from CLI backend

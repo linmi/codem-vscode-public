@@ -1751,7 +1751,7 @@ export class AgentManagerProvider implements Disposable {
   /**
    * Continue a sidebar session in a new worktree.
    * Captures git state, creates worktree, applies state, forks session.
-   * Called from KiloProvider when the sidebar sends "continueInWorktree".
+   * Called from CodeMProvider when the sidebar sends "continueInWorktree".
    */
   public async continueFromSidebar(
     sessionId: string,

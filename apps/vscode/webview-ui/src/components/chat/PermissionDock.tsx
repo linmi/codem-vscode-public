@@ -28,7 +28,7 @@ import {
 import { PermissionCommand } from "./PermissionCommand"
 import { PermissionDiff } from "./PermissionDiff"
 import { permissionDiffs } from "./permission-diff-utils"
-import { normalizeUrls } from "../../../../../../packages/opencode/src/kilocode/util/url"
+import { normalizeUrls } from "../../utils/normalize-urls"
 import type { PermissionRequest } from "../../types/messages"
 import { isEnterKeyCommitNotIme } from "../../utils/ime-enter"
 

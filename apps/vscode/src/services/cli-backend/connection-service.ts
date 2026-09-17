@@ -7,6 +7,7 @@ import { createDuplicateEventFilter, resolveEventSessionId as resolveEventSessio
 import { SandboxPreference } from "../sandbox-preference"
 import { ExplicitAbortState } from "./explicit-abort"
 import type { PermissionResponseResult } from "../../kilo-provider/handlers/permission-handler"
+import { kiloTransportRetiredError } from "../../shared/kilo-transport-retired"
 
 export type ConnectionState = "connecting" | "connected" | "disconnected" | "error"
 type SSEEventListener = (event: SSEPayload, directory?: string) => void
@@ -83,7 +84,7 @@ async function drainNetworkWaits(client: KiloClient, dir: string) {
 
 /**
  * Shared connection service that owns the single ServerManager, KiloClient (SDK), and SdkSSEAdapter.
- * Multiple KiloProvider instances subscribe to it for SSE events and state changes.
+ * Multiple CodeMProvider instances subscribe to it for SSE events and state changes.
  */
 export class KiloConnectionService {
   readonly sandboxPreference: SandboxPreference
@@ -164,30 +165,13 @@ export class KiloConnectionService {
   }
 
   /**
-   * Lazily start server + SSE. Multiple callers share the same promise.
+   * Retired: production must not start `kilo serve`.
+   * Test fixtures may still inject a client and read it via getClient().
    */
   async connect(workspaceDir: string): Promise<void> {
     this.trackDirectory(workspaceDir)
-    if (this.connectPromise) {
-      return this.connectPromise
-    }
-    if (this.state === "connected") {
-      return
-    }
-
-    // Mark as connecting early so concurrent callers won't start another connection attempt.
-    this.setState("connecting")
-
-    this.connectPromise = this.doConnect(workspaceDir)
-    try {
-      await this.connectPromise
-    } catch (error) {
-      // If doConnect() fails before SSE can emit a state transition, avoid leaving consumers stuck in "connecting".
-      this.setState("error", this.error ?? (error instanceof Error ? error : new Error(String(error))))
-      throw error
-    } finally {
-      this.connectPromise = null
-    }
+    if (this.client && this.state === "connected") return
+    throw kiloTransportRetiredError()
   }
 
   /**
@@ -195,25 +179,18 @@ export class KiloConnectionService {
    */
   getClient(): KiloClient {
     if (!this.client || this.state !== "connected") {
-      throw new Error("Not connected — call connect() first")
+      throw kiloTransportRetiredError()
     }
     return this.client
   }
 
   /**
-   * Get the shared SDK client, auto-connecting if not yet started.
-   * Accepts an optional directory to use as the workspace root; falls back
-   * to the first VS Code workspace folder. Throws if neither is available
-   * or if the connection fails.
+   * Return an already-injected client. Never starts `kilo serve`.
    */
   async getClientAsync(dir?: string): Promise<KiloClient> {
     if (dir) this.trackDirectory(dir)
     if (this.client && this.state === "connected") return this.client
-    const root = dir ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-    if (!root) throw new Error("No workspace folder open")
-    this.trackDirectory(root)
-    await this.connect(root)
-    return this.getClient()
+    throw kiloTransportRetiredError()
   }
 
   /** Directories that may own directory-scoped requests on the shared backend. */
@@ -524,7 +501,7 @@ export class KiloConnectionService {
   }
 
   /**
-   * Subscribe to notification dismiss events broadcast from any KiloProvider. Returns unsubscribe function.
+   * Subscribe to notification dismiss events broadcast from any CodeMProvider. Returns unsubscribe function.
    */
   onNotificationDismissed(listener: NotificationDismissListener): () => void {
     this.notificationDismissListeners.add(listener)
@@ -534,7 +511,7 @@ export class KiloConnectionService {
   }
 
   /**
-   * Broadcast a notification dismiss event to all subscribed KiloProvider instances.
+   * Broadcast a notification dismiss event to all subscribed CodeMProvider instances.
    */
   notifyNotificationDismissed(notificationId: string): void {
     for (const listener of this.notificationDismissListeners) {
@@ -562,7 +539,7 @@ export class KiloConnectionService {
   }
 
   /**
-   * Subscribe to language change events broadcast from any KiloProvider. Returns unsubscribe function.
+   * Subscribe to language change events broadcast from any CodeMProvider. Returns unsubscribe function.
    */
   onLanguageChanged(listener: LanguageChangeListener): () => void {
     this.languageChangeListeners.add(listener)
@@ -572,7 +549,7 @@ export class KiloConnectionService {
   }
 
   /**
-   * Broadcast a language change event to all subscribed KiloProvider instances.
+   * Broadcast a language change event to all subscribed CodeMProvider instances.
    */
   notifyLanguageChanged(locale: string): void {
     for (const listener of this.languageChangeListeners) {
@@ -581,7 +558,7 @@ export class KiloConnectionService {
   }
 
   /**
-   * Subscribe to profile change events broadcast from any KiloProvider. Returns unsubscribe function.
+   * Subscribe to profile change events broadcast from any CodeMProvider. Returns unsubscribe function.
    */
   onProfileChanged(listener: ProfileChangeListener): () => void {
     this.profileChangeListeners.add(listener)
@@ -591,7 +568,7 @@ export class KiloConnectionService {
   }
 
   /**
-   * Broadcast a profile change event to all subscribed KiloProvider instances.
+   * Broadcast a profile change event to all subscribed CodeMProvider instances.
    */
   notifyProfileChanged(data: unknown): void {
     for (const listener of this.profileChangeListeners) {
@@ -600,7 +577,7 @@ export class KiloConnectionService {
   }
 
   /**
-   * Subscribe to favorites change events broadcast from any KiloProvider. Returns unsubscribe function.
+   * Subscribe to favorites change events broadcast from any CodeMProvider. Returns unsubscribe function.
    */
   onFavoritesChanged(listener: FavoritesChangeListener): () => void {
     this.favoritesChangeListeners.add(listener)
@@ -610,7 +587,7 @@ export class KiloConnectionService {
   }
 
   /**
-   * Broadcast a favorites change event to all subscribed KiloProvider instances.
+   * Broadcast a favorites change event to all subscribed CodeMProvider instances.
    */
   notifyFavoritesChanged(favorites: Array<{ providerID: string; modelID: string }>): void {
     for (const listener of this.favoritesChangeListeners) {
@@ -632,7 +609,7 @@ export class KiloConnectionService {
 
   /**
    * Register a callback that returns workspace directories tracked by a
-   * KiloProvider (root + worktree dirs). Used by drainPendingPrompts() to
+   * CodeMProvider (root + worktree dirs). Used by drainPendingPrompts() to
    * cover all active Instance directories across every provider.
    */
   registerDirectoryProvider(provider: DirectoryProvider): () => void {
@@ -650,7 +627,7 @@ export class KiloConnectionService {
 
   /**
    * Reject all pending permission requests and questions across every
-   * directory known to any currently-mounted KiloProvider.
+   * directory known to any currently-mounted CodeMProvider.
    *
    * Must be called before operations that trigger Instance.disposeAll()
    * (e.g. config save) to prevent orphaned Promises from freezing

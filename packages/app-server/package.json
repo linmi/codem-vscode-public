@@ -13,6 +13,7 @@
     "test": "node --test --experimental-strip-types tests/*.test.ts"
   },
   "dependencies": {
+    "@codem/protocol": "workspace:*",
     "@lark-codem/codem-cli": "0.1.208",
     "@lark-codem/codem-core": "0.8.37"
   },

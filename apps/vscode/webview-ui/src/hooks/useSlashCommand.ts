@@ -282,8 +282,16 @@ export function useSlashCommand(
   }
 
   const unsubscribe = vscode.onMessage((message) => {
-    if (message.type !== "commandsLoaded") return
-    setServer(message.commands)
+    // 斜杠目录只吃 Core skills/list；不再双读 Kilo commandsLoaded。
+    if (message.type !== "codemSkillsLoaded") return
+    setServer(
+      message.skills.map((skill) => ({
+        name: skill.name,
+        description: skill.description,
+        source: "skill" as const,
+        hints: [],
+      })),
+    )
   })
 
   onCleanup(() => {

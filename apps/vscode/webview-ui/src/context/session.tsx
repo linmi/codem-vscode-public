@@ -574,7 +574,7 @@ export const SessionProvider: ParentComponent = (props) => {
   }
 
   const unsubKiloModel = vscode.onMessage((message: ExtensionMessage) => {
-    if (message.type === "providersLoaded") {
+    if (message.type === "codemModelsLoaded") {
       setCatalog((value) => value + 1)
       return
     }
@@ -691,15 +691,13 @@ export const SessionProvider: ParentComponent = (props) => {
     })
   })
 
-  // Request agents immediately; if the extension's httpClient is not yet ready,
-  // extensionDataReady will fire once initialization completes and we retry once.
-  vscode.postMessage({ type: "requestAgents" })
+  // Core 没有 agent catalog；不再请求伪装目录，避免 fail-closed 刷错误。
+  // 仍监听 agentsLoaded，供未迁移夹具/故事使用。
 
-  // Skills loaded from the CLI backend
+  // Skills 只吃 Core skills/list；不再双读 Kilo skillsLoaded，也不伪造 location。
   const unsubSkills = vscode.onMessage((message: ExtensionMessage) => {
-    if (message.type === "skillsLoaded") {
-      setSkills(message.skills)
-    }
+    if (message.type !== "codemSkillsLoaded") return
+    setSkills(message.skills.map((skill) => ({ name: skill.name, description: skill.description })))
   })
 
   const refreshSkills = () => {
@@ -741,7 +739,6 @@ export const SessionProvider: ParentComponent = (props) => {
   vscode.postMessage({ type: "requestMcpStatus" })
 
   const fallback = setTimeout(() => {
-    if (agents().length === 0) vscode.postMessage({ type: "requestAgents" })
     if (Object.keys(mcpStatus()).length === 0) vscode.postMessage({ type: "requestMcpStatus" })
   }, 3000)
 
@@ -749,7 +746,6 @@ export const SessionProvider: ParentComponent = (props) => {
     if (message.type !== "extensionDataReady") return
     unsubReady()
     clearTimeout(fallback)
-    if (agents().length === 0) vscode.postMessage({ type: "requestAgents" })
     if (Object.keys(mcpStatus()).length === 0) vscode.postMessage({ type: "requestMcpStatus" })
   })
 

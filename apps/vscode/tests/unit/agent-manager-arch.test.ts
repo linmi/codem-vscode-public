@@ -14,7 +14,7 @@ import { Project, SyntaxKind } from "ts-morph"
 import { WorktreeImporter } from "../../src/agent-manager/worktree-importer"
 
 const ROOT = path.resolve(import.meta.dir, "../..")
-const KILO_PROVIDER_FILE = path.join(ROOT, "src/KiloProvider.ts")
+const KILO_PROVIDER_FILE = path.join(ROOT, "src/CodeMProvider.ts")
 const EDIT_PREVIEW_PANEL_FILE = path.join(ROOT, "webview-ui/agent-manager/EditPreviewPanel.tsx")
 const CSS_FILES = [
   path.join(ROOT, "webview-ui/agent-manager/agent-manager.css"),
@@ -897,10 +897,10 @@ describe("Agent Manager Webview — non-git sessionsLoaded fix", () => {
 })
 
 // ---------------------------------------------------------------------------
-// KiloProvider — pendingSessionRefresh race condition fix
+// CodeMProvider — pendingSessionRefresh race condition fix
 // ---------------------------------------------------------------------------
 
-describe("KiloProvider — pending session refresh on reconnect", () => {
+describe("CodeMProvider — pending session refresh on reconnect", () => {
   const provider = fs.readFileSync(KILO_PROVIDER_FILE, "utf-8")
   const utils = fs.readFileSync(path.join(ROOT, "src/kilo-provider-utils.ts"), "utf-8")
 

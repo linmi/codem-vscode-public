@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test"
 import { loadSessions, flushPendingSessionRefresh, type SessionRefreshContext } from "../../src/kilo-provider-utils"
 
 // vscode mock is provided by the shared preload (tests/setup/vscode-mock.ts)
-const { KiloProvider } = await import("../../src/KiloProvider")
+const { CodeMProvider } = await import("../../src/CodeMProvider")
 
 type State = "connecting" | "connected" | "disconnected" | "error"
 
@@ -110,7 +110,7 @@ function createConnection(client: ReturnType<typeof createClient>) {
   }
 }
 
-describe("KiloProvider pending session refresh", () => {
+describe("CodeMProvider pending session refresh", () => {
   it("syncs startup state without reading legacy credentials or exposing legacy actions", async () => {
     const client = createClient()
     const connection = createConnection(client)
@@ -126,7 +126,7 @@ describe("KiloProvider pending session refresh", () => {
         },
       },
     }
-    const provider = new KiloProvider({} as never, connection as never, ctx as never)
+    const provider = new CodeMProvider({} as never, connection as never, ctx as never)
     const internal = provider as unknown as ProviderInternals
     const sent: unknown[] = []
     internal.connectionState = "connected"
@@ -156,7 +156,7 @@ describe("KiloProvider pending session refresh", () => {
     const connection = createConnection(client)
     await connection.connect()
     let active = "a"
-    const provider = new KiloProvider({} as never, connection as never, undefined, {
+    const provider = new CodeMProvider({} as never, connection as never, undefined, {
       rootDirectory: () => `/repo/${active}`,
       projectQualifier: () => ({ projectId: active }),
     })
@@ -343,7 +343,7 @@ describe("KiloProvider pending session refresh", () => {
   it("flushes deferred refresh in initializeConnection without relying on connected event callback", async () => {
     const client = createClient()
     const connection = createConnection(client)
-    const provider = new KiloProvider({} as never, connection as never)
+    const provider = new CodeMProvider({} as never, connection as never)
     const internal = provider as unknown as ProviderInternals
 
     provider.setSessionDirectory("ses_1", "/worktree")
@@ -351,6 +351,7 @@ describe("KiloProvider pending session refresh", () => {
     await internal.handleLoadSessions()
     expect(internal.pendingSessionRefresh).toBe(true)
 
+    await connection.connect()
     await internal.initializeConnection()
 
     expect(client.calls).toEqual(["/repo", "/worktree"])
@@ -360,7 +361,7 @@ describe("KiloProvider pending session refresh", () => {
   it("does not post not-connected errors while still connecting", async () => {
     const client = createClient()
     const connection = createConnection(client)
-    const provider = new KiloProvider({} as never, connection as never)
+    const provider = new CodeMProvider({} as never, connection as never)
     const internal = provider as unknown as ProviderInternals
     const sent: unknown[] = []
 

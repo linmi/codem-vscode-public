@@ -32,12 +32,12 @@ describe("mergeFileSearchItems", () => {
   it("normalizes Windows separators for matching and output", () => {
     const result = mergeFileSearchItems({
       query: "codem-vscode",
-      files: ["packages\\codem-vscode\\src\\KiloProvider.ts"],
+      files: ["packages\\codem-vscode\\src\\CodeMProvider.ts"],
       folders: ["packages\\codem-vscode\\"],
     })
     expect(result).toEqual([
-      { path: "apps/vscode/", type: "folder" },
-      { path: "apps/vscode/src/KiloProvider.ts", type: "file" },
+      { path: "packages/codem-vscode/", type: "folder" },
+      { path: "packages/codem-vscode/src/CodeMProvider.ts", type: "file" },
     ])
   })
 

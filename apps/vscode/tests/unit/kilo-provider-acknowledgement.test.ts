@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test"
 import type { EventSessionTurnClose, Session } from "@kilocode/sdk/v2/client"
-import { KiloProvider } from "../../src/KiloProvider"
+import { CodeMProvider } from "../../src/CodeMProvider"
 import type { GitOps } from "../../src/agent-manager/GitOps"
 import type { GitStatsPoller } from "../../src/agent-manager/GitStatsPoller"
 import { KiloConnectionService } from "../../src/services/cli-backend/connection-service"
@@ -30,9 +30,9 @@ function completion(id = "evt-001"): EventSessionTurnClose {
 function attach(
   connection: KiloConnectionService,
   blocked = true,
-  opts: ConstructorParameters<typeof KiloProvider>[3] = {},
+  opts: ConstructorParameters<typeof CodeMProvider>[3] = {},
 ) {
-  const provider = new KiloProvider({} as never, connection, undefined, opts)
+  const provider = new CodeMProvider({} as never, connection, undefined, opts)
   resources.push(provider)
   const internal = provider as unknown as {
     initConnectionPromise: Promise<void>

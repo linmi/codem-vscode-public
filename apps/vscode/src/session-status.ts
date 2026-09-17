@@ -42,6 +42,6 @@ export async function seedSessionStatuses(
       }
     }
   } catch (error) {
-    console.error("[CodeM New] KiloProvider: Failed to seed session statuses:", error)
+    console.error("[CodeM New] CodeMProvider: Failed to seed session statuses:", error)
   }
 }

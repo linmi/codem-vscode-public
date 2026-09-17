@@ -20,7 +20,7 @@ export const APP_SERVER_V1_PROTOCOL_GAPS = {
   requestAgents: "Core v1 exposes skills/list but no equivalent agent catalog.",
   requestConfig: "Core config/read is a redacted snapshot, not the Kilo Config schema consumed by Settings.",
   requestGlobalConfig: "Core config/read is not the Kilo global Config schema; writing it would dual-store.",
-  requestImageModels: "Core v1 model/list does not expose the image-model catalog required by this UI.",
+  requestImageModels: "Core v1 model/list does not expose the image-generation catalog required by this UI.",
   requestIndexingSettings: "Core v1 exposes no indexing settings method.",
   requestIndexingStatus: "Core v1 exposes no indexing status method.",
   requestKiloEmbeddingModels: "Core v1 exposes no embedding-model catalog.",

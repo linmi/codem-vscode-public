@@ -22,7 +22,7 @@ const CHATVIEW_FILE = path.join(ROOT, "webview-ui/src/components/chat/ChatView.t
 const AGENT_MANAGER_FILE = path.join(ROOT, "webview-ui/agent-manager/AgentManagerApp.tsx")
 const PROMPT_UTILS_FILE = path.join(ROOT, "webview-ui/src/components/chat/prompt-input-utils.ts")
 const PROMPT_FILE = path.join(ROOT, "webview-ui/src/components/chat/PromptInput.tsx")
-const KILOPROVIDER_FILE = path.join(ROOT, "src/KiloProvider.ts")
+const KILOPROVIDER_FILE = path.join(ROOT, "src/CodeMProvider.ts")
 const CLOUD_SESSION_FILE = path.join(ROOT, "src/kilo-provider/handlers/cloud-session.ts")
 const CONNECTION_SERVICE_FILE = path.join(ROOT, "src/services/cli-backend/connection-service.ts")
 
@@ -267,7 +267,7 @@ describe("handleSessionDeleted draft cleanup contract", () => {
   })
 })
 
-describe("KiloProvider pruneDeletedSession contract", () => {
+describe("CodeMProvider pruneDeletedSession contract", () => {
   const source = readFile(KILOPROVIDER_FILE)
 
   it("drops sessionStatusMap entries alongside the other per-session caches", () => {
@@ -749,7 +749,7 @@ describe("KiloConnectionService pruneSession contract", () => {
   const source = readFile(CONNECTION_SERVICE_FILE)
 
   it("drops the deleted session from attached and visible Maps", () => {
-    // KiloProvider's pruneDeletedSession calls connectionService.pruneSession.
+    // CodeMProvider's pruneDeletedSession calls connectionService.pruneSession.
     // Without clearing attached/visible entries whose value is the deleted id,
     // the backend keeps receiving the dead session id and any background tab
     // opener stays registered for it.

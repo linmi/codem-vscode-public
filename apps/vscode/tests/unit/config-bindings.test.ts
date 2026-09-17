@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { ConfigBindings, type ConfigProject } from "../../src/kilo-provider/config-bindings"
 
-const { KiloProvider } = await import("../../src/KiloProvider")
+const { CodeMProvider } = await import("../../src/CodeMProvider")
 
 const target = {
   scope: "project" as const,
@@ -42,7 +42,7 @@ describe("ConfigBindings", () => {
   })
 
   it("expires retained-panel bindings when the selected project changes", () => {
-    const provider = new KiloProvider({} as never, {} as never, undefined, { projectDirectory: "/repo/a" })
+    const provider = new CodeMProvider({} as never, {} as never, undefined, { projectDirectory: "/repo/a" })
     const internal = provider as unknown as { configBindings: ConfigBindings; connectionGeneration: number }
     const binding = internal.configBindings.create({
       connection: internal.connectionGeneration,

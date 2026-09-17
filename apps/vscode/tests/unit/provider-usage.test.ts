@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import type { ProviderUsage, ProviderUsageWindow } from "@kilocode/sdk/v2/client"
 import { formatWindow, windowLabel, windowProgress } from "@kilocode/kilo-gateway/provider-usage"
 
-const { KiloProvider } = await import("../../src/KiloProvider")
+const { CodeMProvider } = await import("../../src/CodeMProvider")
 
 const data: ProviderUsage = {
   generatedAt: "2026-06-19T00:00:00.000Z",
@@ -22,7 +22,7 @@ type UsageClient = {
 }
 
 // Answers any SDK endpoint outside the fake usage client with a benign empty
-// response, so tests never have to mirror KiloProvider's internal fetcher list.
+// response, so tests never have to mirror CodeMProvider's internal fetcher list.
 const benign = (value: unknown): unknown =>
   typeof value === "function"
     ? value
@@ -34,7 +34,7 @@ const benign = (value: unknown): unknown =>
 
 function bridge(usage: UsageClient) {
   const messages: unknown[] = []
-  const provider = new KiloProvider(
+  const provider = new CodeMProvider(
     {} as never,
     { getClient: () => benign({ codem: { providerUsage: usage } }) } as never,
     undefined,
@@ -80,7 +80,7 @@ describe("provider usage presentation", () => {
   })
 })
 
-describe("KiloProvider provider usage bridge", () => {
+describe("CodeMProvider provider usage bridge", () => {
   it("uses cache-aware GET on open and forced POST for refresh", async () => {
     const get: Array<{ directory?: string }> = []
     const refresh: Array<{ directory?: string }> = []

@@ -41,7 +41,7 @@ export async function handleForkSession(ctx: ForkContext, sessionId: string, mes
         ctx.forked(session, sessionId)
       },
       registerSession: () => {},
-      log: (...args) => console.log("[CodeM New] KiloProvider:", ...args),
+      log: (...args) => console.log("[CodeM New] CodeMProvider:", ...args),
     },
     sessionId,
     undefined,

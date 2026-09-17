@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import type { Config } from "@kilocode/sdk/v2/client"
 import type { AuthContext } from "../../src/kilo-provider/handlers/auth"
 
-const { KiloProvider } = await import("../../src/KiloProvider")
+const { CodeMProvider } = await import("../../src/CodeMProvider")
 
 const external = { id: "external", name: "External", models: { model: { id: "model" } } }
 const catalog = (org: string) => ({
@@ -43,7 +43,7 @@ function setup(list: () => Promise<ReturnType<typeof catalog>>, org: () => strin
     global: { config: { get: async () => ({ data: {} }) } },
     experimental: { capabilities: { get: async () => ({ data: {} }) } },
   }
-  const provider = new KiloProvider(
+  const provider = new CodeMProvider(
     {} as never,
     { getClient: () => client, resolveEventSessionId: () => undefined } as never,
   )
@@ -67,7 +67,7 @@ function setup(list: () => Promise<ReturnType<typeof catalog>>, org: () => strin
   return { internal, messages, client, reloads }
 }
 
-describe("KiloProvider catalog refresh", () => {
+describe("CodeMProvider catalog refresh", () => {
   it("invalidates cached CodeM data before another account refresh", async () => {
     const { internal, messages } = setup(
       async () => catalog("org"),

@@ -247,8 +247,8 @@ export function filterVisibleAgents(agents: Agent[]): { visible: Agent[]; defaul
 }
 
 /**
- * Shared interface for the subset of KiloProvider state needed by session-refresh helpers.
- * Extracted here so the logic can be tested without importing KiloProvider (and vscode).
+ * Shared interface for the subset of CodeMProvider state needed by session-refresh helpers.
+ * Extracted here so the logic can be tested without importing CodeMProvider (and vscode).
  */
 export interface SessionRefreshContext {
   pendingSessionRefresh: boolean

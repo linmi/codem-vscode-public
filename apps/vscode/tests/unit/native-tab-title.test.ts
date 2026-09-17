@@ -20,10 +20,10 @@ describe("nativeTitle", () => {
   })
 
   it("updates the native panel only from valid webview activity reports", async () => {
-    const { KiloProvider } = await import("../../src/KiloProvider")
+    const { CodeMProvider } = await import("../../src/CodeMProvider")
     const titles: string[] = []
     const listener: { current?: (message: { type: string; state: unknown }) => Promise<void> } = {}
-    const provider = new KiloProvider(
+    const provider = new CodeMProvider(
       { fsPath: "/extension" } as never,
       {
         unregisterVisible: () => {},
