@@ -80,21 +80,7 @@ export interface MatureUiAppServerPort {
     readonly nextCursor: string | null
     readonly total: number
   }>
-  listTurns(
-    cwd: string,
-    threadId: string,
-    options?: { readonly cursor?: string; readonly limit?: number; readonly sortDirection?: "asc" | "desc" },
-  ): ReturnType<import("./service").CodeMAppServerService["listTurns"]>
-  listItems(
-    cwd: string,
-    threadId: string,
-    options?: {
-      readonly turnId?: string
-      readonly cursor?: string
-      readonly limit?: number
-      readonly sortDirection?: "asc" | "desc"
-    },
-  ): ReturnType<import("./service").CodeMAppServerService["listItems"]>
+  readHistory: import("./service").CodeMAppServerService["readHistory"]
   listModels(cwd: string): Promise<{ readonly activeModel: string; readonly models: readonly AppServerModelSummary[] }>
   startTurn(
     cwd: string,
@@ -143,6 +129,8 @@ export class MatureUiAppServerController {
   private readonly options: MatureUiAppServerControllerOptions
   private readonly loadedThreads = new Set<string>()
   private readonly runningThreads = new Set<string>()
+  private timelineEpoch = 0
+  private historyRequest = 0
   private currentThreadId: string | null = null
 
   constructor(options: MatureUiAppServerControllerOptions) {
@@ -169,6 +157,7 @@ export class MatureUiAppServerController {
   }
 
   clearSelection(): void {
+    this.historyRequest++
     this.setCurrentThread(null)
   }
 
@@ -183,12 +172,19 @@ export class MatureUiAppServerController {
     const threadId = eventThreadId(event)
     if (threadId && !this.loadedThreads.has(threadId)) return
     if (event.type === "thread-closed") {
+      this.historyRequest++
       this.loadedThreads.delete(event.threadId)
       this.runningThreads.delete(event.threadId)
       if (this.currentThreadId === event.threadId) this.setCurrentThread(null)
     }
-    if (event.type === "turn-started") this.runningThreads.add(event.threadId)
-    if (event.type === "turn-completed") this.runningThreads.delete(event.threadId)
+    if (event.type === "turn-started") {
+      this.timelineEpoch++
+      this.runningThreads.add(event.threadId)
+    }
+    if (event.type === "turn-completed") {
+      this.timelineEpoch++
+      this.runningThreads.delete(event.threadId)
+    }
     for (const message of this.adapter.accept(event)) this.post(message)
   }
 
@@ -276,6 +272,7 @@ export class MatureUiAppServerController {
     intelligence?: string,
     permissionMode?: AppServerPermissionMode,
   ): Promise<void> {
+    this.historyRequest++
     const cwd = this.options.cwdForThread()
     const threadId = await this.service.startThread(cwd, model, intelligence, permissionMode)
     this.loadedThreads.add(threadId)
@@ -291,44 +288,35 @@ export class MatureUiAppServerController {
   }
 
   private async loadMessages(message: Extract<WebviewMessage, { readonly type: "loadMessages" }>): Promise<void> {
+    const request = ++this.historyRequest
     const cwd = this.options.cwdForThread(message.sessionID)
     await this.ensureLoaded(cwd, message.sessionID)
-    const turns = await this.service.listTurns(cwd, message.sessionID, {
+    const epoch = this.timelineEpoch
+    const history = await this.service.readHistory(cwd, message.sessionID, {
       ...(message.before ? { cursor: message.before } : {}),
       limit: message.limit ?? 50,
-      sortDirection: "desc",
     })
-    const orderedTurns = [...turns.entries].reverse()
-    const items = (
-      await Promise.all(
-        orderedTurns.map((turn) =>
-          this.service.listItems(cwd, message.sessionID, {
-            turnId: turn.id,
-            limit: 500,
-            sortDirection: "asc",
-          }),
-        ),
-      )
-    ).flatMap((page) => page.entries)
-    const requestedMode = message.mode === "focus" ? "replace" : message.mode
+    if (request !== this.historyRequest) return
     const mode =
-      this.runningThreads.has(message.sessionID) && (!requestedMode || requestedMode === "replace")
-        ? "reconcile"
-        : requestedMode
+      message.mode === "prepend"
+        ? "prepend"
+        : this.runningThreads.has(message.sessionID) || epoch !== this.timelineEpoch
+          ? "reconcile"
+          : "replace"
     this.setCurrentThread(message.sessionID)
     this.post(
       this.adapter.messagesLoaded({
         threadId: message.sessionID,
-        turns: orderedTurns,
-        items,
+        turns: history.turns,
         mode,
-        ...(turns.nextCursor ? { cursor: turns.nextCursor } : {}),
-        hasMore: turns.nextCursor !== null,
+        ...(history.nextCursor ? { cursor: history.nextCursor } : {}),
+        hasMore: history.nextCursor !== null,
       }),
     )
   }
 
   private async sendMessage(message: Extract<WebviewMessage, { readonly type: "sendMessage" }>): Promise<void> {
+    this.historyRequest++
     let threadId = message.sessionID ?? (message.draftID ? null : this.currentThreadId)
     const model = selectedModel(message)
     const intelligence = selectedIntelligence(message.variant)

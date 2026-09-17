@@ -97,8 +97,6 @@ export {
   type AppServerHostEvent,
   type AppServerBuiltinIntelligence,
   type AppServerHostOptions,
-  type AppServerHistoryItem,
-  type AppServerHistoryPage,
   type AppServerInteraction,
   type AppServerInteractionResponse,
   type AppServerMcpServer,
@@ -110,7 +108,6 @@ export {
   type AppServerThreadSettings,
   type AppServerThreadDetail,
   type AppServerThreadSummary,
-  type AppServerTurnSummary,
   type AppServerWorkMode,
 } from "./host.ts"
 

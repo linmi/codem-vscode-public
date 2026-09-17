@@ -26,10 +26,16 @@ Use the launch setup above with `dist/tests/spaces.cjs`. Success requires exit z
 
 # Live first-message acceptance
 
-`live-send.ts` sends one real model turn through the service/controller with Medium thinking and Auto permissions. It concurrently reads the new thread's modes and history, requires an actual assistant answer and a successful `turn/completed`, and verifies the connection and permissions remain available. It exercises configured lifecycle hooks, including the Core 0.8.37 `SessionStart` regression (`tool: ""`, `reason: null`, `outcome: "allow"`). Deterministic host and adapter tests cover that shape even on accounts without hooks.
+`live-send.ts` sends one real model turn through the service/controller with Medium thinking and Auto permissions. It concurrently reads the new thread's modes and history, requires both answer lines separated by a blank line and a successful `turn/completed`, and verifies the connection and permissions remain available. This checks that multiline streaming does not truncate the answer or retire the connection. Deterministic Host tests additionally cover standalone spaces, tabs, line breaks, and empty chunks across assistant, reasoning, and side-question streams. The live test also exercises configured lifecycle hooks, including the Core 0.8.37 `SessionStart` regression (`tool: ""`, `reason: null`, `outcome: "allow"`).
 
 ```sh
 pnpm --dir apps/vscode exec esbuild tests/extension-host/live-send.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/tests/live-send.cjs
 ```
 
 Use the isolated, disposable trusted workspace setup above with `dist/tests/live-send.cjs`. The credential broker must already be signed in. This test uses model quota and runs the account's configured hooks; it requests no file inspection or workspace tools. It deletes only its own test thread on completion. Success requires exit zero and `LIVE_SEND_EXTENSION_HOST_PASS`; closing the test window before that marker is not a passing result. This verifies real Extension Host integration, not visual Webview rendering.
+
+# JSONL history recovery acceptance
+
+`history.ts` reads a deliberately selected real three-turn regression conversation twice through fresh VS Code services. Set `CODEM_HISTORY_TEST_CWD` and `CODEM_HISTORY_TEST_THREAD` to the fixture session used for the report (first reply is `FIRST LINE`, blank line, `LAST LINE`). It verifies six ordered messages and complete final-answer tool inputs/results. It reads only; it does not send a model request, rewrite or delete the conversation, or require a local Core build.
+
+Build with `pnpm --dir apps/vscode exec esbuild tests/extension-host/history.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/tests/history.cjs`, then use the isolated trusted test workspace launch above. Success requires exit zero and `HISTORY_EXTENSION_HOST_PASS`. This checks Node/Extension Host service integration; the renderer regression separately checks actual message components.

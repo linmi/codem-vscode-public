@@ -60,7 +60,7 @@ export async function run(): Promise<void> {
       type: "sendMessage",
       draftID: "live-draft",
       messageID: "live-submission",
-      text: "Reply with exactly OK. Do not use tools or inspect any files.",
+      text: "Reply with exactly two lines: FIRST LINE and LAST LINE, separated by a blank line. Do not use tools or inspect any files.",
       providerID: "codem-router",
       modelID: "auto",
       variant: "medium",
@@ -82,11 +82,13 @@ export async function run(): Promise<void> {
       events.some((event) => event.type === "protocol-error" || event.type === "connection-closed"),
       false,
     )
-    assert.ok(
-      messages.some(
-        (message) => message.type === "partUpdated" && message.part.type === "text" && message.part.text.includes("OK"),
-      ),
-      "expected the actual assistant answer",
+    const answer = messages
+      .flatMap((message) => (message.type === "partUpdated" && message.part.type === "text" ? [message.part.text] : []))
+      .join("")
+    assert.match(
+      answer,
+      /FIRST LINE\r?\n\s*\r?\nLAST LINE/,
+      "expected both lines and the blank line without truncation",
     )
     const modes = await service.readModes(cwd, threadId)
     assert.equal(modes.permissionMode, "auto")

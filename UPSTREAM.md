@@ -190,3 +190,11 @@ Source-development launch scripts and legacy consumers remain migration input,
 with deletion deferred until their functionality is adapted. This does not
 claim a completed production transport cutover. Packaging regressions cover
 stale POSIX/Windows binaries and preservation of CodeM binaries and licenses.
+
+## Core JSONL history recovery (2026-09-16)
+
+`packages/session-history/src/shared/` selectively imports the record reducer and its transitive domain dependencies from CodeM Desktop `main@d7763f0af4a9152e9dd4ca54ce6f1e56862b798c`: `packages/cli-adapter/src/records/schema.ts`, required record handlers, and required `session` / `diff` modules. Only consumed barrel exports are retained; package imports become local relative `.ts` imports. The source contains no separate license files or notices in these imported paths.
+
+The only semantic changes within imported source are: the visitor exposes the reducer's existing initial-submission identity, and the host-supported JSONL version is explicitly restricted to schema 13. Published Core 0.8.37 writes schema 13 (verified in the real VS Code session header); the previous plan's schema 12 statement was stale. The shared schema-13 decoder preserves persisted legacy *record variants within that schema*, synthetic-input suppression, clear cutoffs, code rewind markers, record sequencing and tool correlation. These are durable protocol semantics, not a second decoder or legacy agent transport.
+
+The public host wrapper supplies safe session discovery, snapshot-bound pagination, cancellation, and hash-verified tool blob hydration. It stores no durable transcript or SQLite index. It streams the shared reducer and retains only the requested turn window; a future index must remain rebuildable from the same decoder. Realtime remains the exact published CLI/Core pin. Old history RPC methods and development-Core override were removed atomically from the plugin.

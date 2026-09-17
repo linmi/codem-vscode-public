@@ -1,3 +1,4 @@
+import { historyTurn, historyTool } from "./fixtures/history.ts"
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { AppServerFileDiff, AppServerHostEvent, AppServerInteraction } from "@codem/app-server"
@@ -192,18 +193,7 @@ describe("AppServerMatureUiAdapter", () => {
     for (const completedAt of [null, "2026-09-15T00:00:01.000Z"]) {
       const loaded = adapter.messagesLoaded({
         threadId: "thread-1",
-        turns: [
-          {
-            id: "turn-1",
-            input: "Hello",
-            submissionId: "submission-1",
-            startedAt: "2026-09-15T00:00:00.000Z",
-            completedAt,
-            status: completedAt ? "completed" : "inProgress",
-            itemsView: "full",
-          },
-        ],
-        items: [historyItem({ id: "answer-1", type: "agentMessage", text: "Hello", recordSeq: 1 })],
+        turns: [historyTurn(1, completedAt)],
       })
       if (loaded.type !== "messagesLoaded") assert.fail("expected history")
       assert.deepEqual(loaded.messages[1]?.time, {
@@ -354,64 +344,67 @@ describe("AppServerMatureUiAdapter", () => {
     )
   })
 
-  it("reconstructs user, reasoning, tool, and assistant history by Core turn identity", () => {
+  it("reopens three projected turns without mixing answers and keeps complete tool arguments/output", () => {
     const adapter = new AppServerMatureUiAdapter()
-    const message = adapter.messagesLoaded({
+    const turns = [1, 2, 3].map((n) => historyTurn(n))
+    const loaded = adapter.messagesLoaded({ threadId: "thread-1", turns })
+    assert.ok(loaded.type === "messagesLoaded")
+    assert.deepEqual(
+      loaded.messages.map((message) => message.role),
+      ["user", "assistant", "user", "assistant", "user", "assistant"],
+    )
+    for (let n = 1; n <= 3; n++) {
+      const user = loaded.messages[n * 2 - 2]!
+      assert.equal(user.parts?.[0]?.type, "text")
+      assert.equal(user.parts?.[0]?.type === "text" && user.parts[0].text, `question ${n}`)
+      assert.equal(user.parts?.[0]?.messageID, user.id)
+      const parts = loaded.messages[n * 2 - 1]?.parts
+      assert.deepEqual(
+        parts?.filter((part) => part.type === "text").map((part) => part.text),
+        [`answer ${n}`],
+      )
+      const tool = parts?.find((part) => part.type === "tool")
+      assert.deepEqual(tool?.state.input, { kind: "chat", status: "complete", summary: `summary ${n}` })
+      assert.ok(tool?.state.status === "completed")
+      assert.equal(tool.state.output, "accepted")
+    }
+  })
+
+  it("does not mix delayed durable parts into a live turn or reverse its terminal result", () => {
+    const adapter = new AppServerMatureUiAdapter()
+    adapter.accept({ type: "turn-started", threadId: "thread-1", turnId: "live-id", submissionId: "submission-1" })
+    const input = { threadId: "thread-1", turns: [historyTurn(1, null)], mode: "reconcile" as const }
+    assert.deepEqual(adapter.messagesLoaded(input), {
+      type: "messagesLoaded",
+      sessionID: "thread-1",
+      messages: [],
+      mode: "reconcile",
+    })
+    adapter.accept({
+      type: "turn-completed",
       threadId: "thread-1",
-      turns: [
-        {
-          id: "turn-1",
-          input: "Build it",
-          submissionId: "submission-1",
-          startedAt: "2026-09-15T00:00:00.000Z",
-          completedAt: "2026-09-15T00:00:01.000Z",
-          status: "completed",
-          itemsView: "full",
-        },
-      ],
-      items: [
-        historyItem({ id: "reason-1", type: "reasoning", text: "Thinking", recordSeq: 1 }),
-        historyItem({
-          id: "tool-1",
-          type: "toolCall",
-          status: "inProgress",
-          toolName: "read_file",
-          callId: "call-1",
-          recordSeq: 2,
-        }),
-        historyItem({
-          id: "result-1",
-          type: "toolResult",
-          callId: "call-1",
-          output: "file body",
-          recordSeq: 3,
-        }),
-        historyItem({ id: "answer-1", type: "agentMessage", text: "Done", recordSeq: 4 }),
-      ],
+      turnId: "live-id",
+      outcome: "completed",
+      stopReason: "end_turn",
+      error: null,
     })
-    assert.equal(message.type, "messagesLoaded")
-    if (message.type !== "messagesLoaded") assert.fail("expected history")
-    assert.deepEqual(
-      message.messages.map((entry) => [entry.role, entry.id]),
-      [
-        ["user", "submission-1"],
-        ["assistant", "turn-1:assistant"],
-      ],
-    )
-    assert.deepEqual(
-      message.messages[1]?.parts?.map((part) => part.type),
-      ["reasoning", "tool", "text"],
-    )
-    const tool = message.messages[1]?.parts?.[1]
-    assert.equal(tool?.type, "tool")
-    if (tool?.type !== "tool") assert.fail("expected merged history tool")
-    assert.deepEqual(tool.state, {
-      status: "completed",
-      input: {},
-      output: "file body",
-      title: "toolCall",
-      metadata: { appServerStatus: "completed", appServerTool: "read_file" },
-    })
+    const delayed = adapter.messagesLoaded(input)
+    assert.ok(delayed.type === "messagesLoaded")
+    assert.equal(delayed.messages.length, 0)
+    const reopened = adapter.messagesLoaded({ ...input, turns: [historyTurn()], mode: "replace" })
+    assert.ok(reopened.type === "messagesLoaded")
+    assert.equal(reopened.messages.length, 2)
+  })
+
+  it("preserves tool payloads longer than the shared preview", () => {
+    const entry = historyTurn()
+    const output = "x".repeat(8000)
+    const turn = { ...entry.turn, items: [...entry.turn.items, historyTool(2, output)] }
+    const loaded = new AppServerMatureUiAdapter().messagesLoaded({ threadId: "thread-1", turns: [{ ...entry, turn }] })
+    assert.ok(loaded.type === "messagesLoaded")
+    const tool = loaded.messages[1]?.parts?.at(-1)
+    assert.ok(tool?.type === "tool" && tool.state.status === "completed")
+    assert.equal(tool.state.output, output)
   })
 })
 

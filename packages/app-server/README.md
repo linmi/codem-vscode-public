@@ -6,6 +6,8 @@ It owns the exact published Core and authentication CLI versions, supported plat
 
 Authentication is checked before an editor starts a thread. The published browser authorization page handles both existing-user sign-in and new-user registration; there is no separate local registration command.
 
+Assistant, reasoning, and side-question text deltas preserve spaces, tabs, and line breaks exactly. Empty string chunks are valid no-ops and are not forwarded to consumers. Missing or non-string text fields and conflicting `delta` / `deltaText` values remain protocol errors; whitespace in text must never be validated as an identifier.
+
 ```ts
 import { assertAppServerAuthenticated, readAppServerAuthStatus, startAppServerLogin } from "@codem/app-server"
 
@@ -64,3 +66,9 @@ Space integration uses the pinned CLI's private credential-broker tools `project
 Provide `AppServerHost.prepareSpace` to bind each Core process to broker-validated launch material: `--project-key` and `CODEM_MANAGED_DIR`. A null managed directory explicitly disables the managed layer. Ambient managed-directory, space-list and broker-command variables cannot override the selected space. Hosts without a space preparer have no managed layer. The VS Code service always provides a preparer and requires an explicit broker current space; it does not choose an arbitrary first space.
 
 The VS Code `codem.selectSpace` command and native status bar prepare a candidate, validate Core/model/skill responses, then commit the CLI-owned account selection and retire the old idle host. Tasks and in-flight requests exclude switching; switching excludes new work. Failure before commit preserves the old host, and logout/account replacement cancels pending preparation. An unconfirmed commit reports that the shared account pointer may have changed; it does not claim rollback. The selection also affects the CLI's default for future launches. Core 0.8.37 exposes no per-thread space-switch/read contract: this development cycle deliberately does not migrate historical space ownership; new and reopened tasks use the currently selected space. Core JSONL remains the only history authority.
+
+### Historical turn recovery
+
+Realtime turns continue to use pinned online CLI 0.1.208 / Core 0.8.37. Durable history is read by the editor host through `@codem/session-history` from Core JSONL schema 13. This reuses the shared Desktop record reducer and domain types from `main@d7763f0a`, including user invocation boundaries, hidden model inputs, tool correlation, clear and rewind semantics. `thread/turns/list` and `thread/items/list` are no longer history sources or public host methods. No local Core override is required.
+
+History failures are explicit; there is no RPC fallback or second transcript store. Live `turn/completed` remains terminal authority. In-flight JSONL snapshots cannot replace live parts; idle reopening replaces the viewport from the durable projection.

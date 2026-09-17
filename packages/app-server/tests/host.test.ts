@@ -21,6 +21,102 @@ afterEach(() => {
 })
 
 describe("AppServerHost", () => {
+  for (const method of ["item/agentMessage/delta", "item/reasoning/textDelta", "thread/sideQuestion/delta"] as const) {
+    for (const field of ["delta", "deltaText"] as const) {
+      it(`preserves whitespace in ${method} ${field} without closing the connection`, { timeout: 5000 }, async () => {
+        const chunks = ["before", " ", "\n", "\r\n", "\t", "", "  after  "]
+        const fixture = createFixture(
+          undefined,
+          chunks.map((chunk) => ({ method, params: { [field]: chunk } })),
+        )
+        const host = new AppServerHost({
+          runtime: fixture.runtime,
+          clientInfo: { name: "text-delta-test", version: "1" },
+          environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
+          assertAuthenticated: () => {},
+        })
+        const events: AppServerHostEvent[] = []
+        const completed = new Promise<void>((resolve, reject) =>
+          host.onEvent((event) => {
+            events.push(event)
+            if (event.type === "turn-completed" || event.type === "side-question-completed") resolve()
+            if (event.type === "protocol-error") reject(new Error(event.message))
+          }),
+        )
+        void completed.catch(() => {})
+        try {
+          const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+          if (method === "thread/sideQuestion/delta") {
+            await host.startSideQuestion(fixture.root, threadId, "whitespace", "Hello")
+          } else {
+            await host.startTurn({ cwd: fixture.root, threadId, submissionId: "whitespace", text: "Hello" })
+          }
+          await completed
+          const eventType =
+            method === "item/agentMessage/delta"
+              ? "text-delta"
+              : method === "item/reasoning/textDelta"
+                ? "reasoning-delta"
+                : "side-question-delta"
+          assert.deepEqual(
+            events.flatMap((event) => (event.type === eventType ? [event.delta] : [])),
+            chunks.filter((chunk) => chunk.length > 0),
+          )
+          assert.equal(
+            events.some((event) => event.type === "connection-closed"),
+            false,
+          )
+          assert.equal((await host.readModes(fixture.root, threadId)).permissionMode, "default")
+        } finally {
+          await host.close()
+        }
+      })
+    }
+  }
+
+  for (const params of [
+    {},
+    { delta: null },
+    { delta: 42 },
+    { delta: false },
+    { delta: [] },
+    { deltaText: {} },
+    { delta: "valid", deltaText: 42 },
+    { delta: false, deltaText: "valid" },
+    { delta: " ", deltaText: "\n" },
+  ]) {
+    it(`rejects malformed text delta ${JSON.stringify(params)}`, { timeout: 5000 }, async () => {
+      const fixture = createFixture(undefined, [{ method: "item/agentMessage/delta", params }])
+      const host = new AppServerHost({
+        runtime: fixture.runtime,
+        clientInfo: { name: "text-delta-test", version: "1" },
+        environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
+        assertAuthenticated: () => {},
+      })
+      const events: AppServerHostEvent[] = []
+      const closed = new Promise<void>((resolve) =>
+        host.onEvent((event) => {
+          events.push(event)
+          if (event.type === "connection-closed" || event.type === "turn-completed") resolve()
+        }),
+      )
+      try {
+        const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+        await host.startTurn({ cwd: fixture.root, threadId, submissionId: "malformed", text: "Hello" })
+        await closed
+        const error = events.find((event) => event.type === "protocol-error")
+        assert.ok(error, "invalid text delta must fail closed")
+        assert.match(error.message, /item\/agentMessage\/delta/)
+        assert.equal(
+          events.some((event) => event.type === "text-delta" || event.type === "turn-completed"),
+          false,
+        )
+      } finally {
+        await host.close()
+      }
+    })
+  }
+
   for (const [field, value] of [
     ["tool", null],
     ["tool", " "],
@@ -180,70 +276,6 @@ describe("AppServerHost", () => {
       startedAt: "2026-09-15T00:00:00.000Z",
       status: "idle",
     })
-    assert.deepEqual(await host.listTurns(fixture.root, threadId, { limit: 20, sortDirection: "asc" }), {
-      entries: [
-        {
-          id: "turn-1",
-          input: "Build it",
-          submissionId: "submission-1",
-          startedAt: "2026-09-15T00:00:01.000Z",
-          completedAt: "2026-09-15T00:00:02.000Z",
-          status: "completed",
-          itemsView: "summary",
-        },
-      ],
-      nextCursor: null,
-      total: 1,
-    })
-    assert.deepEqual(await host.listItems(fixture.root, threadId, { turnId, limit: 50, sortDirection: "asc" }), {
-      entries: [
-        {
-          id: "item-1",
-          type: "agentMessage",
-          turnId: "turn-1",
-          submissionId: "submission-1",
-          recordSeq: 1,
-          status: "completed",
-          callId: null,
-          toolName: null,
-          input: null,
-          text: "Done",
-          summary: "",
-          output: "",
-          label: "agentMessage",
-          isError: false,
-          subagentId: null,
-          subagentKind: null,
-          replaced: null,
-          kept: null,
-          finalAnswer: null,
-        },
-        {
-          id: "result-1",
-          type: "toolResult",
-          turnId: "turn-1",
-          submissionId: null,
-          recordSeq: 2,
-          status: "completed",
-          callId: "call-1",
-          toolName: null,
-          input: null,
-          text: "",
-          summary: "",
-          output: "Done",
-          label: "toolResult",
-          isError: false,
-          subagentId: null,
-          subagentKind: null,
-          replaced: null,
-          kept: null,
-          finalAnswer: null,
-        },
-      ],
-      nextCursor: null,
-      total: 2,
-    })
-
     await host.unsubscribeThread(fixture.root, threadId)
     await host.resumeThread(fixture.root, threadId, {
       ...DEFAULT_APP_SERVER_THREAD_SETTINGS,
@@ -462,12 +494,15 @@ function createFixture(
     reason: null,
     elapsedMs: 12,
   },
+  textNotifications: readonly { method: string; params: Record<string, unknown> }[] = [
+    { method: "item/agentMessage/delta", params: { delta: "Done" } },
+  ],
 ): { readonly root: string; readonly capturePath: string; readonly runtime: AppServerRuntime } {
   const root = mkdtempSync(join(tmpdir(), "codem-host-"))
   temporaryDirectories.push(root)
   const executablePath = join(root, "codem-core")
   const capturePath = join(root, "capture.jsonl")
-  writeFileSync(executablePath, fixtureSource(completeCapabilities(), hookRun))
+  writeFileSync(executablePath, fixtureSource(completeCapabilities(), hookRun, textNotifications))
   chmodSync(executablePath, 0o755)
   return {
     root,
@@ -486,7 +521,11 @@ function createFixture(
   }
 }
 
-function fixtureSource(capabilities: Record<string, unknown>, hookRun: Record<string, unknown>): string {
+function fixtureSource(
+  capabilities: Record<string, unknown>,
+  hookRun: Record<string, unknown>,
+  textNotifications: readonly { method: string; params: Record<string, unknown> }[],
+): string {
   return `#!/usr/bin/env node
 const fs = require("node:fs")
 const readline = require("node:readline")
@@ -505,6 +544,13 @@ lines.on("line", (line) => {
   if (frame.method === "initialize") return send({ jsonrpc: "2.0", id: frame.id, result: { protocolVersion: 1, agentInfo: { version: "0.8.37+1.gfixture" }, capabilities: ${JSON.stringify(capabilities)} } })
   if (frame.method === "thread/start") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1" } } })
   if (frame.method === "thread/resume") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: frame.params.threadId } } })
+  if (frame.method === "thread/sideQuestion/start") {
+    const sideQuestion = { id: "question-1", question: frame.params.question, status: "inProgress" }
+    send({ method: "thread/sideQuestion/started", params: { threadId: frame.params.threadId, sideQuestion } })
+    send({ id: frame.id, result: { sideQuestion: { ...sideQuestion, status: "accepted" } } })
+    for (const notification of ${JSON.stringify(textNotifications)}) send({ method: notification.method, params: { threadId: frame.params.threadId, sideQuestionId: sideQuestion.id, ...notification.params } })
+    return send({ method: "thread/sideQuestion/completed", params: { threadId: frame.params.threadId, sideQuestion: { ...sideQuestion, status: "completed" } } })
+  }
   if (frame.method === "thread/unsubscribe") return send({ id: frame.id, result: process.env.OLD_UNSUBSCRIBE_RESULT ? {} : { status: "unsubscribed" } })
   if (frame.method === "thread/mode/read") {
     if (process.env.FAIL_FIRST_MODE_READ && !failedModeRead) {
@@ -527,8 +573,6 @@ lines.on("line", (line) => {
     return send({ id: frame.id, result })
   }
   if (frame.method === "thread/read") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), archived: false, model: "codem/auto", profile: "default", startedAt: "2026-09-15T00:00:00.000Z", status: "idle" } } })
-  if (frame.method === "thread/turns/list") return send({ jsonrpc: "2.0", id: frame.id, result: { turns: [{ id: "turn-1", input: "Build it", submissionId: "submission-1", startedAt: "2026-09-15T00:00:01.000Z", completedAt: "2026-09-15T00:00:02.000Z", status: "completed", itemsView: "summary" }], nextCursor: null, total: 1 } })
-  if (frame.method === "thread/items/list") return send({ jsonrpc: "2.0", id: frame.id, result: { items: [{ id: "item-1", type: "agentMessage", submissionId: "submission-1", recordSeq: 1, status: "completed", text: "Done" }, { id: "result-1", type: "toolResult", callId: "call-1", recordSeq: 2, status: "completed", output: "Done" }], nextCursor: null, total: 2 } })
   if (frame.method === "turn/start") {
     send({ jsonrpc: "2.0", method: "turn/started", params: { threadId: frame.params.threadId, turn: { id: "turn-1" } } })
     send({ jsonrpc: "2.0", id: frame.id, result: { turn: { id: "turn-1" } } })
@@ -547,7 +591,7 @@ lines.on("line", (line) => {
     send({ jsonrpc: "2.0", method: "backgroundTask/wakeSkipped", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-2" } })
     send({ jsonrpc: "2.0", method: "turn/diff/updated", params: { threadId: frame.params.threadId, turnId: "turn-1", diff: [{ path: "src/example.ts", linesAdded: 1, linesRemoved: 0 }] } })
     send({ jsonrpc: "2.0", method: "item/started", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "item-1", type: "agentMessage", status: "inProgress" } } })
-    send({ jsonrpc: "2.0", method: "item/agentMessage/delta", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "item-1", delta: "Done" } })
+    for (const notification of ${JSON.stringify(textNotifications)}) send({ jsonrpc: "2.0", method: notification.method, params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "item-1", ...notification.params } })
     send({ jsonrpc: "2.0", method: "item/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "item-1", type: "agentMessage", status: "completed", text: "Done" } } })
     return send({ jsonrpc: "2.0", method: "turn/completed", params: { threadId: frame.params.threadId, turn: { id: "turn-1", status: "completed", stopReason: "end_turn", error: null, items: [{ id: "snapshot-only", type: "toolCall", status: "interrupted", tool: "read_file", callId: "call-snapshot", summary: "Turn ended" }, { id: "snapshot-result", type: "toolResult", status: "completed", callId: "call-snapshot", output: "Done" }] } } })
   }

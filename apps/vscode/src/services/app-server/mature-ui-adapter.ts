@@ -1,12 +1,11 @@
+import { type HistoryTurn, type ConversationItem, toolPayloadText } from "@codem/session-history"
 import type {
   AppServerFileDiff,
-  AppServerHistoryItem,
   AppServerHostEvent,
   AppServerInteraction,
   AppServerInteractionResponse,
   AppServerItem,
   AppServerThreadSummary,
-  AppServerTurnSummary,
 } from "@codem/app-server"
 import type { BackgroundJobInfo, ExtensionMessage } from "../../../webview-ui/src/types/messages/extension-messages"
 import type { PermissionFileDiff } from "../../../webview-ui/src/types/messages/permissions"
@@ -83,6 +82,7 @@ interface BackgroundJobView {
  * JSON-RPC frame and never owns durable history.
  */
 export class AppServerMatureUiAdapter {
+  private readonly liveSubmissions = new Map<string, Set<string>>()
   private readonly turns = new Map<string, TurnView>()
   private readonly toolsByItem = new Map<string, ToolView>()
   private readonly toolsByCall = new Map<string, ToolView>()
@@ -116,17 +116,30 @@ export class AppServerMatureUiAdapter {
 
   messagesLoaded(input: {
     readonly threadId: string
-    readonly turns: readonly AppServerTurnSummary[]
-    readonly items: readonly AppServerHistoryItem[]
+    readonly turns: readonly HistoryTurn[]
     readonly mode?: Exclude<MessageLoadMode, "focus">
     readonly cursor?: string
     readonly hasMore?: boolean
   }): ExtensionMessage {
+    const pendingLive = input.turns.some(
+      ({ turn, submissionId }) =>
+        (turn.state === "running" || turn.state === "waiting-interaction") &&
+        submissionId !== null &&
+        this.liveSubmissions.get(input.threadId)?.has(submissionId),
+    )
+    const mode = pendingLive && input.mode !== "prepend" ? "reconcile" : input.mode
     return {
       type: "messagesLoaded",
       sessionID: input.threadId,
-      messages: historyMessages(input.threadId, input.turns, input.items),
-      ...(input.mode ? { mode: input.mode } : {}),
+      messages: historyMessages(
+        input.threadId,
+        mode === "reconcile"
+          ? input.turns.filter(
+              (entry) => !entry.submissionId || !this.liveSubmissions.get(input.threadId)?.has(entry.submissionId),
+            )
+          : input.turns,
+      ),
+      ...(mode ? { mode } : {}),
       ...(input.cursor ? { cursor: input.cursor } : {}),
       ...(input.hasMore === undefined ? {} : { hasMore: input.hasMore }),
     }
@@ -163,8 +176,12 @@ export class AppServerMatureUiAdapter {
 
   private acceptTimeline(event: AppServerHostEvent): readonly ExtensionMessage[] | null {
     switch (event.type) {
-      case "turn-started":
+      case "turn-started": {
+        const submissions = this.liveSubmissions.get(event.threadId) ?? new Set<string>()
+        if (event.submissionId) submissions.add(event.submissionId)
+        this.liveSubmissions.set(event.threadId, submissions)
         return this.turnStarted(event.threadId, event.turnId)
+      }
       case "text-delta":
       case "reasoning-delta":
         return [this.textDelta(event)]
@@ -692,110 +709,75 @@ function threadToSession(thread: AppServerThreadSummary): SessionInfo {
   }
 }
 
-function historyMessages(
-  threadId: string,
-  turns: readonly AppServerTurnSummary[],
-  items: readonly AppServerHistoryItem[],
-): Message[] {
-  const byTurn = new Map<string, AppServerHistoryItem[]>()
-  for (const item of items) {
-    if (!item.turnId) continue
-    const entries = byTurn.get(item.turnId) ?? []
-    entries.push(item)
-    byTurn.set(item.turnId, entries)
-  }
+function historyMessages(threadId: string, entries: readonly HistoryTurn[]): Message[] {
   const messages: Message[] = []
-  for (const turn of turns) {
-    const entries = (byTurn.get(turn.id) ?? []).sort(
-      (left, right) => (left.recordSeq ?? Number.MAX_SAFE_INTEGER) - (right.recordSeq ?? Number.MAX_SAFE_INTEGER),
-    )
-    const user = entries.find((item) => item.type === "userMessage")
-    messages.push({
-      id: turn.submissionId ?? user?.id ?? `${turn.id}:user`,
-      sessionID: threadId,
-      role: "user",
-      content: user?.text || turn.input,
-      createdAt: turn.startedAt,
-    })
-    const parts = historyParts(entries)
-    if (parts.length > 0) {
+  for (const { turn, submissionId } of entries) {
+    const user = turn.items.find((item) => item.kind === "message" && item.role === "user")
+    if (user?.kind === "message" && user.role === "user") {
       messages.push({
-        ...assistantMessage(
-          threadId,
-          { messageId: assistantMessageId(turn.id), startedAt: turn.startedAt },
-          turn.completedAt ? Date.parse(turn.completedAt) : undefined,
-        ),
-        parts: parts.map((part) => ({ ...part, sessionID: threadId, messageID: assistantMessageId(turn.id) })),
+        id: submissionId ?? user.id,
+        sessionID: threadId,
+        role: "user",
+        content: user.text,
+        createdAt: user.at,
+        time: { created: Date.parse(user.at) },
+        parts: [
+          { id: user.id, type: "text", text: user.text, sessionID: threadId, messageID: submissionId ?? user.id },
+        ],
       })
     }
+    const parts = turn.items.flatMap(historyPart)
+    if (parts.length === 0) continue
+    const messageId = assistantMessageId(turn.id)
+    messages.push({
+      ...assistantMessage(
+        threadId,
+        { messageId, startedAt: turn.startedAt },
+        turn.completedAt ? Date.parse(turn.completedAt) : undefined,
+      ),
+      parts: parts.map((part) => ({ ...part, sessionID: threadId, messageID: messageId })),
+    })
   }
   return messages
 }
 
-function historyParts(items: readonly AppServerHistoryItem[]): Part[] {
-  const results = new Map<string, AppServerHistoryItem>()
-  for (const item of items) {
-    if (item.type === "toolResult" && item.callId) results.set(item.callId, item)
-  }
-  const matchedResults = new Set<string>()
-  const parts = items.flatMap((item) => {
-    if (item.type === "toolResult") return []
-    const result = item.callId ? results.get(item.callId) : undefined
-    if (!result || !isHistoryTool(item)) return historyPart(item)
-    matchedResults.add(result.id)
-    return historyPart({
-      ...item,
-      status: result.status,
-      output: result.output || item.output,
-      summary: result.summary || item.summary,
-      isError: result.isError,
-    })
-  })
-  for (const item of items) {
-    if (item.type !== "toolResult" || matchedResults.has(item.id)) continue
-    parts.push(...historyPart(item))
-  }
-  return parts
-}
-
-function isHistoryTool(item: AppServerHistoryItem): boolean {
-  return (
-    item.type !== "userMessage" &&
-    item.type !== "agentMessage" &&
-    item.type !== "reasoning" &&
-    item.type !== "contextCompaction" &&
-    item.type !== "toolResult"
-  )
-}
-
-function historyPart(item: AppServerHistoryItem): Part[] {
-  if (item.type === "userMessage") return []
-  if (item.type === "agentMessage") return item.text ? [{ id: item.id, type: "text", text: item.text }] : []
-  if (item.type === "reasoning") return item.text ? [{ id: item.id, type: "reasoning", text: item.text }] : []
-  if (item.type === "contextCompaction") return [{ id: item.id, type: "compaction", auto: true }]
-  const tool = uiToolName(item.toolName ?? item.type)
-  const input = { ...(item.input ?? {}) }
-  const output = item.output || item.summary
-  const metadata = { appServerStatus: item.status, appServerTool: item.toolName ?? item.type }
-  const state: ToolPart["state"] =
-    item.status === "failed" || item.status === "declined" || item.status === "interrupted"
-      ? { status: "error", input, error: output || item.status }
-      : { status: "completed", input, output, title: item.label, metadata }
-  const result: Part[] = [{ id: item.id, type: "tool", tool, callID: item.callId ?? item.id, state, metadata }]
-  if (item.finalAnswer && item.status === "completed") {
-    result.push({
-      id: `${item.id}:summary`,
-      type: "text",
-      text: item.finalAnswer.summary,
-      metadata: {
-        appServerFinalAnswer: true,
-        status: item.finalAnswer.status,
-        kind: item.finalAnswer.kind,
-        artifactCount: item.finalAnswer.artifacts.length,
+function historyPart(item: ConversationItem): Part[] {
+  if (item.kind === "message") return item.role === "assistant" ? [{ id: item.id, type: "text", text: item.text }] : []
+  if (item.kind === "tool-execution") return [historyTool(item)]
+  if (item.kind === "activity" && item.activityType === "reasoning")
+    return [{ id: item.id, type: "reasoning", text: item.text }]
+  if (item.kind === "error")
+    return [
+      {
+        id: item.id,
+        type: "text",
+        text: item.cause === "runtime" ? item.text : "History contains a recorded UI failure.",
       },
-    })
+    ]
+  // Other shared activities are retained as visible facts; raw records and host paths never cross the bridge.
+  if (item.kind === "activity") return [{ id: item.id, type: "text", text: item.text }]
+  return []
+}
+
+function historyTool(item: Extract<ConversationItem, { kind: "tool-execution" }>): ToolPart {
+  const value = item.input.value
+  const input: Record<string, unknown> =
+    value !== null && typeof value === "object" && !Array.isArray(value) ? value : { value }
+  const output = item.result ? toolPayloadText(item.result) : ""
+  const state: ToolPart["state"] =
+    item.status === "running"
+      ? { status: "running", input, title: item.toolName }
+      : item.status === "succeeded"
+        ? { status: "completed", input, output, title: item.toolName }
+        : { status: "error", input, error: output || item.status }
+  return {
+    id: item.id,
+    type: "tool",
+    tool: uiToolName(item.toolName),
+    callID: item.toolCallId,
+    state,
+    metadata: { appServerTool: item.toolName, appServerStatus: item.status },
   }
-  return result
 }
 
 function uiToolInput(item: AppServerItem): Record<string, unknown> {

@@ -80,28 +80,6 @@ export interface AppServerThreadDetail {
   readonly status: string
 }
 
-export interface AppServerTurnSummary {
-  readonly id: string
-  readonly input: string
-  readonly submissionId: string | null
-  readonly startedAt: string
-  readonly completedAt: string | null
-  readonly status: string | null
-  readonly itemsView: string | null
-}
-
-export interface AppServerHistoryItem extends AppServerItem {
-  readonly turnId: string | null
-  readonly submissionId: string | null
-  readonly recordSeq: number | null
-}
-
-export interface AppServerHistoryPage<Entry> {
-  readonly entries: readonly Entry[]
-  readonly nextCursor: string | null
-  readonly total: number
-}
-
 export interface AppServerModelSummary {
   readonly id: string
   readonly source: string
@@ -749,52 +727,6 @@ export class AppServerHost {
     return detail
   }
 
-  async listTurns(
-    cwd: string,
-    threadId: string,
-    options: { readonly cursor?: string; readonly limit?: number; readonly sortDirection?: "asc" | "desc" } = {},
-  ): Promise<AppServerHistoryPage<AppServerTurnSummary>> {
-    const connection = await this.connection(cwd)
-    const result = objectValue(
-      await connection.connection.request("thread/turns/list", historyParameters(threadId, options)),
-      "thread/turns/list result",
-    )
-    return {
-      entries: arrayValue(result.turns, "thread/turns/list turns").map((entry, index) =>
-        turnSummary(entry, `thread/turns/list turns[${index}]`),
-      ),
-      nextCursor: nullableString(result.nextCursor, "thread/turns/list nextCursor"),
-      total: nonNegativeInteger(result.total, "thread/turns/list total"),
-    }
-  }
-
-  async listItems(
-    cwd: string,
-    threadId: string,
-    options: {
-      readonly turnId?: string
-      readonly cursor?: string
-      readonly limit?: number
-      readonly sortDirection?: "asc" | "desc"
-    } = {},
-  ): Promise<AppServerHistoryPage<AppServerHistoryItem>> {
-    const connection = await this.connection(cwd)
-    const result = objectValue(
-      await connection.connection.request("thread/items/list", {
-        ...historyParameters(threadId, options),
-        ...(options.turnId ? { turnId: nonBlankString(options.turnId, "thread/items/list turnId") } : {}),
-      }),
-      "thread/items/list result",
-    )
-    return {
-      entries: arrayValue(result.items, "thread/items/list items").map((entry, index) =>
-        historyItem(entry, `thread/items/list items[${index}]`, options.turnId),
-      ),
-      nextCursor: nullableString(result.nextCursor, "thread/items/list nextCursor"),
-      total: nonNegativeInteger(result.total, "thread/items/list total"),
-    }
-  }
-
   async listModels(
     cwd: string,
   ): Promise<{ readonly activeModel: string; readonly models: readonly AppServerModelSummary[] }> {
@@ -1079,6 +1011,7 @@ export class AppServerHost {
     if (frame.method === "item/agentMessage/delta" || frame.method === "item/reasoning/textDelta") {
       const itemId = nonBlankString(frame.params.itemId, `${frame.method} itemId`)
       const delta = notificationDelta(frame.params, frame.method)
+      if (delta.length === 0) return
       this.emit({
         type: frame.method === "item/agentMessage/delta" ? "text-delta" : "reasoning-delta",
         threadId: thread.id,
@@ -1385,11 +1318,13 @@ export class AppServerHost {
     )
     if (active.id !== sideQuestionId) return
     if (frame.method === "thread/sideQuestion/delta") {
+      const delta = notificationDelta(frame.params, frame.method)
+      if (delta.length === 0) return
       this.emit({
         type: "side-question-delta",
         threadId: thread.id,
         sideQuestionId,
-        delta: notificationDelta(frame.params, frame.method),
+        delta,
       })
       return
     }
@@ -1684,53 +1619,6 @@ function threadSummary(value: unknown, cwd: string, label: string): AppServerThr
   }
 }
 
-function historyParameters(
-  threadId: string,
-  options: { readonly cursor?: string; readonly limit?: number; readonly sortDirection?: "asc" | "desc" },
-): JsonObject {
-  const id = nonBlankString(threadId, "history threadId")
-  if (options.limit !== undefined && (!Number.isInteger(options.limit) || options.limit <= 0)) {
-    throw new Error("CodeM history limit must be a positive integer")
-  }
-  if (options.sortDirection !== undefined && options.sortDirection !== "asc" && options.sortDirection !== "desc") {
-    throw new Error(`CodeM history sort direction is invalid: ${String(options.sortDirection)}`)
-  }
-  return {
-    threadId: id,
-    ...(options.cursor ? { cursor: nonBlankString(options.cursor, "history cursor") } : {}),
-    ...(options.limit === undefined ? {} : { limit: options.limit }),
-    ...(options.sortDirection === undefined ? {} : { sortDirection: options.sortDirection }),
-  }
-}
-
-function turnSummary(value: unknown, label: string): AppServerTurnSummary {
-  const turn = objectValue(value, label)
-  return {
-    id: nonBlankString(turn.id, `${label}.id`),
-    input: stringValue(turn.input, `${label}.input`),
-    submissionId: nullableString(turn.submissionId, `${label}.submissionId`),
-    startedAt: nonBlankString(turn.startedAt, `${label}.startedAt`),
-    completedAt: nullableString(turn.completedAt, `${label}.completedAt`),
-    status: nullableString(turn.status, `${label}.status`),
-    itemsView: nullableString(turn.itemsView, `${label}.itemsView`),
-  }
-}
-
-function historyItem(value: unknown, label: string, requestedTurnId?: string): AppServerHistoryItem {
-  const item = objectValue(value, label)
-  const projected = parseAppServerItem(item, label)
-  const returnedTurnId = nullableString(item.turnId, `${label}.turnId`)
-  if (requestedTurnId && returnedTurnId && returnedTurnId !== requestedTurnId) {
-    throw new Error(`CodeM App Server ${label}.turnId belongs to ${returnedTurnId}, expected ${requestedTurnId}`)
-  }
-  return {
-    ...projected,
-    turnId: returnedTurnId ?? requestedTurnId ?? null,
-    submissionId: nullableString(item.submissionId, `${label}.submissionId`),
-    recordSeq: nullableNonNegativeInteger(item.recordSeq, `${label}.recordSeq`),
-  }
-}
-
 function responseTurnId(turn: JsonObject, label: string): string {
   const standard = optionalString(turn.id)
   const legacy = optionalString(turn.turnId)
@@ -1748,11 +1636,12 @@ function notificationTurnId(params: JsonObject, active: ActiveTurn): string | nu
 }
 
 function notificationDelta(params: JsonObject, label: string): string {
-  const delta = optionalString(params.delta)
-  const legacy = optionalString(params.deltaText)
+  const delta = params.delta === undefined ? null : stringValue(params.delta, `${label} delta`)
+  const legacy = params.deltaText === undefined ? null : stringValue(params.deltaText, `${label} deltaText`)
   if (delta !== null && legacy !== null && delta !== legacy)
     throw new Error(`CodeM ${label} returned conflicting delta fields`)
-  return nonBlankString(delta ?? legacy, `${label} delta`)
+  // Stream chunks are text, not identifiers: whitespace and empty chunks are valid.
+  return stringValue(delta ?? legacy, `${label} delta`)
 }
 
 function createActiveTurn(submissionId: string | null): ActiveTurn {

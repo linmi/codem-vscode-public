@@ -1,3 +1,4 @@
+import { historyTurn } from "./fixtures/history.ts"
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { AppServerInteraction } from "@codem/app-server"
@@ -242,6 +243,74 @@ describe("MatureUiAppServerController", () => {
     assert.deepEqual(fixture.calls.resume, [{ cwd: "/workspace", threadId: "thread-1" }])
   })
 
+  it("discards a history response after the user clears selection", async () => {
+    const fixture = createFixture()
+    let begin!: () => void
+    let release!: () => void
+    const started = new Promise<void>((resolve) => {
+      begin = resolve
+    })
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    fixture.service.readHistory = async () => {
+      begin()
+      await pending
+      return { turns: [historyTurn()], nextCursor: null }
+    }
+    const loading = fixture.controller.handle({ type: "loadMessages", sessionID: "thread-1" })
+    await started
+    fixture.controller.clearSelection()
+    release()
+    await loading
+    assert.equal(
+      fixture.messages.some((m) => m.type === "messagesLoaded"),
+      false,
+    )
+  })
+
+  it("keeps terminal live authority when completion races a history snapshot", async () => {
+    const fixture = createFixture()
+    await fixture.controller.handle({ type: "createSession" })
+    fixture.controller.acceptEvent({
+      type: "turn-started",
+      threadId: "thread-1",
+      turnId: "live",
+      submissionId: "submission-1",
+    })
+    fixture.service.readHistory = async () => {
+      fixture.controller.acceptEvent({
+        type: "turn-completed",
+        threadId: "thread-1",
+        turnId: "live",
+        outcome: "completed",
+        stopReason: "end_turn",
+        error: null,
+      })
+      return { turns: [historyTurn(1, null)], nextCursor: null }
+    }
+    await fixture.controller.handle({ type: "loadMessages", sessionID: "thread-1" })
+    const loaded = fixture.messages.find((m) => m.type === "messagesLoaded")
+    assert.ok(loaded?.type === "messagesLoaded")
+    assert.equal(loaded.mode, "reconcile")
+    assert.deepEqual(loaded.messages, [])
+  })
+
+  it("reports JSONL recovery errors without publishing or falling back to RPC history", async () => {
+    const fixture = createFixture()
+    fixture.service.readHistory = async () => {
+      throw new Error("unsupported schema_version 99")
+    }
+    await fixture.controller.handle({ type: "loadMessages", sessionID: "thread-1" })
+    assert.equal(
+      fixture.messages.some((message) => message.type === "messagesLoaded"),
+      false,
+    )
+    assert.ok(
+      fixture.messages.some((message) => message.type === "error" && message.message.includes("schema_version")),
+    )
+  })
+
   it("routes HITL answers and background cancellation without inventing responses", async () => {
     const fixture = createFixture()
     await fixture.controller.handle({ type: "createSession" })
@@ -399,48 +468,7 @@ function createFixture(options: { readonly prepareError?: Error } = {}) {
       })
     },
     listThreads: async () => ({ threads: [thread], nextCursor: null, total: 1 }),
-    listTurns: async () => ({
-      entries: [
-        {
-          id: "turn-1",
-          input: "Build it",
-          submissionId: "submission-1",
-          startedAt: "2026-09-15T00:00:01.000Z",
-          completedAt: "2026-09-15T00:00:02.000Z",
-          status: "completed",
-          itemsView: "full",
-        },
-      ],
-      nextCursor: "turn-cursor-2",
-      total: 2,
-    }),
-    listItems: async () => ({
-      entries: [
-        {
-          id: "answer-1",
-          type: "agentMessage",
-          status: "completed",
-          callId: null,
-          toolName: null,
-          label: "agentMessage",
-          input: null,
-          text: "Done",
-          summary: "",
-          output: "",
-          isError: false,
-          subagentId: null,
-          subagentKind: null,
-          replaced: null,
-          kept: null,
-          finalAnswer: null,
-          turnId: "turn-1",
-          submissionId: "submission-1",
-          recordSeq: 1,
-        },
-      ],
-      nextCursor: null,
-      total: 1,
-    }),
+    readHistory: async () => ({ turns: [historyTurn()], nextCursor: "turn-cursor-2" }),
     listModels: async () => ({
       activeModel: "codem-router/auto",
       models: [

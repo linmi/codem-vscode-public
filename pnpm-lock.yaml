@@ -360,6 +360,9 @@ importers:
       '@codem/app-server':
         specifier: workspace:*
         version: link:../../packages/app-server
+      '@codem/session-history':
+        specifier: workspace:*
+        version: link:../../packages/session-history
       '@kilocode/kilo-gateway':
         specifier: workspace:*
         version: link:../../packages/kilo-gateway
@@ -2082,6 +2085,19 @@ importers:
       '@typescript/native-preview':
         specifier: 'catalog:'
         version: 7.0.0-dev.20260316.1
+
+  packages/session-history:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.1.8
+    devDependencies:
+      '@types/node':
+        specifier: 24.12.4
+        version: 24.12.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.2
 
   packages/tui:
     dependencies:

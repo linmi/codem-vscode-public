@@ -22,7 +22,7 @@ CodeM `main@d7763f0a` 已包含正式 App Server Desktop 实现与 active contra
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | 代码位置   | App Server 的当前依据是 `byted/main@d7763f0af4a9152e9dd4ca54ce6f1e56862b798c`，包含 `src/main/codem/app-server/*` 与 active Desktop contract。                                 | VS Code 与 Desktop 以同一主干契约收敛；旧集成分支只保留历史来源意义。                      |
 | 实时协议   | 线上 Core `0.8.37` 提供换行分隔的 App Server stdio，接受带 `jsonrpc: "2.0"` 的请求；当前响应省略该字段，其余 `id/result/error`、protocol 与 capability 形状可用。              | Host 临时接受并记录“省略”或精确 `"2.0"`，拒绝其他值；不降级到 Kilo/Headless。              |
-| 持久化     | Core JSONL schema 12 是 durable history 权威；Desktop projection schema 20 已移除旧 sidecar 投影，SQLite/窗口数据是可重建状态。                                                | VS Code 不另造会话数据库；应复用 CodeM record schema 与 projection。                       |
+| 持久化     | Core JSONL schema 13 是 durable history 权威；Desktop projection schema 20 已移除旧 sidecar 投影，SQLite/窗口数据是可重建状态。                                                | VS Code 不另造会话数据库；应复用 CodeM record schema 与 projection。                       |
 | 连接模型   | 当前连接池键为 canonical `cwd + permissionMode`；同一连接可承载多个 thread，以 `threadId` 路由。                                                                               | 连接属于 Extension Host，不属于某个 Webview 或标签页。                                     |
 | 协议能力   | 覆盖 start/resume、turn start/steer/interrupt、compact、rewind、权限、问题、计划、Plan Mode、后台任务、side question、diff、rename/archive/delete/fork 与 skills。             | MVP 可以覆盖完整 agent 交互，而无需借用 Kilo agent runtime。                               |
 | 运行时版本 | 2026-09-15 registry latest CLI 为 `0.1.208`，声明 Core `0.8.37`；当前 CodeM 源码 `main` 的旧 pin 不再作为 VS Code runtime 权威。                                               | Host 精确固定线上 Core `0.8.37`；升级只能作为独立 Cycle，禁止隐式跟随 latest。             |
@@ -119,7 +119,7 @@ flowchart LR
 
 **Webview Message Gateway。**Extension 与 Webview 双向消息都使用 discriminated union + strict schema。Webview 只看到产品 DTO，例如 `ThreadSummary`、`TimelineItem`、`PendingInteraction`、`RunStatus`；它不看到 App Server raw frame、Core 文件路径或 Kilo SDK 类型。
 
-**Durable Projection。**读取 Core JSONL schema 12，生成可重建历史索引与窗口。索引存放在 VS Code `globalStorageUri` 下并按 profile/workspace identity 隔离；删除索引后可完整重建。Extension 不实现第二套 JSONL parser。
+**Durable Projection。**读取 Core JSONL schema 13，生成可重建历史索引与窗口。索引存放在 VS Code `globalStorageUri` 下并按 profile/workspace identity 隔离；删除索引后可完整重建。Extension 不实现第二套 JSONL parser。
 
 ## 5.2 连接与隔离
 
@@ -219,7 +219,7 @@ codem/
       src/                    # Core runtime、staging、integrity、RPC 与 lifecycle
       tests/
     session/                  # 现有 shared domain contract
-    cli-adapter/              # schema 12 strict record parsing
+    cli-adapter/              # schema 13 strict record parsing
     projection/               # durable catalog/window projection
     vscode-protocol/
       src/                    # Extension ↔ Webview strict messages

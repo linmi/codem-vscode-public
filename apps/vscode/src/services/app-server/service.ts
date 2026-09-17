@@ -1,3 +1,4 @@
+import { realpath } from "node:fs/promises"
 import * as vscode from "vscode"
 import {
   AppServerHost,
@@ -17,6 +18,8 @@ import {
 import { DEFAULT_PROMPT_SETTINGS } from "../../shared/prompt-defaults"
 import type { AppServerPermissionMode } from "@codem/app-server/modes"
 import type { CodeMAuthenticationService } from "./authentication"
+import { readSessionHistory, resolveSessionsRoot } from "@codem/session-history"
+import { appServerHostEnvironment } from "@codem/app-server"
 
 export class CodeMAppServerService implements vscode.Disposable {
   private readonly output = vscode.window.createOutputChannel("CodeM App Server", { log: true })
@@ -226,27 +229,22 @@ export class CodeMAppServerService implements vscode.Disposable {
     return this.useHost((host) => host.readThread(cwd, threadId))
   }
 
-  listTurns(
-    cwd: string,
-    threadId: string,
-    options?: { readonly cursor?: string; readonly limit?: number; readonly sortDirection?: "asc" | "desc" },
-  ) {
+  async readHistory(cwd: string, threadId: string, options?: { cursor?: string; limit?: number }) {
     requireTrustedWorkspace()
-    return this.useHost((host) => host.listTurns(cwd, threadId, options))
-  }
-
-  listItems(
-    cwd: string,
-    threadId: string,
-    options?: {
-      readonly turnId?: string
-      readonly cursor?: string
-      readonly limit?: number
-      readonly sortDirection?: "asc" | "desc"
-    },
-  ) {
-    requireTrustedWorkspace()
-    return this.useHost((host) => host.listItems(cwd, threadId, options))
+    const signal = this.lifetime.signal
+    const result = await this.useHost(async () => {
+      await this.authentication.requireAuthenticated()
+      signal.throwIfAborted()
+      return readSessionHistory({
+        sessionsRoot: resolveSessionsRoot(appServerHostEnvironment(this.runtime)),
+        cwd: await realpath(cwd),
+        threadId,
+        ...options,
+        signal,
+      })
+    })
+    signal.throwIfAborted()
+    return result
   }
 
   listModels(cwd: string) {

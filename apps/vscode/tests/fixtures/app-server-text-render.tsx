@@ -1,3 +1,4 @@
+import { historyTurn } from "../host/services/app-server/fixtures/history"
 import assert from "node:assert/strict"
 import { Window } from "happy-dom"
 import type { Message as SDKMessage, Part as SDKPart, AssistantMessage } from "@kilocode/sdk/v2"
@@ -27,7 +28,7 @@ Object.assign(globalThis, {
   getComputedStyle: win.getComputedStyle.bind(win),
 })
 
-const { createSignal } = await import("solid-js")
+const { createSignal, Show, batch } = await import("solid-js")
 const { render } = await import("solid-js/web")
 const { Part } = await import("@kilocode/kilo-ui/message-part")
 const { DataProvider } = await import("@kilocode/kilo-ui/context/data")
@@ -59,7 +60,9 @@ try {
         data={{ session: [], session_status: {}, session_diff: {}, message: {}, part: {} }}
       >
         <MarkedProvider nativeParser={(text) => parser.parse(text)}>
-          <Part part={part()} message={message() as SDKMessage} />
+          <Show when={message().id} keyed>
+            {() => <Part part={part()} message={message() as SDKMessage} />}
+          </Show>
         </MarkedProvider>
       </DataProvider>
     ),
@@ -106,28 +109,19 @@ try {
   for (const completedAt of [null, "2026-09-15T00:00:01.000Z"]) {
     const history = adapter.messagesLoaded({
       threadId,
-      turns: [
-        {
-          id: turnId,
-          input: "Hello",
-          submissionId: "submission",
-          startedAt: "2026-09-15T00:00:00.000Z",
-          completedAt,
-          status: completedAt ? "completed" : "inProgress",
-          itemsView: "full",
-        },
-      ],
-      items: [{ ...finalItem, turnId, submissionId: "submission", recordSeq: 1 }],
+      turns: [historyTurn(1, completedAt)],
     })
     if (history.type !== "messagesLoaded") throw new Error("missing history")
     const assistant = history.messages.find((entry) => entry.role === "assistant")
     const text = assistant?.parts?.find((entry) => entry.type === "text")
     assert.ok(assistant && text)
-    setMessage(assistant)
-    setPart(text as SDKPart)
+    batch(() => {
+      setMessage(assistant)
+      setPart(text as SDKPart)
+    })
     await settle()
     assert.equal(isRenderable(part(), message() as AssistantMessage), true)
-    assert.match(root.textContent ?? "", /CodeM final answer/)
+    assert.match(root.textContent ?? "", /answer 1/)
   }
 } finally {
   dispose?.()
