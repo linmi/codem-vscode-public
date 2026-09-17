@@ -57,7 +57,7 @@ export interface ControlPlaneService {
   rewindThread(cwd: string, threadId: string): Promise<string>
   archiveThread(cwd: string, threadId: string): Promise<void>
   unarchiveThread(cwd: string, threadId: string): Promise<void>
-  clearThread(cwd: string, threadId: string, operationId: string): Promise<void>
+  clearThread(cwd: string, threadId: string, operationId?: string): Promise<void>
   listLoadedThreadIds(cwd: string): Promise<AppServerLoadedThreads>
   listHooks(cwd: string): Promise<AppServerHookList>
   listPlugins(cwd: string): Promise<AppServerPluginList>

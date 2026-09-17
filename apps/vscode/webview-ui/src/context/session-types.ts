@@ -195,6 +195,10 @@ export interface SessionContextValue {
   ) => boolean
   abort: () => void
   compact: () => void
+  /** Core thread/rewind/start。不是 message-scoped revertSession。 */
+  rewindThread: () => void
+  archiveThread: (id: string) => void
+  unarchiveThread: (id: string) => void
   respondToPermission: (
     permissionId: string,
     response: "once" | "always" | "reject",

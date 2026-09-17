@@ -117,9 +117,8 @@ describe("MatureUi control-plane commands", () => {
   it("cancels an enhance side question by the original requestId", async () => {
     const fixture = createFixture()
     await fixture.controller.handle({ type: "createSession" })
-    const enhance = fixture.controller.handle({ type: "enhancePrompt", text: "Make this clearer", requestId: "enhance-1" })
+    await fixture.controller.handle({ type: "enhancePrompt", text: "Make this clearer", requestId: "enhance-1" })
     await fixture.controller.handle({ type: "cancelSideQuestion", sessionID: "thread-1", requestID: "enhance-1" })
-    await enhance
     assert.deepEqual(fixture.calls.cancelSide, [{ cwd: "/workspace", threadId: "thread-1", sideQuestionId: "side-1" }])
     assert.deepEqual(fixture.messages.at(-1), {
       type: "cancelSideQuestionResult",

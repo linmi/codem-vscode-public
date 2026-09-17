@@ -706,6 +706,7 @@ function threadToSession(thread: AppServerThreadSummary): SessionInfo {
     title: thread.preview || "New conversation",
     createdAt: thread.startedAt,
     updatedAt: thread.startedAt,
+    archived: thread.archived,
   }
 }
 

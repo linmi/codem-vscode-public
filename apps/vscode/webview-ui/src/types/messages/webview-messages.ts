@@ -1133,6 +1133,109 @@ export interface EnhancePromptRequest {
   requestId: string
 }
 
+/** 取消 enhancePrompt 对应的 thread/sideQuestion；requestID 必须是当时的 enhance requestId。 */
+export interface CancelSideQuestionRequest {
+  type: "cancelSideQuestion"
+  sessionID: string
+  requestID: string
+}
+
+/** Core thread/rewind/start。不是 message-scoped revertSession。 */
+export interface RewindThreadRequest {
+  type: "rewindThread"
+  sessionID: string
+  requestID: string
+}
+
+export interface ArchiveThreadRequest {
+  type: "archiveThread"
+  sessionID: string
+  requestID: string
+}
+
+export interface UnarchiveThreadRequest {
+  type: "unarchiveThread"
+  sessionID: string
+  requestID: string
+}
+
+/** Core thread/clear。不是 UI 重置用的 clearSession。 */
+export interface ClearThreadRequest {
+  type: "clearThread"
+  sessionID: string
+  requestID: string
+}
+
+export interface RequestLoadedThreadIdsMessage {
+  type: "requestLoadedThreadIds"
+  requestID: string
+}
+
+export interface RequestHooksMessage {
+  type: "requestHooks"
+  requestID: string
+}
+
+export interface RequestPluginsMessage {
+  type: "requestPlugins"
+  requestID: string
+}
+
+export interface RequestToolsMessage {
+  type: "requestTools"
+  sessionID: string
+  requestID: string
+}
+
+export interface RequestEnvironmentInfoMessage {
+  type: "requestEnvironmentInfo"
+  requestID: string
+}
+
+/** CodeM 去密钥 config/read 快照。不是 Kilo requestConfig。 */
+export interface RequestConfigSnapshotMessage {
+  type: "requestConfigSnapshot"
+  requestID: string
+}
+
+export interface RequestPermissionProfilesMessage {
+  type: "requestPermissionProfiles"
+  requestID: string
+}
+
+export interface RequestModelProviderCapabilitiesMessage {
+  type: "requestModelProviderCapabilities"
+  requestID: string
+}
+
+/** backgroundTerminals 独立消息。processId ≠ requestBackgroundJobs 的 taskId。 */
+export interface RequestBackgroundTerminalsMessage {
+  type: "requestBackgroundTerminals"
+  sessionID: string
+  requestID: string
+}
+
+export interface TerminateBackgroundTerminalRequest {
+  type: "terminateBackgroundTerminal"
+  sessionID: string
+  requestID: string
+  processId: number
+}
+
+export interface CleanBackgroundTerminalsRequest {
+  type: "cleanBackgroundTerminals"
+  sessionID: string
+  requestID: string
+}
+
+/** 仅已加载线程可执行；控制器校验线程归属。 */
+export interface RunShellCommandRequest {
+  type: "runShellCommand"
+  sessionID: string
+  requestID: string
+  command: string
+}
+
 // Open the standalone changes viewer tab from the sidebar
 export interface OpenChangesRequest {
   type: "openChanges"
@@ -1672,6 +1775,23 @@ export type WebviewMessage =
   | ApplyWorktreeDiffMessage
   | RevertWorktreeFileMessage
   | EnhancePromptRequest
+  | CancelSideQuestionRequest
+  | RewindThreadRequest
+  | ArchiveThreadRequest
+  | UnarchiveThreadRequest
+  | ClearThreadRequest
+  | RequestLoadedThreadIdsMessage
+  | RequestHooksMessage
+  | RequestPluginsMessage
+  | RequestToolsMessage
+  | RequestEnvironmentInfoMessage
+  | RequestConfigSnapshotMessage
+  | RequestPermissionProfilesMessage
+  | RequestModelProviderCapabilitiesMessage
+  | RequestBackgroundTerminalsMessage
+  | TerminateBackgroundTerminalRequest
+  | CleanBackgroundTerminalsRequest
+  | RunShellCommandRequest
   | OpenChangesRequest
   | OpenDiffVirtualRequest
   | OpenPRCommentRequest

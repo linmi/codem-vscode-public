@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto"
 import type {
   AppServerHostEvent,
   AppServerModelSummary,
-  AppServerPermissionProfile,
   AppServerPromptAttachment,
   AppServerThreadSummary,
 } from "@codem/app-server"
@@ -222,6 +221,10 @@ export class MatureUiAppServerController {
   private async handleAccepted(
     message: Extract<WebviewMessage, { readonly type: AppServerMessageType }>,
   ): Promise<void> {
+    if (isControlUiCommand(message.type)) {
+      await this.control.handle(message as Extract<WebviewMessage, { readonly type: (typeof APP_SERVER_CONTROL_UI_COMMANDS)[number] }>)
+      return
+    }
     switch (message.type) {
       case "createSession":
         return this.createSession()
@@ -419,8 +422,7 @@ export class MatureUiAppServerController {
   private async deleteSession(threadId: string): Promise<void> {
     const cwd = this.options.cwdForThread(threadId)
     await this.service.deleteThread(cwd, threadId)
-    this.loadedThreads.delete(threadId)
-    if (this.currentThreadId === threadId) this.setCurrentThread(null)
+    this.forgetLoaded(threadId)
     this.post({ type: "sessionDeleted", sessionID: threadId })
   }
 
@@ -449,7 +451,15 @@ export class MatureUiAppServerController {
     if (!threadId) throw new Error("Select a CodeM thread before enhancing a prompt")
     const cwd = this.options.cwdForThread(threadId)
     await this.ensureLoaded(cwd, threadId)
-    await this.service.startSideQuestion(cwd, threadId, requestId, text)
+    const pending = this.control.rememberSideQuestion(requestId, threadId)
+    try {
+      const sideQuestionId = await this.service.startSideQuestion(cwd, threadId, requestId, text)
+      pending.sideQuestionId = sideQuestionId
+      if (pending.cancelled) await this.service.cancelSideQuestion(cwd, threadId, sideQuestionId)
+    } catch (error: unknown) {
+      this.control.forgetSideQuestion(requestId)
+      throw error
+    }
   }
 
   /** Skills 与斜杠共用同一份 Core skills/list，不再收成 Kilo commandsLoaded。 */
@@ -485,6 +495,13 @@ export class MatureUiAppServerController {
   private setCurrentThread(threadId: string | null): void {
     this.currentThreadId = threadId
     this.options.selectThread(threadId)
+  }
+
+  private forgetLoaded(threadId: string): void {
+    this.loadedThreads.delete(threadId)
+    this.runningThreads.delete(threadId)
+    this.control.forgetThread(threadId)
+    if (this.currentThreadId === threadId) this.setCurrentThread(null)
   }
 
   private post(message: ExtensionMessage): void {

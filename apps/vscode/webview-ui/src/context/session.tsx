@@ -2456,6 +2456,36 @@ export const SessionProvider: ParentComponent = (props) => {
     })
   }
 
+  /** Core thread/rewind/start。不改走 revertSession。 */
+  function rewindThread() {
+    if (!server.isConnected()) {
+      console.warn("[CodeM New] Cannot rewind: not connected")
+      return
+    }
+    const sessionID = currentSessionID()
+    if (!sessionID) {
+      console.warn("[CodeM New] Cannot rewind: no current session")
+      return
+    }
+    vscode.postMessage({ type: "rewindThread", sessionID, requestID: crypto.randomUUID() })
+  }
+
+  function archiveThread(id: string) {
+    if (!server.isConnected()) {
+      console.warn("[CodeM New] Cannot archive thread: not connected")
+      return
+    }
+    vscode.postMessage({ type: "archiveThread", sessionID: id, requestID: crypto.randomUUID() })
+  }
+
+  function unarchiveThread(id: string) {
+    if (!server.isConnected()) {
+      console.warn("[CodeM New] Cannot unarchive thread: not connected")
+      return
+    }
+    vscode.postMessage({ type: "unarchiveThread", sessionID: id, requestID: crypto.randomUUID() })
+  }
+
   function respondToPermission(
     permissionId: string,
     response: "once" | "always" | "reject",
@@ -3049,6 +3079,9 @@ export const SessionProvider: ParentComponent = (props) => {
     sendCommand,
     abort,
     compact,
+    rewindThread,
+    archiveThread,
+    unarchiveThread,
     respondToPermission,
     replyToQuestion,
     rejectQuestion,

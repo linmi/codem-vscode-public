@@ -41,7 +41,7 @@ v1.1 仍是 2026-09-15 的契约来源说明：CodeM `main@d7763f0a`、共享 Ho
 | 刻意未接 | `requestConfig` / `updateConfig` | schema 不同，无 configWrite。 |
 | 刻意未接 | `revertSession` / `unrevertSession` | rewind 不是 message-scoped revert。 |
 | 刻意未接 | Settings / MCP / sandbox 完整页 | 本 Cycle 不发明新页面。 |
-| 验证 | 2026-09-17：`pnpm test:app-server` 81、`typecheck:app-server`、`typecheck:vscode`、VS Code host App Server 单测 68 通过。darwin-arm64 受信工作区 live：登录 → `sendMessage` 单轮 → HITL → 重启后 `loadMessages` 与 JSONL schema 13 一致；标记 `HITL_RELOAD_EXTENSION_HOST_PASS`。过期 `dist/extension.js` 仍会 spawn `kilo serve`，现源 + 新 bundle 不会。 | 非 darwin 目标未做 clean-host。默认 `pnpm test:vscode` 另含一条既有 `app-server-text-render` 渲染用例，本轮未改其断言。 |
+| 验证 | 2026-09-17：`pnpm test:protocol` 6、`typecheck:protocol`、`pnpm test:app-server` 81、`typecheck:app-server`、Webview `check-types:webview`、VS Code host App Server 单测 75 通过。Host `check-types` 仍只有既有 TS6059（src 引用 webview 类型，rootDir 不含 webview-ui）。darwin-arm64 受信工作区 live：登录 → `sendMessage` 单轮 → HITL → 重启后 `loadMessages` 与 JSONL schema 13 一致；标记 `HITL_RELOAD_EXTENSION_HOST_PASS`。过期 `dist/extension.js` 仍会 spawn `kilo serve`，现源 + 新 bundle 不会。 | 非 darwin 目标未做 clean-host。默认 `pnpm test:vscode` 另含一条既有 `app-server-text-render` 渲染用例，本轮未改其断言。 |
 
 # 1. 结论与推荐路线
 
@@ -498,7 +498,7 @@ Cycle 0–1 的共享 Host 与 Cycle 3 的主聊天控制器已经在本仓库�
 - npm registry：2026-09-15 latest CLI `0.1.208` 声明 Core `0.8.37`
 - 真实 Core `0.8.37`：protocol 1、必需 capability 通过，response 省略 `jsonrpc`，macOS arm64 SHA-256 `1354ec32d4e3ccfb462bc3dd005433a608c3e699b6f839462fe1359cec6b1273`
 
-外部事实以 2026-09-14 对 Kilo 官方源码与官方文档的核对为准；CodeM 契约以 2026-09-15 拉取后的 `main@d7763f0a`、官方包 registry、真实线上 Core 与 CLI broker 的核对为准。接入进度以 2026-09-17 仓库现码核对为准：`@codem/app-server` 81 项契约测试与 typecheck、VS Code host App Server 68 项单测通过；darwin-arm64 受信工作区 live turn / HITL / JSONL reload 已用现源重跑通过。按要求没有执行全仓或旧 Kilo 单测。权威命令清单是 274 / 199 / 38 / 37，不是文中更早检查点的 264、262、257 或 20 / 21。
+外部事实以 2026-09-14 对 Kilo 官方源码与官方文档的核对为准；CodeM 契约以 2026-09-15 拉取后的 `main@d7763f0a`、官方包 registry、真实线上 Core 与 CLI broker 的核对为准。接入进度以 2026-09-17 仓库现码核对为准：`@codem/app-server` 81 项契约测试与 typecheck、VS Code host App Server 75 项单测通过；darwin-arm64 受信工作区 live turn / HITL / JSONL reload 已用现源重跑通过。按要求没有执行全仓或旧 Kilo 单测。权威命令清单是 274 / 199 / 38 / 37，不是文中更早检查点的 264、262、257 或 20 / 21。
 
 ## 已交付的原子迁移：每会话权限模式（2026-09-16）
 

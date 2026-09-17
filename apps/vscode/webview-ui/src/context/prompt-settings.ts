@@ -1,7 +1,7 @@
 import { useVSCode } from "./vscode"
 import { useServer } from "./server"
 import { createEffect, createSignal, on, type Accessor } from "solid-js"
-import type { CodemPermissionMode } from "@codem/protocol"
+import type { CodemPermissionMode, CodemPermissionProfile } from "@codem/protocol"
 import { DEFAULT_PROMPT_SETTINGS, type PromptDefaults } from "../../../src/shared/prompt-defaults"
 import type { ExtensionMessage } from "../types/messages"
 import type { ThreadPermissionView } from "../utils/thread-permission-state"
@@ -13,6 +13,7 @@ export function createPromptSettings(current: Accessor<string | undefined>, draf
   const [defaults, setDefaults] = createSignal<PromptDefaults>(DEFAULT_PROMPT_SETTINGS)
   const [views, setViews] = createSignal<Record<string, ThreadPermissionView>>({})
   const [drafts, setDrafts] = createSignal<Record<string, CodemPermissionMode>>({})
+  const [profiles, setProfiles] = createSignal<readonly CodemPermissionProfile[]>([])
   const permissions = createThreadPermissions({
     views,
     setView: (id, view) => setViews((current) => ({ ...current, [id]: view })),
@@ -26,10 +27,17 @@ export function createPromptSettings(current: Accessor<string | undefined>, draf
       }),
     defaultMode: () => defaults().permissionMode,
     post: vscode.postMessage,
+    profiles,
+    setProfiles,
   })
   createEffect(
     on([current, server.isConnected], ([id, connected]) => {
       if (id && connected) permissions.read(id)
+    }),
+  )
+  createEffect(
+    on(server.isConnected, (connected) => {
+      if (connected) permissions.requestProfiles()
     }),
   )
 

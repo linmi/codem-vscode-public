@@ -6,8 +6,11 @@ import { describe, it } from "node:test"
 import {
   CODEM_BUILTIN_INTELLIGENCE_TIERS,
   parseCodemPermissionMode,
+  type CodemConfigSnapshot,
+  type CodemEnvironmentInfo,
   type CodemModelCatalog,
   type CodemModeState,
+  type CodemPermissionProfile,
   type CodemSkillSummary,
 } from "../src/index.ts"
 
@@ -52,6 +55,17 @@ describe("@codem/protocol catalog and mode DTOs", () => {
     assert.equal(catalog.models[0]?.id, "codem-router/auto")
     assert.equal(skills[0]?.name, "review")
     assert.equal(state.workMode, "normal")
+    const environment: CodemEnvironmentInfo = {
+      agentName: "codem",
+      agentVersion: "0.8.37",
+      os: "macos",
+      arch: "arm64",
+    }
+    const snapshot: CodemConfigSnapshot = { writable: false, writeOwner: "core", config: { theme: "dark" } }
+    const profile: CodemPermissionProfile = { id: "auto", name: "Auto", description: "", settableAtRuntime: true }
+    assert.equal("cwd" in environment, false)
+    assert.equal(snapshot.writeOwner, "core")
+    assert.equal(profile.settableAtRuntime, true)
   })
 
   it("does not import Node, VS Code, Electron, DOM, or leftover SDK packages from src/", () => {

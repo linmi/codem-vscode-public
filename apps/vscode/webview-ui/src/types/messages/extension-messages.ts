@@ -23,7 +23,22 @@ import type { PRMergeResult } from "../../../../src/shared/pr-comment-actions"
 import type { QuestionRequest, SuggestionRequest, TodoItem } from "./questions"
 import type { ModelSelection, ModelUsageMap, Provider, ProviderAuthState } from "./providers"
 import type { AgentInfo, SkillInfo, SlashCommandInfo } from "./agents"
-import type { CodemModelCatalog, CodemModeState, CodemSkillSummary } from "@codem/protocol"
+import type {
+  CodemBackgroundTerminalClean,
+  CodemBackgroundTerminalList,
+  CodemCommandResult,
+  CodemConfigSnapshot,
+  CodemEnvironmentInfo,
+  CodemHookList,
+  CodemLoadedThreads,
+  CodemModelCatalog,
+  CodemModelProviderCapabilities,
+  CodemModeState,
+  CodemPermissionProfile,
+  CodemPluginList,
+  CodemSkillSummary,
+  CodemToolList,
+} from "@codem/protocol"
 import type {
   BrowserSettings,
   Config,
@@ -1029,6 +1044,119 @@ export interface ThreadModesResultMessage {
   result: { state: CodemModeState } | { error: string }
 }
 
+export interface RewindThreadResultMessage {
+  type: "rewindThreadResult"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<{ turnId: string }>
+}
+
+export interface ArchiveThreadResultMessage {
+  type: "archiveThreadResult"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<{ archived: true }>
+}
+
+export interface UnarchiveThreadResultMessage {
+  type: "unarchiveThreadResult"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<{ archived: false }>
+}
+
+export interface ClearThreadResultMessage {
+  type: "clearThreadResult"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<{ cleared: true }>
+}
+
+export interface LoadedThreadIdsLoadedMessage {
+  type: "loadedThreadIdsLoaded"
+  requestID: string
+  result: CodemCommandResult<CodemLoadedThreads>
+}
+
+export interface HooksLoadedMessage {
+  type: "hooksLoaded"
+  requestID: string
+  result: CodemCommandResult<CodemHookList>
+}
+
+export interface PluginsLoadedMessage {
+  type: "pluginsLoaded"
+  requestID: string
+  result: CodemCommandResult<CodemPluginList>
+}
+
+export interface ToolsLoadedMessage {
+  type: "toolsLoaded"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<CodemToolList>
+}
+
+export interface EnvironmentInfoLoadedMessage {
+  type: "environmentInfoLoaded"
+  requestID: string
+  result: CodemCommandResult<CodemEnvironmentInfo>
+}
+
+/** CodeM 去密钥快照。不得当作 Kilo configLoaded。 */
+export interface ConfigSnapshotLoadedMessage {
+  type: "configSnapshotLoaded"
+  requestID: string
+  result: CodemCommandResult<CodemConfigSnapshot>
+}
+
+export interface PermissionProfilesLoadedMessage {
+  type: "permissionProfilesLoaded"
+  requestID: string
+  result: CodemCommandResult<{ profiles: readonly CodemPermissionProfile[] }>
+}
+
+export interface ModelProviderCapabilitiesLoadedMessage {
+  type: "modelProviderCapabilitiesLoaded"
+  requestID: string
+  result: CodemCommandResult<CodemModelProviderCapabilities>
+}
+
+export interface BackgroundTerminalsLoadedMessage {
+  type: "backgroundTerminalsLoaded"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<CodemBackgroundTerminalList>
+}
+
+export interface TerminateBackgroundTerminalResultMessage {
+  type: "terminateBackgroundTerminalResult"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<{ processId: number }>
+}
+
+export interface CleanBackgroundTerminalsResultMessage {
+  type: "cleanBackgroundTerminalsResult"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<CodemBackgroundTerminalClean>
+}
+
+export interface RunShellCommandResultMessage {
+  type: "runShellCommandResult"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<{ ran: true }>
+}
+
+export interface CancelSideQuestionResultMessage {
+  type: "cancelSideQuestionResult"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<{ cancelled: true }>
+}
+
 export interface SandboxStatusMessage {
   type: "sandboxStatus"
   sessionID: string
@@ -1640,6 +1768,23 @@ export type ExtensionMessage =
   | AgentManagerKeybindingsMessage
   | ThreadModesChangedMessage
   | ThreadModesResultMessage
+  | RewindThreadResultMessage
+  | ArchiveThreadResultMessage
+  | UnarchiveThreadResultMessage
+  | ClearThreadResultMessage
+  | LoadedThreadIdsLoadedMessage
+  | HooksLoadedMessage
+  | PluginsLoadedMessage
+  | ToolsLoadedMessage
+  | EnvironmentInfoLoadedMessage
+  | ConfigSnapshotLoadedMessage
+  | PermissionProfilesLoadedMessage
+  | ModelProviderCapabilitiesLoadedMessage
+  | BackgroundTerminalsLoadedMessage
+  | TerminateBackgroundTerminalResultMessage
+  | CleanBackgroundTerminalsResultMessage
+  | RunShellCommandResultMessage
+  | CancelSideQuestionResultMessage
   | SandboxStatusMessage
   | SandboxDefaultStatusMessage
   | SandboxStatusErrorMessage

@@ -46,6 +46,8 @@ export interface SessionInfo {
   title?: string
   createdAt: string
   updatedAt: string
+  /** Core thread/archive 状态。不是 Kilo snapshot revert。 */
+  archived?: boolean
   goal?: {
     text: string
     active: boolean
