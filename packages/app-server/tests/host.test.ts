@@ -483,6 +483,92 @@ describe("AppServerHost", () => {
       await rejected.close()
     }
   })
+
+  it("exposes Core control-plane and thread extension RPCs as typed host methods", { timeout: 5000 }, async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "control-plane", version: "1" },
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, HAS_TERMINAL: "1" },
+      assertAuthenticated: () => {},
+    })
+    const events: AppServerHostEvent[] = []
+    host.onEvent((event) => events.push(event))
+    try {
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      assert.equal((await host.readEnvironmentInfo(fixture.root)).os, "macos")
+      const config = await host.readConfigSnapshot(fixture.root)
+      assert.equal(config.writable, false)
+      assert.equal((config.config.custom as { apikey: null }[])[0].apikey, null)
+      assert.equal((await host.listHooks(fixture.root)).hooks.SessionStart?.[0]?.command, "check.sh")
+      assert.equal((await host.listPlugins(fixture.root)).installed.demo?.name, "demo")
+      assert.deepEqual(
+        (await host.listPermissionProfiles(fixture.root)).map((profile) => profile.id),
+        ["default", "auto", "yolo"],
+      )
+      assert.deepEqual(await host.readCoreSpaceSnapshot(fixture.root), { current: null, spaces: [] })
+      assert.equal((await host.readModelProviderCapabilities(fixture.root)).askUser.image_attachments_v1, true)
+      assert.deepEqual(await host.listTools(fixture.root, threadId), {
+        threadId,
+        model: "codem-router/auto",
+        tools: ["read_files", "run_bash"],
+      })
+      assert.deepEqual(await host.listLoadedThreadIds(fixture.root), { threadIds: ["thread-1"] })
+      assert.deepEqual(await host.listLiveThreadTurns(fixture.root, threadId), {
+        entries: [],
+        nextCursor: null,
+        total: 0,
+      })
+      assert.deepEqual(await host.listLiveThreadItems(fixture.root, threadId), {
+        entries: [],
+        nextCursor: null,
+        total: 0,
+      })
+      const terminals = await host.listBackgroundTerminals(fixture.root, threadId)
+      assert.equal(terminals.terminals[0]?.processId, 4242)
+      await host.terminateBackgroundTerminal(fixture.root, threadId, 4242)
+      await assert.rejects(host.terminateBackgroundTerminal(fixture.root, threadId, 99), /not on thread/)
+      assert.deepEqual(await host.cleanBackgroundTerminals(fixture.root, threadId), {
+        cwd: fixture.root,
+        results: [],
+      })
+      await host.runShellCommand(fixture.root, threadId, "echo hi")
+      await host.clearThread(fixture.root, threadId, "op-clear-1")
+      assert.equal(events.some((event) => event.type === "thread-cleared" && event.threadId === threadId), true)
+      const captured = readFileSync(fixture.capturePath, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line) as { method?: string; params?: Record<string, unknown> })
+      const clear = captured.find((entry) => entry.method === "thread/clear")
+      assert.deepEqual(clear?.params?.model, { model: "codem-router/auto", intelligence: "medium" })
+      assert.equal(clear?.params?.executionMode, "default")
+      assert.equal(clear?.params?.operationId, "op-clear-1")
+    } finally {
+      await host.close()
+    }
+  })
+
+  it("fails closed on an unknown Core notification", { timeout: 5000 }, async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "unknown-note", version: "1" },
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, UNKNOWN_NOTIFICATION: "1" },
+      assertAuthenticated: () => {},
+    })
+    const failed = new Promise<string>((resolve) =>
+      host.onEvent((event) => {
+        if (event.type === "protocol-error") resolve(event.message)
+      }),
+    )
+    try {
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      await host.startTurn({ cwd: fixture.root, threadId, submissionId: "unknown", text: "Hello" })
+      assert.match(await failed, /unknown notification future\/unknown/)
+    } finally {
+      await host.close()
+    }
+  })
 })
 
 function createFixture(
@@ -573,6 +659,25 @@ lines.on("line", (line) => {
     return send({ id: frame.id, result })
   }
   if (frame.method === "thread/read") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), archived: false, model: "codem/auto", profile: "default", startedAt: "2026-09-15T00:00:00.000Z", status: "idle" } } })
+  if (frame.method === "environment/info") return send({ id: frame.id, result: { agent: { name: "codem", version: "0.8.37+1.gfixture" }, arch: "aarch64", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), os: "macos", shell: "/bin/zsh" } })
+  if (frame.method === "config/read") return send({ id: frame.id, result: { writable: false, writeOwner: "codem-bridge", config: { active: { model: "codem-router/auto" }, custom: [{ apikey: "secret-value", model: "codem-router/auto" }] } } })
+  if (frame.method === "hooks/list") return send({ id: frame.id, result: { cwd: require("node:path").dirname(process.env.CAPTURE_PATH), hooks: { SessionStart: [{ command: "check.sh", matcher: null }] } } })
+  if (frame.method === "plugin/list") return send({ id: frame.id, result: { installed: { demo: { name: "demo", enabled: true } }, marketplaces: {} } })
+  if (frame.method === "permissionProfile/list") return send({ id: frame.id, result: { profiles: [{ id: "default", name: "Ask", description: "Ask", settableAtRuntime: true }, { id: "auto", name: "Auto", description: "Review", settableAtRuntime: true }, { id: "yolo", name: "Yolo", description: "Bypass", settableAtRuntime: true }] } })
+  if (frame.method === "space/list") return send({ id: frame.id, result: { current: null, spaces: [] } })
+  if (frame.method === "modelProvider/capabilities/read") return send({ id: frame.id, result: { version: "0.8.37+1.gfixture", ask_user: { image_attachments_v1: true }, custom: { auth_mode: true } } })
+  if (frame.method === "tools/list") return send({ id: frame.id, result: { threadId: frame.params.threadId, model: "codem-router/auto", tools: ["read_files", "run_bash"] } })
+  if (frame.method === "thread/loaded/list") return send({ id: frame.id, result: { threadIds: ["thread-1"] } })
+  if (frame.method === "thread/backgroundTerminals/list") return send({ id: frame.id, result: { cwd: require("node:path").dirname(process.env.CAPTURE_PATH), terminals: process.env.HAS_TERMINAL ? [{ processId: 4242, logPath: "/tmp/codem-term.log", inProgress: true }] : [] } })
+  if (frame.method === "thread/backgroundTerminals/terminate") return send({ id: frame.id, result: {} })
+  if (frame.method === "thread/backgroundTerminals/clean") return send({ id: frame.id, result: { cwd: require("node:path").dirname(process.env.CAPTURE_PATH), results: [] } })
+  if (frame.method === "thread/shellCommand") return send({ id: frame.id, result: {} })
+  if (frame.method === "thread/clear") {
+    send({ method: "thread/cleared", params: { threadId: frame.params.threadId } })
+    return send({ id: frame.id, result: { thread: { id: frame.params.threadId, status: "loaded" } } })
+  }
+  if (frame.method === "thread/turns/list") return send({ id: frame.id, result: { turns: [], nextCursor: null, total: 0 } })
+  if (frame.method === "thread/items/list") return send({ id: frame.id, result: { items: [], nextCursor: null, total: 0 } })
   if (frame.method === "turn/start") {
     send({ jsonrpc: "2.0", method: "turn/started", params: { threadId: frame.params.threadId, turn: { id: "turn-1" } } })
     send({ jsonrpc: "2.0", id: frame.id, result: { turn: { id: "turn-1" } } })
@@ -591,6 +696,7 @@ lines.on("line", (line) => {
     send({ jsonrpc: "2.0", method: "backgroundTask/wakeSkipped", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "task-2" } })
     send({ jsonrpc: "2.0", method: "turn/diff/updated", params: { threadId: frame.params.threadId, turnId: "turn-1", diff: [{ path: "src/example.ts", linesAdded: 1, linesRemoved: 0 }] } })
     send({ jsonrpc: "2.0", method: "item/started", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "item-1", type: "agentMessage", status: "inProgress" } } })
+    if (process.env.UNKNOWN_NOTIFICATION) send({ jsonrpc: "2.0", method: "future/unknown", params: { threadId: frame.params.threadId, turnId: "turn-1" } })
     for (const notification of ${JSON.stringify(textNotifications)}) send({ jsonrpc: "2.0", method: notification.method, params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "item-1", ...notification.params } })
     send({ jsonrpc: "2.0", method: "item/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "item-1", type: "agentMessage", status: "completed", text: "Done" } } })
     return send({ jsonrpc: "2.0", method: "turn/completed", params: { threadId: frame.params.threadId, turn: { id: "turn-1", status: "completed", stopReason: "end_turn", error: null, items: [{ id: "snapshot-only", type: "toolCall", status: "interrupted", tool: "read_file", callId: "call-snapshot", summary: "Turn ended" }, { id: "snapshot-result", type: "toolResult", status: "completed", callId: "call-snapshot", output: "Done" }] } } })

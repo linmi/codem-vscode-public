@@ -112,3 +112,33 @@ export {
 } from "./host.ts"
 
 export { type AppServerModeState, type AppServerPermissionMode } from "./modes.ts"
+export {
+  APP_SERVER_CONTROL_PLANE_METHODS,
+  APP_SERVER_KNOWN_NOTIFICATIONS,
+  isAppServerKnownNotification,
+  parseAppServerConfigSnapshot,
+  parseAppServerCoreSpaceSnapshot,
+  parseAppServerEnvironmentInfo,
+  parseAppServerLiveItems,
+  parseAppServerPermissionProfiles,
+  parseAppServerToolList,
+  processIdValue,
+  redactAppServerSecrets,
+  type AppServerBackgroundTerminal,
+  type AppServerBackgroundTerminalClean,
+  type AppServerBackgroundTerminalList,
+  type AppServerConfigSnapshot,
+  type AppServerCoreSpace,
+  type AppServerCoreSpaceSnapshot,
+  type AppServerEnvironmentInfo,
+  type AppServerHookHandler,
+  type AppServerHookList,
+  type AppServerLivePage,
+  type AppServerLiveTurn,
+  type AppServerLoadedThreads,
+  type AppServerModelProviderCapabilities,
+  type AppServerPermissionProfile,
+  type AppServerPluginList,
+  type AppServerThreadModelSelection,
+  type AppServerToolList,
+} from "./control-plane.ts"

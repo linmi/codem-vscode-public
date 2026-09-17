@@ -203,7 +203,7 @@ export const CODEM_UI_INTERACTION_OWNERS = {
   requestClaudeCompatSetting: "editor-host",
   requestCloudSessionData: "cloud-service",
   requestCloudSessions: "cloud-service",
-  requestCommands: "app-server-control",
+  requestCommands: "app-server-live",
   requestConfig: "app-server-control",
   requestFavorites: "editor-host",
   requestFilePicker: "editor-host",

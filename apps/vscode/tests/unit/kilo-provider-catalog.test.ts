@@ -52,7 +52,6 @@ function setup(list: () => Promise<ReturnType<typeof catalog>>, org: () => strin
     connectionState: "connected",
     fetchAndSendAgents: async () => {},
     fetchAndSendSkills: async () => {},
-    fetchAndSendCommands: async () => {},
     fetchAndSendIndexingStatus: async () => {},
     fetchAndSendNotifications: async () => {},
   })

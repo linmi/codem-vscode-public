@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { realpath } from "node:fs/promises"
 import * as vscode from "vscode"
 import {
@@ -264,6 +265,72 @@ export class CodeMAppServerService implements vscode.Disposable {
   listSkills(cwd: string, threadId?: string) {
     requireTrustedWorkspace()
     return this.useHost((host) => host.listSkills(cwd, threadId))
+  }
+
+  /** 下列方法把 Host 控制面留给编辑器；返回值仍是严格 DTO，不得原样丢进 Webview。 */
+  readEnvironmentInfo(cwd: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.readEnvironmentInfo(cwd))
+  }
+
+  readConfigSnapshot(cwd: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.readConfigSnapshot(cwd))
+  }
+
+  listHooks(cwd: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.listHooks(cwd))
+  }
+
+  listPlugins(cwd: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.listPlugins(cwd))
+  }
+
+  listPermissionProfiles(cwd: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.listPermissionProfiles(cwd))
+  }
+
+  readModelProviderCapabilities(cwd: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.readModelProviderCapabilities(cwd))
+  }
+
+  listTools(cwd: string, threadId: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.listTools(cwd, threadId))
+  }
+
+  listLoadedThreadIds(cwd: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.listLoadedThreadIds(cwd))
+  }
+
+  listBackgroundTerminals(cwd: string, threadId: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.listBackgroundTerminals(cwd, threadId))
+  }
+
+  terminateBackgroundTerminal(cwd: string, threadId: string, processId: number) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.terminateBackgroundTerminal(cwd, threadId, processId))
+  }
+
+  cleanBackgroundTerminals(cwd: string, threadId: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.cleanBackgroundTerminals(cwd, threadId))
+  }
+
+  runShellCommand(cwd: string, threadId: string, command: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.runShellCommand(cwd, threadId, command))
+  }
+
+  clearThread(cwd: string, threadId: string, operationId = randomUUID()) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.clearThread(cwd, threadId, operationId))
   }
 
   startTurn(

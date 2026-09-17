@@ -29,6 +29,7 @@ describe("MatureUiAppServerController", () => {
       "questionReply",
       "renameSession",
       "requestBackgroundJobs",
+      "requestCommands",
       "requestProviders",
       "requestSkills",
       "sendCommand",
@@ -73,6 +74,15 @@ describe("MatureUiAppServerController", () => {
       defaultSelection: { providerID: "codem-router", modelID: "auto" },
       authMethods: {},
       authStates: {},
+    })
+  })
+
+  it("projects Core skills as the slash-command catalog", async () => {
+    const fixture = createFixture()
+    await fixture.controller.handle({ type: "requestCommands" })
+    assert.deepEqual(fixture.messages.at(-1), {
+      type: "commandsLoaded",
+      commands: [{ name: "review", description: "Review code", source: "skill", hints: [] }],
     })
   })
 

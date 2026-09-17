@@ -29,6 +29,7 @@ type AppServerMessageType =
   | "questionReply"
   | "renameSession"
   | "requestBackgroundJobs"
+  | "requestCommands"
   | "requestProviders"
   | "requestSkills"
   | "sendCommand"
@@ -51,6 +52,7 @@ export const APP_SERVER_MATURE_UI_COMMANDS = [
   "questionReply",
   "renameSession",
   "requestBackgroundJobs",
+  "requestCommands",
   "requestProviders",
   "requestSkills",
   "sendCommand",
@@ -166,6 +168,7 @@ export class MatureUiAppServerController {
     this.clearSelection()
     await this.handle({ type: "requestProviders" })
     await this.handle({ type: "requestSkills" })
+    await this.handle({ type: "requestCommands" })
   }
 
   acceptEvent(event: AppServerHostEvent): void {
@@ -176,6 +179,13 @@ export class MatureUiAppServerController {
       this.loadedThreads.delete(event.threadId)
       this.runningThreads.delete(event.threadId)
       if (this.currentThreadId === event.threadId) this.setCurrentThread(null)
+    }
+    if (event.type === "thread-cleared" && this.currentThreadId === event.threadId) {
+      void this.loadMessages({ type: "loadMessages", sessionID: event.threadId, mode: "replace" })
+    }
+    if (event.type === "control-changed" && event.method === "skills/changed") {
+      void this.loadSkills()
+      void this.loadCommands()
     }
     if (event.type === "turn-started") {
       this.timelineEpoch++
@@ -234,6 +244,8 @@ export class MatureUiAppServerController {
         return this.enhancePrompt(message.text, message.requestId)
       case "requestSkills":
         return this.loadSkills()
+      case "requestCommands":
+        return this.loadCommands()
     }
   }
 
@@ -423,6 +435,21 @@ export class MatureUiAppServerController {
     this.post({
       type: "skillsLoaded",
       skills: skills.map((skill) => ({ ...skill, location: "codem-app-server" })),
+    })
+  }
+
+  /** Core 没有独立 slash catalog；skills/list 就是 CodeM 的命令目录。 */
+  private async loadCommands(): Promise<void> {
+    const cwd = this.options.cwdForThread(this.currentThreadId ?? undefined)
+    const skills = await this.service.listSkills(cwd, this.currentThreadId ?? undefined)
+    this.post({
+      type: "commandsLoaded",
+      commands: skills.map((skill) => ({
+        name: skill.name,
+        description: skill.description,
+        source: "skill" as const,
+        hints: [],
+      })),
     })
   }
 

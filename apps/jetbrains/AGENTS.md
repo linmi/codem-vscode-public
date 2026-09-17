@@ -2,7 +2,7 @@
 
 ## CodeM monorepo override
 
-This app is an imported Kilo baseline under `apps/jetbrains`. Read the repository-root [`AGENTS.md`](../../AGENTS.md) and [`UPSTREAM_KILOCODE.md`](../../UPSTREAM_KILOCODE.md) first. Paths and release automation below that refer to deleted `.kilo/` or root release scripts are historical and must not be restored without an explicit Cycle.
+This app is an imported Kilo baseline under `apps/jetbrains`. Read the repository-root [`AGENTS.md`](../../AGENTS.md) and [`UPSTREAM.md`](../../UPSTREAM.md) first. It does not import `@codem/app-server`; do not add a second agent transport here until an explicit JetBrains Cycle. Paths and release automation below that refer to deleted `.kilo/` or root release scripts are historical and must not be restored without an explicit Cycle.
 
 Use pnpm as the repository package-manager entry point; Gradle remains the native build system and Bun remains only where an imported TypeScript helper still requires its runtime. JetBrains screens continue to use supported IntelliJ native UI APIs—`@codem/ui` is the target for web surfaces, not native IDE UI. Do not add new Kilo backend, service, or branding behavior.
 

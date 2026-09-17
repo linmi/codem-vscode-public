@@ -12,6 +12,37 @@ import {
 import type { AppServerNotification, AppServerRequest, JsonObject } from "./rpc.ts"
 import type { AppServerRuntime } from "./runtime.ts"
 import { appServerSpaceLaunch, type AppServerPreparedSpace } from "./spaces.ts"
+import {
+  isAppServerKnownNotification,
+  parseAppServerBackgroundTerminalClean,
+  parseAppServerBackgroundTerminalList,
+  parseAppServerConfigSnapshot,
+  parseAppServerCoreSpaceSnapshot,
+  parseAppServerEnvironmentInfo,
+  parseAppServerHookList,
+  parseAppServerLiveItems,
+  parseAppServerLiveTurns,
+  parseAppServerLoadedThreads,
+  parseAppServerModelProviderCapabilities,
+  parseAppServerPermissionProfiles,
+  parseAppServerPluginList,
+  parseAppServerToolList,
+  processIdValue,
+  threadModelSelection,
+  type AppServerBackgroundTerminalClean,
+  type AppServerBackgroundTerminalList,
+  type AppServerConfigSnapshot,
+  type AppServerCoreSpaceSnapshot,
+  type AppServerEnvironmentInfo,
+  type AppServerHookList,
+  type AppServerLivePage,
+  type AppServerLiveTurn,
+  type AppServerLoadedThreads,
+  type AppServerModelProviderCapabilities,
+  type AppServerPermissionProfile,
+  type AppServerPluginList,
+  type AppServerToolList,
+} from "./control-plane.ts"
 
 import {
   parseAppServerModes,
@@ -337,6 +368,8 @@ export type AppServerHostEvent =
       readonly error: string | null
     }
   | { readonly type: "control-changed"; readonly threadId: string | null; readonly method: string }
+  | { readonly type: "thread-cleared"; readonly threadId: string }
+  | { readonly type: "thread-status-changed"; readonly threadId: string; readonly status: string }
   | { readonly type: "authentication-invalidated"; readonly message: string }
   | { readonly type: "protocol-error"; readonly cwd: string; readonly message: string }
 
@@ -764,6 +797,190 @@ export class AppServerHost {
     })
   }
 
+  /** 读取当前连接的 Core environment/info。 */
+  async readEnvironmentInfo(cwd: string): Promise<AppServerEnvironmentInfo> {
+    const connection = await this.connection(cwd)
+    return parseAppServerEnvironmentInfo(
+      await connection.connection.request("environment/info", { cwd }),
+      "environment/info result",
+    )
+  }
+
+  /** 读取 config/read，并剥离密钥字段后再交给调用方。 */
+  async readConfigSnapshot(cwd: string): Promise<AppServerConfigSnapshot> {
+    const connection = await this.connection(cwd)
+    return parseAppServerConfigSnapshot(
+      await connection.connection.request("config/read", { cwd }),
+      "config/read result",
+    )
+  }
+
+  async listHooks(cwd: string): Promise<AppServerHookList> {
+    const connection = await this.connection(cwd)
+    return parseAppServerHookList(await connection.connection.request("hooks/list", { cwd }), "hooks/list result")
+  }
+
+  async listPlugins(cwd: string): Promise<AppServerPluginList> {
+    const connection = await this.connection(cwd)
+    return parseAppServerPluginList(await connection.connection.request("plugin/list", { cwd }), "plugin/list result")
+  }
+
+  async listPermissionProfiles(cwd: string): Promise<readonly AppServerPermissionProfile[]> {
+    const connection = await this.connection(cwd)
+    return parseAppServerPermissionProfiles(
+      await connection.connection.request("permissionProfile/list", { cwd }),
+      "permissionProfile/list result",
+    )
+  }
+
+  /** Core space/list 空注入快照；产品空间权威仍是 CLI broker。 */
+  async readCoreSpaceSnapshot(cwd: string): Promise<AppServerCoreSpaceSnapshot> {
+    const connection = await this.connection(cwd)
+    return parseAppServerCoreSpaceSnapshot(
+      await connection.connection.request("space/list", { cwd }),
+      "space/list result",
+    )
+  }
+
+  async readModelProviderCapabilities(cwd: string): Promise<AppServerModelProviderCapabilities> {
+    const connection = await this.connection(cwd)
+    return parseAppServerModelProviderCapabilities(
+      await connection.connection.request("modelProvider/capabilities/read", { cwd }),
+      "modelProvider/capabilities/read result",
+    )
+  }
+
+  async listTools(cwd: string, threadId: string): Promise<AppServerToolList> {
+    const thread = this.requireThread(cwd, threadId)
+    return parseAppServerToolList(
+      await thread.connection.connection.request("tools/list", { threadId }),
+      thread.id,
+      "tools/list result",
+    )
+  }
+
+  async listLoadedThreadIds(cwd: string): Promise<AppServerLoadedThreads> {
+    const connection = await this.connection(cwd)
+    return parseAppServerLoadedThreads(
+      await connection.connection.request("thread/loaded/list", { cwd }),
+      "thread/loaded/list result",
+    )
+  }
+
+  async listBackgroundTerminals(cwd: string, threadId: string): Promise<AppServerBackgroundTerminalList> {
+    const thread = this.requireThread(cwd, threadId)
+    return parseAppServerBackgroundTerminalList(
+      await thread.connection.connection.request("thread/backgroundTerminals/list", { threadId }),
+      "thread/backgroundTerminals/list result",
+    )
+  }
+
+  /**
+   * 先核对本线程终端表，再发 terminate。Core 在缺 threadId 时仍可能按 processId 动手，Host 不允许这条路径。
+   */
+  async terminateBackgroundTerminal(cwd: string, threadId: string, processId: number): Promise<void> {
+    const thread = this.requireThread(cwd, threadId)
+    const pid = processIdValue(processId, "thread/backgroundTerminals/terminate processId")
+    const listed = await this.listBackgroundTerminals(cwd, threadId)
+    if (!listed.terminals.some((terminal) => terminal.processId === pid)) {
+      throw new Error(`CodeM background terminal ${pid} is not on thread ${threadId}`)
+    }
+    objectValue(
+      await thread.connection.connection.request("thread/backgroundTerminals/terminate", {
+        threadId,
+        processId: pid,
+      }),
+      "thread/backgroundTerminals/terminate result",
+    )
+  }
+
+  async cleanBackgroundTerminals(cwd: string, threadId: string): Promise<AppServerBackgroundTerminalClean> {
+    const thread = this.requireThread(cwd, threadId)
+    return parseAppServerBackgroundTerminalClean(
+      await thread.connection.connection.request("thread/backgroundTerminals/clean", { threadId }),
+      "thread/backgroundTerminals/clean result",
+    )
+  }
+
+  /** Host 侧线程 shell；成功结果在 Core 0.8.37 为空对象。 */
+  async runShellCommand(cwd: string, threadId: string, command: string): Promise<void> {
+    const thread = this.requireThread(cwd, threadId)
+    const result = objectValue(
+      await thread.connection.connection.request("thread/shellCommand", {
+        threadId,
+        command: exactNonBlankString(command, "thread/shellCommand command"),
+      }),
+      "thread/shellCommand result",
+    )
+    if (Object.keys(result).length !== 0) throw new Error("Invalid CodeM thread/shellCommand result")
+  }
+
+  /**
+   * 按 Core 7 字段契约提交 thread/clear。operationId 由调用方提供，便于对账 journal。
+   */
+  async clearThread(cwd: string, threadId: string, operationId: string): Promise<void> {
+    const id = nonBlankString(threadId, "thread/clear threadId")
+    const loaded = this.threads.get(id)
+    if (loaded?.activeTurn || loaded?.sideQuestion) throw new Error(`Cannot thread/clear active CodeM thread ${id}`)
+    if (loaded && loaded.cwd !== cwd) throw new Error(`CodeM thread ${id} belongs to another workspace`)
+    const settings = loaded?.settings ?? DEFAULT_APP_SERVER_THREAD_SETTINGS
+    const connection = loaded?.connection ?? (await this.connection(cwd))
+    objectValue(
+      await connection.connection.request("thread/clear", {
+        threadId: id,
+        operationId: exactNonBlankString(operationId, "thread/clear operationId"),
+        cwd,
+        model: threadModelSelection(settings.model, settings.intelligence),
+        additionalDirectories: [...settings.additionalDirectories],
+        mcpServers: settings.mcpServers.map((server) => ({
+          type: server.type,
+          name: server.name,
+          command: server.command,
+          args: [...server.args],
+          env: server.env.map((entry) => ({ ...entry })),
+        })),
+        executionMode: settings.workMode,
+      }),
+      "thread/clear result",
+    )
+  }
+
+  /**
+   * 实时 `thread/turns/list` 快照。Durable history 仍只读 `@codem/session-history` JSONL。
+   */
+  async listLiveThreadTurns(
+    cwd: string,
+    threadId: string,
+    cursor?: string,
+  ): Promise<AppServerLivePage<AppServerLiveTurn>> {
+    const thread = this.requireThread(cwd, threadId)
+    return parseAppServerLiveTurns(
+      await thread.connection.connection.request("thread/turns/list", {
+        threadId,
+        ...(cursor ? { cursor } : {}),
+      }),
+      "thread/turns/list result",
+    )
+  }
+
+  /**
+   * 实时 `thread/items/list` 快照。Durable history 仍只读 `@codem/session-history` JSONL。
+   */
+  async listLiveThreadItems(
+    cwd: string,
+    threadId: string,
+    cursor?: string,
+  ): Promise<AppServerLivePage<AppServerItem>> {
+    const thread = this.requireThread(cwd, threadId)
+    return parseAppServerLiveItems(
+      await thread.connection.connection.request("thread/items/list", {
+        threadId,
+        ...(cursor ? { cursor } : {}),
+      }),
+      "thread/items/list result",
+    )
+  }
+
   async control(
     cwd: string,
     method: "thread/name/set" | "thread/archive" | "thread/unarchive" | "thread/delete" | "thread/fork",
@@ -943,9 +1160,13 @@ export class AppServerHost {
   }
 
   private handleNotification(connection: ConnectionState, frame: AppServerNotification): void {
+    if (!isAppServerKnownNotification(frame.method)) {
+      throw new Error(`CodeM App Server emitted unknown notification ${frame.method}`)
+    }
     const threadId = optionalString(frame.params.threadId)
     const thread = threadId ? this.threads.get(threadId) : null
     if (thread && thread.connection !== connection) return
+    if (frame.method === "thread/started") return
     if (frame.method === "warning") {
       const message = optionalString(frame.params.message)
       if (message) this.emit({ type: "warning", threadId, message })
@@ -963,6 +1184,18 @@ export class AppServerHost {
       return
     }
     if (!thread) return
+    if (frame.method === "thread/cleared") {
+      this.emit({ type: "thread-cleared", threadId: thread.id })
+      return
+    }
+    if (frame.method === "thread/status/changed") {
+      this.emit({
+        type: "thread-status-changed",
+        threadId: thread.id,
+        status: nonBlankString(frame.params.status, "thread/status/changed status"),
+      })
+      return
+    }
     if (frame.method === "thread/mode/changed") {
       this.acceptModes(thread, frame.params)
       return

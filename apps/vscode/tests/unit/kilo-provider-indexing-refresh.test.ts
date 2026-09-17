@@ -23,7 +23,6 @@ type Internals = {
   fetchAndSendProviders: () => Promise<void>
   fetchAndSendAgents: () => Promise<void>
   fetchAndSendSkills: () => Promise<void>
-  fetchAndSendCommands: () => Promise<void>
   fetchAndSendNotifications: () => Promise<void>
   fetchAndSendIndexingStatus: (directory?: string, projectId?: string) => Promise<void>
   sendIndexingSettings: (projectId?: string) => Promise<IndexingProject | undefined>
@@ -216,9 +215,6 @@ describe("KiloProvider indexing refresh", () => {
     }
     internal.fetchAndSendSkills = async () => {
       calls.push("skills")
-    }
-    internal.fetchAndSendCommands = async () => {
-      calls.push("commands")
     }
     internal.fetchAndSendNotifications = async () => {
       calls.push("notifications")

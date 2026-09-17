@@ -66,7 +66,6 @@ import { getTerminalContents } from "./services/terminal/context"
 import { disposeGitChangesTarget } from "./kilo-provider/git-changes-target"
 import { interceptMessage } from "./kilo-provider/git-changes-request"
 import { matchFollowup, recordFollowup, type Followup } from "./kilo-provider/followup-session"
-import { clearCommandsCache, loadCommands } from "./kilo-provider/commands"
 import { fetchMessagePage, MESSAGE_PAGE_LIMIT } from "./kilo-provider/message-page"
 import { editPaths } from "./kilo-provider/session-edits"
 import {
@@ -363,8 +362,6 @@ export class KiloProvider implements vscode.WebviewViewProvider {
   private cachedAgentsMessage: unknown = null
   /** Cached skillsLoaded payload so requestSkills can be served before client is ready */
   private cachedSkillsMessage: unknown = null
-  /** Cached commandsLoaded payload so requestCommands can be served before client is ready */
-  private cachedCommandsMessage: unknown = null
   /** Cached configLoaded payload so requestConfig can be served before client is ready */
   private cachedConfigMessage: unknown = null
   private readonly configBindings = new ConfigBindings()
@@ -1328,9 +1325,6 @@ export class KiloProvider implements vscode.WebviewViewProvider {
         case "requestSkills":
           this.fetchAndSendSkills().catch((e) => console.error("[CodeM New] fetchAndSendSkills failed:", e))
           break
-        case "requestCommands":
-          this.fetchAndSendCommands().catch((e) => console.error("[CodeM New] fetchAndSendCommands failed:", e))
-          break
         case "removeSkill":
           this.removeSkillViaCli(message.location).catch((e: unknown) =>
             console.error("[CodeM New] removeSkill failed:", e),
@@ -2014,10 +2008,8 @@ export class KiloProvider implements vscode.WebviewViewProvider {
 
       // Fetch providers, agents, skills, config, notifications, and session statuses in parallel
       await Promise.all([
-        this.fetchAndSendProviders(),
+        this.refreshLiveCatalogs(),
         this.fetchAndSendAgents(),
-        this.fetchAndSendSkills(),
-        this.fetchAndSendCommands(),
         this.fetchAndSendConfig(),
         this.fetchAndSendIndexingStatus(),
         this.fetchAndSendNotifications(),
@@ -2854,28 +2846,17 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private clearCommandsCache(): void {
-    this.cachedCommandsMessage = null
-    clearCommandsCache()
-  }
-
-  private async fetchAndSendCommands(): Promise<void> {
-    if (!this.client) {
-      if (this.cachedCommandsMessage) {
-        this.postMessage(this.cachedCommandsMessage)
-      }
+  /** 模型 / Skills / 斜杠目录走 App Server；无控制器时才退回 Kilo 测试夹具。 */
+  private async refreshLiveCatalogs(): Promise<void> {
+    if (this.appServerController) {
+      await Promise.all([
+        this.appServerController.handle({ type: "requestProviders" }),
+        this.appServerController.handle({ type: "requestSkills" }),
+        this.appServerController.handle({ type: "requestCommands" }),
+      ])
       return
     }
-
-    try {
-      const dir = this.getWorkspaceDirectory()
-      const message = await loadCommands(this.client, dir)
-
-      this.cachedCommandsMessage = message
-      this.postMessage(message)
-    } catch (error) {
-      console.error("[CodeM New] KiloProvider: Failed to fetch commands:", error)
-    }
+    await Promise.all([this.fetchAndSendProviders(), this.fetchAndSendSkills()])
   }
 
   /**
@@ -2891,20 +2872,17 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       if (result.error) {
         console.error("[CodeM New] removeSkill returned error:", result.error)
         this.cachedSkillsMessage = null
-        this.clearCommandsCache()
-        await Promise.all([this.fetchAndSendSkills(), this.fetchAndSendCommands()])
+        await this.refreshLiveCatalogs()
         return false
       }
     } catch (error) {
       console.error("[CodeM New] Failed to remove skill:", error)
       this.cachedSkillsMessage = null
-      this.cachedCommandsMessage = null
-      await Promise.all([this.fetchAndSendSkills(), this.fetchAndSendCommands()])
+      await this.refreshLiveCatalogs()
       return false
     }
     this.cachedSkillsMessage = null
-    this.cachedCommandsMessage = null
-    await Promise.all([this.fetchAndSendSkills(), this.fetchAndSendCommands()])
+    await this.refreshLiveCatalogs()
     return true
   }
 
@@ -4746,12 +4724,10 @@ export class KiloProvider implements vscode.WebviewViewProvider {
     this.invalidateProviderUsage()
     this.invalidateProviders()
     await Promise.all([
-      this.fetchAndSendProviders(),
+      this.refreshLiveCatalogs(),
       this.fetchAndSendConfig().then(() =>
         Promise.all([
           this.fetchAndSendAgents(),
-          this.fetchAndSendSkills(),
-          this.fetchAndSendCommands(),
           this.fetchAndSendIndexingStatus(),
           this.fetchAndSendNotifications(),
         ]),
@@ -4784,7 +4760,7 @@ export class KiloProvider implements vscode.WebviewViewProvider {
       vscode.window.showErrorMessage(`Reload failed. ${detail}`)
       return
     }
-    this.clearCommandsCache()
+    await this.refreshLiveCatalogs()
     if (!sameDirectory(dir, this.getWorkspaceDirectory())) {
       await this.reloadAfterAuthChange()
     }

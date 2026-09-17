@@ -4,13 +4,14 @@ CodeM's editor integrations are organized as a pnpm monorepo.
 
 ```text
 apps/
-  vscode/       VS Code extension
-  jetbrains/    JetBrains plugin
+  vscode/              VS Code extension
+  jetbrains/           JetBrains plugin (not yet on App Server)
 packages/
-  app-server/      reusable Core runtime, packaging, integrity, and host protocol
-  ui/           Solid design system (`@codem/ui`)
-  legacy/       transitional SolidJS UI and CLI Console build inputs
-  ...           temporary Kilo/OpenCode build dependencies
+  app-server/          reusable Core runtime, packaging, integrity, and host protocol
+  session-history/     Core JSONL schema 13 durable history
+  ui/                  Solid design system (`@codem/ui`)
+  legacy/console/      CLI Console application
+  ...                  temporary Kilo/OpenCode build dependencies
 ```
 
 ## Setup
@@ -33,8 +34,10 @@ pnpm typecheck:app-server
 pnpm typecheck:ui
 ```
 
-The current VS Code and JetBrains sources were imported from the Kilo snapshot recorded in [`UPSTREAM_KILOCODE.md`](UPSTREAM_KILOCODE.md). They are migration baselines and still contain Kilo runtime and UI paths. The target architecture is defined in [`vscode-plugin-plan.md`](vscode-plugin-plan.md).
+The current VS Code and JetBrains sources were imported from the Kilo snapshot recorded in [`UPSTREAM.md`](UPSTREAM.md). They are migration baselines and still contain Kilo runtime paths. The product contract is [`vscode-plugin-plan.md`](vscode-plugin-plan.md).
 
-App Server migration has started in `packages/app-server`, the single reusable editor-neutral package for both runtime distribution and Host protocol behavior. It pins the online CLI 0.1.208 Core line at 0.8.37 and owns platform resolution, license staging, deterministic bundle metadata, integrity checks, and strict initialize preflight. VS Code build, debug, snapshot, and dev-package preparation stage the current platform Core under `apps/vscode/bin/app-server`; the resulting VSIX does not require a separately installed CodeM CLI. The published response currently omits the JSON-RPC `jsonrpc` member; the package records that explicit compatibility state while rejecting every non-2.0 value. The bundled Core is not wired into the VS Code production chat path yet, so Kilo remains the factual imported runtime until the live host Cycle performs an atomic cutover.
+`packages/app-server` is the single reusable editor-neutral package for runtime distribution and Host protocol. It pins CLI 0.1.208 / Core 0.8.37 and owns platform resolution, license staging, bundle integrity, JSON-RPC, connection pooling by `cwd`, and thread/turn lifecycle. VS Code stages the current platform Core under `apps/vscode/bin/app-server`; the VSIX does not require a separately installed CodeM CLI. Published Core responses omit `jsonrpc`; the package accepts only omission or exact `"2.0"`.
+
+VS Code `0.1.14` already routes the 21 controller-ready chat commands through App Server. Opening the Sidebar still starts legacy `kilo serve` for Autocomplete, Agent Manager, and unmigrated configuration surfaces. The 257-command parity gate is red (37 Core v1 gaps). JetBrains does not import `@codem/app-server`. This is not an atomic production cutover.
 
 pnpm is the only dependency manager. The imported build scripts still use the repository-pinned Bun 1.3.14 binary as a TypeScript runtime; it does not own workspace installation or locking.

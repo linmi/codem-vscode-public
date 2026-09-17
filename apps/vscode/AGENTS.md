@@ -1,23 +1,27 @@
 # VS Code application instructions
 
-Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md`](../../vscode-plugin-plan.md), and [`UPSTREAM_KILOCODE.md`](../../UPSTREAM_KILOCODE.md) first. Root product invariants and migration rules are authoritative.
+Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md`](../../vscode-plugin-plan.md), and [`UPSTREAM.md`](../../UPSTREAM.md) first. Root product invariants and migration rules are authoritative.
 
 ## Status and scope
 
-- This directory is the imported Kilo 7.6.2 VS Code baseline with a CodeM-branded shell and public `codem.*` identifiers; its runtime is not yet a completed CodeM extension.
+- This directory is the imported Kilo 7.6.2 VS Code baseline with a CodeM-branded shell and public `codem.*` identifiers. Source version is `0.1.14`. It is not a finished CodeM extension.
+- Controller-ready chat (21 Webview commands) goes through `@codem/app-server`. Activation still constructs `KiloConnectionService` and opening a Sidebar still starts `kilo serve` for unmigrated surfaces. `app-server-control` protocol gaps currently fall through to Kilo; do not add new callers there.
+- The executable parity inventory is 257 commands: 199 host/service, 21 App Server controllers, 37 Core v1 gaps. The production gate is red until the gaps close and Kilo is deleted atomically.
 - Preserve useful VS Code surfaces while migrating the runtime and product model to CodeM App Server.
 - Do not extend Kilo REST/SSE, `kilo serve`, Kilo Session/provider stores, Gateway behavior, Kilo branding, or old command/view IDs for new CodeM work.
 - Keep each migration Cycle independently verifiable. When a boundary is migrated, update all production callers, contracts, tests, paths, and imports, then delete the superseded path.
 
 ## Current map
 
-- `src/extension.ts`: activation and shared host services.
+- `src/extension.ts`: activation; creates both `CodeMAppServerService` and `KiloConnectionService`.
+- `src/services/app-server/`: CodeM Host adapter, mature UI controller, ownership registry, space selector, credential-broker UI.
 - `src/services/cli-backend/`: imported Kilo process and transport boundary; migration source, not target architecture.
-- `src/kilo-provider/` and `src/KiloProvider.ts`: current host/webview coordination.
-- `src/agent-manager/`: worktree, terminal, Git, and Agent Manager host integration.
+- `src/kilo-provider/` and `src/KiloProvider.ts`: current host/webview coordination; App Server messages are handled first.
+- `src/agent-manager/`: worktree, terminal, Git, and Agent Manager host integration; still Kilo-backed.
 - `webview-ui/`: current SolidJS webview implementation.
 - `tests/unit/`: package unit tests; run only focused files relevant to the current Cycle.
 - `tests/host/`: tests and fixtures relocated from the Host source tree. The default test command selects its App Server suite; imported Vitest suites retain their existing runner requirements and are excluded from Playwright discovery.
+- `tests/extension-host/`: real Extension Host acceptance (login required).
 - `script/`: local build, SDK generation, launch, and packaging scripts.
 
 ## UI boundary
@@ -56,4 +60,4 @@ Do not run the full imported unit suite by default. When tests are in scope, cho
 - Do not edit `packages/sdk/js/src/gen` or `packages/sdk/js/src/v2/gen` by hand.
 - Do not commit `dist`, `out`, `bin`, `.artifacts`, Storybook output, IDE caches, or dependency directories.
 - Preserve license and copyright notices for copied Kilo, OpenCode, and third-party code.
-- Record any material upstream intake or removal in `UPSTREAM_KILOCODE.md`.
+- Record any material upstream intake or removal in `UPSTREAM.md`.
