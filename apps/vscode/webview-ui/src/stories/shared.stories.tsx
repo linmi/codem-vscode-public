@@ -10,7 +10,7 @@ import { ModelSelectorBase } from "../components/shared/ModelSelector"
 import { SessionContext } from "../context/session"
 import type { EnrichedModel } from "../context/provider"
 import type { ModelSelection } from "../types/messages"
-import { Markdown } from "@kilocode/kilo-ui/markdown"
+import { Markdown } from "@codem/ui/components/markdown"
 
 const meta: Meta = {
   title: "Shared",

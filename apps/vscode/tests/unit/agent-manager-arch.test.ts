@@ -114,11 +114,11 @@ describe("Agent Manager CSS Prefix", () => {
     // Exceptions:
     // - VS Code sets these body classes on webview elements (scoping
     //   selectors for high contrast theme support).
-    // - `kilo-diff-theme` is the shared Pierre diff theme utility defined
+    // - `diff-theme` is the shared Pierre diff theme utility defined
     //   in webview-ui/src/styles/diff.css and reused across webviews.
     // - `css` is matched from `@import "./diff.css"` file extension, not a
     //   class selector.
-    const host = new Set(["vscode-high-contrast", "vscode-high-contrast-light", "kilo-diff-theme", "css"])
+    const host = new Set(["vscode-high-contrast", "vscode-high-contrast-light", "diff-theme", "css"])
     const invalid = names.filter((n) => !n!.startsWith("am-") && !host.has(n!))
 
     expect(invalid, `Classes missing "am-" prefix: ${invalid.join(", ")}`).toEqual([])
@@ -129,8 +129,8 @@ describe("Agent Manager CSS Prefix", () => {
     const matches = [...css.matchAll(/--([a-z][a-z0-9-]*)\s*:/gi)]
     const names = [...new Set(matches.map((m) => m[1]))]
 
-    // Allow kilo-ui design tokens, vscode theme variables, and third-party
-    // library tokens (@pierre/diffs, kilo-ui sticky-accordion) used as fallbacks
+    // Allow @codem/ui design tokens, vscode theme variables, and third-party
+    // library tokens (@pierre/diffs, @codem/ui sticky-accordion) used as fallbacks
     const allowed = ["am-", "vscode-", "surface-", "text-", "border-", "diffs-", "sticky-", "syntax-"]
     const invalid = names.filter((n) => !allowed.some((p) => n!.startsWith(p)))
 

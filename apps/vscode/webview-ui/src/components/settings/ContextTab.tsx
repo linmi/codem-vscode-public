@@ -1,9 +1,9 @@
 import { Component, For, Show, createSignal } from "solid-js"
-import { Switch } from "@kilocode/kilo-ui/switch"
-import { TextField } from "@kilocode/kilo-ui/text-field"
-import { Card } from "@kilocode/kilo-ui/card"
-import { Button } from "@kilocode/kilo-ui/button"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
+import { Switch } from "@codem/ui/components/switch"
+import { TextField } from "@codem/ui/components/text-field"
+import { Card } from "@codem/ui/components/card"
+import { Button } from "@codem/ui/components/button"
+import { IconButton } from "@codem/ui/components/icon-button"
 
 import { useConfig } from "../../context/config"
 import { useLanguage } from "../../context/language"
@@ -113,7 +113,7 @@ const ContextTab: Component<{ onNavigateToModels?: () => void }> = (props) => {
               style={{
                 padding: "8px 12px",
                 color: "var(--vscode-errorForeground)",
-                "font-size": "var(--kilo-font-size-12)",
+                "font-size": "var(--codem-font-size-12)",
               }}
             >
               {err()}
@@ -176,7 +176,7 @@ const ContextTab: Component<{ onNavigateToModels?: () => void }> = (props) => {
         data-slot="context-models-hint"
         style={{
           "margin-top": "8px",
-          "font-size": "var(--kilo-font-size-12)",
+          "font-size": "var(--codem-font-size-12)",
           "text-align": "right",
           color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
         }}
@@ -202,7 +202,7 @@ const ContextTab: Component<{ onNavigateToModels?: () => void }> = (props) => {
       <Card>
         <div
           style={{
-            "font-size": "var(--kilo-font-size-12)",
+            "font-size": "var(--codem-font-size-12)",
             color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
             "padding-bottom": "8px",
             "border-bottom": patterns().length > 0 || newPattern() ? "1px solid var(--border-weak-base)" : "none",
@@ -251,7 +251,7 @@ const ContextTab: Component<{ onNavigateToModels?: () => void }> = (props) => {
               <span
                 style={{
                   "font-family": "var(--vscode-editor-font-family, monospace)",
-                  "font-size": "var(--kilo-font-size-12)",
+                  "font-size": "var(--codem-font-size-12)",
                 }}
               >
                 {pattern}

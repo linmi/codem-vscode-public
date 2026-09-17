@@ -1,9 +1,9 @@
 /** @jsxImportSource solid-js */
 import { For, Show, createMemo, createSignal } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Popover } from "@kilocode/kilo-ui/popover"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
+import { Button } from "@codem/ui/components/button"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Popover } from "@codem/ui/components/popover"
+import { Spinner } from "@codem/ui/components/spinner"
 import { useLanguage } from "../../src/context/language"
 import { PR_REACTION_CONTENT, type PRReaction, type PRReactionContent } from "./pr-types"
 

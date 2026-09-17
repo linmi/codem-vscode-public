@@ -1,14 +1,14 @@
 import { onCleanup, onMount, type Component, type ParentComponent } from "solid-js"
-import { ThemeProvider } from "@kilocode/kilo-ui/theme"
-import { DialogProvider } from "@kilocode/kilo-ui/context/dialog"
-import { MarkedProvider } from "@kilocode/kilo-ui/context/marked"
-import { CodeComponentProvider } from "@kilocode/kilo-ui/context/code"
-import { DiffComponentProvider } from "@kilocode/kilo-ui/context/diff"
-import { FileComponentProvider } from "@kilocode/kilo-ui/context/file"
-import { Code } from "@kilocode/kilo-ui/code"
-import { Diff } from "@kilocode/kilo-ui/diff"
-import { File } from "@kilocode/kilo-ui/file"
-import { Toast } from "@kilocode/kilo-ui/toast"
+import { ThemeProvider } from "@codem/ui/theme"
+import { DialogProvider } from "@codem/ui/context/dialog"
+import { MarkedProvider } from "@codem/ui/context/marked"
+import { CodeComponentProvider } from "@codem/ui/context/code"
+import { DiffComponentProvider } from "@codem/ui/context/diff"
+import { FileComponentProvider } from "@codem/ui/context/file"
+import { Code } from "@codem/ui/components/code"
+import { Diff } from "@codem/ui/components/diff"
+import { File } from "@codem/ui/components/file"
+import { Toast } from "@codem/ui/components/toast"
 import { VSCodeProvider, useVSCode } from "./vscode"
 import { ServerProvider } from "./server"
 import { ProviderProvider } from "./provider"
@@ -34,8 +34,8 @@ const MermaidDownloadBridge: Component = () => {
       event.preventDefault()
       vscode.postMessage({ type: "saveImage", dataUrl: detail.dataUrl, filename: detail.filename })
     }
-    window.addEventListener("kilo:save-image", save)
-    onCleanup(() => window.removeEventListener("kilo:save-image", save))
+    window.addEventListener("codem:save-image", save)
+    onCleanup(() => window.removeEventListener("codem:save-image", save))
   })
 
   return null

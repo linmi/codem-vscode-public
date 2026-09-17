@@ -1,5 +1,5 @@
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { TextField } from "@kilocode/kilo-ui/text-field"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { TextField } from "@codem/ui/components/text-field"
 import { Show } from "solid-js"
 import { useLanguage } from "../../context/language"
 
@@ -106,7 +106,7 @@ export function ModelCard(props: ModelCardProps) {
             "align-items": "center",
             gap: "8px",
             cursor: "pointer",
-            "font-size": "var(--kilo-font-size-13)",
+            "font-size": "var(--codem-font-size-13)",
             color: "var(--vscode-foreground)",
           }}
         >
@@ -124,7 +124,7 @@ export function ModelCard(props: ModelCardProps) {
             "align-items": "center",
             gap: "8px",
             cursor: "pointer",
-            "font-size": "var(--kilo-font-size-13)",
+            "font-size": "var(--codem-font-size-13)",
             color: "var(--vscode-foreground)",
           }}
         >
@@ -141,7 +141,7 @@ export function ModelCard(props: ModelCardProps) {
         {(error) => (
           <span
             role="alert"
-            style={{ "font-size": "var(--kilo-font-size-12)", color: "var(--vscode-errorForeground)" }}
+            style={{ "font-size": "var(--codem-font-size-12)", color: "var(--vscode-errorForeground)" }}
           >
             {error()}
           </span>

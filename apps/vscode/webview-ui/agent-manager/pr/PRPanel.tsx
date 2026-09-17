@@ -1,7 +1,7 @@
 /** @jsxImportSource solid-js */
 import { Component, Show, createEffect, createMemo, on, onCleanup } from "solid-js"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import type { WorktreeState } from "../../src/types/messages"
 import type { PRStatus } from "../../src/types/messages"
 import { useConfig } from "../../src/context/config"

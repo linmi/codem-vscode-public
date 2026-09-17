@@ -1,5 +1,5 @@
 import { Component } from "solid-js"
-import { Select } from "@kilocode/kilo-ui/select"
+import { Select } from "@codem/ui/components/select"
 import { useLanguage, LOCALES, LOCALE_LABELS, type Locale } from "../../context/language"
 
 const AUTO = "auto"
@@ -12,7 +12,7 @@ const LanguageTab: Component = () => {
 
   return (
     <div style={{ padding: "16px" }}>
-      <p style={{ "font-size": "var(--kilo-font-size-13)", "margin-bottom": "12px" }}>
+      <p style={{ "font-size": "var(--codem-font-size-13)", "margin-bottom": "12px" }}>
         {language.t("settings.language.description")}
       </p>
       <Select
@@ -30,7 +30,7 @@ const LanguageTab: Component = () => {
       />
       <p
         style={{
-          "font-size": "var(--kilo-font-size-12)",
+          "font-size": "var(--codem-font-size-12)",
           color: "var(--vscode-descriptionForeground)",
           "margin-top": "8px",
         }}

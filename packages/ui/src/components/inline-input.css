@@ -1,0 +1,5 @@
+/* CodeM Inline Input overrides */
+
+[data-component="inline-input"] {
+  font-size: var(--codem-font-size-13);
+}

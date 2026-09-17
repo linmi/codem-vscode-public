@@ -16,7 +16,7 @@
 
 .kilo-about-text {
   max-width: 260px;
-  font-size: var(--kilo-font-size-13);
+  font-size: var(--codem-font-size-13);
   line-height: 1.4;
 }
 
@@ -53,7 +53,7 @@
 .work-style-welcome {
   margin: 0 0 4px;
   color: var(--vscode-foreground);
-  font-size: var(--kilo-font-size-20);
+  font-size: var(--codem-font-size-20);
   font-weight: 650;
   line-height: 1.2;
 }
@@ -75,7 +75,7 @@
 
 [data-slot="work-style-title"] {
   margin: 0;
-  font-size: var(--kilo-font-size-14);
+  font-size: var(--codem-font-size-14);
   font-weight: 650;
   line-height: 1.35;
 }
@@ -119,7 +119,7 @@
 [data-slot="work-style-mode-title"] {
   margin: 0;
   color: var(--vscode-textLink-foreground);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   font-weight: 650;
   line-height: 1.25;
   letter-spacing: 0.04em;
@@ -129,7 +129,7 @@
 [data-slot="work-style-mode-description"] {
   margin: 0;
   color: var(--text-weak-base, var(--vscode-descriptionForeground));
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   line-height: 1.45;
 }
 
@@ -141,7 +141,7 @@
   padding-left: 18px;
   color: var(--vscode-foreground);
   list-style: disc;
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   line-height: 1.4;
 }
 
@@ -153,7 +153,7 @@
   gap: 4px;
   margin: 0;
   color: var(--text-weak-base, var(--vscode-descriptionForeground));
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   line-height: 1.4;
   text-align: left;
 }
@@ -177,7 +177,7 @@
   }
 
   .work-style-welcome {
-    font-size: var(--kilo-font-size-16);
+    font-size: var(--codem-font-size-16);
   }
 
   [data-component="card"].work-style-picker {
@@ -208,7 +208,7 @@
   background: transparent;
   color: var(--vscode-textLink-foreground, #3794ff);
   font-family: inherit;
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
@@ -247,7 +247,7 @@
 }
 
 .recent-sessions-label {
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--vscode-descriptionForeground);
@@ -267,7 +267,7 @@
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  font-size: var(--kilo-font-size-13);
+  font-size: var(--codem-font-size-13);
   gap: 8px;
 }
 
@@ -291,7 +291,7 @@
   color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
   cursor: pointer;
   font-family: inherit;
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   padding: 5px 10px;
   margin-top: 4px;
   width: 100%;
@@ -306,7 +306,7 @@
 }
 
 .recent-session-date {
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   color: var(--vscode-descriptionForeground);
   white-space: nowrap;
   flex-shrink: 0;
@@ -390,7 +390,7 @@
   border-radius: 9999px;
   flex-shrink: 0;
   font-weight: 600;
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   background: rgba(127, 127, 127, 0.18);
   color: var(--vscode-foreground);
 }
@@ -405,7 +405,7 @@
 .account-switcher-role {
   border-radius: 9999px;
   padding: 1px 7px;
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   letter-spacing: 0.3px;
   background: var(--vscode-badge-background);
   color: var(--vscode-badge-foreground);

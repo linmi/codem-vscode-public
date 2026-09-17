@@ -12,7 +12,7 @@ const {
   wait: settle,
 } = await harness<{ type: string; [key: string]: unknown }>()
 const { createSignal } = await import("solid-js")
-const { Diff } = await import("@kilocode/kilo-ui/diff")
+const { Diff } = await import("@codem/ui/components/diff")
 const { post: emit } = await import("../../webview-ui/src/utils/webview-message")
 const { createPRReview } = await import("../../webview-ui/agent-manager/pr/review")
 const { createRemoteCommentController, RemoteCommentsOutside } = await import(

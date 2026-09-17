@@ -15,6 +15,7 @@ describe("TaskTimeline delegated tooltip contract", () => {
   const src = readFileSync(path, "utf8")
 
   it("does not mount one shared Tooltip component per timeline bar", () => {
+    expect(src).not.toMatch(/@codem\/ui\/components\/tooltip/)
     expect(src).not.toMatch(/@kilocode\/kilo-ui\/tooltip/)
     expect(src).not.toMatch(/<Tooltip\b/)
   })

@@ -26,7 +26,7 @@ import { useProvider } from "./provider"
 import { useConfig } from "./config"
 import { useLanguage } from "./language"
 import { createCostAlertHandler } from "./cost-alert"
-import { showToast } from "@kilocode/kilo-ui/toast"
+import { showToast } from "@codem/ui/components/toast"
 import type {
   SessionInfo,
   SessionModelUsage,
@@ -89,7 +89,7 @@ import { mergeMessages, sameReconcileShape } from "./session-merge"
 import { state as todoState } from "./todo-revert"
 import { sessionVariantKeys, transferVariants, variantKey } from "./session-variant-store"
 import { createSessionVariants } from "./session-variants"
-import { KILO_AUTO, KILO_PROVIDER_ID, parseModelString } from "../../../src/shared/provider-model"
+import { KILO_PROVIDER_ID, parseModelString } from "../../../src/shared/provider-model"
 import { type ReviewMessageData } from "../../../src/shared/review-comments"
 import type { BrowserFeedbackData } from "../../../src/shared/browser-feedback"
 import { activeUserMessageID, removeQueuedMessage, visibleMessages as filterVisibleMessages } from "./session-queue"
@@ -461,7 +461,9 @@ export const SessionProvider: ParentComponent = (props) => {
       defaults: provider.defaults(),
       getModeModel,
       getGlobalModel,
-      fallback: KILO_AUTO,
+      // Host catalog default (App Server: Core active model such as codem-router/auto).
+      // Do not hardcode kilo-auto/free; that id is not in the Core catalog.
+      fallback: provider.defaultSelection(),
     }
   }
 

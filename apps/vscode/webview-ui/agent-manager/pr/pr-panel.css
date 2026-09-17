@@ -60,7 +60,7 @@
 }
 
 .am-pr-panel-title {
-  font-size: var(--kilo-font-size-14);
+  font-size: var(--codem-font-size-14);
   color: var(--vscode-foreground);
   font-weight: 500;
   overflow: hidden;
@@ -69,7 +69,7 @@
 }
 
 .am-pr-panel-number {
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   color: var(--vscode-descriptionForeground);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -172,7 +172,7 @@
 
 .am-pr-branch-name {
   font-family: var(--font-mono, monospace);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
 }
 
 .am-pr-branch-arrow {
@@ -196,7 +196,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
@@ -217,7 +217,7 @@
 }
 
 .am-pr-panel-label {
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -226,7 +226,7 @@
 }
 
 .am-pr-panel-value {
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   color: var(--vscode-foreground);
   text-align: right;
 }
@@ -326,14 +326,14 @@
 }
 
 .am-pr-comment-author {
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   font-weight: 600;
   color: var(--vscode-foreground);
   flex-shrink: 0;
 }
 
 .am-pr-comment-preview {
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   color: var(--text-weak);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -342,7 +342,7 @@
 }
 
 .am-pr-comment-file {
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   color: var(--text-weak);
   font-family: var(--font-mono, monospace);
   overflow: hidden;
@@ -361,7 +361,7 @@
 }
 
 .am-pr-comment-tag {
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   color: var(--text-weaker);
   border: 1px solid var(--vscode-panel-border);
   border-radius: 3px;
@@ -386,7 +386,7 @@
 }
 
 .am-pr-comment-time {
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   color: var(--text-weaker);
   flex-shrink: 0;
 }
@@ -429,7 +429,7 @@
 
 .am-pr-timeline-label {
   flex: 1;
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   color: var(--text-weak);
   min-width: 0;
   overflow: hidden;
@@ -439,7 +439,7 @@
 
 .am-pr-timeline-sha {
   font-family: var(--font-mono, monospace);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   color: var(--vscode-textLink-foreground, #3794ff);
   flex-shrink: 0;
 }
@@ -496,7 +496,7 @@
 }
 
 .am-pr-comment-error {
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   color: var(--vscode-testing-iconFailed, #f87171);
   padding: 6px 8px 0;
 }
@@ -612,7 +612,7 @@
   padding: 6px 8px;
   border-bottom: 1px solid var(--border-base);
   color: var(--text-weak);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
 }
 
 [data-slot="suggested-change"] pre {
@@ -742,7 +742,7 @@
   border-bottom: 1px solid var(--vscode-panel-border);
   color: var(--text-weak);
   font-family: var(--font-mono, monospace);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   overflow-wrap: anywhere;
 }
 
@@ -756,7 +756,7 @@
   color: var(--text-weak);
   background: var(--vscode-textCodeBlock-background);
   font-family: var(--font-mono, monospace);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   line-height: 1.4;
   text-align: center;
 }
@@ -768,7 +768,7 @@
 
 .am-pr-panel-description [data-component="markdown"],
 .am-pr-comment-body [data-component="markdown"] {
-  font-size: var(--kilo-font-size-13);
+  font-size: var(--codem-font-size-13);
   color: var(--vscode-foreground);
 }
 
@@ -785,13 +785,13 @@
 }
 
 .am-pr-panel-description [data-component="markdown"] h1 {
-  font-size: var(--kilo-font-size-16);
+  font-size: var(--codem-font-size-16);
 }
 .am-pr-panel-description [data-component="markdown"] h2 {
-  font-size: var(--kilo-font-size-14);
+  font-size: var(--codem-font-size-14);
 }
 .am-pr-panel-description [data-component="markdown"] h3 {
-  font-size: var(--kilo-font-size-13);
+  font-size: var(--codem-font-size-13);
 }
 
 /* PR Reviewers */
@@ -802,7 +802,7 @@
 .am-pr-panel-reviewer {
   gap: 8px;
   padding: 3px 0;
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
 }
 
 .am-pr-panel-reviewer [data-component="avatar"] {
@@ -869,7 +869,7 @@
 .am-pr-panel-check-item {
   gap: 6px;
   padding: 2px 0;
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
 }
 
 .am-pr-check-icon {
@@ -912,7 +912,7 @@
 
 .am-pr-check-duration {
   color: var(--text-weaker);
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   flex-shrink: 0;
 }
 
@@ -931,7 +931,7 @@
 
 /* PR toggle button in tab bar */
 .am-pr-toggle-number {
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   font-variant-numeric: tabular-nums;
 }
 
@@ -963,7 +963,7 @@
 .am-pr-summary-row {
   gap: 7px;
   padding: 2px 0;
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   min-height: 24px;
 }
 
@@ -1010,7 +1010,7 @@
 
 .am-pr-merge-hint {
   color: var(--text-weak);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   white-space: normal;
 }
 
@@ -1024,7 +1024,7 @@
   gap: 6px;
   margin: 0 0 4px 23px;
   color: var(--text-weak);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
 }
 
 .am-pr-conflict-files {
@@ -1043,7 +1043,7 @@
   padding: 3px 8px;
   min-width: 0;
   color: var(--text-weak);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
 }
 
 .am-pr-conflict-file span {
@@ -1112,7 +1112,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--text-weak);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1122,7 +1122,7 @@
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--vscode-testing-iconFailed, #f87171);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
 }
 
 .am-pr-merge-spinner {
@@ -1145,7 +1145,7 @@
   width: 100%;
   gap: 12px;
   color: var(--vscode-foreground);
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
 }
 
 .am-pr-merge-dialog-actions {

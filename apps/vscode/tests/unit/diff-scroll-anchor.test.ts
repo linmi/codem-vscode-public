@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Window } from "happy-dom"
-import { capture } from "../../../../packages/legacy/kilo-ui/src/pierre/scroll"
+import { capture } from "../../../../packages/ui/src/pierre/scroll"
 
 function setup() {
   const window = new Window()

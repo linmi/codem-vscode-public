@@ -1,5 +1,5 @@
-import { ContextMenu } from "@kilocode/kilo-ui/context-menu"
-import { Icon } from "@kilocode/kilo-ui/icon"
+import { ContextMenu } from "@codem/ui/components/context-menu"
+import { Icon } from "@codem/ui/components/icon"
 import { Show, type JSX, type ParentComponent } from "solid-js"
 import { useLanguage } from "../../context/language"
 

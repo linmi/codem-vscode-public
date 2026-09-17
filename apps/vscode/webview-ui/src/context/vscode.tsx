@@ -5,7 +5,7 @@
 
 import { createContext, useContext, onCleanup, ParentComponent, createSignal } from "solid-js"
 import type { VSCodeAPI, WebviewMessage, ExtensionMessage } from "../types/messages"
-import { ClipboardProvider } from "@kilocode/kilo-ui/context/clipboard"
+import { ClipboardProvider } from "@codem/ui/context/clipboard"
 import { edge } from "../sidebar-position"
 import { protect } from "../utils/webview-message"
 

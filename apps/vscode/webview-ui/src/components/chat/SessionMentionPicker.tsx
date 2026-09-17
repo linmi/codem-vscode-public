@@ -1,8 +1,8 @@
 /** @jsxImportSource solid-js */
 
 import { onMount } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { List } from "@kilocode/kilo-ui/list"
+import { Icon } from "@codem/ui/components/icon"
+import { List } from "@codem/ui/components/list"
 import { filterSessions } from "../../hooks/file-mention-utils"
 import type { SessionSearchItem } from "../../types/messages"
 import { formatRelativeDate } from "../../utils/date"
@@ -16,7 +16,7 @@ interface Props {
 /**
  * Inline past-chat picker for @-mentions, mirroring the Agent Manager sidebar
  * search: a search field over a directory-scoped session list, fuzzy-filtered
- * client-side by the kilo-ui List component (same mechanism).
+ * client-side by the @codem/ui List component (same mechanism).
  */
 export function SessionMentionPicker(props: Props) {
   let root: HTMLDivElement | undefined

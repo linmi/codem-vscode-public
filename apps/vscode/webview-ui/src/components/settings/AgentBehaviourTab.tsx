@@ -1,13 +1,13 @@
 import { Component, createSignal, createMemo, createEffect, For, Show, onCleanup } from "solid-js"
-import { Select } from "@kilocode/kilo-ui/select"
-import { TextField } from "@kilocode/kilo-ui/text-field"
-import { Card } from "@kilocode/kilo-ui/card"
-import { Button } from "@kilocode/kilo-ui/button"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Dialog } from "@kilocode/kilo-ui/dialog"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
-import { Switch } from "@kilocode/kilo-ui/switch"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Select } from "@codem/ui/components/select"
+import { TextField } from "@codem/ui/components/text-field"
+import { Card } from "@codem/ui/components/card"
+import { Button } from "@codem/ui/components/button"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Dialog } from "@codem/ui/components/dialog"
+import { useDialog } from "@codem/ui/context/dialog"
+import { Switch } from "@codem/ui/components/switch"
+import { Tooltip } from "@codem/ui/components/tooltip"
 
 import { useConfig } from "../../context/config"
 import { useSession } from "../../context/session"
@@ -347,7 +347,7 @@ const AgentBehaviourTab: Component = () => {
         <Show when={importError()}>
           <div
             style={{
-              "font-size": "var(--kilo-font-size-12)",
+              "font-size": "var(--codem-font-size-12)",
               color: "var(--vscode-errorForeground)",
               "margin-bottom": "8px",
             }}
@@ -363,7 +363,7 @@ const AgentBehaviourTab: Component = () => {
             <Card style={{ "margin-bottom": "12px" }}>
               <div
                 style={{
-                  "font-size": "var(--kilo-font-size-12)",
+                  "font-size": "var(--codem-font-size-12)",
                   color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
                 }}
               >
@@ -404,11 +404,11 @@ const AgentBehaviourTab: Component = () => {
                   >
                     <div style={{ flex: 1, "min-width": 0 }}>
                       <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
-                        <div style={{ "font-weight": "500", "font-size": "var(--kilo-font-size-13)" }}>{name}</div>
+                        <div style={{ "font-weight": "500", "font-size": "var(--codem-font-size-13)" }}>{name}</div>
                         <Show when={isCustom()}>
                           <span
                             style={{
-                              "font-size": "var(--kilo-font-size-10)",
+                              "font-size": "var(--codem-font-size-10)",
                               padding: "1px 5px",
                               "border-radius": "3px",
                               background: "var(--bg-subtle-base, var(--vscode-badge-background))",
@@ -421,7 +421,7 @@ const AgentBehaviourTab: Component = () => {
                         <Show when={agent()?.mode === "subagent"}>
                           <span
                             style={{
-                              "font-size": "var(--kilo-font-size-10)",
+                              "font-size": "var(--codem-font-size-10)",
                               padding: "1px 5px",
                               "border-radius": "3px",
                               background: "var(--bg-subtle-base, var(--vscode-badge-background))",
@@ -434,7 +434,7 @@ const AgentBehaviourTab: Component = () => {
                         <Show when={hidden()}>
                           <span
                             style={{
-                              "font-size": "var(--kilo-font-size-10)",
+                              "font-size": "var(--codem-font-size-10)",
                               padding: "1px 5px",
                               "border-radius": "3px",
                               background: "var(--bg-subtle-base, var(--vscode-badge-background))",
@@ -447,7 +447,7 @@ const AgentBehaviourTab: Component = () => {
                         <Show when={disabled()}>
                           <span
                             style={{
-                              "font-size": "var(--kilo-font-size-10)",
+                              "font-size": "var(--codem-font-size-10)",
                               padding: "1px 5px",
                               "border-radius": "3px",
                               background: "var(--vscode-errorForeground, #f44)",
@@ -460,7 +460,7 @@ const AgentBehaviourTab: Component = () => {
                         <Show when={deprecated()}>
                           <span
                             style={{
-                              "font-size": "var(--kilo-font-size-10)",
+                              "font-size": "var(--codem-font-size-10)",
                               padding: "1px 5px",
                               "border-radius": "3px",
                               background: "var(--vscode-editorWarning-foreground, #cca700)",
@@ -474,7 +474,7 @@ const AgentBehaviourTab: Component = () => {
                       <Show when={agent()?.description}>
                         <div
                           style={{
-                            "font-size": "var(--kilo-font-size-11)",
+                            "font-size": "var(--codem-font-size-11)",
                             color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
                             "margin-top": "2px",
                             overflow: "hidden",
@@ -590,7 +590,7 @@ const AgentBehaviourTab: Component = () => {
             <Card>
               <div
                 style={{
-                  "font-size": "var(--kilo-font-size-12)",
+                  "font-size": "var(--codem-font-size-12)",
                   color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
                 }}
               >
@@ -650,7 +650,7 @@ const AgentBehaviourTab: Component = () => {
                         <div style={{ "font-weight": "500" }}>{name}</div>
                         <span
                           style={{
-                            "font-size": "var(--kilo-font-size-10)",
+                            "font-size": "var(--codem-font-size-10)",
                             color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
                           }}
                         >
@@ -718,7 +718,7 @@ const AgentBehaviourTab: Component = () => {
                         style={{
                           "padding-left": "28px",
                           "padding-bottom": "4px",
-                          "font-size": "var(--kilo-font-size-11)",
+                          "font-size": "var(--codem-font-size-11)",
                           color: "var(--vscode-errorForeground)",
                         }}
                       >
@@ -732,7 +732,7 @@ const AgentBehaviourTab: Component = () => {
                         style={{
                           "padding-left": "28px",
                           "padding-bottom": "8px",
-                          "font-size": "var(--kilo-font-size-12)",
+                          "font-size": "var(--codem-font-size-12)",
                           color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
                         }}
                       >
@@ -894,7 +894,7 @@ const AgentBehaviourTab: Component = () => {
                   style={{
                     width: "100%",
                     "font-family": "var(--vscode-editor-font-family, monospace)",
-                    "font-size": "var(--kilo-font-size-12)",
+                    "font-size": "var(--codem-font-size-12)",
                     overflow: "hidden",
                     "text-overflow": "ellipsis",
                     "white-space": "nowrap",
@@ -951,7 +951,7 @@ const AgentBehaviourTab: Component = () => {
                   style={{
                     width: "100%",
                     "font-family": "var(--vscode-editor-font-family, monospace)",
-                    "font-size": "var(--kilo-font-size-12)",
+                    "font-size": "var(--codem-font-size-12)",
                     overflow: "hidden",
                     "text-overflow": "ellipsis",
                     "white-space": "nowrap",
@@ -973,7 +973,7 @@ const AgentBehaviourTab: Component = () => {
       {/* Description */}
       <div
         style={{
-          "font-size": "var(--kilo-font-size-12)",
+          "font-size": "var(--codem-font-size-12)",
           color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
           "margin-bottom": "12px",
           "line-height": "1.5",
@@ -992,7 +992,7 @@ const AgentBehaviourTab: Component = () => {
           <div style={{ "font-weight": "500" }}>{language.t("settings.agentBehaviour.instructionFiles")}</div>
           <div
             style={{
-              "font-size": "var(--kilo-font-size-12)",
+              "font-size": "var(--codem-font-size-12)",
               color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
               "margin-top": "2px",
             }}
@@ -1041,7 +1041,7 @@ const AgentBehaviourTab: Component = () => {
               <span
                 style={{
                   "font-family": "var(--vscode-editor-font-family, monospace)",
-                  "font-size": "var(--kilo-font-size-12)",
+                  "font-size": "var(--codem-font-size-12)",
                 }}
               >
                 {path}
@@ -1131,7 +1131,7 @@ const AgentBehaviourTab: Component = () => {
                 background: "transparent",
                 color:
                   activeSubtab() === subtab.id ? "var(--vscode-foreground)" : "var(--vscode-descriptionForeground)",
-                "font-size": "var(--kilo-font-size-13)",
+                "font-size": "var(--codem-font-size-13)",
                 "font-family": "var(--vscode-font-family)",
                 cursor: "pointer",
                 "border-bottom":

@@ -16,15 +16,15 @@ import {
   ToolApprovalProvider,
   resolveToolApproval,
   useGrowIn,
-} from "@kilocode/kilo-ui/message-part"
-import type { MessageFeedbackControls } from "@kilocode/kilo-ui/message-part"
+} from "@codem/ui/components/message-part"
+import type { MessageFeedbackControls } from "@codem/ui/components/message-part"
 import type {
   AssistantMessage as SDKAssistantMessage,
   Part as SDKPart,
   Message as SDKMessage,
   ToolPart,
 } from "@kilocode/sdk/v2"
-import { useData } from "@kilocode/kilo-ui/context/data"
+import { useData } from "@codem/ui/context/data"
 import { useSession } from "../../context/session"
 import { useDisplay } from "../../context/display"
 import { useConfig } from "../../context/config"
@@ -36,7 +36,7 @@ import { messageThroughput, formatTG } from "../../context/session-utils"
 import { color as timelineColor } from "../../utils/timeline/colors"
 import type { Part as TimelinePart } from "../../types/messages"
 import type { TimelineHighlight } from "../../utils/timeline/highlight"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { QuestionDock } from "./QuestionDock"
 import { SuggestBar } from "./SuggestBar"
 import { toolDefaultOpen } from "./tool-default-open"

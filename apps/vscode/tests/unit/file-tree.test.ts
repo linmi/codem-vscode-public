@@ -295,15 +295,15 @@ describe("flatten", () => {
 
   it("handles a real-world project structure", () => {
     const diffs = [
-      diff("packages/legacy/opencode-ui/src/components/Button.tsx"),
-      diff("packages/legacy/opencode-ui/src/components/Modal.tsx"),
-      diff("packages/legacy/opencode-ui/src/index.ts"),
+      diff("packages/ui/src/components/Button.tsx"),
+      diff("packages/ui/src/components/Modal.tsx"),
+      diff("packages/ui/src/index.ts"),
       diff("packages/cli/src/main.ts"),
       diff("README.md"),
     ]
     const result = flatten(buildFileTree(diffs))
     // packages/ should not flatten because it has ui/ and cli/
-    // packages/legacy/opencode-ui/src has two children (components/ and index.ts) — no flatten
+    // packages/ui/src has two children (components/ and index.ts) — no flatten
     // packages/cli/src has one child (main.ts) which is a file — no flatten
     const packages = result.find((n) => n.name.startsWith("packages"))
     expect(packages).toBeDefined()

@@ -84,6 +84,19 @@ describe("resolveModelSelection", () => {
     expect(result).toEqual(KILO_AUTO)
   })
 
+  it("uses the Core catalog default as the personal fallback", () => {
+    const coreDefault = { providerID: "codem-router", modelID: "auto" }
+    const result = resolveModelSelection({
+      providers: { "codem-router": makeProvider("codem-router", "CodeM", ["auto"]) },
+      connected: ["codem-router"],
+      ready: true,
+      organizationId: null,
+      recent: [],
+      fallback: coreDefault,
+    })
+    expect(result).toEqual(coreDefault)
+  })
+
   it("rejects a fallback missing from the loaded catalog", () => {
     const result = resolveModelSelection({
       providers: { openai: providers.openai },

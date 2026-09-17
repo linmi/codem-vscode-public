@@ -8,7 +8,7 @@ apps/
   jetbrains/    JetBrains plugin
 packages/
   app-server/      reusable Core runtime, packaging, integrity, and host protocol
-  ui/           React + shadcn design system
+  ui/           Solid design system (`@codem/ui`)
   legacy/       transitional SolidJS UI and CLI Console build inputs
   ...           temporary Kilo/OpenCode build dependencies
 ```

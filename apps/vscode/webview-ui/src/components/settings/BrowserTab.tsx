@@ -1,6 +1,6 @@
 import { Component, Show, createSignal, onCleanup, onMount } from "solid-js"
-import { Switch } from "@kilocode/kilo-ui/switch"
-import { Card } from "@kilocode/kilo-ui/card"
+import { Switch } from "@codem/ui/components/switch"
+import { Card } from "@codem/ui/components/card"
 import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
 import { useConfig } from "../../context/config"
@@ -14,7 +14,7 @@ const Header: Component<{ title: string }> = (props) => (
       "padding-bottom": "10px",
       "border-bottom": "1px solid var(--vscode-panel-border)",
       color: "var(--text-base, var(--vscode-foreground))",
-      "font-size": "var(--kilo-font-size-18, 18px)",
+      "font-size": "var(--codem-font-size-18, 18px)",
       "font-weight": 600,
       "line-height": "1.4",
     }}
@@ -68,7 +68,7 @@ const BrowserTab: Component = () => {
       >
         <p
           style={{
-            "font-size": "var(--kilo-font-size-12)",
+            "font-size": "var(--codem-font-size-12)",
             color: "var(--vscode-descriptionForeground)",
             margin: 0,
             "line-height": "1.5",
@@ -111,7 +111,7 @@ const BrowserTab: Component = () => {
           style={{
             margin: "0 0 12px",
             color: "var(--vscode-descriptionForeground)",
-            "font-size": "var(--kilo-font-size-12)",
+            "font-size": "var(--codem-font-size-12)",
             "line-height": "1.5",
           }}
         >

@@ -2,7 +2,7 @@
 /**
  * Composite visual regression stories for the codem-vscode webview.
  *
- * These test the *composed* UI — how kilo-ui components look together
+ * These test the *composed* UI — how @codem/ui components look together
  * in the extension webview context with extension-specific styling,
  * inline permission prompts, and tool card overrides.
  */
@@ -17,8 +17,8 @@ import { TranscriptRowView } from "../components/chat/TranscriptRow"
 import { messageTurns } from "../context/session-queue"
 import { transcriptRows } from "../context/transcript-rows"
 import { ChatView } from "../components/chat/ChatView"
-import { Part } from "@kilocode/kilo-ui/message-part"
-import { AgentAvatarPalette } from "@kilocode/kilo-ui/agent-avatar"
+import { Part } from "@codem/ui/components/message-part"
+import { AgentAvatarPalette } from "@codem/ui/components/agent-avatar"
 import { registerVscodeToolOverrides } from "../components/chat/VscodeToolOverrides"
 import { SessionContext } from "../context/session"
 import { ServerContext } from "../context/server"
@@ -958,7 +958,7 @@ const editPermission: PermissionRequest = {
     filediff: {
       file: "src/components/App.tsx",
       patch:
-        '===================================================================\n--- src/components/App.tsx\n+++ src/components/App.tsx\n@@ -1,3 +1,4 @@\n import { Button } from "@kilocode/kilo-ui/button"\n+import { Card } from "@kilocode/kilo-ui/card"\n \n export function App() {\n',
+        '===================================================================\n--- src/components/App.tsx\n+++ src/components/App.tsx\n@@ -1,3 +1,4 @@\n import { Button } from "@codem/ui/components/button"\n+import { Card } from "@codem/ui/components/card"\n \n export function App() {\n',
       additions: 1,
       deletions: 0,
     },
@@ -979,7 +979,7 @@ const applyPatchPermission: PermissionRequest = {
         relativePath: "src/components/App.tsx",
         type: "update",
         patch:
-          '===================================================================\n--- src/components/App.tsx\n+++ src/components/App.tsx\n@@ -1,3 +1,4 @@\n import { Button } from "@kilocode/kilo-ui/button"\n+import { Card } from "@kilocode/kilo-ui/card"\n \n export function App() {\n',
+          '===================================================================\n--- src/components/App.tsx\n+++ src/components/App.tsx\n@@ -1,3 +1,4 @@\n import { Button } from "@codem/ui/components/button"\n+import { Card } from "@codem/ui/components/card"\n \n export function App() {\n',
         additions: 1,
         deletions: 0,
       },

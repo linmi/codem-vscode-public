@@ -1,5 +1,5 @@
 import type { AnnotationSide, DiffLineAnnotation } from "@pierre/diffs"
-import type { UiI18nParams } from "@kilocode/kilo-ui/context"
+import type { UiI18nParams } from "@codem/ui/context"
 import type { WorktreeFileDiff } from "../src/types/messages"
 import { extractLines, type ReviewComment } from "./review-comments"
 import type { ReviewCommentEntry } from "../src/types/messages"

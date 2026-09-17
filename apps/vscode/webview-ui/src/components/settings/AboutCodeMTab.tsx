@@ -1,7 +1,7 @@
 import { Component, createSignal, onCleanup } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { showToast } from "@kilocode/kilo-ui/toast"
+import { Button } from "@codem/ui/components/button"
+import { Icon } from "@codem/ui/components/icon"
+import { showToast } from "@codem/ui/components/toast"
 import { useLanguage } from "../../context/language"
 import { useVSCode } from "../../context/vscode"
 import { useConfig } from "../../context/config"
@@ -166,7 +166,7 @@ const AboutCodeMTab: Component<AboutCodeMTabProps> = (props) => {
   } as const
 
   const headingStyle = {
-    "font-size": "var(--kilo-font-size-13)",
+    "font-size": "var(--codem-font-size-13)",
     "font-weight": "600",
     "margin-bottom": "12px",
     "margin-top": "0",
@@ -174,13 +174,13 @@ const AboutCodeMTab: Component<AboutCodeMTabProps> = (props) => {
   } as const
 
   const labelStyle = {
-    "font-size": "var(--kilo-font-size-12)",
+    "font-size": "var(--codem-font-size-12)",
     color: "var(--vscode-descriptionForeground)",
     width: "100px",
   } as const
 
   const valueStyle = {
-    "font-size": "var(--kilo-font-size-12)",
+    "font-size": "var(--codem-font-size-12)",
     color: "var(--vscode-foreground)",
     "font-family": "var(--vscode-editor-font-family, monospace)",
   } as const
@@ -201,7 +201,7 @@ const AboutCodeMTab: Component<AboutCodeMTabProps> = (props) => {
         <h4 style={headingStyle}>{language.t("settings.aboutCodeM.community")}</h4>
         <p
           style={{
-            "font-size": "var(--kilo-font-size-12)",
+            "font-size": "var(--codem-font-size-12)",
             color: "var(--vscode-descriptionForeground)",
             margin: "0 0 12px 0",
             "line-height": "1.5",
@@ -215,7 +215,7 @@ const AboutCodeMTab: Component<AboutCodeMTabProps> = (props) => {
         </p>
         <p
           style={{
-            "font-size": "var(--kilo-font-size-12)",
+            "font-size": "var(--codem-font-size-12)",
             color: "var(--vscode-descriptionForeground)",
             margin: 0,
             "line-height": "1.5",
@@ -246,7 +246,7 @@ const AboutCodeMTab: Component<AboutCodeMTabProps> = (props) => {
                 display: "inline-block",
               }}
             />
-            <span style={{ "font-size": "var(--kilo-font-size-12)", color: "var(--vscode-foreground)" }}>
+            <span style={{ "font-size": "var(--codem-font-size-12)", color: "var(--vscode-foreground)" }}>
               {getStatusText()}
             </span>
           </div>
@@ -264,7 +264,7 @@ const AboutCodeMTab: Component<AboutCodeMTabProps> = (props) => {
         <h4 style={headingStyle}>{language.t("settings.aboutCodeM.settingsTransfer.title")}</h4>
         <p
           style={{
-            "font-size": "var(--kilo-font-size-12)",
+            "font-size": "var(--codem-font-size-12)",
             color: "var(--vscode-descriptionForeground)",
             margin: "0 0 12px 0",
             "line-height": "1.5",
@@ -288,7 +288,7 @@ const AboutCodeMTab: Component<AboutCodeMTabProps> = (props) => {
         <h4 style={headingStyle}>{language.t("settings.aboutCodeM.rooImport.button")}</h4>
         <p
           style={{
-            "font-size": "var(--kilo-font-size-12)",
+            "font-size": "var(--codem-font-size-12)",
             color: "var(--vscode-descriptionForeground)",
             margin: "0 0 12px 0",
             "line-height": "1.5",
@@ -306,7 +306,7 @@ const AboutCodeMTab: Component<AboutCodeMTabProps> = (props) => {
         <h4 style={headingStyle}>{language.t("settings.aboutCodeM.resetSettings.title")}</h4>
         <p
           style={{
-            "font-size": "var(--kilo-font-size-12)",
+            "font-size": "var(--codem-font-size-12)",
             color: "var(--vscode-descriptionForeground)",
             margin: "0 0 12px 0",
             "line-height": "1.5",

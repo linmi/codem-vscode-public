@@ -1,12 +1,12 @@
 import { Component, For, Show } from "solid-js"
 import type { KiloPassState, ProviderUsageData } from "../../types/messages"
 import type { ProviderUsageSnapshot } from "@kilocode/sdk/v2/client"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Card, CardActions, CardDescription, CardHeader, CardTitle } from "@kilocode/kilo-ui/card"
-import { KiloPassMeter } from "@kilocode/kilo-ui/kilo-pass-meter"
-import { Progress } from "@kilocode/kilo-ui/progress"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
-import { Tag } from "@kilocode/kilo-ui/tag"
+import { Button } from "@codem/ui/components/button"
+import { Card, CardActions, CardDescription, CardHeader, CardTitle } from "@codem/ui/components/card"
+import { PassMeter } from "@codem/ui/components/pass-meter"
+import { Progress } from "@codem/ui/components/progress"
+import { Spinner } from "@codem/ui/components/spinner"
+import { Tag } from "@codem/ui/components/tag"
 import { useLanguage } from "../../context/language"
 import { localeToBcp47 } from "../../context/language-utils"
 import { formatWindow, windowLabel, windowProgress } from "@kilocode/kilo-gateway/provider-usage"
@@ -217,7 +217,7 @@ const KiloPassCard: Component<{
       >
         {(pass) => (
           <div class="provider-usage-resources">
-            <KiloPassMeter
+            <PassMeter
               used={pass().currentPeriodUsageUsd}
               paid={pass().currentPeriodBaseCreditsUsd}
               bonus={pass().currentPeriodBonusCreditsUsd}

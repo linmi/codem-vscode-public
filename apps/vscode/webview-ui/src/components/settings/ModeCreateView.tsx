@@ -1,8 +1,8 @@
 import { Component, Show, createSignal } from "solid-js"
-import { TextField } from "@kilocode/kilo-ui/text-field"
-import { Card } from "@kilocode/kilo-ui/card"
-import { Button } from "@kilocode/kilo-ui/button"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
+import { TextField } from "@codem/ui/components/text-field"
+import { Card } from "@codem/ui/components/card"
+import { Button } from "@codem/ui/components/button"
+import { IconButton } from "@codem/ui/components/icon-button"
 
 import { useConfig } from "../../context/config"
 import { useLanguage } from "../../context/language"
@@ -67,7 +67,7 @@ const ModeCreateView: Component<Props> = (props) => {
     <div>
       <div style={{ display: "flex", "align-items": "center", "margin-bottom": "16px" }}>
         <IconButton size="small" variant="ghost" icon="arrow-left" onClick={cancel} />
-        <span style={{ "font-weight": "600", "font-size": "var(--kilo-font-size-14)", "margin-left": "8px" }}>
+        <span style={{ "font-weight": "600", "font-size": "var(--codem-font-size-14)", "margin-left": "8px" }}>
           {language.t("settings.agentBehaviour.createMode")}
         </span>
       </div>
@@ -90,7 +90,7 @@ const ModeCreateView: Component<Props> = (props) => {
           <Show when={error()}>
             <div
               style={{
-                "font-size": "var(--kilo-font-size-11)",
+                "font-size": "var(--codem-font-size-11)",
                 color: "var(--vscode-errorForeground)",
                 "margin-top": "4px",
               }}

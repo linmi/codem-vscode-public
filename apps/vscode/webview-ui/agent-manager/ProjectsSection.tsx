@@ -1,8 +1,8 @@
 /** @jsxImportSource solid-js */
 
 import { For, Show, untrack, type Accessor, type Component, type JSX } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
+import { Icon } from "@codem/ui/components/icon"
+import { IconButton } from "@codem/ui/components/icon-button"
 import type { LanguageContextValue } from "../src/context/language"
 import type { AgentProjectSnapshot } from "../src/types/messages"
 import { SidebarSectionHeader } from "./SidebarSectionHeader"

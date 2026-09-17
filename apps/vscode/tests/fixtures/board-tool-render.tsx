@@ -28,11 +28,11 @@ Object.assign(globalThis, {
 const { createSignal } = await import("solid-js")
 const { createStore } = await import("solid-js/store")
 const { render } = await import("solid-js/web")
-const { Part } = await import("@kilocode/kilo-ui/message-part")
-const { AgentAvatarPalette } = await import("@kilocode/kilo-ui/agent-avatar")
-const { BoardMessage, BoardRoute } = await import("@kilocode/kilo-ui/board-message")
-const { BoardNavigationProvider } = await import("@kilocode/kilo-ui/context/board-navigation")
-const { MarkedProvider, createMarkedParser } = await import("@kilocode/kilo-ui/context/marked")
+const { Part } = await import("@codem/ui/components/message-part")
+const { AgentAvatarPalette } = await import("@codem/ui/components/agent-avatar")
+const { BoardMessage, BoardRoute } = await import("@codem/ui/components/board-message")
+const { BoardNavigationProvider } = await import("@codem/ui/context/board-navigation")
+const { MarkedProvider, createMarkedParser } = await import("@codem/ui/context/marked")
 
 const labels = ["initial", "hidden", "latest", "reopened", "search", "search-updated"]
 const outputs = labels.map((label) =>

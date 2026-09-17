@@ -13,7 +13,7 @@ import { useConfig } from "./config"
 import { useVSCode } from "./vscode"
 import type { ExtensionMessage } from "../types/messages"
 import { applyFontSize, clampFontSize, readFontSize } from "../font-size"
-import { ToolApprovalVisibilityProvider } from "@kilocode/kilo-ui/message-part"
+import { ToolApprovalVisibilityProvider } from "@codem/ui/components/message-part"
 
 interface DisplayContextValue {
   reasoningAutoCollapse: Accessor<boolean>
@@ -73,7 +73,7 @@ export const DisplayProvider: ParentComponent = (props) => {
         autoApprovalReasonVisible,
       }}
     >
-      {/* Bridges the toggle into kilo-ui's generic gate so every tool render hides the line consistently. */}
+      {/* Bridges the toggle into @codem/ui's generic gate so every tool render hides the line consistently. */}
       <ToolApprovalVisibilityProvider value={autoApprovalReasonVisible}>
         {props.children}
       </ToolApprovalVisibilityProvider>

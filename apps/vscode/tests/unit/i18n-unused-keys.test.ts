@@ -11,15 +11,11 @@
  *
  * Covered pools:
  *   app           webview sidebar dict (webview-ui/src/i18n)
- *   kilo-i18n     shared webview overrides (packages/kilo-i18n)
  *   agent-manager agent manager webview dict
  *   cli-backend   extension server/remote dict
  *   host          extension host dict (autocomplete)
  *
- * The upstream @opencode-ai/ui dict (packages/legacy/opencode-ui/src/i18n) is intentionally
- * NOT covered: it is upstream-owned code where removals create merge
- * conflicts, and its keys may be consumed by upstream surfaces outside
- * this repo.
+ * Shared @codem/ui dictionaries are covered by the UI package itself.
  *
  * This is intentionally conservative: false "used" results are acceptable,
  * but a live key must never be classified as unused. A key counts as used
@@ -42,7 +38,6 @@ import { Glob } from "bun"
 import path from "node:path"
 
 import { dict as appEn } from "../../webview-ui/src/i18n/en"
-import { dict as kiloEn } from "../../../../packages/kilo-i18n/src/en"
 import { dict as amEn } from "../../webview-ui/agent-manager/i18n/en"
 import { dict as cliEn } from "../../src/services/cli-backend/i18n/en"
 import { dict as hostEn } from "../../src/services/i18n/en"
@@ -55,21 +50,13 @@ const VSCODE = path.join(REPO, "apps/vscode")
 // question flows), so those sources are scanned for webview pools too.
 const WEBVIEW_ROOTS = [
   VSCODE,
-  path.join(REPO, "packages/legacy/kilo-ui"),
+  path.join(REPO, "packages/ui"),
   path.join(REPO, "packages/opencode"),
   path.join(REPO, "packages/kilo-gateway"),
 ]
 
 const pools = [
   { name: "app", dict: appEn, roots: WEBVIEW_ROOTS, runtime: ["settings.providers.note."] },
-  // kilo-i18n also overrides upstream ui.* keys consumed by components in
-  // packages/legacy/opencode-ui/src (and the TUI), so those count as usage too.
-  {
-    name: "kilo-i18n",
-    dict: kiloEn,
-    roots: [...WEBVIEW_ROOTS, path.join(REPO, "packages/legacy/opencode-ui"), path.join(REPO, "packages/tui")],
-    runtime: ["plan.followup.", "snapshot.slowRepo.", "settings.providers.note."],
-  },
   { name: "agent-manager", dict: amEn, roots: WEBVIEW_ROOTS, runtime: ["agentManager.setup.error."] },
   { name: "cli-backend", dict: cliEn, roots: [VSCODE], runtime: [] },
   { name: "host", dict: hostEn, roots: [VSCODE], runtime: [] },

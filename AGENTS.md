@@ -10,7 +10,7 @@ This repository builds CodeM editor clients as a pnpm monorepo. The frozen Kilo 
 - Shared CodeM packages live under `packages/`.
 - Imported packages that remain necessary only for the Kilo baseline are transitional legacy dependencies. Do not add new CodeM behavior to them.
 - The VS Code shell, manifest, public commands, views, settings, task type, visible product copy, and distributable filename use the CodeM brand and `codem.*` namespace. Legacy Kilo names may remain only where they truthfully identify the imported runtime, protocol, migration inputs, or retained licensed source.
-- The VS Code webview is still SolidJS and has not yet been migrated to the React/shadcn target. Do not describe the current checkout as a finished CodeM extension.
+- The VS Code webview is SolidJS and imports shared components from `@codem/ui`. Do not describe the current checkout as a finished CodeM extension.
 - Online CLI 0.1.208 binds Core 0.8.37. `packages/app-server` owns that exact runtime pin, distributable artifact contract, and host protocol boundary. App Server responses currently omit the `jsonrpc` member; the package may accept only omission or the exact value `"2.0"`, must expose which shape was observed, and must reject every other value. Delete the omission exception when the pinned online runtime emits the field.
 - Work in one independently verifiable Cycle at a time. Do not combine unrelated dependency upgrades or speculative abstractions with a migration Cycle.
 
@@ -29,21 +29,19 @@ This repository builds CodeM editor clients as a pnpm monorepo. The frozen Kilo 
 ## Monorepo Layout
 
 - `apps/vscode/`: imported VS Code application and primary migration surface.
-- `apps/jetbrains/`: imported JetBrains application. It uses native IntelliJ UI; shadcn applies to web surfaces, not Swing/Jewel screens.
+- `apps/jetbrains/`: imported JetBrains application. It uses native IntelliJ UI; `@codem/ui` applies to web surfaces, not Swing/Jewel screens.
 - `packages/app-server/`: reusable Node-only CodeM Core version, platform resolution, extension staging, license, bundle-integrity, protocol, and lifecycle boundary. It may not depend on editor APIs, Electron, VS Code, or DOM APIs.
-- `packages/ui/`: CodeM React design-system source managed with shadcn.
-- `packages/legacy/kilo-ui/`: imported SolidJS Kilo components needed by the current VS Code baseline.
-- `packages/legacy/opencode-ui/`: imported SolidJS OpenCode primitives needed by the current VS Code and JetBrains baselines.
-- `packages/legacy/kilo-console/` and `packages/legacy/kilo-web-ui/`: imported CLI Console build inputs. They are retained only because the current CLI embeds them.
+- `packages/ui/`: CodeM Solid design-system source, including the absorbed OpenCode primitives and CLI Console widgets. VS Code webviews import it as `@codem/ui/components/*`.
+- `packages/legacy/console/`: imported CLI Console application (`@codem/console`). It imports shared widgets from `@codem/ui`.
 - `packages/opencode/`, `packages/sdk/js/`, and remaining Kilo/OpenCode packages: temporary build closure for the imported backend. Remove them when App Server migration has deleted their production consumers.
 - `pnpm-workspace.yaml`: workspace and catalog authority.
 - `pnpm-lock.yaml`: the only JavaScript dependency lockfile.
 
 ## UI Rules
 
-- New CodeM web UI uses React and components owned under `packages/ui/`, following the checked-in `components.json` and shadcn registry conventions.
+- New CodeM web UI uses SolidJS and components owned under `packages/ui/`.
 - Import shared UI through explicit exports such as `@codem/ui/components/button`; do not reach into another package's `src/` tree.
-- Do not add new product UI to the legacy Solid packages. During the approved React migration, update the complete webview entry point, callers, tests, styles, and build pipeline, then delete the superseded Solid dependencies. Do not keep two permanent UI systems.
+- Do not add new product UI to `packages/legacy`. Do not introduce shadcn, React webview, or a second design-system package.
 - Keep editor-specific adapters and VS Code theme integration in `apps/vscode`; keep reusable tokens and components in `packages/ui`.
 - Preserve keyboard access, focus visibility, reduced motion, high contrast, and VS Code Webview CSP.
 
@@ -66,7 +64,7 @@ When a migration Cycle touches one of these boundaries, update all production ca
 2. Distinguish current imported behavior, CodeM invariants, migration-only state, and unresolved product decisions.
 3. Preserve user changes in a dirty worktree. Do not discard or overwrite unrelated edits.
 4. Keep generated output and dependency directories out of source control.
-5. Preserve Kilo, OpenCode, shadcn, and third-party license notices for retained code.
+5. Preserve Kilo, OpenCode, and third-party license notices for retained code.
 6. Record material upstream intake and pruning in `UPSTREAM_KILOCODE.md`.
 7. Do not create commits or push unless the user explicitly requests it for the current task.
 

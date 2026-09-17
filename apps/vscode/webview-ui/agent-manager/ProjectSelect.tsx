@@ -3,7 +3,7 @@
 /** @jsxImportSource solid-js */
 
 import { For, Show, type Component } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
+import { Icon } from "@codem/ui/components/icon"
 import type { AgentProjectSnapshot } from "../src/types/messages"
 
 interface ProjectSelectProps {

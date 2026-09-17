@@ -25,7 +25,7 @@ Object.assign(globalThis, {
 })
 
 const { render } = await import("solid-js/web")
-const { BasicTool } = await import("@opencode-ai/ui/basic-tool")
+const { BasicTool } = await import("@codem/ui/components/basic-tool")
 
 const settle = async () => {
   await Promise.resolve()

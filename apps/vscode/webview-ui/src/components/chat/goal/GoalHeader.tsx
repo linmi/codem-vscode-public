@@ -1,6 +1,6 @@
 import { type Component } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Icon } from "@kilocode/kilo-ui/icon"
+import { Button } from "@codem/ui/components/button"
+import { Icon } from "@codem/ui/components/icon"
 import { useLanguage } from "../../../context/language"
 
 export const GoalHeader: Component<{ onCancel: () => void }> = (props) => {

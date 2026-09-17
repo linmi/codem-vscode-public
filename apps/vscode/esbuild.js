@@ -94,7 +94,7 @@ const cachedSolidPlugin = {
 }
 
 /**
- * Force all solid-js imports (from kilo-ui and the webview) to resolve to
+ * Force all solid-js imports (from @codem/ui and the webview) to resolve to
  * the **same** copy so SolidJS contexts are shared across packages.
  * Without this, the monorepo hoists separate copies (pnpm vs bun) and
  * createContext / useContext can't see each other.
@@ -144,7 +144,7 @@ const esbuildProblemMatcherPlugin = {
 }
 
 /**
- * Route the shared `@opencode-ai/ui/pierre/worker` module (and its relative
+ * Route the shared `@codem/ui/pierre/worker` module (and its relative
  * variants) to the Kilo implementation in `webview-ui/pierre-worker.ts`.
  *
  * The upstream module loads Pierre's Shiki worker via a Vite-only
@@ -329,8 +329,7 @@ function getMarkdownShikiWorkerConfig() {
         "..",
         "..",
         "packages",
-        "legacy",
-        "opencode-ui",
+        "ui",
         "src",
         "components",
         "markdown-shiki.worker.ts",

@@ -25,7 +25,7 @@ import { join } from "node:path"
  * `tests/webview-reactivity/growbox-perf.test.ts`.
  */
 describe("GrowBox ResizeObserver layout-read regression guard", () => {
-  const path = join(__dirname, "..", "..", "..", "kilo-ui", "src", "components", "grow-box.tsx")
+  const path = join(__dirname, "..", "..", "..", "..", "packages", "ui", "src", "components", "grow-box.tsx")
 
   // Strip single-line, block, and JSX block comments so assertions match
   // only live code.

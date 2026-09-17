@@ -1,7 +1,7 @@
 /** @jsxImportSource solid-js */
 import { For, Show, createSignal } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Icon } from "@codem/ui/components/icon"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import type { PRReviewer, ReviewerState } from "./pr-types"
 import { PRAvatar } from "./PRAvatar"
 import { SectionHeading } from "./SectionHeading"

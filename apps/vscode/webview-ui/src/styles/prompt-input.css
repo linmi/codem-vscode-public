@@ -65,7 +65,7 @@
 
 .prompt-review-comments-title {
   flex-shrink: 0;
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   font-weight: 600;
   color: var(--vscode-foreground);
 }
@@ -73,7 +73,7 @@
 /* The file summary is the first thing to give up room in a narrow sidebar. */
 .prompt-review-comments-meta {
   min-width: 0;
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   color: var(--text-weaker, var(--vscode-descriptionForeground));
   white-space: nowrap;
   overflow: hidden;
@@ -89,7 +89,7 @@
   min-height: 20px;
   height: 20px;
   padding: 0 6px;
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
 }
 
 .prompt-review-list {
@@ -165,7 +165,7 @@
 
 .prompt-review-row-label {
   min-width: 0;
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   font-weight: 600;
   color: var(--vscode-foreground);
   white-space: nowrap;
@@ -176,7 +176,7 @@
 .prompt-review-row-line,
 .prompt-review-row-author {
   flex-shrink: 0;
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   font-weight: 600;
   color: var(--text-weak, var(--vscode-descriptionForeground));
 }
@@ -186,13 +186,13 @@
   padding: 0 4px;
   border-radius: 4px;
   background: var(--surface-inset-base-hover, rgba(127, 127, 127, 0.2));
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   color: var(--text-weak, var(--vscode-descriptionForeground));
   white-space: nowrap;
 }
 
 .prompt-review-row-preview {
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   line-height: 1.35;
   color: var(--vscode-foreground);
   display: -webkit-box;
@@ -227,13 +227,13 @@
 
 .prompt-review-row-path {
   font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   color: var(--text-weaker, var(--vscode-descriptionForeground));
   overflow-wrap: anywhere;
 }
 
 .prompt-review-row-text {
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   line-height: 1.4;
   color: var(--vscode-foreground);
   white-space: pre-wrap;
@@ -246,7 +246,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   line-height: 1.4;
 }
 
@@ -261,7 +261,7 @@
 }
 
 .prompt-review-row-text :where(code) {
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
 }
 
 .prompt-review-row-snippet {
@@ -271,7 +271,7 @@
   border: 1px solid var(--vscode-panel-border);
   background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
   font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   line-height: 1.35;
   max-height: 160px;
   overflow: auto;
@@ -289,7 +289,7 @@
   align-self: flex-start;
   padding: 2px 4px;
   border-radius: 4px;
-  font-size: var(--kilo-font-size-10);
+  font-size: var(--codem-font-size-10);
   font-weight: 600;
   color: var(--text-weak, var(--vscode-descriptionForeground));
   cursor: pointer;
@@ -451,7 +451,7 @@
   flex-wrap: nowrap;
   align-items: flex-start;
   gap: 8px;
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   color: var(--vscode-descriptionForeground);
   padding: 6px;
 }
@@ -483,7 +483,7 @@
   }
 
   [data-slot="settings-row-label-subtitle"] {
-    font-size: var(--kilo-font-size-12);
+    font-size: var(--codem-font-size-12);
     color: var(--text-weak-base, var(--vscode-descriptionForeground));
   }
 }
@@ -496,7 +496,7 @@
 }
 
 [data-slot="remote-settings-label"] {
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   color: var(--text-weak);
   white-space: nowrap;
 }
@@ -508,7 +508,7 @@
 }
 
 [data-slot="remote-settings-status"] {
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   font-weight: 500;
   color: var(--text-weak);
 }
@@ -518,7 +518,7 @@
 }
 
 [data-slot="remote-settings-hint"] {
-  font-size: var(--kilo-font-size-11);
+  font-size: var(--codem-font-size-11);
   color: var(--text-weak);
   opacity: 0.7;
   font-style: italic;

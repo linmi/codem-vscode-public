@@ -1,6 +1,6 @@
 import { Component, Show, onMount } from "solid-js"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { useTranscriptSearch } from "../../context/transcript-search"
 import { useLanguage } from "../../context/language"
 

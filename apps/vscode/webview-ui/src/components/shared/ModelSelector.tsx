@@ -1,7 +1,7 @@
 /**
  * ModelSelector component
  * Popover-based selector for choosing a provider/model in the chat prompt area.
- * Uses kilo-ui Popover component (Phase 4.5 of UI implementation plan).
+ * Uses @codem/ui Popover (Phase 4.5 of UI implementation plan).
  *
  * ModelSelectorBase — reusable core that accepts value/onSelect props.
  * ModelSelector    — thin wrapper wired to session context for chat usage.
@@ -21,10 +21,10 @@ import {
 import type { Accessor, Component } from "solid-js"
 import { Virtualizer, type VirtualizerHandle } from "virtua/solid"
 import { PopupSelector } from "./PopupSelector"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Tag } from "@kilocode/kilo-ui/tag"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Button } from "@codem/ui/components/button"
+import { Tag } from "@codem/ui/components/tag"
+import { Icon } from "@codem/ui/components/icon"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { useProvider } from "../../context/provider"
 import type { EnrichedModel } from "../../context/provider"
 import { useSession, SessionContext } from "../../context/session"
@@ -1040,7 +1040,7 @@ export const ModelSelector: Component<ModelSelectorProps> = (props) => {
     <ModelSelectorBase
       value={session.selected(id())}
       blocked={props.blocked}
-      hideWhenSingle
+      // Always show the resolved default, including a single Core catalog model.
       onSelect={(providerID, modelID) => {
         session.selectModel(providerID, modelID, id())
       }}

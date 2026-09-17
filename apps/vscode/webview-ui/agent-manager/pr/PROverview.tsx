@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 import { Show } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
+import { Icon } from "@codem/ui/components/icon"
 import type { WorktreeState } from "../../src/types/messages"
 import type { PRStatus } from "../../src/types/messages"
 

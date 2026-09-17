@@ -1,26 +1,26 @@
 /** @jsxImportSource solid-js */
 import type { Preview, SolidRenderer } from "storybook-solidjs-vite"
 import type { DecoratorFunction } from "storybook/internal/types"
-// Reference kilo-ui stories helpers directly — not exported via package.json
-import { applyKiloTheme, applyVscodeTheme, clearVscodeTheme } from "../../kilo-ui/src/stories/theme-decorator"
-import "../../kilo-ui/.storybook/fonts.css"
-import "@kilocode/kilo-ui/styles"
+// Theme helpers live in @codem/ui stories; they are not package exports.
+import { applyDesktopTheme, applyVscodeTheme, clearVscodeTheme } from "../../../packages/ui/src/stories/theme-decorator"
+import "../../../packages/ui/.storybook/fonts.css"
+import "@codem/ui/styles"
 import "../webview-ui/src/styles/chat.css"
 
 // Make the Kilo logo available in Storybook (normally injected by the extension host)
 ;(window as { ICONS_BASE_URI?: string }).ICONS_BASE_URI = "/icons"
 
 const themeDecorator: DecoratorFunction<SolidRenderer> = (Story, context) => {
-  const themeId = (context.globals["theme"] as string) ?? "kilo-vscode"
+  const themeId = (context.globals["theme"] as string) ?? "codem-vscode"
   const vscodeThemeId = (context.globals["vscodeTheme"] as string) ?? "dark-modern"
 
   const colorScheme = (() => {
-    if (themeId === "kilo-vscode") return applyVscodeTheme(vscodeThemeId)
+    if (themeId === "codem-vscode") return applyVscodeTheme(vscodeThemeId)
     clearVscodeTheme()
     return (context.globals["colorScheme"] as "light" | "dark") ?? "dark"
   })()
 
-  applyKiloTheme(themeId, colorScheme)
+  applyDesktopTheme(themeId, colorScheme)
   document.body.style.background = "var(--background-base)"
   document.body.style.color = "var(--text-base)"
   return Story()
@@ -44,8 +44,8 @@ const preview: Preview = {
         title: "Theme",
         icon: "paintbrush",
         items: [
-          { value: "kilo-vscode", title: "Kilo VSCode" },
-          { value: "kilo", title: "Kilo" },
+          { value: "codem-vscode", title: "CodeM VS Code" },
+          { value: "codem", title: "CodeM" },
         ],
         dynamicTitle: true,
       },
@@ -79,7 +79,7 @@ const preview: Preview = {
     },
   },
   initialGlobals: {
-    theme: "kilo-vscode",
+    theme: "codem-vscode",
     colorScheme: "dark",
     vscodeTheme: "dark-modern",
     a11y: { manual: true },

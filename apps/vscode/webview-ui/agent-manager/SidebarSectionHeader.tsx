@@ -1,5 +1,5 @@
 import { Show, type Component, type JSX } from "solid-js"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
+import { IconButton } from "@codem/ui/components/icon-button"
 
 interface Props {
   label: JSX.Element

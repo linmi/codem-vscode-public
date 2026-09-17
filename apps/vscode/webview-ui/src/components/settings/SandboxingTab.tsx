@@ -1,9 +1,9 @@
 import { Component, For, createMemo, createSignal } from "solid-js"
-import { Card } from "@kilocode/kilo-ui/card"
-import { Switch } from "@kilocode/kilo-ui/switch"
-import { TextField } from "@kilocode/kilo-ui/text-field"
-import { Button } from "@kilocode/kilo-ui/button"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
+import { Card } from "@codem/ui/components/card"
+import { Switch } from "@codem/ui/components/switch"
+import { TextField } from "@codem/ui/components/text-field"
+import { Button } from "@codem/ui/components/button"
+import { IconButton } from "@codem/ui/components/icon-button"
 import { useConfig } from "../../context/config"
 import { useLanguage } from "../../context/language"
 import SettingsRow from "./SettingsRow"
@@ -172,7 +172,7 @@ const SandboxingTab: Component = () => {
                   <span
                     style={{
                       "font-family": "var(--vscode-editor-font-family, monospace)",
-                      "font-size": "var(--kilo-font-size-12)",
+                      "font-size": "var(--codem-font-size-12)",
                     }}
                   >
                     {host}
@@ -241,7 +241,7 @@ const SandboxingTab: Component = () => {
                   <span
                     style={{
                       "font-family": "var(--vscode-editor-font-family, monospace)",
-                      "font-size": "var(--kilo-font-size-12)",
+                      "font-size": "var(--codem-font-size-12)",
                     }}
                   >
                     {path}

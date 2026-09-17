@@ -1,4 +1,4 @@
-// CodeM-specific replacement for the shared `@opencode-ai/ui/pierre/worker`
+// CodeM-specific replacement for the shared `@codem/ui/pierre/worker`
 // module (wired up by the pierre-worker-alias plugin in esbuild.js).
 //
 // The upstream module loads Pierre's Shiki worker through a Vite-only
@@ -12,16 +12,16 @@
 // the page. Pierre can offload highlighted updates to the pool after its initial
 // plain render. The diff wrapper still needs to keep that initial render cheap,
 // which is why review surfaces pass hunk-bounded patches instead of full files.
-import { LINE_DIFF_TYPE } from "@kilocode/kilo-ui/pierre"
+import { LINE_DIFF_TYPE } from "@codem/ui/pierre"
 import { WorkerPoolManager } from "@pierre/diffs/worker"
-import { ensureKiloDiffTheme, KILO_DIFF_THEME } from "@opencode-ai/ui/pierre/kilo-diff-theme"
+import { ensureDiffTheme, DIFF_THEME } from "@codem/ui/pierre/diff-theme"
 
 // Register the "CodeM" theme before any pool initializes. resolveThemes([theme])
 // runs on the main thread during initialize() and throws "resolveTheme: No valid
 // loader for CodeM" if the theme name was never registered. Registering here makes
 // the worker self-sufficient rather than depending on the markdown context module
 // having been imported first.
-ensureKiloDiffTheme()
+ensureDiffTheme()
 
 export type WorkerPoolStyle = "unified" | "split"
 
@@ -45,7 +45,7 @@ export function workerFactory(): Worker {
 function createPool() {
   const pool = new WorkerPoolManager(
     { workerFactory, poolSize: 2 },
-    { theme: KILO_DIFF_THEME, lineDiffType: LINE_DIFF_TYPE, preferredHighlighter: ENGINE },
+    { theme: DIFF_THEME, lineDiffType: LINE_DIFF_TYPE, preferredHighlighter: ENGINE },
   )
   void pool.initialize().catch((err) => console.warn("[CodeM New] Failed to initialize Pierre worker pool", err))
   return pool

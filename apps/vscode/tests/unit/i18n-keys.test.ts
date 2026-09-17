@@ -6,7 +6,7 @@
  * 2. Ensures every English key has a translation in all other locale files.
  *
  * Three independent key pools are checked:
- *   - Webview (sidebar + agent manager): merged from app, ui, kilo-i18n, agent-manager dicts
+ *   - Webview (sidebar + agent manager): merged from app, ui, agent-manager dicts
  *   - CLI backend (extension-side server-manager): cli-backend/i18n dict
  *   - Extension host: services/i18n aggregate dict
  *
@@ -43,51 +43,29 @@ import { dict as appUk } from "../../webview-ui/src/i18n/uk"
 import { dict as appIt } from "../../webview-ui/src/i18n/it"
 import { dict as appFa } from "../../webview-ui/src/i18n/fa"
 
-// Layer 2: upstream UI (@opencode-ai/ui re-exported via @kilocode/kilo-ui)
-import { dict as uiEn } from "../../../../packages/legacy/opencode-ui/src/i18n/en"
-import { dict as uiZh } from "../../../../packages/legacy/opencode-ui/src/i18n/zh"
-import { dict as uiZht } from "../../../../packages/legacy/opencode-ui/src/i18n/zht"
-import { dict as uiKo } from "../../../../packages/legacy/opencode-ui/src/i18n/ko"
-import { dict as uiDe } from "../../../../packages/legacy/opencode-ui/src/i18n/de"
-import { dict as uiEs } from "../../../../packages/legacy/opencode-ui/src/i18n/es"
-import { dict as uiFr } from "../../../../packages/legacy/opencode-ui/src/i18n/fr"
-import { dict as uiDa } from "../../../../packages/legacy/opencode-ui/src/i18n/da"
-import { dict as uiJa } from "../../../../packages/legacy/opencode-ui/src/i18n/ja"
-import { dict as uiPl } from "../../../../packages/legacy/opencode-ui/src/i18n/pl"
-import { dict as uiRu } from "../../../../packages/legacy/opencode-ui/src/i18n/ru"
-import { dict as uiAr } from "../../../../packages/legacy/opencode-ui/src/i18n/ar"
-import { dict as uiNo } from "../../../../packages/legacy/opencode-ui/src/i18n/no"
-import { dict as uiBr } from "../../../../packages/legacy/opencode-ui/src/i18n/br"
-import { dict as uiTh } from "../../../../packages/legacy/opencode-ui/src/i18n/th"
-import { dict as uiBs } from "../../../../packages/legacy/opencode-ui/src/i18n/bs"
-import { dict as uiTr } from "../../../../packages/legacy/opencode-ui/src/i18n/tr"
-import { dict as uiNl } from "../../../../packages/legacy/opencode-ui/src/i18n/nl"
-import { dict as uiUk } from "../../../../packages/legacy/opencode-ui/src/i18n/uk"
-import { dict as uiIt } from "../../../../packages/legacy/opencode-ui/src/i18n/it"
+// Layer 2: shared UI dictionaries now owned by @codem/ui
+import { dict as uiEn } from "../../../../packages/ui/src/i18n/en"
+import { dict as uiZh } from "../../../../packages/ui/src/i18n/zh"
+import { dict as uiZht } from "../../../../packages/ui/src/i18n/zht"
+import { dict as uiKo } from "../../../../packages/ui/src/i18n/ko"
+import { dict as uiDe } from "../../../../packages/ui/src/i18n/de"
+import { dict as uiEs } from "../../../../packages/ui/src/i18n/es"
+import { dict as uiFr } from "../../../../packages/ui/src/i18n/fr"
+import { dict as uiDa } from "../../../../packages/ui/src/i18n/da"
+import { dict as uiJa } from "../../../../packages/ui/src/i18n/ja"
+import { dict as uiPl } from "../../../../packages/ui/src/i18n/pl"
+import { dict as uiRu } from "../../../../packages/ui/src/i18n/ru"
+import { dict as uiAr } from "../../../../packages/ui/src/i18n/ar"
+import { dict as uiNo } from "../../../../packages/ui/src/i18n/no"
+import { dict as uiBr } from "../../../../packages/ui/src/i18n/br"
+import { dict as uiTh } from "../../../../packages/ui/src/i18n/th"
+import { dict as uiBs } from "../../../../packages/ui/src/i18n/bs"
+import { dict as uiTr } from "../../../../packages/ui/src/i18n/tr"
+import { dict as uiNl } from "../../../../packages/ui/src/i18n/nl"
+import { dict as uiUk } from "../../../../packages/ui/src/i18n/uk"
+import { dict as uiIt } from "../../../../packages/ui/src/i18n/it"
 
-// Layer 3: kilo-i18n overrides
-import { dict as kiloEn } from "../../../../packages/kilo-i18n/src/en"
-import { dict as kiloZh } from "../../../../packages/kilo-i18n/src/zh"
-import { dict as kiloZht } from "../../../../packages/kilo-i18n/src/zht"
-import { dict as kiloKo } from "../../../../packages/kilo-i18n/src/ko"
-import { dict as kiloDe } from "../../../../packages/kilo-i18n/src/de"
-import { dict as kiloEs } from "../../../../packages/kilo-i18n/src/es"
-import { dict as kiloFr } from "../../../../packages/kilo-i18n/src/fr"
-import { dict as kiloDa } from "../../../../packages/kilo-i18n/src/da"
-import { dict as kiloJa } from "../../../../packages/kilo-i18n/src/ja"
-import { dict as kiloPl } from "../../../../packages/kilo-i18n/src/pl"
-import { dict as kiloRu } from "../../../../packages/kilo-i18n/src/ru"
-import { dict as kiloAr } from "../../../../packages/kilo-i18n/src/ar"
-import { dict as kiloNo } from "../../../../packages/kilo-i18n/src/no"
-import { dict as kiloBr } from "../../../../packages/kilo-i18n/src/br"
-import { dict as kiloTh } from "../../../../packages/kilo-i18n/src/th"
-import { dict as kiloBs } from "../../../../packages/kilo-i18n/src/bs"
-import { dict as kiloTr } from "../../../../packages/kilo-i18n/src/tr"
-import { dict as kiloNl } from "../../../../packages/kilo-i18n/src/nl"
-import { dict as kiloUk } from "../../../../packages/kilo-i18n/src/uk"
-import { dict as kiloIt } from "../../../../packages/kilo-i18n/src/it"
-
-// Layer 4: agent manager (locale alignment already tested in agent-manager-i18n-split.test.ts)
+// Layer 3: agent manager (locale alignment already tested in agent-manager-i18n-split.test.ts)
 import { dict as amEn } from "../../webview-ui/agent-manager/i18n/en"
 import { dict as amTr } from "../../webview-ui/agent-manager/i18n/tr"
 import { dict as amNl } from "../../webview-ui/agent-manager/i18n/nl"
@@ -167,29 +145,6 @@ const appLocales: Record<string, Record<string, string>> = {
   fa: appFa,
 }
 
-const kiloLocales: Record<string, Record<string, string>> = {
-  en: kiloEn,
-  zh: kiloZh,
-  zht: kiloZht,
-  ko: kiloKo,
-  de: kiloDe,
-  es: kiloEs,
-  fr: kiloFr,
-  da: kiloDa,
-  ja: kiloJa,
-  pl: kiloPl,
-  ru: kiloRu,
-  ar: kiloAr,
-  no: kiloNo,
-  br: kiloBr,
-  th: kiloTh,
-  bs: kiloBs,
-  tr: kiloTr,
-  nl: kiloNl,
-  uk: kiloUk,
-  it: kiloIt,
-}
-
 const uiLocales: Record<string, Record<string, string>> = {
   en: uiEn,
   zh: uiZh,
@@ -262,7 +217,7 @@ const hostLocales: Record<string, Record<string, string>> = {
 }
 
 // Merge webview dictionaries in the same priority order as language.tsx
-const webviewKeys = new Set(Object.keys({ ...appEn, ...uiEn, ...kiloEn, ...amEn }))
+const webviewKeys = new Set(Object.keys({ ...appEn, ...uiEn, ...amEn }))
 const cliKeys = new Set(Object.keys(cliEn))
 const hostKeys = new Set(Object.keys(hostEn))
 
@@ -461,17 +416,6 @@ describe("i18n locale completeness — every English key exists in all locales",
       expect(
         missing,
         `Found ${missing.length} missing sidebar translation(s):\n${formatLocaleReport(missing)}`,
-      ).toEqual([])
-    }
-    expect(missing).toEqual([])
-  })
-
-  it("kilo-i18n: every English key has a translation in all locales", () => {
-    const missing = findMissingLocaleKeys(kiloEn, kiloLocales)
-    if (missing.length > 0) {
-      expect(
-        missing,
-        `Found ${missing.length} missing kilo-i18n translation(s):\n${formatLocaleReport(missing)}`,
       ).toEqual([])
     }
     expect(missing).toEqual([])

@@ -1,6 +1,6 @@
 import { type Component, createSignal, createMemo, For, Show, onMount } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Icon } from "@codem/ui/components/icon"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { useProvider } from "../src/context/provider"
 import type { EnrichedModel } from "../src/context/provider"
 import { useLanguage } from "../src/context/language"

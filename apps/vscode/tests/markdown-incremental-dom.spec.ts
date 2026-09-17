@@ -3,7 +3,7 @@ import { build } from "esbuild"
 import { fileURLToPath } from "node:url"
 
 const source = fileURLToPath(
-  new URL("../../../packages/legacy/opencode-ui/src/kilocode/markdown-incremental-dom.ts", import.meta.url),
+  new URL("../../../packages/ui/src/markdown/markdown-incremental-dom.ts", import.meta.url),
 )
 const bundle = await build({
   stdin: {

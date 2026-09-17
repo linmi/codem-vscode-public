@@ -1,5 +1,5 @@
 import { For } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
+import { Icon } from "@codem/ui/components/icon"
 import { useLanguage } from "../../src/context/language"
 import { WorktreeItem } from "../WorktreeItem"
 

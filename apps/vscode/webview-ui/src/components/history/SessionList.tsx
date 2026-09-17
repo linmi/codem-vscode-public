@@ -1,17 +1,17 @@
 /**
  * SessionList component
  * Displays all sessions grouped by date, with context menu for rename/delete.
- * Uses kilo-ui List component for keyboard navigation and accessibility.
+ * Uses @codem/ui List for keyboard navigation and accessibility.
  * Header/back button are owned by the parent HistoryView.
  */
 
 import { Component, Show, createMemo, createSignal, onMount, type Accessor, type JSX } from "solid-js"
-import { List } from "@kilocode/kilo-ui/list"
-import { ContextMenu } from "@kilocode/kilo-ui/context-menu"
-import { Dialog } from "@kilocode/kilo-ui/dialog"
-import { Button } from "@kilocode/kilo-ui/button"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
+import { List } from "@codem/ui/components/list"
+import { ContextMenu } from "@codem/ui/components/context-menu"
+import { Dialog } from "@codem/ui/components/dialog"
+import { Button } from "@codem/ui/components/button"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { useDialog } from "@codem/ui/context/dialog"
 import { useSession } from "../../context/session"
 import { useLanguage } from "../../context/language"
 import { formatRelativeDate } from "../../utils/date"

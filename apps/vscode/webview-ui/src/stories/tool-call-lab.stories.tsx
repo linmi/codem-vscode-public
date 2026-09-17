@@ -25,7 +25,7 @@ import { ServerContext } from "../context/server"
 import { SessionContext } from "../context/session"
 import type { TranscriptDiffRow } from "../context/transcript-rows"
 import type { PermissionRequest, QuestionRequest, SuggestionRequest } from "../types/messages"
-import { writeToolOpen } from "../../../../../packages/legacy/kilo-ui/src/components/tool-open-state"
+import { writeToolOpen } from "../../../../../packages/ui/src/components/tool-open-state"
 
 registerExpandedTaskTool()
 registerVscodeToolOverrides()
@@ -53,8 +53,8 @@ const base: SDKAssistantMessage = {
 }
 
 const hits = [
-  'packages/legacy/kilo-ui/src/components/message-part.tsx:1847: <div data-component="tool-output">',
-  'packages/legacy/kilo-ui/src/components/basic-tool.css:250: [data-component="tool-output"]',
+  'packages/ui/src/components/message-part.tsx:1847: <div data-component="tool-output">',
+  'packages/ui/src/components/basic-tool.css:250: [data-component="tool-output"]',
   "apps/vscode/webview-ui/src/components/chat/VscodeToolOverrides.tsx:141: background process output",
 ].join("\n")
 
@@ -158,8 +158,8 @@ function done(
 
 const gapPatch = [
   "===================================================================",
-  "--- packages/legacy/kilo-ui/src/components/message-part.css",
-  "+++ packages/legacy/kilo-ui/src/components/message-part.css",
+  "--- packages/ui/src/components/message-part.css",
+  "+++ packages/ui/src/components/message-part.css",
   "@@ -560,5 +560,5 @@",
   ' html[data-theme="codem-vscode"] [data-component="reasoning-part"] {',
   '   [data-component="collapsible"].tool-collapsible {',
@@ -323,11 +323,11 @@ const permissions: PermissionRequest[] = [
     id: "matrix-permission-edit",
     sessionID: SID,
     toolName: "edit",
-    patterns: ["packages/legacy/kilo-ui/src/components/message-part.css"],
-    always: ["packages/legacy/kilo-ui/src/components/*"],
+    patterns: ["packages/ui/src/components/message-part.css"],
+    always: ["packages/ui/src/components/*"],
     args: {
       filediff: {
-        file: "packages/legacy/kilo-ui/src/components/message-part.css",
+        file: "packages/ui/src/components/message-part.css",
         patch: gapPatch,
         additions: 1,
         deletions: 1,
@@ -369,7 +369,7 @@ const blocks: SDKPart[] = [
   done(
     "read",
     "read",
-    { filePath: "packages/legacy/kilo-ui/src/components/message-part.tsx", offset: 1788, limit: 80 },
+    { filePath: "packages/ui/src/components/message-part.tsx", offset: 1788, limit: 80 },
     "Read tool renderers",
   ),
   done(
@@ -385,7 +385,7 @@ const blocks: SDKPart[] = [
   done(
     "grep",
     "grep",
-    { pattern: "tool-collapsible", include: "*.css", path: "packages/legacy/kilo-ui/src/components" },
+    { pattern: "tool-collapsible", include: "*.css", path: "packages/ui/src/components" },
     "Find gaps",
     hits,
   ),
@@ -414,7 +414,7 @@ const blocks: SDKPart[] = [
   tool("matrix-edit", "matrix-call-edit", "edit", {
     status: "completed",
     input: {
-      filePath: "packages/legacy/kilo-ui/src/components/message-part.css",
+      filePath: "packages/ui/src/components/message-part.css",
       oldString: "gap: 4px;",
       newString: "gap: 8px;",
     },
@@ -422,13 +422,13 @@ const blocks: SDKPart[] = [
     title: "Edit reasoning gap",
     metadata: {
       filediff: {
-        file: "packages/legacy/kilo-ui/src/components/message-part.css",
+        file: "packages/ui/src/components/message-part.css",
         patch: gapPatch,
         additions: 1,
         deletions: 1,
       },
       diagnostics: {
-        "/project/packages/legacy/kilo-ui/src/components/message-part.css": [
+        "/project/packages/ui/src/components/message-part.css": [
           {
             severity: 2,
             message: "Verify spacing token consistency",
@@ -471,15 +471,15 @@ const blocks: SDKPart[] = [
     status: "completed",
     input: {
       patchText:
-        "*** Begin Patch\n*** Update File: packages/legacy/kilo-ui/src/components/message-part.css\n@@\n-gap: 4px;\n+gap: 8px;\n*** End Patch",
+        "*** Begin Patch\n*** Update File: packages/ui/src/components/message-part.css\n@@\n-gap: 4px;\n+gap: 8px;\n*** End Patch",
     },
     output: "",
     title: "Patch three files",
     metadata: {
       files: [
         {
-          filePath: "/project/packages/legacy/kilo-ui/src/components/message-part.css",
-          relativePath: "packages/legacy/kilo-ui/src/components/message-part.css",
+          filePath: "/project/packages/ui/src/components/message-part.css",
+          relativePath: "packages/ui/src/components/message-part.css",
           type: "update",
           patch: gapPatch,
           diff: gapPatch,
@@ -787,19 +787,19 @@ const blocks: SDKPart[] = [
     "repo_overview",
     { path: "/project", depth: 2 },
     "Inspect repository",
-    "Repository structure:\npackages/\n  codem-vscode/\n  kilo-ui/",
+    "Repository structure:\npackages/\n  vscode/\n  ui/",
     { ecosystems: ["TypeScript"], dependency_files: ["package.json"], depth: 2, truncated: false },
   ),
   done(
     "semantic-search",
     "semantic_search",
-    { query: "tool renderer selection", path: "packages/legacy/kilo-ui" },
+    { query: "tool renderer selection", path: "packages/ui" },
     "Semantic code search",
-    "Found 1 result in packages/legacy/kilo-ui/src/components/message-part.tsx",
+    "Found 1 result in packages/ui/src/components/message-part.tsx",
     {
       results: [
         {
-          filePath: "packages/legacy/kilo-ui/src/components/message-part.tsx",
+          filePath: "packages/ui/src/components/message-part.tsx",
           score: 0.92,
           startLine: 1210,
           endLine: 1220,
@@ -844,13 +844,13 @@ const blocks: SDKPart[] = [
     "codesearch",
     { query: "tool renderer selection" },
     "Legacy code search",
-    "https://github.com/Kilo-Org/kilocode/blob/main/packages/legacy/kilo-ui/src/components/message-part.tsx",
+    "https://github.com/Kilo-Org/kilocode/blob/main/packages/ui/src/components/message-part.tsx",
   ),
   tool(
     "matrix-tool-hint",
     "matrix-call-tool-hint",
     "edit",
-    failed({ filePath: "packages/legacy/kilo-ui/src/components/message-part.css" }, "oldString and newString are identical"),
+    failed({ filePath: "packages/ui/src/components/message-part.css" }, "oldString and newString are identical"),
   ),
   tool(
     "matrix-tool-error",

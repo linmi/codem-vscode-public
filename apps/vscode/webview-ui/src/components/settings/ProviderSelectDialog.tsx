@@ -1,8 +1,8 @@
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
-import { Dialog } from "@kilocode/kilo-ui/dialog"
-import { List } from "@kilocode/kilo-ui/list"
-import { ProviderIcon } from "@kilocode/kilo-ui/provider-icon"
-import { Tag } from "@kilocode/kilo-ui/tag"
+import { useDialog } from "@codem/ui/context/dialog"
+import { Dialog } from "@codem/ui/components/dialog"
+import { List } from "@codem/ui/components/list"
+import { ProviderIcon } from "@codem/ui/components/provider-icon"
+import { Tag } from "@codem/ui/components/tag"
 import { Show, createMemo } from "solid-js"
 import { useConfig } from "../../context/config"
 import { useLanguage } from "../../context/language"
@@ -124,8 +124,8 @@ const ProviderSelectDialog = () => {
             >
               <span
                 style={{
-                  "font-size": "var(--kilo-font-size-14)",
-                  "line-height": "var(--kilo-font-size-20)",
+                  "font-size": "var(--codem-font-size-14)",
+                  "line-height": "var(--codem-font-size-20)",
                   color: "var(--vscode-foreground)",
                 }}
               >

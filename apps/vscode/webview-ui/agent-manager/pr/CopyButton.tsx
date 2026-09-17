@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 import { createSignal } from "solid-js"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
+import { IconButton } from "@codem/ui/components/icon-button"
 import { useVSCode } from "../../src/context/vscode"
 
 export function CopyButton(props: { text: string; label?: string; class?: string }) {

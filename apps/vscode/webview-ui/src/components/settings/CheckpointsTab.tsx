@@ -1,6 +1,6 @@
 import { Component } from "solid-js"
-import { Switch } from "@kilocode/kilo-ui/switch"
-import { Card } from "@kilocode/kilo-ui/card"
+import { Switch } from "@codem/ui/components/switch"
+import { Card } from "@codem/ui/components/card"
 import { useConfig } from "../../context/config"
 import { useLanguage } from "../../context/language"
 import SettingsRow from "./SettingsRow"

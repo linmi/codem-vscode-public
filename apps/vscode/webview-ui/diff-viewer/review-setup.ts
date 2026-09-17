@@ -1,4 +1,4 @@
-import type { UiI18nParams } from "@kilocode/kilo-ui/context"
+import type { UiI18nParams } from "@codem/ui/context"
 type T = (key: string, params?: UiI18nParams) => string
 
 const notices: Record<string, string> = {

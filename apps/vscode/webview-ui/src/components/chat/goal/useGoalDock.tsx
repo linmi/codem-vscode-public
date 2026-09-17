@@ -1,10 +1,10 @@
 /** @jsxImportSource solid-js */
 
 import { Show, createEffect, createSignal, onCleanup, type Accessor } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { DropdownMenu } from "@kilocode/kilo-ui/dropdown-menu"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Button } from "@codem/ui/components/button"
+import { DropdownMenu } from "@codem/ui/components/dropdown-menu"
+import { Icon } from "@codem/ui/components/icon"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { useSession } from "../../../context/session"
 import { useLanguage } from "../../../context/language"
 import { useServer } from "../../../context/server"

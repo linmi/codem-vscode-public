@@ -52,7 +52,7 @@ async function copyTreeSitterWasms(outputDir: string) {
 }
 
 // kilocode_change start
-async function isKiloConsoleUpToDate(app: string, out: string) {
+async function isConsoleUpToDate(app: string, out: string) {
   const indexHtml = path.join(out, "index.html")
   if (!fs.existsSync(indexHtml)) return false
   const outStat = await fs.promises.stat(indexHtml)
@@ -61,10 +61,8 @@ async function isKiloConsoleUpToDate(app: string, out: string) {
     path.join(app, "package.json"),
     path.join(app, "vite.config.ts"),
     path.join(app, "index.html"),
-    path.resolve(dir, "../legacy/kilo-web-ui/src"),
     path.resolve(dir, "../kilo-indexing/src"),
-    path.resolve(dir, "../legacy/kilo-ui/src"),
-    path.resolve(dir, "../legacy/opencode-ui/src"),
+    path.resolve(dir, "../ui/src"),
     path.resolve(dir, "../sdk/js/src"),
     path.resolve(dir, "../../pnpm-lock.yaml"),
     path.resolve(dir, "../../pnpm-workspace.yaml"),
@@ -85,32 +83,32 @@ async function isKiloConsoleUpToDate(app: string, out: string) {
   return true
 }
 
-async function buildKiloConsole() {
-  const app = path.resolve(dir, "../legacy/kilo-console")
+async function buildConsole() {
+  const app = path.resolve(dir, "../legacy/console")
   const out = path.join(app, "dist")
-  if (await isKiloConsoleUpToDate(app, out)) {
-    console.log(`reusing existing Kilo Console build at ${out}`)
+  if (await isConsoleUpToDate(app, out)) {
+    console.log(`reusing existing CodeM Console build at ${out}`)
     return out
   }
-  console.log("building Kilo Console")
+  console.log("building CodeM Console")
   const proc = Bun.spawn([process.execPath, "run", "build"], {
     cwd: app,
-    env: { ...process.env, KILO_CONSOLE_BASE: "/console/" },
+    env: { ...process.env, CODEM_CONSOLE_BASE: "/console/" },
     stdout: "inherit",
     stderr: "inherit",
     windowsHide: true,
   })
   const code = await proc.exited
-  if (code !== 0) throw new Error(`Kilo Console build failed with exit code ${code}`)
+  if (code !== 0) throw new Error(`CodeM Console build failed with exit code ${code}`)
   return out
 }
 // kilocode_change end
 
-async function copyKiloConsole(input: string, outputDir: string) {
+async function copyConsole(input: string, outputDir: string) {
   const target = path.join(outputDir, "console")
   await fs.promises.rm(target, { recursive: true, force: true })
   await fs.promises.cp(input, target, { recursive: true })
-  console.log(`copied Kilo Console assets to ${target}`)
+  console.log(`copied CodeM Console assets to ${target}`)
 }
 
 function smokeEnv(root: string) {
@@ -260,8 +258,8 @@ const targets = singleFlag
 
 // kilocode_change start
 await $`rm -rf dist`
-const [kiloConsoleDist, kiloSandboxWorker, kiloSandboxNetwork] = await Promise.all([
-  buildKiloConsole(),
+const [consoleDist, kiloSandboxWorker, kiloSandboxNetwork] = await Promise.all([
+  buildConsole(),
   KiloSandboxWorker.bundle(),
   KiloSandboxNetwork.bundle(),
 ])
@@ -361,7 +359,7 @@ for (const item of targets) {
 
   // kilocode_change start
   await copyTreeSitterWasms(path.resolve(dir, `dist/${name}/bin`))
-  await copyKiloConsole(kiloConsoleDist, path.resolve(dir, `dist/${name}/bin`))
+  await copyConsole(consoleDist, path.resolve(dir, `dist/${name}/bin`))
   await KiloSandboxWorker.copy(kiloSandboxWorker, path.resolve(dir, `dist/${name}/bin`))
   if (item.os === "linux") {
     await KiloSandboxNetwork.copy(kiloSandboxNetwork, path.resolve(dir, `dist/${name}/bin`), item.arch)

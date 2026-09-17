@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 import { For, Show, createEffect, createMemo, onCleanup, onMount } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
+import { Button } from "@codem/ui/components/button"
 import { useLanguage } from "../../src/context/language"
 import { useVSCode } from "../../src/context/vscode"
 import type { PRStatus } from "../../src/types/messages"

@@ -8,8 +8,8 @@
  */
 
 import { Component, For } from "solid-js"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
 

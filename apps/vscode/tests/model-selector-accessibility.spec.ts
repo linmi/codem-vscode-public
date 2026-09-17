@@ -294,10 +294,10 @@ test("slash mode picker Escape returns focus to the prompt", async ({ page }) =>
   await expect(prompt).toBeFocused()
 })
 
-test("single-model chat hides the model selector", async ({ page }) => {
+test("single-model chat shows the default model selector", async ({ page }) => {
   await load(page, "prompt-input--default-420")
 
-  await expect(page.getByRole("button", { name: /^Select model:/ })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /^Select model:/ })).toHaveCount(1)
 })
 
 test("slash model picker Escape returns focus to the prompt", async ({ page }) => {

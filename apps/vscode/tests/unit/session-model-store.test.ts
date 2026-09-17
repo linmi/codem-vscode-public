@@ -47,6 +47,27 @@ function emptyStore(): ModelStore {
 const claude: ModelSelection = { providerID: "anthropic", modelID: "claude-sonnet-4" }
 const gpt: ModelSelection = { providerID: "openai", modelID: "gpt-4.1" }
 
+describe("Core catalog default selection", () => {
+  const coreDefault: ModelSelection = { providerID: "codem-router", modelID: "auto" }
+  const coreEnv: ResolveEnv = {
+    providers: { "codem-router": makeProvider("codem-router", ["auto"]) },
+    connected: ["codem-router"],
+    ready: true,
+    organizationId: null,
+    defaults: { "codem-router": "auto" },
+    fallback: coreDefault,
+    getModeModel: () => null,
+    getGlobalModel: () => null,
+  }
+
+  it("uses the Core default when the store has no remembered selection", () => {
+    const store = emptyStore()
+    expect(getSelected(store, coreEnv, undefined, "code")).toEqual(coreDefault)
+    expect(getSessionModel(store, coreEnv, "session-new", "code")).toEqual(coreDefault)
+    expect(getAgentModel(store, coreEnv, "code")).toEqual(coreDefault)
+  })
+})
+
 describe("per-session model selection", () => {
   it("selecting a model in session A does not write per-mode globally", () => {
     const store = emptyStore()

@@ -13,7 +13,7 @@
  */
 
 import { type Component, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js"
-import { TextShimmer } from "@kilocode/kilo-ui/text-shimmer"
+import { TextShimmer } from "@codem/ui/components/text-shimmer"
 
 /** Outlasts the width spring in chat-layout.css so the lock is released last. */
 const SWAP = 520

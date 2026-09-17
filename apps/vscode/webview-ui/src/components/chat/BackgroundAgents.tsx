@@ -11,12 +11,12 @@
  */
 
 import { Component, For, Show, createMemo, createSignal, onCleanup, onMount, createEffect, on } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { AgentAvatar } from "@kilocode/kilo-ui/agent-avatar"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
+import { Button } from "@codem/ui/components/button"
+import { AgentAvatar } from "@codem/ui/components/agent-avatar"
+import { Icon } from "@codem/ui/components/icon"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Tooltip } from "@codem/ui/components/tooltip"
+import { Spinner } from "@codem/ui/components/spinner"
 import type { BackgroundJobInfo } from "../../types/messages"
 import { useLanguage } from "../../context/language"
 import { useSession } from "../../context/session"

@@ -1,34 +1,34 @@
 /**
  * Language context
- * Provides i18n translations for kilo-ui components.
- * Merges UI translations from @opencode-ai/ui and CodeM overrides from @kilocode/kilo-i18n.
+ * Provides i18n translations for @codem/ui components.
+ * Merges UI translations from @codem/ui with app and agent-manager dictionaries.
  *
  * Locale priority: user override → VS Code display language → browser language → "en"
  */
 
 import { createSignal, createMemo, createEffect, ParentComponent, Accessor } from "solid-js"
-import { I18nProvider, pluralCategory, pluralKey } from "@kilocode/kilo-ui/context"
-import type { UiI18nKey, UiI18nParams, UiI18nPluralKey } from "@kilocode/kilo-ui/context"
-import { dict as uiEn } from "@kilocode/kilo-ui/i18n/en"
-import { dict as uiZh } from "@kilocode/kilo-ui/i18n/zh"
-import { dict as uiZht } from "@kilocode/kilo-ui/i18n/zht"
-import { dict as uiKo } from "@kilocode/kilo-ui/i18n/ko"
-import { dict as uiDe } from "@kilocode/kilo-ui/i18n/de"
-import { dict as uiEs } from "@kilocode/kilo-ui/i18n/es"
-import { dict as uiFr } from "@kilocode/kilo-ui/i18n/fr"
-import { dict as uiDa } from "@kilocode/kilo-ui/i18n/da"
-import { dict as uiJa } from "@kilocode/kilo-ui/i18n/ja"
-import { dict as uiPl } from "@kilocode/kilo-ui/i18n/pl"
-import { dict as uiRu } from "@kilocode/kilo-ui/i18n/ru"
-import { dict as uiAr } from "@kilocode/kilo-ui/i18n/ar"
-import { dict as uiNo } from "@kilocode/kilo-ui/i18n/no"
-import { dict as uiBr } from "@kilocode/kilo-ui/i18n/br"
-import { dict as uiTh } from "@kilocode/kilo-ui/i18n/th"
-import { dict as uiBs } from "@kilocode/kilo-ui/i18n/bs"
-import { dict as uiTr } from "@kilocode/kilo-ui/i18n/tr"
-import { dict as uiNl } from "@kilocode/kilo-ui/i18n/nl"
-import { dict as uiUk } from "@kilocode/kilo-ui/i18n/uk"
-import { dict as uiIt } from "@kilocode/kilo-ui/i18n/it"
+import { I18nProvider, pluralCategory, pluralKey } from "@codem/ui/context"
+import type { UiI18nKey, UiI18nParams, UiI18nPluralKey } from "@codem/ui/context"
+import { dict as uiEn } from "@codem/ui/i18n/en"
+import { dict as uiZh } from "@codem/ui/i18n/zh"
+import { dict as uiZht } from "@codem/ui/i18n/zht"
+import { dict as uiKo } from "@codem/ui/i18n/ko"
+import { dict as uiDe } from "@codem/ui/i18n/de"
+import { dict as uiEs } from "@codem/ui/i18n/es"
+import { dict as uiFr } from "@codem/ui/i18n/fr"
+import { dict as uiDa } from "@codem/ui/i18n/da"
+import { dict as uiJa } from "@codem/ui/i18n/ja"
+import { dict as uiPl } from "@codem/ui/i18n/pl"
+import { dict as uiRu } from "@codem/ui/i18n/ru"
+import { dict as uiAr } from "@codem/ui/i18n/ar"
+import { dict as uiNo } from "@codem/ui/i18n/no"
+import { dict as uiBr } from "@codem/ui/i18n/br"
+import { dict as uiTh } from "@codem/ui/i18n/th"
+import { dict as uiBs } from "@codem/ui/i18n/bs"
+import { dict as uiTr } from "@codem/ui/i18n/tr"
+import { dict as uiNl } from "@codem/ui/i18n/nl"
+import { dict as uiUk } from "@codem/ui/i18n/uk"
+import { dict as uiIt } from "@codem/ui/i18n/it"
 import { dict as appEn } from "../i18n/en"
 import { dict as appZh } from "../i18n/zh"
 import { dict as appZht } from "../i18n/zht"
@@ -71,26 +71,6 @@ import { dict as amNl } from "../../agent-manager/i18n/nl"
 import { dict as amUk } from "../../agent-manager/i18n/uk"
 import { dict as amIt } from "../../agent-manager/i18n/it"
 import { dict as amFa } from "../../agent-manager/i18n/fa"
-import { dict as kiloEn } from "@kilocode/kilo-i18n/en"
-import { dict as kiloZh } from "@kilocode/kilo-i18n/zh"
-import { dict as kiloZht } from "@kilocode/kilo-i18n/zht"
-import { dict as kiloKo } from "@kilocode/kilo-i18n/ko"
-import { dict as kiloDe } from "@kilocode/kilo-i18n/de"
-import { dict as kiloEs } from "@kilocode/kilo-i18n/es"
-import { dict as kiloFr } from "@kilocode/kilo-i18n/fr"
-import { dict as kiloDa } from "@kilocode/kilo-i18n/da"
-import { dict as kiloJa } from "@kilocode/kilo-i18n/ja"
-import { dict as kiloPl } from "@kilocode/kilo-i18n/pl"
-import { dict as kiloRu } from "@kilocode/kilo-i18n/ru"
-import { dict as kiloAr } from "@kilocode/kilo-i18n/ar"
-import { dict as kiloNo } from "@kilocode/kilo-i18n/no"
-import { dict as kiloBr } from "@kilocode/kilo-i18n/br"
-import { dict as kiloTh } from "@kilocode/kilo-i18n/th"
-import { dict as kiloBs } from "@kilocode/kilo-i18n/bs"
-import { dict as kiloTr } from "@kilocode/kilo-i18n/tr"
-import { dict as kiloNl } from "@kilocode/kilo-i18n/nl"
-import { dict as kiloUk } from "@kilocode/kilo-i18n/uk"
-import { dict as kiloIt } from "@kilocode/kilo-i18n/it"
 import { useVSCode } from "./vscode"
 import { normalizeLocale as _normalizeLocale, resolveTemplate as _resolveTemplate } from "./language-utils"
 
@@ -123,31 +103,31 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   fa: "فارسی",
 }
 
-// Merge 4 dict layers: app + ui + kilo + agent manager (kilo and agent manager override last)
-const base = { ...appEn, ...uiEn, ...kiloEn }
+// Merge 3 dict layers: app + ui + agent manager (agent manager overrides last)
+const base = { ...appEn, ...uiEn }
 const dicts: Record<Locale, Record<string, string>> = {
   en: { ...base, ...amEn },
-  zh: { ...base, ...appZh, ...uiZh, ...kiloZh, ...amEn, ...amZh },
-  zht: { ...base, ...appZht, ...uiZht, ...kiloZht, ...amEn, ...amZht },
-  ko: { ...base, ...appKo, ...uiKo, ...kiloKo, ...amEn, ...amKo },
-  de: { ...base, ...appDe, ...uiDe, ...kiloDe, ...amEn, ...amDe },
-  es: { ...base, ...appEs, ...uiEs, ...kiloEs, ...amEn, ...amEs },
-  fr: { ...base, ...appFr, ...uiFr, ...kiloFr, ...amEn, ...amFr },
-  da: { ...base, ...appDa, ...uiDa, ...kiloDa, ...amEn, ...amDa },
-  ja: { ...base, ...appJa, ...uiJa, ...kiloJa, ...amEn, ...amJa },
-  pl: { ...base, ...appPl, ...uiPl, ...kiloPl, ...amEn, ...amPl },
-  ru: { ...base, ...appRu, ...uiRu, ...kiloRu, ...amEn, ...amRu },
-  ar: { ...base, ...appAr, ...uiAr, ...kiloAr, ...amEn, ...amAr },
-  no: { ...base, ...appNo, ...uiNo, ...kiloNo, ...amEn, ...amNo },
-  br: { ...base, ...appBr, ...uiBr, ...kiloBr, ...amEn, ...amBr },
-  th: { ...base, ...appTh, ...uiTh, ...kiloTh, ...amEn, ...amTh },
-  bs: { ...base, ...appBs, ...uiBs, ...kiloBs, ...amEn, ...amBs },
-  tr: { ...base, ...appTr, ...uiTr, ...kiloTr, ...amEn, ...amTr },
-  nl: { ...base, ...appNl, ...uiNl, ...kiloNl, ...amEn, ...amNl },
-  uk: { ...base, ...appUk, ...uiUk, ...kiloUk, ...amEn, ...amUk },
-  it: { ...base, ...appIt, ...uiIt, ...kiloIt, ...amEn, ...amIt },
+  zh: { ...base, ...appZh, ...uiZh, ...amEn, ...amZh },
+  zht: { ...base, ...appZht, ...uiZht, ...amEn, ...amZht },
+  ko: { ...base, ...appKo, ...uiKo, ...amEn, ...amKo },
+  de: { ...base, ...appDe, ...uiDe, ...amEn, ...amDe },
+  es: { ...base, ...appEs, ...uiEs, ...amEn, ...amEs },
+  fr: { ...base, ...appFr, ...uiFr, ...amEn, ...amFr },
+  da: { ...base, ...appDa, ...uiDa, ...amEn, ...amDa },
+  ja: { ...base, ...appJa, ...uiJa, ...amEn, ...amJa },
+  pl: { ...base, ...appPl, ...uiPl, ...amEn, ...amPl },
+  ru: { ...base, ...appRu, ...uiRu, ...amEn, ...amRu },
+  ar: { ...base, ...appAr, ...uiAr, ...amEn, ...amAr },
+  no: { ...base, ...appNo, ...uiNo, ...amEn, ...amNo },
+  br: { ...base, ...appBr, ...uiBr, ...amEn, ...amBr },
+  th: { ...base, ...appTh, ...uiTh, ...amEn, ...amTh },
+  bs: { ...base, ...appBs, ...uiBs, ...amEn, ...amBs },
+  tr: { ...base, ...appTr, ...uiTr, ...amEn, ...amTr },
+  nl: { ...base, ...appNl, ...uiNl, ...amEn, ...amNl },
+  uk: { ...base, ...appUk, ...uiUk, ...amEn, ...amUk },
+  it: { ...base, ...appIt, ...uiIt, ...amEn, ...amIt },
   // Persian (CodeM fork addition). Only app + agent-manager layers are localized;
-  // the upstream ui/kilo layers fall back to English via `base`.
+  // the shared ui layer falls back to English via `base`.
   fa: { ...base, ...appFa, ...amEn, ...amFa },
 }
 

@@ -1,5 +1,5 @@
 import { Show, createMemo, createSignal } from "solid-js"
-import { Avatar } from "@kilocode/kilo-ui/avatar"
+import { Avatar } from "@codem/ui/components/avatar"
 import { githubUrl } from "./pr-comment-payload"
 
 const BOTS = new Set(["kilo-code-bot", "kilocode-bot", "kilo-maintainer", "kiloconnect", "kiloconnect-lite"])

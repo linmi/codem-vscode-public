@@ -1,4 +1,4 @@
-import { PART_MAPPING, ToolRegistry } from "@kilocode/kilo-ui/message-part"
+import { PART_MAPPING, ToolRegistry } from "@codem/ui/components/message-part"
 import type { AssistantMessage, Part } from "@kilocode/sdk/v2"
 import { snapshotProgress } from "../context/session-utils"
 

@@ -70,13 +70,13 @@ Object.assign(globalThis, {
 
 const { render } = await import("solid-js/web")
 const { post } = await import("../../webview-ui/src/utils/webview-message")
-const { MarkedProvider } = await import("@kilocode/kilo-ui/context/marked")
+const { MarkedProvider } = await import("@codem/ui/context/marked")
 const { VSCodeProvider } = await import("../../webview-ui/src/context/vscode")
 const { useVSCode } = await import("../../webview-ui/src/context/vscode")
 const { LanguageProvider } = await import("../../webview-ui/src/context/language")
 const { ConfigProvider } = await import("../../webview-ui/src/context/config")
 const { PRComments } = await import("../../webview-ui/agent-manager/pr/PRComments")
-const { Diff } = await import("@kilocode/kilo-ui/diff")
+const { Diff } = await import("@codem/ui/components/diff")
 const { Show, createRoot, createSignal } = await import("solid-js")
 const { WorktreeItem } = await import("../../webview-ui/agent-manager/WorktreeItem")
 const { createPRNavigation, PRPanelHost } = await import("../../webview-ui/agent-manager/pr/PRPanelHost")
@@ -124,7 +124,7 @@ const [comments, setComments] = createSignal({
       canEdit: true,
       canDelete: true,
       body: "comment body survives Pierre rendering",
-      file: "packages/legacy/kilo-ui/src/components/file.tsx",
+      file: "packages/ui/src/components/file.tsx",
       line: 14,
       resolved: false,
       outdated: false,
@@ -153,7 +153,7 @@ const [comments, setComments] = createSignal({
       threadId: "PRRT_done",
       author: "reviewer",
       body: "settled discussion\n\nsecond paragraph only shows when expanded",
-      file: "packages/legacy/kilo-ui/src/components/other.tsx",
+      file: "packages/ui/src/components/other.tsx",
       line: 3,
       resolved: true,
       outdated: false,
@@ -346,7 +346,7 @@ assert.equal(resolvedRow!.getAttribute("aria-expanded"), "true")
 assert.equal(resolvedRow!.querySelector(".am-pr-comment-preview"), null)
 assert.match(root.textContent ?? "", /second paragraph only shows when expanded/)
 const card = resolvedRow!.parentElement!
-assert.equal(card.querySelector(".am-pr-diff-file")!.textContent, "packages/legacy/kilo-ui/src/components/other.tsx:3")
+assert.equal(card.querySelector(".am-pr-diff-file")!.textContent, "packages/ui/src/components/other.tsx:3")
 const actions = [...card.querySelectorAll('[data-component="button"]')]
 const unresolve = actions.find((node) => /Unresolve/.test(node.textContent ?? ""))
 assert.ok(unresolve, "unresolve button is rendered")

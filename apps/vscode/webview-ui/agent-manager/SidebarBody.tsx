@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal, type Component } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
+import { Icon } from "@codem/ui/components/icon"
 import {
   DragDropProvider,
   DragDropSensors,

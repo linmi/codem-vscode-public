@@ -60,7 +60,7 @@ export async function harness<T extends { type: string }>() {
   })
   // Providers must load after the browser globals, not through static imports.
   const { render } = await import("solid-js/web")
-  const { MarkedProvider } = await import("@kilocode/kilo-ui/context/marked")
+  const { MarkedProvider } = await import("@codem/ui/context/marked")
   const { VSCodeProvider } = await import("../../webview-ui/src/context/vscode")
   const { LanguageProvider } = await import("../../webview-ui/src/context/language")
   const { post } = await import("../../webview-ui/src/utils/webview-message")

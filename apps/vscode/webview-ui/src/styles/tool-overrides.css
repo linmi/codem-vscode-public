@@ -161,7 +161,7 @@ html[data-theme="codem-vscode"]
   grid-template-columns: minmax(72px, max-content) minmax(0, 1fr);
   gap: 8px;
   align-items: baseline;
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
 }
 
 [data-slot="background-process-label"] {
@@ -178,7 +178,7 @@ html[data-theme="codem-vscode"]
   margin: 0;
   font: inherit;
   font-family: var(--font-family-mono);
-  font-size: var(--kilo-font-size-12);
+  font-size: var(--codem-font-size-12);
   line-height: var(--line-height-large);
   white-space: pre-wrap;
   overflow-wrap: anywhere;

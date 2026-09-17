@@ -9,10 +9,10 @@
 
 import type { Accessor, Component } from "solid-js"
 import { Show } from "solid-js"
-import { DropdownMenu } from "@kilocode/kilo-ui/dropdown-menu"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Tooltip, TooltipKeybind } from "@kilocode/kilo-ui/tooltip"
+import { DropdownMenu } from "@codem/ui/components/dropdown-menu"
+import { Icon } from "@codem/ui/components/icon"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Tooltip, TooltipKeybind } from "@codem/ui/components/tooltip"
 import { useLanguage } from "../../src/context/language"
 import type { TerminalDestination } from "../../src/types/messages/agent-manager"
 

@@ -19,7 +19,7 @@ export interface DiffSourceDescriptor {
   id: string
   type: DiffSourceType
   group: "Session" | "Git"
-  /** kilo-ui icon name. */
+  /** @codem/ui icon name. */
   icon?: string
   capabilities: DiffSourceCapabilities
 }

@@ -1,6 +1,6 @@
 import { type Component, Show } from "solid-js"
 import type { AnnotationSide, DiffLineAnnotation, SelectedLineRange } from "@pierre/diffs"
-import { Markdown } from "@kilocode/kilo-ui/markdown"
+import { Markdown } from "@codem/ui/components/markdown"
 import { MarkdownAnnotationLayer } from "./MarkdownAnnotationLayer"
 import type { AnnotationMeta } from "./review-annotations"
 

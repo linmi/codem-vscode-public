@@ -153,13 +153,13 @@ test(
     await fixture(
       {
         [first]: source,
-        "packages/legacy/opencode-ui/src/upstream.ts": source,
+        "packages/ui/src/upstream.ts": source,
         "packages/kilo-example/src/fixtures/copy.ts": source,
         "packages/kilo-example/src/i18n/en.ts": source,
         "packages/kilo-example/src/copy.test.ts": source,
         "packages/kilo-example/src/copy.gen.ts": source,
         "packages/kilo-example/src/copy.d.ts": source,
-        "packages/kilo-i18n/src/en.ts": source,
+        "packages/ui/src/i18n/en.ts": source,
         "packages/kilo-docs/src/copy.ts": source,
         "apps/jetbrains/src/first.ts": source,
         "apps/jetbrains/src/second.tsx": source,

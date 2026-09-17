@@ -18,7 +18,7 @@ import McpEditView from "../components/settings/McpEditView"
 import type { AgentConfig, CommandConfig, Config } from "../types/messages"
 import IndexingTab from "../components/settings/IndexingTab"
 import CustomProviderDialog from "../components/settings/CustomProviderDialog"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
+import { useDialog } from "@codem/ui/context/dialog"
 import { SidebarEmptyState } from "../components/chat/SidebarEmptyState"
 import { WorkStyleContext, type WorkStyleContextValue } from "../context/work-style"
 

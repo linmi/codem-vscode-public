@@ -1,4 +1,4 @@
-import { iconNames, type IconName } from "@opencode-ai/ui/icons/provider"
+import { iconNames, type IconName } from "@codem/ui/icons/provider"
 import type { Provider } from "../../types/messages"
 import {
   KILO_PROVIDER_ID,

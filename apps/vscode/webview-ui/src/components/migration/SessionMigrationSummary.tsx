@@ -2,7 +2,7 @@ import type { Component } from "solid-js"
 import { For, Show, createMemo, createSignal } from "solid-js"
 import SessionMigrationCard from "./SessionMigrationCard"
 import type { SessionSummaryState } from "./session-migration-summary-state"
-import { showToast } from "@kilocode/kilo-ui/toast"
+import { showToast } from "@codem/ui/components/toast"
 import { errored, line, report } from "./session-migration-summary-format"
 import { useLanguage } from "../../context/language"
 

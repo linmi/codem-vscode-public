@@ -89,13 +89,13 @@
     [data-slot="settings-row-label-title"] {
       font-size: var(--font-size-base);
       font-weight: 500;
-      min-height: var(--kilo-font-size-16);
+      min-height: var(--codem-font-size-16);
       margin-bottom: 4px;
     }
 
     [data-slot="settings-row-label-subtitle"] {
       font-size: var(--font-size-small);
-      min-height: var(--kilo-font-size-14);
+      min-height: var(--codem-font-size-14);
       color: var(--text-weak-base, var(--vscode-descriptionForeground));
     }
   }

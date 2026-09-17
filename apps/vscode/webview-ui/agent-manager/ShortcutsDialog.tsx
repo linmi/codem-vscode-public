@@ -1,5 +1,5 @@
 import { For, type Component } from "solid-js"
-import { Dialog } from "@kilocode/kilo-ui/dialog"
+import { Dialog } from "@codem/ui/components/dialog"
 import { parseBindingTokens } from "./keybind-tokens"
 import type { ShortcutCategory } from "./shortcuts"
 

@@ -1,8 +1,8 @@
 import { For, Show, type Component, type JSX } from "solid-js"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Tooltip, TooltipKeybind } from "@kilocode/kilo-ui/tooltip"
-import { DropdownMenu } from "@kilocode/kilo-ui/dropdown-menu"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Icon } from "@codem/ui/components/icon"
+import { Tooltip, TooltipKeybind } from "@codem/ui/components/tooltip"
+import { DropdownMenu } from "@codem/ui/components/dropdown-menu"
 import {
   DragDropProvider,
   DragDropSensors,

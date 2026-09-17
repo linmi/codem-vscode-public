@@ -1,7 +1,7 @@
 import { createEffect, createSignal, onCleanup, splitProps, type ValidComponent } from "solid-js"
-import { Popover as Base, type PopoverProps } from "@kilocode/kilo-ui/popover"
+import { Popover as Base, type PopoverProps } from "@codem/ui/components/popover"
 
-export type { PopoverProps } from "@kilocode/kilo-ui/popover"
+export type { PopoverProps } from "@codem/ui/components/popover"
 
 export interface DeferredPopoverProps<T extends ValidComponent = "div"> extends PopoverProps<T> {
   deferDismiss?: boolean

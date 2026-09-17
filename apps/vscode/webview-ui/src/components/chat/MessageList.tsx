@@ -18,16 +18,16 @@ import {
   on,
   onCleanup,
 } from "solid-js"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
-import { relativizeProjectPath } from "@kilocode/kilo-ui/message-part"
-import { createAutoScroll } from "@kilocode/kilo-ui/hooks"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Icon } from "@codem/ui/components/icon"
+import { Spinner } from "@codem/ui/components/spinner"
+import { relativizeProjectPath } from "@codem/ui/components/message-part"
+import { createAutoScroll } from "@codem/ui/hooks"
 import { useSession } from "../../context/session"
 import { useServer } from "../../context/server"
 import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
-import { useI18n } from "@kilocode/kilo-ui/context/i18n"
+import { useI18n } from "@codem/ui/context/i18n"
 import { useProvider } from "../../context/provider"
 import { useWorktreeMode } from "../../context/worktree-mode"
 import { WelcomeEmptyState } from "./WelcomeEmptyState"
@@ -59,7 +59,7 @@ import {
 import { childID } from "../../context/session-utils"
 import { taskResult } from "./task-tool-state"
 import { activeQuestionTab, tr } from "./question-dock-utils"
-import { useData } from "@kilocode/kilo-ui/context/data"
+import { useData } from "@codem/ui/context/data"
 import { getDirectory as getRawDirectory, getFilename } from "@opencode-ai/core/util/path"
 import {
   partitionRows,
@@ -118,7 +118,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
   const data = useData()
   // Only present inside Agent Manager (see worktree-mode.tsx). Agent Manager
   // never calls registerExpandedTaskTool(), so its "task" cards always fall
-  // back to kilo-ui's default hideDetails renderer, which never shows a
+  // back to @codem/ui's default hideDetails renderer, which never shows a
   // task's result text — indexing it there would produce a phantom match.
   const inAgentManager = !!useWorktreeMode()
 
@@ -337,7 +337,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
     return unwrapError(msg)
   }
 
-  // Extracts only the text kilo-ui's tool renderers actually put on screen —
+  // Extracts only the text @codem/ui's tool renderers actually put on screen —
   // matched field-by-field rather than reading `state.title` generically.
   // Uses one canonical extraction for both counting/navigation (this
   // function) and highlighting (transcript-search-highlight.ts scans the
@@ -347,7 +347,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
   // text), so a visible match could be highlighted in the DOM while the
   // counter still reported "No results" and navigation was disabled.
   //
-  // read/glob/grep/list are the one confirmed exception: kilo-ui always
+  // read/glob/grep/list are the one confirmed exception: @codem/ui always
   // collapses them into a context-group summary (context-tool-results.tsx)
   // that never renders raw input/output text, even expanded — including
   // that text here would count matches with no corresponding highlight,
@@ -355,7 +355,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
   const CONTEXT_GROUP_TOOLS = new Set(["read", "glob", "grep", "list"])
 
   // edit/write/apply_patch render their actual diff content through
-  // @pierre/diffs inside a shadow-DOM <diffs-container> (packages/legacy/opencode-ui/src/
+  // @pierre/diffs inside a shadow-DOM <diffs-container> (packages/ui/src/
   // pierre/file-runtime.ts's getViewerRoot()), which a light-DOM text scan
   // can never reach — and diff-mode rendering is virtualized by default, so
   // even piercing the shadow root wouldn't guarantee off-screen lines are
@@ -446,7 +446,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
   }
 
   // Matches TaskToolExpanded.tsx (the renderer this webview actually
-  // registers for "task", overriding kilo-ui's default) exactly: title is
+  // registers for "task", overriding @codem/ui's default) exactly: title is
   // `i18n.t("ui.tool.agent", { type })` once subagent_type is known, and
   // `ui.tool.agent.default` while it is still absent. The "capitalize" CSS
   // class only changes how it *looks*, the DOM text node itself is the raw,
@@ -465,7 +465,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
     // completed task with no child session stays searchable, without
     // indexing text that's actually replaced by the child tool list. Agent
     // Manager never registers TaskToolExpanded at all (it always uses
-    // kilo-ui's default hideDetails task card, which never shows result
+    // @codem/ui's default hideDetails task card, which never shows result
     // text there), so skip this entirely in that surface.
     if (state.status === "completed" && !inAgentManager) {
       const child = childID({
@@ -513,7 +513,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
       // The pending QuestionDock renders localized text via questionKey/
       // labelKey/descriptionKey (see question-dock-utils.ts's tr()), with
       // the raw wire strings kept only as untranslated fallbacks/reply
-      // values. Once completed, kilo-ui's question renderer instead shows
+      // values. Once completed, @codem/ui's question renderer instead shows
       // the raw `q.question` directly (no questionKey lookup) — index
       // whichever one that surface actually displays.
       const questionLabel = done ? (q.question ?? "") : tr(language.t, q.questionKey, q.question ?? "")

@@ -1,4 +1,4 @@
-import { Card, CardDescription } from "@kilocode/kilo-ui/card"
+import { Card, CardDescription } from "@codem/ui/components/card"
 import { type Component, Show, createMemo } from "solid-js"
 import { useSession } from "../../context/session"
 import { terminal, type TerminalState } from "../../context/session-outcome"

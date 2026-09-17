@@ -1,4 +1,4 @@
-import { showToast } from "@kilocode/kilo-ui/toast"
+import { showToast } from "@codem/ui/components/toast"
 import type { LanguageContextValue } from "../language"
 
 export function createWorkStyleToasts(t: LanguageContextValue["t"]) {

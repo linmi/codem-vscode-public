@@ -1,6 +1,6 @@
 import { For, Show, createMemo } from "solid-js"
 import { Marked } from "marked"
-import { Markdown } from "@kilocode/kilo-ui/markdown"
+import { Markdown } from "@codem/ui/components/markdown"
 import { useLanguage } from "../../src/context/language"
 import type { PRTarget } from "../../../src/shared/pr-comment-actions"
 import { PRSuggestion } from "./PRSuggestion"

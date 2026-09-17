@@ -1,5 +1,5 @@
 import { type Component, createMemo, createSignal, Show } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
+import { Icon } from "@codem/ui/components/icon"
 import { BranchSelect, BranchSelectPopover } from "../src/components/shared/BranchSelect"
 import type { BranchInfo } from "../src/types/messages"
 import { useLanguage } from "../src/context/language"

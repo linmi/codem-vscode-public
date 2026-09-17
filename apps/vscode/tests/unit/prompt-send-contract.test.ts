@@ -67,6 +67,24 @@ describe("sendMessage dismisses pending tool requests", () => {
   })
 })
 
+describe("chat model default wiring", () => {
+  it("uses the host catalog default instead of a hardcoded kilo fallback", () => {
+    const source = readFile(SESSION_FILE)
+    const body = extractFunctionBody(source, "environment")
+    expect(body).toContain("fallback: provider.defaultSelection()")
+    expect(body).not.toContain("fallback: KILO_AUTO")
+  })
+
+  it("keeps the chat footer model chip visible for a single Core default", () => {
+    const source = readFile(path.join(ROOT, "webview-ui/src/components/shared/ModelSelector.tsx"))
+    const start = source.indexOf("export const ModelSelector:")
+    expect(start).toBeGreaterThan(-1)
+    const wrapper = source.slice(start)
+    expect(wrapper).toContain("Always show the resolved default")
+    expect(wrapper).not.toMatch(/hideWhenSingle\s*\n/)
+  })
+})
+
 describe("sendCommand dismisses pending tool requests", () => {
   const source = readFile(SESSION_FILE)
   const body = extractFunctionBody(source, "sendCommand")

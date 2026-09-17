@@ -1,5 +1,5 @@
 import { type Component, Show } from "solid-js"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
+import { Spinner } from "@codem/ui/components/spinner"
 import { useWorkStyle } from "../../context/work-style"
 import { useLanguage } from "../../context/language"
 import { WorkStylePicker } from "../shared/WorkStylePicker"

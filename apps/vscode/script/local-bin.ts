@@ -84,7 +84,7 @@ async function cliInputs() {
   }
 
   // The CLI build embeds the console even though it is not a package dependency.
-  for (const dir of [opencodeDir, join(packagesDir, "legacy", "kilo-console")]) {
+  for (const dir of [opencodeDir, join(packagesDir, "legacy", "console")]) {
     const pkg: Package = await Bun.file(join(dir, "package.json")).json()
     if (!pkg.name) throw new Error(`Workspace package at ${dir} has no name`)
     visit(pkg.name)

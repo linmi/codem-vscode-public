@@ -22,9 +22,9 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 
 ## UI boundary
 
-- New CodeM web UI belongs in the React/shadcn package at `packages/ui` and is imported through `@codem/ui` exports.
-- The current Solid webview and packages under `packages/legacy` are behavioral references and temporary build inputs. Do not add new product UI to them.
-- Switch a complete webview entry point and its build configuration in one approved React migration Cycle. Do not create a permanent React/Solid compatibility layer.
+- New CodeM web UI belongs in the Solid package at `packages/ui` and is imported through `@codem/ui` exports such as `@codem/ui/components/button`.
+- Packages under `packages/legacy` are CLI Console build inputs. Do not add new product UI to them.
+- Do not introduce shadcn or a second React webview stack.
 - Keep VS Code-specific theme adapters, CSP, editor messaging, and lifecycle code in this app. Keep reusable tokens and components in `packages/ui`.
 - Preserve keyboard access, focus visibility, reduced motion, high contrast, and strict Webview CSP.
 

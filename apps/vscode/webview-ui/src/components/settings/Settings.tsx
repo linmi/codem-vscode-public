@@ -1,10 +1,10 @@
 import { Component, createSignal, createEffect, createMemo, on, Show, onCleanup } from "solid-js"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Tabs } from "@kilocode/kilo-ui/tabs"
-import { Button } from "@kilocode/kilo-ui/button"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
-import { showToast } from "@kilocode/kilo-ui/toast"
+import { Icon } from "@codem/ui/components/icon"
+import { Tabs } from "@codem/ui/components/tabs"
+import { Button } from "@codem/ui/components/button"
+import { useDialog } from "@codem/ui/context/dialog"
+import { Tooltip } from "@codem/ui/components/tooltip"
+import { showToast } from "@codem/ui/components/toast"
 import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
 import { useConfig } from "../../context/config"
@@ -36,11 +36,11 @@ import type {
   AgentManagerSettingsProject,
   ExtensionMessage,
 } from "../../types/messages"
-import { Select } from "@kilocode/kilo-ui/select"
-import { Card } from "@kilocode/kilo-ui/card"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
-import { Switch } from "@kilocode/kilo-ui/switch"
-import { TextField } from "@kilocode/kilo-ui/text-field"
+import { Select } from "@codem/ui/components/select"
+import { Card } from "@codem/ui/components/card"
+import { Spinner } from "@codem/ui/components/spinner"
+import { Switch } from "@codem/ui/components/switch"
+import { TextField } from "@codem/ui/components/text-field"
 import SettingsRow from "./SettingsRow"
 import { ProjectBranchDialog } from "../../../agent-manager/ProjectBranchDialog"
 
@@ -316,7 +316,7 @@ const Settings: Component<SettingsProps> = (props) => {
           gap: "8px",
         }}
       >
-        <h2 style={{ "font-size": "var(--kilo-font-size-16)", "font-weight": "600", margin: 0, flex: 1 }}>
+        <h2 style={{ "font-size": "var(--codem-font-size-16)", "font-weight": "600", margin: 0, flex: 1 }}>
           {language.t("sidebar.settings")}
         </h2>
         <Button variant="secondary" size="small" icon="edit" onClick={() => open("local")}>

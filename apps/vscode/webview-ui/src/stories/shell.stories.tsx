@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 import type { Meta, StoryObj } from "storybook-solidjs-vite"
-import { Part } from "@kilocode/kilo-ui/message-part"
+import { Part } from "@codem/ui/components/message-part"
 import { StoryProviders } from "./StoryProviders"
 import type { AssistantMessage, ToolPart } from "@kilocode/sdk/v2"
 

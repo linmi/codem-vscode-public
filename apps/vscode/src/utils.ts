@@ -41,14 +41,14 @@ export function isCursorHost(): boolean {
 
 function fontStyle(): string {
   const base = getWebviewFontSize()
-  const vars = SIZES.map((size) => `--kilo-font-size-${size}: ${(base * size) / 13}px;`).join("\n      ")
+  const vars = SIZES.map((size) => `--codem-font-size-${size}: ${(base * size) / 13}px;`).join("\n      ")
   return `:root {
       ${vars}
-      --kilo-font-scale: ${base / 13};
-      --font-size-x-small: var(--kilo-font-size-10);
-      --font-size-small: var(--kilo-font-size-11);
-      --font-size-base: var(--kilo-font-size-13);
-      --font-size-large: var(--kilo-font-size-16);
+      --codem-font-scale: ${base / 13};
+      --font-size-x-small: var(--codem-font-size-10);
+      --font-size-small: var(--codem-font-size-11);
+      --font-size-base: var(--codem-font-size-13);
+      --font-size-large: var(--codem-font-size-16);
     }`
 }
 

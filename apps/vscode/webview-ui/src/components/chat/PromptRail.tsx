@@ -1,8 +1,8 @@
 /** @jsxImportSource solid-js */
 
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Spinner } from "@codem/ui/components/spinner"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type Accessor } from "solid-js"
 import { Portal } from "solid-js/web"
 import { VList, type VListHandle } from "virtua/solid"

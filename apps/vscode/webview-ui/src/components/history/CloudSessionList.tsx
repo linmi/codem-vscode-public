@@ -6,8 +6,8 @@
  */
 
 import { Component, Show, createSignal, createEffect, onMount, onCleanup } from "solid-js"
-import { List } from "@kilocode/kilo-ui/list"
-import { Checkbox } from "@kilocode/kilo-ui/checkbox"
+import { List } from "@codem/ui/components/list"
+import { Checkbox } from "@codem/ui/components/checkbox"
 import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
 import { formatRelativeDate } from "../../utils/date"

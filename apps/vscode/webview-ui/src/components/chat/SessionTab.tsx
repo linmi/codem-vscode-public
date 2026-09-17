@@ -1,5 +1,5 @@
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { TooltipKeybind } from "@kilocode/kilo-ui/tooltip"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { TooltipKeybind } from "@codem/ui/components/tooltip"
 import { Show, type Component, type JSX } from "solid-js"
 import { ActivityIcon } from "../shared/ActivityIcon"
 import { description, type Activity } from "../../utils/session-activity"

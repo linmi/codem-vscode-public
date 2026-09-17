@@ -35,7 +35,7 @@ export namespace ConsoleAssets {
   }
 
   async function dir() {
-    const override = process.env.KILO_CONSOLE_ASSET_DIR
+    const override = process.env.CODEM_CONSOLE_ASSET_DIR
     if (override && (await ready(override, false))) return override
 
     const copied = path.join(path.dirname(process.execPath), "console")
@@ -50,7 +50,7 @@ export namespace ConsoleAssets {
   }
 
   function source() {
-    return path.resolve(import.meta.dirname, "../../../../legacy/kilo-console")
+    return path.resolve(import.meta.dirname, "../../../../legacy/console")
   }
 
   async function build(app: string, out: string) {
@@ -58,7 +58,7 @@ export namespace ConsoleAssets {
     if (cached) return await cached
 
     const run = runBuild(app, out).catch((err) => {
-      log.warn("failed to build Kilo Console assets", { err })
+      log.warn("failed to build CodeM Console assets", { err })
       return undefined
     })
     builds.set(app, run)
@@ -66,10 +66,10 @@ export namespace ConsoleAssets {
   }
 
   async function runBuild(app: string, out: string) {
-    log.info("building Kilo Console assets", { app })
+    log.info("building CodeM Console assets", { app })
     const proc = Bun.spawn([process.execPath, "run", "build"], {
       cwd: app,
-      env: { ...process.env, KILO_CONSOLE_BASE: base },
+      env: { ...process.env, CODEM_CONSOLE_BASE: base },
       stdout: "pipe",
       stderr: "pipe",
       windowsHide: true,
@@ -79,8 +79,8 @@ export namespace ConsoleAssets {
       proc.stderr ? new Response(proc.stderr).text() : Promise.resolve(""),
       proc.exited,
     ])
-    if (code !== 0) throw new Error(`Kilo Console build failed with exit code ${code}: ${stderr || stdout}`)
-    if (!(await ready(out, true))) throw new Error("Kilo Console build did not produce /console assets")
+    if (code !== 0) throw new Error(`CodeM Console build failed with exit code ${code}: ${stderr || stdout}`)
+    if (!(await ready(out, true))) throw new Error("CodeM Console build did not produce /console assets")
     return out
   }
 

@@ -1,10 +1,10 @@
 import { Component, Show, Switch, Match, createSignal, createEffect, onCleanup } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Card } from "@kilocode/kilo-ui/card"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
-import { showToast } from "@kilocode/kilo-ui/toast"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
-import { Dialog } from "@kilocode/kilo-ui/dialog"
+import { Button } from "@codem/ui/components/button"
+import { Card } from "@codem/ui/components/card"
+import { Spinner } from "@codem/ui/components/spinner"
+import { showToast } from "@codem/ui/components/toast"
+import { useDialog } from "@codem/ui/context/dialog"
+import { Dialog } from "@codem/ui/components/dialog"
 import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
 import { generateQRCode } from "../../utils/qrcode"
@@ -127,7 +127,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
               color: "var(--vscode-foreground)",
               border: "1px solid var(--border-weak-base, var(--vscode-panel-border))",
               "border-radius": "6px",
-              "font-size": "var(--kilo-font-size-12)",
+              "font-size": "var(--codem-font-size-12)",
               "line-height": "1.5",
               "white-space": "pre-wrap",
               "word-break": "break-word",
@@ -155,7 +155,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
         <Card>
           <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
             <Spinner style={{ width: "14px", height: "14px" }} />
-            <span style={{ "font-size": "var(--kilo-font-size-13)", color: "var(--vscode-descriptionForeground)" }}>
+            <span style={{ "font-size": "var(--codem-font-size-13)", color: "var(--vscode-descriptionForeground)" }}>
               {language.t("deviceAuth.status.initiating")}
             </span>
           </div>
@@ -167,7 +167,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
         <Card>
           <h3
             style={{
-              "font-size": "var(--kilo-font-size-15)",
+              "font-size": "var(--codem-font-size-15)",
               "font-weight": "600",
               color: "var(--vscode-foreground)",
               margin: "0 0 16px 0",
@@ -181,7 +181,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
           <div style={{ "margin-bottom": "12px" }}>
             <p
               style={{
-                "font-size": "var(--kilo-font-size-12)",
+                "font-size": "var(--codem-font-size-12)",
                 "font-weight": "600",
                 color: "var(--vscode-descriptionForeground)",
                 margin: "0 0 6px 0",
@@ -205,7 +205,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
                   border: "1px solid var(--vscode-input-border, var(--vscode-panel-border))",
                   "border-radius": "3px",
                   padding: "6px 8px",
-                  "font-size": "var(--kilo-font-size-12)",
+                  "font-size": "var(--codem-font-size-12)",
                   color: "var(--vscode-input-foreground)",
                   overflow: "hidden",
                   "text-overflow": "ellipsis",
@@ -254,7 +254,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
             <div style={{ "margin-bottom": "16px" }}>
               <p
                 style={{
-                  "font-size": "var(--kilo-font-size-12)",
+                  "font-size": "var(--codem-font-size-12)",
                   "font-weight": "600",
                   color: "var(--vscode-descriptionForeground)",
                   margin: "0 0 6px 0",
@@ -278,7 +278,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
               >
                 <span
                   style={{
-                    "font-size": "var(--kilo-font-size-24)",
+                    "font-size": "var(--codem-font-size-24)",
                     "font-weight": "700",
                     "font-family": "var(--vscode-editor-font-family, monospace)",
                     "letter-spacing": "4px",
@@ -289,7 +289,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
                 </span>
                 <p
                   style={{
-                    "font-size": "var(--kilo-font-size-11)",
+                    "font-size": "var(--codem-font-size-11)",
                     color: "var(--vscode-descriptionForeground)",
                     margin: "4px 0 0 0",
                   }}
@@ -313,7 +313,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
             <Spinner style={{ width: "12px", height: "12px" }} />
             <span
               style={{
-                "font-size": "var(--kilo-font-size-12)",
+                "font-size": "var(--codem-font-size-12)",
                 color: "var(--vscode-descriptionForeground)",
               }}
             >
@@ -332,10 +332,10 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
       <Match when={props.status === "success"}>
         <Card>
           <div style={{ "text-align": "center" }}>
-            <span style={{ "font-size": "var(--kilo-font-size-24)" }}>✅</span>
+            <span style={{ "font-size": "var(--codem-font-size-24)" }}>✅</span>
             <p
               style={{
-                "font-size": "var(--kilo-font-size-14)",
+                "font-size": "var(--codem-font-size-14)",
                 "font-weight": "600",
                 color: "var(--vscode-foreground)",
                 margin: "8px 0 0 0",
@@ -351,10 +351,10 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
       <Match when={props.status === "error"}>
         <Card>
           <div style={{ "text-align": "center" }}>
-            <span style={{ "font-size": "var(--kilo-font-size-24)" }}>❌</span>
+            <span style={{ "font-size": "var(--codem-font-size-24)" }}>❌</span>
             <p
               style={{
-                "font-size": "var(--kilo-font-size-13)",
+                "font-size": "var(--codem-font-size-13)",
                 color: "var(--vscode-errorForeground)",
                 margin: "8px 0 12px 0",
               }}
@@ -386,7 +386,7 @@ const DeviceAuthCard: Component<DeviceAuthCardProps> = (props) => {
           <div style={{ "text-align": "center" }}>
             <p
               style={{
-                "font-size": "var(--kilo-font-size-13)",
+                "font-size": "var(--codem-font-size-13)",
                 color: "var(--vscode-descriptionForeground)",
                 margin: "0 0 12px 0",
               }}

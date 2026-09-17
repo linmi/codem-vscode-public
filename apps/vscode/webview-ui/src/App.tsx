@@ -1,6 +1,6 @@
 import { Component, createSignal, createMemo, createEffect, Switch, Match, Show, onMount, onCleanup } from "solid-js"
-import { DataProvider } from "@kilocode/kilo-ui/context/data"
-import { BoardNavigationProvider } from "@kilocode/kilo-ui/context/board-navigation"
+import { DataProvider } from "@codem/ui/context/data"
+import { BoardNavigationProvider } from "@codem/ui/context/board-navigation"
 import Settings from "./components/settings/Settings"
 import ProfileView from "./components/profile/ProfileView"
 import { useVSCode } from "./context/vscode"
@@ -222,7 +222,7 @@ export const DataBridge: Component<{ children: any }> = (props) => {
     <DataProvider
       data={data}
       directory={directory()}
-      // @ts-expect-error — onPermissionRespond/onQuestion* are extension-specific props not yet in kilo-ui's DataProvider types
+      // @ts-expect-error — onPermissionRespond/onQuestion* are extension-specific props not yet in @codem/ui DataProvider types
       onPermissionRespond={respond}
       onQuestionReply={reply}
       onQuestionReject={reject}

@@ -78,7 +78,7 @@ interface BackgroundJobView {
  *
  * App Server identity and terminal semantics stay authoritative. This adapter
  * only projects strict CodeM DTOs into the existing Webview's message/part
- * vocabulary while the React/shadcn rewrite proceeds. It never accepts a raw
+ * vocabulary for the Solid `@codem/ui` webview. It never accepts a raw
  * JSON-RPC frame and never owns durable history.
  */
 export class AppServerMatureUiAdapter {

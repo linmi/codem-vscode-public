@@ -1,12 +1,12 @@
-import { Button } from "@kilocode/kilo-ui/button"
-import { Card } from "@kilocode/kilo-ui/card"
-import { Collapsible } from "@kilocode/kilo-ui/collapsible"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { ProviderIcon } from "@kilocode/kilo-ui/provider-icon"
-import { Select } from "@kilocode/kilo-ui/select"
-import { Tag } from "@kilocode/kilo-ui/tag"
-import { showToast } from "@kilocode/kilo-ui/toast"
+import { Button } from "@codem/ui/components/button"
+import { Card } from "@codem/ui/components/card"
+import { Collapsible } from "@codem/ui/components/collapsible"
+import { useDialog } from "@codem/ui/context/dialog"
+import { Icon } from "@codem/ui/components/icon"
+import { ProviderIcon } from "@codem/ui/components/provider-icon"
+import { Select } from "@codem/ui/components/select"
+import { Tag } from "@codem/ui/components/tag"
+import { showToast } from "@codem/ui/components/toast"
 import { Component, For, Show, createMemo, createSignal, onCleanup } from "solid-js"
 import { useConfig } from "../../context/config"
 import { useLanguage } from "../../context/language"
@@ -177,7 +177,7 @@ const ProvidersTab: Component = () => {
             <ProviderIcon id={providerIcon(KILO_PROVIDER_ID)} width={20} height={20} />
             <span
               style={{
-                "font-size": "var(--kilo-font-size-14)",
+                "font-size": "var(--codem-font-size-14)",
                 "font-weight": "500",
                 color: "var(--vscode-foreground)",
               }}
@@ -209,7 +209,7 @@ const ProvidersTab: Component = () => {
             <div
               style={{
                 padding: "16px 0",
-                "font-size": "var(--kilo-font-size-14)",
+                "font-size": "var(--codem-font-size-14)",
                 color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
               }}
             >
@@ -235,7 +235,7 @@ const ProvidersTab: Component = () => {
                   <ProviderIcon id={providerIcon(item)} width={20} height={20} />
                   <span
                     style={{
-                      "font-size": "var(--kilo-font-size-14)",
+                      "font-size": "var(--codem-font-size-14)",
                       "font-weight": "500",
                       color: "var(--vscode-foreground)",
                       overflow: "hidden",
@@ -251,7 +251,7 @@ const ProvidersTab: Component = () => {
                   <Show when={!canDisconnect(item)}>
                     <span
                       style={{
-                        "font-size": "var(--kilo-font-size-14)",
+                        "font-size": "var(--codem-font-size-14)",
                         color: "var(--text-base, var(--vscode-descriptionForeground))",
                         "padding-right": "12px",
                       }}
@@ -312,7 +312,7 @@ const ProvidersTab: Component = () => {
                     <ProviderIcon id={providerIcon(item)} width={20} height={20} />
                     <span
                       style={{
-                        "font-size": "var(--kilo-font-size-14)",
+                        "font-size": "var(--codem-font-size-14)",
                         "font-weight": "500",
                         color: "var(--vscode-foreground)",
                       }}
@@ -324,7 +324,7 @@ const ProvidersTab: Component = () => {
                     {(key) => (
                       <span
                         style={{
-                          "font-size": "var(--kilo-font-size-12)",
+                          "font-size": "var(--codem-font-size-12)",
                           color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
                           "padding-left": "32px",
                         }}
@@ -360,7 +360,7 @@ const ProvidersTab: Component = () => {
               <ProviderIcon id="synthetic" width={20} height={20} />
               <span
                 style={{
-                  "font-size": "var(--kilo-font-size-14)",
+                  "font-size": "var(--codem-font-size-14)",
                   "font-weight": "500",
                   color: "var(--vscode-foreground)",
                 }}
@@ -371,7 +371,7 @@ const ProvidersTab: Component = () => {
             </div>
             <span
               style={{
-                "font-size": "var(--kilo-font-size-12)",
+                "font-size": "var(--codem-font-size-12)",
                 color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
                 "padding-left": "32px",
               }}
@@ -413,7 +413,7 @@ const ProvidersTab: Component = () => {
             <Icon name="providers" size="small" />
             <span
               style={{
-                "font-size": "var(--kilo-font-size-14)",
+                "font-size": "var(--codem-font-size-14)",
                 "font-weight": "500",
               }}
             >
@@ -430,7 +430,7 @@ const ProvidersTab: Component = () => {
           <Collapsible.Trigger>
             <span
               style={{
-                "font-size": "var(--kilo-font-size-12)",
+                "font-size": "var(--codem-font-size-12)",
                 "font-weight": "500",
                 color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
               }}
@@ -443,7 +443,7 @@ const ProvidersTab: Component = () => {
             <Card style={{ "margin-top": "8px" }}>
               <div
                 style={{
-                  "font-size": "var(--kilo-font-size-12)",
+                  "font-size": "var(--codem-font-size-12)",
                   color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
                   "padding-bottom": "8px",
                   "border-bottom": "1px solid var(--border-weak-base)",
@@ -504,7 +504,7 @@ const ProvidersTab: Component = () => {
                       <ProviderIcon id={providerIcon(id)} width={20} height={20} />
                       <span
                         style={{
-                          "font-size": "var(--kilo-font-size-14)",
+                          "font-size": "var(--codem-font-size-14)",
                           "font-weight": "500",
                           color: "var(--vscode-foreground)",
                           overflow: "hidden",

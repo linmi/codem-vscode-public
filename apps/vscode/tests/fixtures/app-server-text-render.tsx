@@ -30,9 +30,9 @@ Object.assign(globalThis, {
 
 const { createSignal, Show, batch } = await import("solid-js")
 const { render } = await import("solid-js/web")
-const { Part } = await import("@kilocode/kilo-ui/message-part")
-const { DataProvider } = await import("@kilocode/kilo-ui/context/data")
-const { MarkedProvider, createMarkedParser } = await import("@kilocode/kilo-ui/context/marked")
+const { Part } = await import("@codem/ui/components/message-part")
+const { DataProvider } = await import("@codem/ui/context/data")
+const { MarkedProvider, createMarkedParser } = await import("@codem/ui/context/marked")
 const { isRenderable } = await import("../../webview-ui/src/utils/transcript-parts")
 const parser = createMarkedParser({})
 const adapter = new AppServerMatureUiAdapter()

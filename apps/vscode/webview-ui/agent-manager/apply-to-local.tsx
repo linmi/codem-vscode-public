@@ -11,12 +11,12 @@
  */
 
 import { createEffect, createMemo, createSignal, on, type Accessor } from "solid-js"
-import { showToast } from "@kilocode/kilo-ui/toast"
+import { showToast } from "@codem/ui/components/toast"
 import { groupApplyConflicts } from "./apply-conflicts"
 import { ApplyDialog } from "./ApplyDialog"
 import { composeDiffId } from "./diff-scope-state"
 import { diffDataKey } from "./worktree-diffs"
-import type { useDialog } from "@kilocode/kilo-ui/context/dialog"
+import type { useDialog } from "@codem/ui/context/dialog"
 import type { useLanguage } from "../src/context/language"
 import type { useVSCode } from "../src/context/vscode"
 import type { AgentManagerApplyWorktreeDiffResultMessage, WorktreeFileDiff } from "../src/types/messages"

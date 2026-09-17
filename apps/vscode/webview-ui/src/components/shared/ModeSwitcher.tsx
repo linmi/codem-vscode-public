@@ -1,7 +1,7 @@
 /**
  * ModeSwitcher component
  * Popover-based selector for choosing an agent/mode in the chat prompt area.
- * Uses kilo-ui Popover component (Phase 4.5 of UI implementation plan).
+ * Uses @codem/ui Popover (Phase 4.5 of UI implementation plan).
  *
  * ModeSwitcherBase — reusable core that accepts agents/value/onSelect props.
  * ModeSwitcher     — thin wrapper wired to session context for chat usage.
@@ -9,7 +9,7 @@
 
 import { type Accessor, Component, createEffect, createSignal, onCleanup, For, Show } from "solid-js"
 import { PopupSelector } from "./PopupSelector"
-import { Button } from "@kilocode/kilo-ui/button"
+import { Button } from "@codem/ui/components/button"
 import { useSession } from "../../context/session"
 import { useLanguage } from "../../context/language"
 import type { AgentInfo } from "../../types/messages"
@@ -193,7 +193,7 @@ export const ModeSwitcherBase: Component<ModeSwitcherBaseProps> = (props) => {
                     <Show when={agent.deprecated}>
                       <span
                         style={{
-                          "font-size": "var(--kilo-font-size-10)",
+                          "font-size": "var(--codem-font-size-10)",
                           padding: "1px 5px",
                           "border-radius": "3px",
                           background: "var(--vscode-editorWarning-foreground, #cca700)",

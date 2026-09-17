@@ -1,7 +1,7 @@
 /**
  * PermissionDock component
  * Displays permission requests from the AI assistant in the dock above the prompt input.
- * Uses kilo-ui's DockPrompt component for proper surface styling.
+ * Uses @codem/ui DockPrompt for surface styling.
  *
  * Per-rule toggles allow users to approve/deny individual permission rules for future requests.
  * For bash, the hierarchical rules from metadata.rules are shown.
@@ -10,11 +10,11 @@
  */
 
 import { Component, For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { DockPrompt } from "@kilocode/kilo-ui/dock-prompt"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Button } from "@codem/ui/components/button"
+import { DockPrompt } from "@codem/ui/components/dock-prompt"
+import { Icon } from "@codem/ui/components/icon"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { useSession } from "../../context/session"
 import { useLanguage } from "../../context/language"
 import { useConfig } from "../../context/config"

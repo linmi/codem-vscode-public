@@ -4,7 +4,7 @@ import {
   resetToolOpenState,
   toolOpenKey,
   writeToolOpen,
-} from "../../../../packages/legacy/kilo-ui/src/components/tool-open-state"
+} from "../../../../packages/ui/src/components/tool-open-state"
 
 describe("tool open state", () => {
   beforeEach(() => {

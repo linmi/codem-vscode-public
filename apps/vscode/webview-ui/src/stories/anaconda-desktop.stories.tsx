@@ -3,7 +3,7 @@
 
 import type { Meta, StoryObj } from "storybook-solidjs-vite"
 import type { AnacondaDesktopStatus } from "@kilocode/sdk/v2/client"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
+import { useDialog } from "@codem/ui/context/dialog"
 import { onMount } from "solid-js"
 import { StoryProviders } from "./StoryProviders"
 import AnacondaDesktopDialog from "../components/settings/AnacondaDesktopDialog"

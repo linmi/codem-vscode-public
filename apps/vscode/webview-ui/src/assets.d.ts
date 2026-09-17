@@ -4,7 +4,7 @@ declare module "*.svg" {
 }
 
 declare module "*.css"
-declare module "@kilocode/kilo-ui/styles"
+declare module "@codem/ui/styles"
 
 declare module "*?worker&url" {
   const src: string

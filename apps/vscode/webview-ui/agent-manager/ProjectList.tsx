@@ -1,6 +1,6 @@
 import { createMemo, type Component } from "solid-js"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { TooltipKeybind } from "@kilocode/kilo-ui/tooltip"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { TooltipKeybind } from "@codem/ui/components/tooltip"
 import type {
   AgentManagerSidebarTarget,
   AgentManagerStateMessage,
@@ -12,7 +12,7 @@ import type {
   WorktreeGitStats,
 } from "../src/types/messages"
 import type { LanguageContextValue } from "../src/context/language"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
+import { useDialog } from "@codem/ui/context/dialog"
 import { useVSCode } from "../src/context/vscode"
 import { ProjectsSection } from "./ProjectsSection"
 import { ProjectSidebarBody } from "./ProjectSidebarBody"

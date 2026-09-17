@@ -1,8 +1,8 @@
 import { Component, createSignal, onCleanup, Show } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Switch } from "@kilocode/kilo-ui/switch"
-import { Select } from "@kilocode/kilo-ui/select"
-import { Card } from "@kilocode/kilo-ui/card"
+import { Button } from "@codem/ui/components/button"
+import { Switch } from "@codem/ui/components/switch"
+import { Select } from "@codem/ui/components/select"
+import { Card } from "@codem/ui/components/card"
 import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
 import type { ExtensionMessage } from "../../types/messages"
@@ -150,7 +150,7 @@ const NotificationsTab: Component = () => {
               <Show when={testState() !== "idle"}>
                 <div
                   style={{
-                    "font-size": "var(--kilo-font-size-12)",
+                    "font-size": "var(--codem-font-size-12)",
                     color:
                       testState() === "error"
                         ? "var(--vscode-errorForeground)"

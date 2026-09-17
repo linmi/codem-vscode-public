@@ -1,9 +1,9 @@
 import { Component, Show, createSignal, createMemo, createEffect, onMount } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Card } from "@kilocode/kilo-ui/card"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Select } from "@kilocode/kilo-ui/select"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Button } from "@codem/ui/components/button"
+import { Card } from "@codem/ui/components/card"
+import { Icon } from "@codem/ui/components/icon"
+import { Select } from "@codem/ui/components/select"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
 import DeviceAuthCard from "./DeviceAuthCard"
@@ -147,7 +147,7 @@ const ProfileView: Component<ProfileViewProps> = (props) => {
           gap: "8px",
         }}
       >
-        <h2 style={{ "font-size": "var(--kilo-font-size-16)", "font-weight": "600", margin: 0 }}>
+        <h2 style={{ "font-size": "var(--codem-font-size-16)", "font-weight": "600", margin: 0 }}>
           {language.t("profile.title")}
         </h2>
       </div>
@@ -175,7 +175,7 @@ const ProfileView: Component<ProfileViewProps> = (props) => {
                   <>
                     <p
                       style={{
-                        "font-size": "var(--kilo-font-size-13)",
+                        "font-size": "var(--codem-font-size-13)",
                         color: "var(--vscode-descriptionForeground)",
                         margin: "0 0 8px 0",
                       }}
@@ -207,7 +207,7 @@ const ProfileView: Component<ProfileViewProps> = (props) => {
               <Card>
                 <p
                   style={{
-                    "font-size": "var(--kilo-font-size-14)",
+                    "font-size": "var(--codem-font-size-14)",
                     "font-weight": "600",
                     color: "var(--vscode-foreground)",
                     margin: "0 0 4px 0",
@@ -217,7 +217,7 @@ const ProfileView: Component<ProfileViewProps> = (props) => {
                 </p>
                 <p
                   style={{
-                    "font-size": "var(--kilo-font-size-12)",
+                    "font-size": "var(--codem-font-size-12)",
                     color: "var(--vscode-descriptionForeground)",
                     margin: 0,
                   }}
@@ -231,7 +231,7 @@ const ProfileView: Component<ProfileViewProps> = (props) => {
                 <Card>
                   <p
                     style={{
-                      "font-size": "var(--kilo-font-size-11)",
+                      "font-size": "var(--codem-font-size-11)",
                       "text-transform": "uppercase",
                       "letter-spacing": "0.5px",
                       color: "var(--vscode-descriptionForeground)",
@@ -262,7 +262,7 @@ const ProfileView: Component<ProfileViewProps> = (props) => {
                       <div>
                         <p
                           style={{
-                            "font-size": "var(--kilo-font-size-11)",
+                            "font-size": "var(--codem-font-size-11)",
                             "text-transform": "uppercase",
                             "letter-spacing": "0.5px",
                             color: "var(--vscode-descriptionForeground)",
@@ -273,7 +273,7 @@ const ProfileView: Component<ProfileViewProps> = (props) => {
                         </p>
                         <p
                           style={{
-                            "font-size": "var(--kilo-font-size-18)",
+                            "font-size": "var(--codem-font-size-18)",
                             "font-weight": "600",
                             color: "var(--vscode-foreground)",
                             margin: 0,

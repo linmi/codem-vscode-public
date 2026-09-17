@@ -1,6 +1,6 @@
 import { Show, createSignal, type JSX } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Popover } from "@kilocode/kilo-ui/popover"
+import { Button } from "@codem/ui/components/button"
+import { Popover } from "@codem/ui/components/popover"
 import { useLanguage } from "../../src/context/language"
 import { useVSCode } from "../../src/context/vscode"
 import { CodeMLogo, WelcomeEmptyState } from "../../src/components/chat/WelcomeEmptyState"

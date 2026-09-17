@@ -1,6 +1,6 @@
 import { createSignal, onCleanup, onMount, type Component } from "solid-js"
-import { IconButton } from "@kilocode/kilo-ui/icon-button"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { IconButton } from "@codem/ui/components/icon-button"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { useVSCode } from "../src/context/vscode"
 import type { LanguageContextValue } from "../src/context/language"
 import type { CaffeinationState } from "../src/types/messages"

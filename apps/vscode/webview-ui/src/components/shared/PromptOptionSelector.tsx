@@ -1,8 +1,8 @@
 /** Shared composer picker: keyboard navigation, focus restoration and themed popup. */
 import { Component, createEffect, createSignal, For, onCleanup, Show } from "solid-js"
 import { PopupSelector } from "./PopupSelector"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Button } from "@codem/ui/components/button"
+import { Tooltip } from "@codem/ui/components/tooltip"
 import { useLanguage } from "../../context/language"
 import { isEnterKeyCommitNotIme } from "../../utils/ime-enter"
 import { createTypeahead, isTypeaheadChar } from "../../utils/typeahead"

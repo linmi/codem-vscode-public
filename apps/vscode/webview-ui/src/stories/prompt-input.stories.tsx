@@ -17,9 +17,9 @@ import { StoryProviders, mockSessionValue } from "./StoryProviders"
 import { SessionContext } from "../context/session"
 import { PromptInput } from "../components/chat/PromptInput"
 import { SandboxTooltipContent } from "../components/shared/SandboxButton"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Button } from "@codem/ui/components/button"
+import { Icon } from "@codem/ui/components/icon"
+import { Tooltip } from "@codem/ui/components/tooltip"
 
 const agents = [
   { name: "code", description: "Write, edit and review code", mode: "primary" as const },

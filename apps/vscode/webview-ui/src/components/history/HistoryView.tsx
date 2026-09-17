@@ -5,8 +5,8 @@
  */
 
 import { Component, Show, createEffect, createSignal, onCleanup, type Accessor, type JSX } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
+import { Button } from "@codem/ui/components/button"
+import { useDialog } from "@codem/ui/context/dialog"
 import { useLanguage } from "../../context/language"
 import { useSession } from "../../context/session"
 import { useLocalTabs } from "../../context/local-tabs"

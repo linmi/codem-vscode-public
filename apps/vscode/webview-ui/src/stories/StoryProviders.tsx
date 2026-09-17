@@ -20,17 +20,17 @@ import { ProviderContext } from "../context/provider"
 import { flattenModels, findModel as _findModel } from "../context/provider-utils"
 import { ConfigProvider, ConfigContext } from "../context/config"
 import { DisplayProvider } from "../context/display"
-import { DataProvider, type OpenDiffFn, type OpenFileFn } from "@kilocode/kilo-ui/context/data"
-import { DiffComponentProvider } from "@kilocode/kilo-ui/context/diff"
-import { CodeComponentProvider } from "@kilocode/kilo-ui/context/code"
-import { FileComponentProvider } from "@kilocode/kilo-ui/context/file"
-import { DialogProvider } from "@kilocode/kilo-ui/context/dialog"
-import { MarkedProvider } from "@kilocode/kilo-ui/context/marked"
-import { I18nProvider, pluralCategory, pluralKey } from "@kilocode/kilo-ui/context"
-import type { UiI18nPluralKey } from "@kilocode/kilo-ui/context"
-import { Diff } from "@kilocode/kilo-ui/diff"
-import { Code } from "@kilocode/kilo-ui/code"
-import { File } from "@kilocode/kilo-ui/file"
+import { DataProvider, type OpenDiffFn, type OpenFileFn } from "@codem/ui/context/data"
+import { DiffComponentProvider } from "@codem/ui/context/diff"
+import { CodeComponentProvider } from "@codem/ui/context/code"
+import { FileComponentProvider } from "@codem/ui/context/file"
+import { DialogProvider } from "@codem/ui/context/dialog"
+import { MarkedProvider } from "@codem/ui/context/marked"
+import { I18nProvider, pluralCategory, pluralKey } from "@codem/ui/context"
+import type { UiI18nPluralKey } from "@codem/ui/context"
+import { Diff } from "@codem/ui/components/diff"
+import { Code } from "@codem/ui/components/code"
+import { File } from "@codem/ui/components/file"
 import { SessionContext } from "../context/session"
 import { NotificationsContext } from "../context/notifications"
 import { LanguageContext } from "../context/language"
@@ -38,10 +38,9 @@ import { IndexingProvider } from "../context/indexing"
 import { KiloEmbeddingModelsProvider } from "../context/kilo-embedding-models"
 import { MemoryProvider } from "../context/memory"
 import { TranscriptSearchProvider } from "../context/transcript-search"
-import { dict as uiEn } from "@kilocode/kilo-ui/i18n/en"
+import { dict as uiEn } from "@codem/ui/i18n/en"
 import { dict as appEn } from "../i18n/en"
 import { dict as amEn } from "../../agent-manager/i18n/en"
-import { dict as kiloEn } from "@kilocode/kilo-i18n/en"
 import { hasIndexingPlugin } from "@kilocode/kilo-indexing/detect"
 import { resolveTemplate } from "../context/language-utils"
 import type {
@@ -58,7 +57,7 @@ import type {
 type PluginSpec = string | [string, Record<string, unknown>]
 
 // Merged English dictionary (same merge order as the real LanguageProvider)
-const dict: Record<string, string> = { ...appEn, ...amEn, ...uiEn, ...kiloEn }
+const dict: Record<string, string> = { ...appEn, ...amEn, ...uiEn }
 
 /** Story-local translator. Usable outside the provider tree, unlike useLanguage. */
 export function t(key: string, params?: Record<string, string | number | boolean | undefined>) {

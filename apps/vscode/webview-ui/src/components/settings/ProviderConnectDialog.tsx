@@ -1,10 +1,10 @@
-import { Button } from "@kilocode/kilo-ui/button"
-import { useDialog } from "@kilocode/kilo-ui/context/dialog"
-import { Dialog } from "@kilocode/kilo-ui/dialog"
-import { Select } from "@kilocode/kilo-ui/select"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
-import { TextField } from "@kilocode/kilo-ui/text-field"
-import { showToast } from "@kilocode/kilo-ui/toast"
+import { Button } from "@codem/ui/components/button"
+import { useDialog } from "@codem/ui/context/dialog"
+import { Dialog } from "@codem/ui/components/dialog"
+import { Select } from "@codem/ui/components/select"
+import { Spinner } from "@codem/ui/components/spinner"
+import { TextField } from "@codem/ui/components/text-field"
+import { showToast } from "@codem/ui/components/toast"
 import type { ProviderAuthAuthorization, ProviderAuthMethod } from "@kilocode/sdk/v2/client"
 import { Component, For, Match, Show, Switch, createMemo, createSignal, onCleanup, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -493,7 +493,7 @@ const ProviderConnectDialog: Component<ProviderConnectDialogProps> = (props) => 
                 <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
                   <label
                     style={{
-                      "font-size": "var(--kilo-font-size-12)",
+                      "font-size": "var(--codem-font-size-12)",
                       "font-weight": "500",
                       color: "var(--text-weak-base)",
                     }}
@@ -515,7 +515,7 @@ const ProviderConnectDialog: Component<ProviderConnectDialogProps> = (props) => 
                     triggerVariant="settings"
                   />
                   <Show when={state.field === prompt.key && state.error}>
-                    <span style={{ "font-size": "var(--kilo-font-size-12)", color: "var(--vscode-errorForeground)" }}>
+                    <span style={{ "font-size": "var(--codem-font-size-12)", color: "var(--vscode-errorForeground)" }}>
                       {state.error}
                     </span>
                   </Show>
@@ -525,13 +525,13 @@ const ProviderConnectDialog: Component<ProviderConnectDialogProps> = (props) => 
           )}
         </For>
         <Show when={state.error && !state.field}>
-          <div style={{ color: "var(--vscode-errorForeground)", "font-size": "var(--kilo-font-size-13)" }}>
+          <div style={{ color: "var(--vscode-errorForeground)", "font-size": "var(--codem-font-size-13)" }}>
             {state.error}
           </div>
         </Show>
         <div class="dialog-confirm-actions provider-connect-actions">
           <div class="provider-connect-byok">
-            {language.t("provider.connect.kiloGateway.byok.prefix")}
+            {language.t("provider.connect.gateway.byok.prefix")}
             <a
               href="https://blog.kilo.ai/p/kilo-gateway-now-supports-byok-20-providers"
               onClick={(e) => {
@@ -540,9 +540,9 @@ const ProviderConnectDialog: Component<ProviderConnectDialogProps> = (props) => 
               }}
               class="provider-connect-byok-link"
             >
-              {language.t("provider.connect.kiloGateway.byok.link")}
+              {language.t("provider.connect.gateway.byok.link")}
             </a>
-            {language.t("provider.connect.kiloGateway.byok.suffix")}
+            {language.t("provider.connect.gateway.byok.suffix")}
           </div>
           <Button variant="ghost" size="large" type="button" onClick={back}>
             {language.t("common.goBack")}

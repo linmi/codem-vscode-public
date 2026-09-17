@@ -8,7 +8,7 @@ v1.1 更新摘要：以 2026-09-15 拉取后的 CodeM `main@d7763f0a` 为实现�
 
 # 1. 结论与推荐路线
 
-**推荐采用“CodeM 单一运行时 + Kilo 交互选择性复用 + React/shadcn 重建 Webview”的路线。**插件位于 `apps/vscode`，复用 Kilo 已验证的 Activity Bar、Sidebar/Open in Tab、上下文引用、diff/review、历史导出、后台子 Agent 和 Agent Manager 交互设计，但不把 Solid 组件层或 Kilo backend 当作目标依赖。Webview 使用 React 与仓库自有的 `packages/ui` shadcn 组件；唯一 agent 后端是 `codem app-server` stdio JSON-RPC，Core JSONL 是持久化会话权威。
+**推荐采用“CodeM 单一运行时 + Kilo 交互选择性复用 + `@codem/ui` Solid 组件”的路线。**插件位于 `apps/vscode`，复用 Kilo 已验证的 Activity Bar、Sidebar/Open in Tab、上下文引用、diff/review、历史导出、后台子 Agent 和 Agent Manager 交互设计，但不把 Kilo backend 当作目标依赖。Webview 使用 Solid 与仓库自有的 `packages/ui`（`@codem/ui/components/*`）；唯一 agent 后端是 `codem app-server` stdio JSON-RPC，Core JSONL 是持久化会话权威。
 
 该路线不是长期维护两套运行时。过渡期允许一个有明确退出条件的“成熟 UI presentation adapter”：它只把严格 CodeM DTO 投影为现有 Webview 的 message/part 词汇，不读取 raw frame、不拥有 durable history、也不在 App Server 失败时回退 Kilo。第一阶段把 App Server host、会话契约和事件投影收敛成可复用包；第二阶段让现有完整 VS Code 表层逐项接到该 SDK；第三阶段一次性切换生产 agent transport 并删除兼容层。
 
@@ -84,7 +84,7 @@ Kilo Code 使用 MIT License，允许商业使用、修改与分发，但复制�
 ```mermaid
 flowchart LR
   subgraph VS[VS Code]
-    WV[React + shadcn Webview]
+    WV[Solid + @codem/ui Webview]
     GW[Typed Message Gateway]
     HOST[Extension Host]
     VAPI[VS Code APIs]
@@ -158,7 +158,7 @@ VS Code reload 后，Extension 从 profile/session root 重建 catalog 和 proje
 | 优先级 | Kilo 当前可用能力                                                                                                                                 | 处理方式                            | CodeM 目标与边界                                                                                                                                  |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P0     | Extension 激活、Activity Bar、Sidebar、Open in Tab、View/Command 注册、Webview CSP                                                                | 直接复用框架并改名                  | 保留 VS Code 生命周期、nonce、localResourceRoots、Output Channel 和多 surface 模式；使用新的 publisher、view ID 与 command prefix。               |
-| P0     | Kilo Webview 的信息架构、主题适配、Markdown、状态、表单、对话框、图表和可访问性行为                                                               | 复用交互规格，不复用 Solid 组件实现 | 在 `packages/ui` 用 React/shadcn 重建聊天主路径；Webview 只消费 CodeM Product DTO，不引用 Kilo SDK 类型。                                         |
+| P0     | Kilo Webview 的信息架构、主题适配、Markdown、状态、表单、对话框、图表和可访问性行为                                                               | 迁入 `@codem/ui` Solid 组件 | Webview 只消费 CodeM Product DTO，通过 `@codem/ui/components/*` 渲染，不引用 Kilo SDK 类型。                                         |
 | P0     | 文件/目录拖放与 mention、当前文件和打开标签页、终端、Git Changes、历史会话、图片、编辑器 Code Actions                                             | 优先复用                            | Extension Host 解析并校验 URI、工作区和 worktree identity，再转成 CodeM text/file/image/directory attachment 或显式上下文。                       |
 | P0     | Diff/review 面板、修改摘要、编辑器 side-by-side diff、review annotation、snapshot 回退入口                                                        | 复用表层，替换状态来源              | Diff 来自 App Server file-change/JSONL projection；回退只调用 CodeM rewind，不创建 Kilo snapshot 权威或第二份会话状态。                           |
 | P0     | 会话列表、搜索、恢复、改名、归档、删除、Markdown transcript export                                                                                | 复用交互和导出表层                  | 列表与正文来自 Core thread/control port 和 shared projection；VS Code state 只保存 UI 偏好。                                                      |
@@ -207,14 +207,14 @@ codem/
   apps/
     vscode/
       src/extension/          # activation、commands、VS Code adapters
-      src/webview/            # React UI，只依赖 product DTO 与 @codem/ui
+      src/webview/            # 预留；当前 Solid Webview 在 webview-ui/，只依赖 product DTO 与 @codem/ui
       src/agent-manager/      # 第二阶段 worktree orchestration
       tests/unit/
       tests/integration/
       package.json
-    jetbrains/                # 原生 IntelliJ UI；不使用 shadcn
+    jetbrains/                # 原生 IntelliJ UI；不使用 @codem/ui
   packages/
-    ui/                       # React + shadcn 组件源码与 tokens
+    ui/                       # Solid 组件源码与 tokens（@codem/ui，含已吸收的 OpenCode 基元与 CLI Console 控件）
     app-server/
       src/                    # Core runtime、staging、integrity、RPC 与 lifecycle
       tests/
@@ -223,9 +223,7 @@ codem/
     projection/               # durable catalog/window projection
     vscode-protocol/
       src/                    # Extension ↔ Webview strict messages
-    legacy/
-      kilo-ui/                # 迁移期间保留的 Solid 实现，不接收新功能
-      opencode-ui/            # 迁移期间保留的 Solid primitives
+    legacy/                   # CLI Console 等过渡构建输入，不再承载共享 Web UI
   pnpm-workspace.yaml         # workspace 与 catalog 权威
   pnpm-lock.yaml              # 唯一 JS 依赖锁文件
   UPSTREAM_KILOCODE.md
@@ -398,7 +396,7 @@ codem/
 | Agent Manager 是否进入 MVP      | 不进入；先证明单会话完整语义，再进入 Cycle 5。                                    | 提前加入会让 cwd/thread/terminal/worktree 四种身份同时进入首期，显著扩大失败组合。                                    |
 | Autocomplete                    | 不进入 App Server MVP，单独立项。                                                 | 若必须首发，需要新的低延迟协议、模型/缓存/隐私策略，不能复用 agent turn。                                             |
 | Kilo 上游策略                   | 冻结 `c36e2263` 为起始来源，后续选择性移植。                                      | 持续 fork/merge 需要专门 upstream 团队，并接受对已删除 backend 的重复冲突处理。                                       |
-| UI 技术栈                       | **已确认：VS Code Webview 使用 React + shadcn；CodeM domain/host 保持框架无关。** | Kilo Solid UI 只作为交互与行为参考，迁移完成后删除 `packages/legacy` 中的 UI 包；JetBrains 继续使用原生 IntelliJ UI。 |
+| UI 技术栈                       | **已确认：VS Code Webview 使用 Solid + `@codem/ui`；不走 shadcn。CodeM domain/host 保持框架无关。** | 共享控件在 `packages/ui`；`packages/legacy/console` 是 CLI Console 应用（`@codem/console`）。JetBrains 继续使用原生 IntelliJ UI。 |
 | 插件名称与品牌                  | 使用独立 CodeM 品牌、publisher、command/view prefix。                             | 沿用 Kilo 名称或图标需要额外商标授权与用户迁移设计。                                                                  |
 
 以上决策不阻塞架构 Spike，但在 Cycle 2 进入生产代码前必须确认发布渠道、平台、会话共享和品牌四项。其他项可按推荐默认推进。
@@ -408,7 +406,7 @@ codem/
 建议先做一个 **5 个工作日 time-boxed Spike**，目标不是做出“看起来像聊天”的 Demo，而是验证最难逆转的边界。
 
 1. 从冻结的 App Server 集成提交建立可复现 runtime，记录 protocol/version/capability 与平台 artifact hash。
-2. 在 `apps/vscode` 内以 Kilo `c36e2263` 为登记来源，复用 Activity Bar、Sidebar/Open in Tab 行为，并用 `packages/ui` 建立 React/shadcn Webview 壳，不把 Kilo SDK/backend 带入新入口。
+2. 在 `apps/vscode` 内以 Kilo `c36e2263` 为登记来源，复用 Activity Bar、Sidebar/Open in Tab 行为，并用 `packages/ui`（`@codem/ui`）作为 Solid Webview 组件源，不把 Kilo SDK/backend 带入新入口。
 3. 通过临时 Host SDK facade 完成 Workspace Trust、lazy spawn、initialize、thread/start、turn/start、文本 delta、stop 与 clean shutdown。
 4. 证明一次 permission client request 和一次 Extension reload 后的 JSONL history 恢复。
 5. 输出依赖图、Kilo 文件复用清单、需要抽取的 CodeM host API、VSIX 内容清单和各目标平台缺口。

@@ -9,8 +9,8 @@
  */
 
 import { type Component, Show, createSignal, createEffect, createMemo, onCleanup } from "solid-js"
-import { Spinner } from "@kilocode/kilo-ui/spinner"
-import { Button } from "@kilocode/kilo-ui/button"
+import { Spinner } from "@codem/ui/components/spinner"
+import { Button } from "@codem/ui/components/button"
 import { useSession } from "../../context/session"
 import { useLanguage } from "../../context/language"
 import { useVSCode } from "../../context/vscode"
