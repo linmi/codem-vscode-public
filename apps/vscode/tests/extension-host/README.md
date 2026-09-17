@@ -1,3 +1,18 @@
+# Extension Host acceptance
+
+These tests activate the development extension in a real VS Code Extension Host. They require a disposable trusted workspace and, except for checked-in JSONL fixtures in `tests/host`, a signed-in CodeM credential broker. They never start `kilo serve`.
+
+Automated host-level coverage for the same cycle (success, HITL reject, duplicate/stale events, cancel, crash/reload, JSONL schema 13 reconstruction) lives in `tests/host/services/app-server/acceptance-cycle.test.ts` and does not need login or a GUI.
+
+Repeatable live launch from `apps/vscode`:
+
+```sh
+pnpm --dir apps/vscode run test:extension-host
+pnpm --dir apps/vscode run test:extension-host:live-send
+```
+
+The runner uses the macOS `Visual Studio Code.app` executable, an isolated `--user-data-dir`, and `--disable-workspace-trust`. It does **not** isolate `~/.codem`, so the broker can reuse an existing login. Success requires the PASS marker (and `EXTENSION_HOST_RESULT.txt` for `hitl-reload.ts`). Rebuild `dist/extension.js` before live runs: a stale production bundle can still spawn `kilo serve` even though current `ServerManager.getServer()` fail-closes. The runner fails if it sees `kilo server listening`.
+
 # Thread permission mode acceptance
 
 This test activates the development extension in a real VS Code Extension Host, checks the new command and removal of the global toggle, then exercises two controllers sharing the VS Code service and bundled Core. It verifies an explicit initial approval preset, preservation of that mode while changing thinking effort, mode broadcasts, stale-revision rejection and unsubscribe/resume without sending an agent turn. The credential broker must already be signed in; the test does not initiate login or read credential files.
@@ -33,6 +48,14 @@ pnpm --dir apps/vscode exec esbuild tests/extension-host/live-send.ts --bundle -
 ```
 
 Use the isolated, disposable trusted workspace setup above with `dist/tests/live-send.cjs`. The credential broker must already be signed in. This test uses model quota and runs the account's configured hooks; it requests no file inspection or workspace tools. It deletes only its own test thread on completion. Success requires exit zero and `LIVE_SEND_EXTENSION_HOST_PASS`; closing the test window before that marker is not a passing result. This verifies real Extension Host integration, not visual Webview rendering.
+
+# Live HITL and JSONL reload acceptance
+
+`hitl-reload.ts` is the live cycle: signed-in broker, one `sendMessage` turn with `permissionMode: "default"`, one HITL (`permissionResponse` or `questionReply`), then a fresh service/controller `loadMessages` that must match `@codem/session-history` schema 13. It writes `EXTENSION_HOST_RESULT.txt` in the disposable workspace. It deletes only its own test thread. Pinned Core 0.8.37 may send empty approval `label`s; Host falls back to `name` / `kind` / `optionId` so the request is not rejected as `-32602`.
+
+```sh
+pnpm --dir apps/vscode run test:extension-host
+```
 
 # JSONL history recovery acceptance
 

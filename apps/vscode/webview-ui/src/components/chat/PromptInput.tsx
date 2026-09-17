@@ -690,6 +690,14 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   window.addEventListener("compactSession", onCompact)
   onCleanup(() => window.removeEventListener("compactSession", onCompact))
 
+  const onRewind = () => {
+    if (session.status() === "busy") return
+    if (session.messages().length === 0) return
+    session.rewindThread()
+  }
+  window.addEventListener("rewindSession", onRewind)
+  onCleanup(() => window.removeEventListener("rewindSession", onRewind))
+
   const onExport = () => {
     const id = session.currentSessionID()
     if (id) session.exportSessionTranscript(id)
@@ -1065,6 +1073,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       }
     }
 
+    if (message.type === "cancelSideQuestionResult") {
+      if (message.requestID === `enhance-${draftKey()}-${enhanceCounter}`) setEnhancing(false)
+    }
+
     if (message.type === "filePickerResult") {
       if (defer(draftKey(), () => mention.insertFilePickerResult(message.path, message.requestId))) return
       mention.insertFilePickerResult(message.path, message.requestId)
@@ -1267,14 +1279,21 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     }
   }
 
-  const canEnhance = () => !isBusy() && !isDisabled() && !enhancing()
+  const enhanceRequestId = () => `enhance-${draftKey()}-${enhanceCounter}`
+  const canEnhance = () => !isBusy() && !isDisabled() && (!enhancing() || Boolean(session.currentSessionID()))
 
   const handleOpenIndexingSettings = () => {
     vscode.postMessage({ type: "openSettingsTab", tab: "indexing" })
   }
 
   const handleEnhance = () => {
-    if (isDisabled() || enhancing() || isBusy()) return
+    if (enhancing()) {
+      const sessionID = session.currentSessionID()
+      if (!sessionID) return
+      vscode.postMessage({ type: "cancelSideQuestion", sessionID, requestID: enhanceRequestId() })
+      return
+    }
+    if (isDisabled() || isBusy()) return
     const draft = text().trim()
     if (!draft) {
       const description = language.t("prompt.action.enhanceDescription")
@@ -1289,7 +1308,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     preEnhanceText = text()
     enhanceCounter++
     setEnhancing(true)
-    vscode.postMessage({ type: "enhancePrompt", text: draft, requestId: `enhance-${draftKey()}-${enhanceCounter}` })
+    vscode.postMessage({ type: "enhancePrompt", text: draft, requestId: enhanceRequestId() })
   }
   const runMemory = (memory: NonNullable<ReturnType<typeof parseMemoryCommand>>) => {
     if (memory.kind === "usage") {
@@ -1836,7 +1855,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           <ThinkingSelector sessionID={sid} blocked={props.blocked?.() ?? false} />
           <div class="thread-permission-mode">
             <PromptOptionSelector
-              variants={["default", "auto", "yolo"]}
+              variants={session.threadPermissions.settableModes()}
               value={permissionValue()}
               formatLabel={(mode) => language.t(`prompt.permission.${parsePermissionMode(mode)}`)}
               clearLabel={language.t("prompt.permission.unavailable")}
@@ -1886,7 +1905,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               onToggle={toggleSandbox}
             />
           </Show>
-          <Tooltip value={language.t("prompt.action.enhance")} placement="top" openDelay={0}>
+          <Tooltip
+            value={language.t(enhancing() ? "prompt.action.enhanceCancel" : "prompt.action.enhance")}
+            placement="top"
+            openDelay={0}
+          >
             <IconButton
               icon="wand-sparkles"
               variant="ghost"
@@ -1894,7 +1917,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               onClick={handleEnhance}
               disabled={!canEnhance()}
               loading={enhancing()}
-              aria-label={language.t("prompt.action.enhance")}
+              aria-label={language.t(enhancing() ? "prompt.action.enhanceCancel" : "prompt.action.enhance")}
             />
           </Tooltip>
 

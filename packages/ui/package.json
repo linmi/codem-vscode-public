@@ -157,7 +157,6 @@
     "@solid-primitives/rootless": "1.5.2",
     "@solidjs/meta": "catalog:",
     "@solidjs/router": "catalog:",
-    "@typescript/native-preview": "catalog:",
     "chart.js": "4.5.1",
     "diff": "catalog:",
     "dompurify": "3.4.13",

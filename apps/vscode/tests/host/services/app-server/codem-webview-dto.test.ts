@@ -7,6 +7,10 @@ import {
   assertPermissionModeSettable,
   codemModelsLoadedMessage,
   codemSkillsLoadedMessage,
+  copyBackgroundTerminals,
+  copyConfigSnapshot,
+  copyEnvironmentInfo,
+  copyPluginList,
 } from "../../../../src/services/app-server/codem-webview-dto.ts"
 
 const hostDto = readFileSync(
@@ -58,6 +62,42 @@ describe("CodeM webview catalog DTO", () => {
       () =>
         assertPermissionModeSettable([{ id: "yolo", name: "Yolo", description: "", settableAtRuntime: false }], "yolo"),
       /not settable at runtime/,
+    )
+  })
+
+  it("strips cwd, shell, plugin metadata, and terminal logPath before Webview copy", () => {
+    assert.deepEqual(
+      copyEnvironmentInfo({
+        agentName: "codem",
+        agentVersion: "0.8.37",
+        arch: "arm64",
+        cwd: "/workspace",
+        os: "macos",
+        shell: "/bin/zsh",
+      }),
+      { agentName: "codem", agentVersion: "0.8.37", os: "macos", arch: "arm64" },
+    )
+    assert.deepEqual(
+      copyConfigSnapshot({
+        writable: false,
+        writeOwner: "core",
+        config: { theme: "dark", cwd: "/workspace", home: "/Users/linmi", note: "ok" },
+      }),
+      { writable: false, writeOwner: "core", config: { theme: "dark", note: "ok" } },
+    )
+    assert.deepEqual(
+      copyPluginList({
+        installed: { review: { path: "/tmp/plugin" } },
+        marketplaces: { official: { url: "https://example.test" } },
+      }),
+      { installed: ["review"], marketplaces: ["official"] },
+    )
+    assert.deepEqual(
+      copyBackgroundTerminals({
+        cwd: "/workspace",
+        terminals: [{ processId: 3, logPath: "/tmp/term.log", inProgress: false }],
+      }),
+      { terminals: [{ processId: 3, inProgress: false }] },
     )
   })
 })

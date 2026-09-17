@@ -253,6 +253,17 @@ export const TaskHeader: Component<TaskHeaderProps> = (props) => {
                 aria-label={language.t("command.session.compact")}
               />
             </Tooltip>
+            {/* Core thread/rewind/start。不是 message-scoped revertSession。 */}
+            <Tooltip value={language.t("command.session.rewind")} placement="bottom">
+              <IconButton
+                icon="arrow-left"
+                size="small"
+                variant="ghost"
+                disabled={!canCompact()}
+                onClick={() => session.rewindThread()}
+                aria-label={language.t("command.session.rewind")}
+              />
+            </Tooltip>
           </Show>
           <Show when={hasMessages()}>
             <Tooltip value={language.t("chat.search.toggle")} placement="bottom">

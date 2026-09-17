@@ -84,6 +84,29 @@ describe("composer permission ownership", () => {
     assert.equal(messages.length, 2)
   })
 
+  it("filters the existing picker to settable default/auto/yolo profiles", () => {
+    const { permissions, messages } = fixture()
+    assert.deepEqual(permissions.settableModes(), ["default", "auto", "yolo"])
+    permissions.requestProfiles()
+    assert.equal(messages[0]?.type, "requestPermissionProfiles")
+    const requestID = (messages[0] as { requestID: string }).requestID
+    permissions.accept({
+      type: "permissionProfilesLoaded",
+      requestID,
+      result: {
+        profiles: [
+          { id: "default", name: "Default", description: "", settableAtRuntime: true },
+          { id: "auto", name: "Auto", description: "", settableAtRuntime: true },
+          { id: "yolo", name: "Yolo", description: "", settableAtRuntime: false },
+          { id: "plan", name: "Plan", description: "", settableAtRuntime: true },
+        ],
+      },
+    })
+    assert.deepEqual(permissions.settableModes(), ["default", "auto"])
+    permissions.selectDraft("yolo")
+    assert.equal(permissions.draftMode(), "auto")
+  })
+
   it("invalidates retired replies and synchronizes once when restored", () => {
     const { permissions, messages } = fixture()
     permissions.read("a")

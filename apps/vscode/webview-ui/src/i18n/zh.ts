@@ -91,6 +91,9 @@ export const dict = {
   "revert.banner.workspace.enableSnapshots": "启用快照",
   "revert.disabled.agentBusy": "等待智能体完成",
   "command.session.compact": "精简会话",
+  "command.session.rewind": "回退线程",
+  "command.session.archive": "归档线程",
+  "command.session.unarchive": "取消归档",
   "command.session.export": "导出会话记录",
 
   "dialog.provider.search.placeholder": "搜索提供商",
@@ -203,6 +206,7 @@ export const dict = {
   "prompt.permission.yolo": "YOLO",
   "prompt.permission.retry": "重新读取权限",
   "prompt.action.enhance": "优化提示词",
+  "prompt.action.enhanceCancel": "取消优化",
   "prompt.action.enhanceDescription":
     "'增强提示'按钮通过提供额外上下文、澄清或重新表述来帮助改进您的请求。尝试在此处输入请求，然后再次点击按钮查看其工作原理。",
   "prompt.action.sandbox.enable": "启用沙盒",
@@ -557,6 +561,8 @@ export const dict = {
   "session.delete.title": "删除会话",
   "session.delete.confirm": '删除会话 "{{name}}"？',
   "session.delete.button": "删除会话",
+  "session.archive.title": "归档线程",
+  "session.unarchive.title": "取消归档",
   "session.untitled": "无标题",
   "session.current": "当前会话",
   "session.history.sources": "历史记录来源",

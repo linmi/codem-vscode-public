@@ -1654,10 +1654,9 @@ function parseInteraction(request: AppServerRequest, threadId: string, turnId: s
   if (request.method.endsWith("/requestApproval") && !request.method.includes("/plan")) {
     const options = arrayValue(request.params.options, `${request.method} options`).map((entry, index) => {
       const option = objectValue(entry, `${request.method} options[${index}]`)
-      return {
-        id: nonBlankString(option.optionId, `${request.method} options[${index}].optionId`),
-        label: nonBlankString(option.label, `${request.method} options[${index}].label`),
-      }
+      const id = nonBlankString(option.optionId, `${request.method} options[${index}].optionId`)
+      // Core 0.8.37 commandExecution approval may send empty labels; keep optionId as the response key.
+      return { id, label: permissionOptionLabel(option, id) }
     })
     if (options.length === 0) throw new Error(`CodeM ${request.method} requires approval options`)
     return {
@@ -1727,6 +1726,14 @@ function interactionResult(pending: PendingInteraction, response: AppServerInter
     return { approved: response.approved, ...(response.approved ? {} : { feedback: response.feedback ?? "" }) }
   }
   return { approved: response.approved }
+}
+
+function permissionOptionLabel(option: JsonObject, optionId: string): string {
+  for (const key of ["label", "name", "kind"] as const) {
+    const value = optionalString(option[key])
+    if (value?.trim()) return value
+  }
+  return optionId
 }
 
 function permissionPreview(value: unknown): AppServerPermissionPreview {

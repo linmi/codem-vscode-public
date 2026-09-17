@@ -9,7 +9,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 3018",
     "test": "bun test tests",
     "test:ci": "mkdir -p .artifacts/unit && bun test tests --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@kilocode/kilo-indexing": "workspace:*",
@@ -24,7 +24,6 @@
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
     "@types/bun": "catalog:",
-    "@typescript/native-preview": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-solid": "catalog:"

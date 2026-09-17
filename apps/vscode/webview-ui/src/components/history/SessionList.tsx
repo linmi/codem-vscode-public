@@ -153,6 +153,18 @@ const SessionList: Component<SessionListProps> = (props) => {
                   aria-label={label(language.t("common.rename"), item)}
                   onClick={() => startRename(item)}
                 />
+                {/* Core thread/archive，不是删除或 clearSession。 */}
+                <IconButton
+                  data-slot="session-row-action"
+                  icon="archive"
+                  size="small"
+                  variant="ghost"
+                  aria-label={label(
+                    language.t(item.archived ? "session.unarchive.title" : "session.archive.title"),
+                    item,
+                  )}
+                  onClick={() => (item.archived ? session.unarchiveThread(item.id) : session.archiveThread(item.id))}
+                />
                 <IconButton
                   data-slot="session-row-action"
                   icon="trash"
@@ -185,6 +197,13 @@ const SessionList: Component<SessionListProps> = (props) => {
             </ContextMenu.Item>
             <ContextMenu.Item onSelect={() => session.exportSessionTranscript(item.id)}>
               <ContextMenu.ItemLabel>{language.t("command.session.export")}</ContextMenu.ItemLabel>
+            </ContextMenu.Item>
+            <ContextMenu.Item
+              onSelect={() => (item.archived ? session.unarchiveThread(item.id) : session.archiveThread(item.id))}
+            >
+              <ContextMenu.ItemLabel>
+                {language.t(item.archived ? "command.session.unarchive" : "command.session.archive")}
+              </ContextMenu.ItemLabel>
             </ContextMenu.Item>
             <ContextMenu.Separator />
             <ContextMenu.Item onSelect={() => confirmDelete(item)}>

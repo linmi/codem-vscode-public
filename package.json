@@ -20,6 +20,7 @@
     "lint:vscode": "pnpm --dir apps/vscode run lint",
     "test:vscode": "pnpm --dir apps/vscode run test",
     "test:vscode:legacy": "pnpm --dir apps/vscode run test:unit",
+    "test:vscode:extension-host": "pnpm --dir apps/vscode run test:extension-host",
     "build:jetbrains": "pnpm --dir apps/jetbrains run build",
     "typecheck:jetbrains": "pnpm --dir apps/jetbrains run typecheck",
     "test:jetbrains": "pnpm --dir apps/jetbrains run test",

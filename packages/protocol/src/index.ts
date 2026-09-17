@@ -1,8 +1,9 @@
 /**
  * `@codem/protocol` public surface (physical path: packages/protocol).
- * Catalog + thread-mode DTOs only. Do not add leftover OpenCode HttpApi or App Server Host APIs.
- * Shapes are handwritten and aligned with this repo's CodeM App Server catalog/mode DTO.
- * Do not import leftover SDK packages, Node, VS Code, Electron, or DOM APIs.
+ * Catalog, thread-mode, and Host-control DTOs that Webview may see.
+ * Do not add leftover OpenCode HttpApi, App Server Host APIs, Node, VS Code, Electron, or DOM.
+ * Shapes are handwritten and aligned with this repo's CodeM App Server catalog / control-plane DTO.
+ * Host copies only these fields; it must not forward raw frames, secrets, paths, or process handles.
  */
 
 /** Core permission modes that Webview may display or request. */
@@ -53,3 +54,96 @@ export interface CodemModelCatalog {
   readonly activeModel: string
   readonly models: readonly CodemModelSummary[]
 }
+
+/** Finite JSON that Webview may store. Host strips secrets and filesystem paths before copy. */
+export type CodemJsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | readonly CodemJsonValue[]
+  | { readonly [key: string]: CodemJsonValue }
+
+/**
+ * environment/info 白名单。不含 cwd / shell / 环境变量。
+ * Posted on `environmentInfoLoaded`.
+ */
+export interface CodemEnvironmentInfo {
+  readonly agentName: string
+  readonly agentVersion: string
+  readonly os: string
+  readonly arch: string
+}
+
+/**
+ * config/read 去密钥快照，不是 Kilo Config，也没有 configWrite。
+ * Posted on `configSnapshotLoaded`.
+ */
+export interface CodemConfigSnapshot {
+  readonly writable: boolean
+  readonly writeOwner: string
+  readonly config: { readonly [key: string]: CodemJsonValue }
+}
+
+/** hooks/list 行：事件名 + 命令标识 + matcher。不含工作区路径。 */
+export interface CodemHookHandler {
+  readonly command: string
+  readonly matcher: string | null
+}
+
+export interface CodemHookList {
+  readonly hooks: { readonly [eventName: string]: readonly CodemHookHandler[] }
+}
+
+/** plugin/list 只下发已安装 / marketplace 名称，不转发元数据里的路径或密钥。 */
+export interface CodemPluginList {
+  readonly installed: readonly string[]
+  readonly marketplaces: readonly string[]
+}
+
+/** permissionProfile/list 行。现有选择器只消费 default/auto/yolo。 */
+export interface CodemPermissionProfile {
+  readonly id: string
+  readonly name: string
+  readonly description: string
+  readonly settableAtRuntime: boolean
+}
+
+/** modelProvider/capabilities/read。布尔能力位，不含凭证。 */
+export interface CodemModelProviderCapabilities {
+  readonly version: string
+  readonly askUser: { readonly [capability: string]: boolean }
+  readonly custom: { readonly [capability: string]: boolean }
+}
+
+/** tools/list。线程已加载后的工具名表。 */
+export interface CodemToolList {
+  readonly threadId: string
+  readonly model: string
+  readonly tools: readonly string[]
+}
+
+/** thread/loaded/list。仅线程 id，不是 CLI broker 空间表。 */
+export interface CodemLoadedThreads {
+  readonly threadIds: readonly string[]
+}
+
+/**
+ * backgroundTerminals 行。processId ≠ background taskId。
+ * 不含 logPath / cwd / 进程句柄。
+ */
+export interface CodemBackgroundTerminal {
+  readonly processId: number
+  readonly inProgress: boolean
+}
+
+export interface CodemBackgroundTerminalList {
+  readonly terminals: readonly CodemBackgroundTerminal[]
+}
+
+export interface CodemBackgroundTerminalClean {
+  readonly processIds: readonly number[]
+}
+
+/** 带 requestID 的 CodeM 控制面结果：成功载荷或失败原因，互斥。 */
+export type CodemCommandResult<T extends object> = T | { readonly error: string }

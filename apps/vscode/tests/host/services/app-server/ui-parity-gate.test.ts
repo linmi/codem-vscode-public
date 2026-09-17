@@ -23,12 +23,12 @@ describe("mature UI production parity gate", () => {
       assert.equal(Object.hasOwn(CODEM_UI_INTERACTION_OWNERS, command), false, command)
     }
   })
-  it("accounts for the complete 257-command mature Webview surface", () => {
+  it("accounts for the complete 274-command mature Webview surface", () => {
     const report = matureUiParityReport()
-    assert.equal(report.totalCommands, 257)
+    assert.equal(report.totalCommands, 274)
     assert.equal(report.preservedHostCommands, 199)
-    assert.equal(report.appServerCommands, 58)
-    assert.equal(report.controllerReady.length, 21)
+    assert.equal(report.appServerCommands, 75)
+    assert.equal(report.controllerReady.length, 38)
     assert.equal(report.controllerPending.length, 0)
     assert.equal(report.protocolGaps.length, 37)
     assert.equal(

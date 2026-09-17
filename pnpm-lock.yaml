@@ -227,9 +227,9 @@ catalogs:
     '@types/semver':
       specifier: 7.7.1
       version: 7.7.1
-    '@typescript/native-preview':
-      specifier: 7.0.0-dev.20260316.1
-      version: 7.0.0-dev.20260316.1
+    '@typescript/typescript6':
+      specifier: 6.0.2
+      version: 6.0.2
     ai:
       specifier: 6.0.235
       version: 6.0.235
@@ -282,8 +282,8 @@ catalogs:
       specifier: 4.1.11
       version: 4.1.11
     typescript:
-      specifier: 5.8.2
-      version: 5.8.2
+      specifier: 7.0.2
+      version: 7.0.2
     ulid:
       specifier: 3.0.1
       version: 3.0.1
@@ -499,9 +499,9 @@ importers:
       '@types/ws':
         specifier: 8.18.1
         version: 8.18.1
-      '@typescript/native-preview':
+      '@typescript/typescript6':
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
+        version: 6.0.2
       '@vscode/vsce':
         specifier: ^3.7.1
         version: 3.9.2(supports-color@8.1.1)
@@ -525,7 +525,7 @@ importers:
         version: 20.8.9
       knip:
         specifier: 5.85.0
-        version: 5.85.0(@types/node@24.12.4)(typescript@5.9.3)
+        version: 5.85.0(@types/node@24.12.4)(typescript@7.0.2)
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -537,16 +537,16 @@ importers:
         version: 10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0)
       storybook-solidjs-vite:
         specifier: 10.0.9
-        version: 10.0.9(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(supports-color@8.1.1)(typescript@5.9.3)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3))
+        version: 10.0.9(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(supports-color@8.1.1)(typescript@7.0.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3))
       ts-morph:
         specifier: 27.0.2
         version: 27.0.2
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: 'catalog:'
+        version: 7.0.2
       typescript-eslint:
         specifier: ^8.54.0
-        version: 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+        version: 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)
       vite:
         specifier: 7.3.5
         version: 7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3)
@@ -571,19 +571,19 @@ importers:
         version: 24.12.4
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
 
   packages/codemode:
     dependencies:
+      '@typescript/typescript6':
+        specifier: 'catalog:'
+        version: 6.0.2
       acorn:
         specifier: 8.15.0
         version: 8.15.0
       effect:
         specifier: 4.0.0-beta.83
         version: 4.0.0-beta.83(patch_hash=02c5672e1ad8a029bed5f2ad87933024aa704d7b845d0c049ad036d980ef4852)
-      typescript:
-        specifier: 'catalog:'
-        version: 5.8.2
     devDependencies:
       '@tsconfig/bun':
         specifier: 'catalog:'
@@ -591,9 +591,9 @@ importers:
       '@types/bun':
         specifier: 1.3.14
         version: 1.3.14
-      '@typescript/native-preview':
+      typescript:
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
+        version: 7.0.2
 
   packages/core:
     dependencies:
@@ -859,6 +859,9 @@ importers:
       drizzle-kit:
         specifier: 'catalog:'
         version: 1.0.0-rc.2
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
 
   packages/effect-drizzle-sqlite:
     dependencies:
@@ -878,9 +881,9 @@ importers:
       '@types/bun':
         specifier: 1.3.14
         version: 1.3.14
-      '@typescript/native-preview':
+      typescript:
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
+        version: 7.0.2
 
   packages/effect-sqlite-node:
     dependencies:
@@ -894,9 +897,9 @@ importers:
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
-      '@typescript/native-preview':
+      typescript:
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
+        version: 7.0.2
 
   packages/http-recorder:
     dependencies:
@@ -922,12 +925,9 @@ importers:
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
 
   packages/kilo-gateway:
     dependencies:
@@ -961,25 +961,22 @@ importers:
     devDependencies:
       '@opentui/core':
         specifier: 0.5.11
-        version: 0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10)
+        version: 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/solid':
         specifier: 0.5.11
-        version: 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)
+        version: 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@tsconfig/node22':
         specifier: 'catalog:'
         version: 22.0.2
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       solid-js:
         specifier: 1.9.12
         version: 1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0)
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
 
   packages/kilo-indexing:
     dependencies:
@@ -1003,7 +1000,7 @@ importers:
         version: 2.5.1
       '@qdrant/js-client-rest':
         specifier: 1.17.0
-        version: 1.17.0(typescript@5.8.2)
+        version: 1.17.0(typescript@7.0.2)
       async-mutex:
         specifier: 0.5.0
         version: 0.5.0
@@ -1050,12 +1047,9 @@ importers:
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
 
   packages/kilo-memory:
     dependencies:
@@ -1072,12 +1066,9 @@ importers:
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
 
   packages/kilo-sandbox:
     dependencies:
@@ -1100,9 +1091,9 @@ importers:
       '@types/bun':
         specifier: 1.3.14
         version: 1.3.14
-      '@typescript/native-preview':
+      typescript:
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
+        version: 7.0.2
 
   packages/legacy/console:
     dependencies:
@@ -1137,12 +1128,9 @@ importers:
       '@types/bun':
         specifier: 1.3.14
         version: 1.3.14
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
       vite:
         specifier: 7.3.5
         version: 7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3)
@@ -1183,9 +1171,9 @@ importers:
       '@types/bun':
         specifier: 1.3.14
         version: 1.3.14
-      '@typescript/native-preview':
+      typescript:
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
+        version: 7.0.2
 
   packages/opencode:
     dependencies:
@@ -1281,7 +1269,7 @@ importers:
         version: 3.6.0(@ai-sdk/provider-utils@4.0.40(zod@4.1.8))(@ai-sdk/provider@3.0.14)(graphql@16.14.2)(supports-color@10.2.2)(ws@8.21.0)
       '@gitlab/opencode-gitlab-auth':
         specifier: 1.3.3
-        version: 1.3.3(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)))
+        version: 1.3.3(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)))
       '@kilocode/kilo-gateway':
         specifier: workspace:*
         version: link:../kilo-gateway
@@ -1359,13 +1347,13 @@ importers:
         version: 2.6.1(@opentelemetry/api@1.9.0)
       '@opentui/core':
         specifier: 0.5.11
-        version: 0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10)
+        version: 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/keymap':
         specifier: 0.5.11
-        version: 0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10)
+        version: 0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/solid':
         specifier: 0.5.11
-        version: 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)
+        version: 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@parcel/watcher':
         specifier: 2.5.1
         version: 2.5.1
@@ -1482,10 +1470,10 @@ importers:
         version: 10.1.2
       opencode-gitlab-auth:
         specifier: 2.1.0
-        version: 2.1.0(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)))
+        version: 2.1.0(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)))
       opencode-poe-auth:
         specifier: 0.0.1
-        version: 0.0.1(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)))
+        version: 0.0.1(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)))
       partial-json:
         specifier: 0.1.7
         version: 0.1.7
@@ -1625,9 +1613,6 @@ importers:
       '@types/yargs':
         specifier: 17.0.33
         version: 17.0.33
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       drizzle-kit:
         specifier: 'catalog:'
         version: 1.0.0-rc.2
@@ -1636,7 +1621,7 @@ importers:
         version: 3.6.2
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
       vscode-languageserver-types:
         specifier: 3.17.5
         version: 3.17.5
@@ -1661,25 +1646,22 @@ importers:
     devDependencies:
       '@opentui/core':
         specifier: 0.5.11
-        version: 0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10)
+        version: 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/keymap':
         specifier: 0.5.11
-        version: 0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10)
+        version: 0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/solid':
         specifier: 0.5.11
-        version: 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)
+        version: 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@tsconfig/node22':
         specifier: 'catalog:'
         version: 22.0.2
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
 
   packages/plugin-atomic-chat:
     dependencies:
@@ -1693,12 +1675,9 @@ importers:
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
       vitest:
         specifier: ^4.0.16
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@24.12.4)(happy-dom@20.8.9)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1))
@@ -1707,7 +1686,7 @@ importers:
     devDependencies:
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
 
   packages/schema:
     dependencies:
@@ -1721,9 +1700,9 @@ importers:
       '@types/bun':
         specifier: 1.3.14
         version: 1.3.14
-      '@typescript/native-preview':
+      typescript:
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
+        version: 7.0.2
 
   packages/script:
     dependencies:
@@ -1746,7 +1725,7 @@ importers:
     devDependencies:
       '@hey-api/openapi-ts':
         specifier: 0.97.3
-        version: 0.97.3(typescript@5.8.2)
+        version: 0.97.3(typescript@7.0.2)
       '@tsconfig/node22':
         specifier: 'catalog:'
         version: 22.0.2
@@ -1756,12 +1735,9 @@ importers:
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
 
   packages/server:
     dependencies:
@@ -1784,9 +1760,9 @@ importers:
       '@types/bun':
         specifier: 1.3.14
         version: 1.3.14
-      '@typescript/native-preview':
+      typescript:
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
+        version: 7.0.2
 
   packages/session-history:
     dependencies:
@@ -1799,7 +1775,7 @@ importers:
         version: 24.12.4
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
 
   packages/tui:
     dependencies:
@@ -1817,13 +1793,13 @@ importers:
         version: link:../core
       '@opentui/core':
         specifier: 0.5.11
-        version: 0.5.11(typescript@5.9.3)(web-tree-sitter@0.25.10)
+        version: 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/keymap':
         specifier: 0.5.11
-        version: 0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.9.3)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.9.3)(web-tree-sitter@0.25.10)
+        version: 0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10)
       '@opentui/solid':
         specifier: 0.5.11
-        version: 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.9.3)(web-tree-sitter@0.25.10)
+        version: 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)
       clipboardy:
         specifier: 4.0.0
         version: 4.0.0
@@ -1855,9 +1831,9 @@ importers:
       '@types/bun':
         specifier: 1.3.14
         version: 1.3.14
-      '@typescript/native-preview':
+      typescript:
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
+        version: 7.0.2
 
   packages/ui:
     dependencies:
@@ -1903,9 +1879,6 @@ importers:
       '@solidjs/router':
         specifier: 'catalog:'
         version: 0.15.4(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260316.1
       chart.js:
         specifier: 4.5.1
         version: 4.5.1
@@ -2008,13 +1981,13 @@ importers:
         version: 10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0)
       storybook-solidjs-vite:
         specifier: 10.0.9
-        version: 10.0.9(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(supports-color@10.2.2)(typescript@5.8.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1))
+        version: 10.0.9(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1))
       tailwindcss:
         specifier: 'catalog:'
         version: 4.1.11
       typescript:
         specifier: 'catalog:'
-        version: 5.8.2
+        version: 7.0.2
       vite:
         specifier: 7.3.5
         version: 7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1)
@@ -5359,43 +5332,128 @@ packages:
     resolution: {integrity: sha512-BoC8PiO4Hkdo0TVJh9Ntxr5MxPDI7/oFsrygN5ADelFSeXG/qgNuucIGA+L5Z6JpPTE/uRfcTWtscjbUaufepQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260316.1':
-    resolution: {integrity: sha512-TjeMEMabLsc5VNYy8WVlu1oHBVqibwSbkIRSyqANFxyD6iWnCFquDvliwErVo8TFIu0c8C+C+tgFSvYkhVZMMw==}
+  '@typescript/typescript-aix-ppc64@7.0.2':
+    resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [ppc64]
+    os: [aix]
+
+  '@typescript/typescript-darwin-arm64@7.0.2':
+    resolution: {integrity: sha512-gowzar9MwS/aRWp6f3a4KUqzRjAZjOsmGNCM6LcTgXum+dBfgsBVMN+AgvOCCbguXyick6LJhpBszxMebJ8syA==}
+    engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260316.1':
-    resolution: {integrity: sha512-Lv/JmtMfNbMJiIEZlByQ5zSR1t9WoE8rFuZxU0vpiyfUEjSbuBMG8pt+Ryqj6uiylR3XThlV3EaVYsJ7Um6n8w==}
+  '@typescript/typescript-darwin-x64@7.0.2':
+    resolution: {integrity: sha512-SZ9xZInqApNlNGc9s0W1VSsktYSOe9cFqNOIqmN1Gs8SmkjKZYFt017G4VwPxASInODuAdbTW7sXiFUf893RgA==}
+    engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260316.1':
-    resolution: {integrity: sha512-xA4DekkAesjnWyp8p0iF79Rf0q2NVszxedd9M2Ztb0WBSDQFiECVYJSQMFd4+FKNiSq9DnadPy68Dly+B1r17A==}
+  '@typescript/typescript-freebsd-arm64@7.0.2':
+    resolution: {integrity: sha512-W5NH4y/J0plIIS5b2xvTEkU7JFxyqdMAOgf+Ilhl0vHQXKO5dZoxd+C/jEtq56c4F3wk71RB4BMRQ2XdI+bwYQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [freebsd]
+
+  '@typescript/typescript-freebsd-x64@7.0.2':
+    resolution: {integrity: sha512-UMGDx5sTpzNw3WiPebH7l90IWfJggEd+egHt/q6p7/Cm3zqoV7VxkGXt+3DxPIw8CcmvAB0j3sVVfbhX+M4Tpw==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@typescript/typescript-linux-arm64@7.0.2':
+    resolution: {integrity: sha512-Qh4eU4/y3yDjnfjjyPYihMj5/ODIlmt+Bzu17OI+fiSRDW57QmU5SiN63exPRNJPKUzcc1INa1NXdrJ+MqHjUQ==}
+    engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [linux]
 
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260316.1':
-    resolution: {integrity: sha512-vItkqjOuVY9OfqdovSyEjnAbNMM+QGM9AqzGRknX1nZjGlWXsUTL3IPuv5by69SOqw5TLi8ddx82cyu6F3ZRVQ==}
+  '@typescript/typescript-linux-arm@7.0.2':
+    resolution: {integrity: sha512-gffT3xPz9sR7j/YJExkyPntrI0P2EP9XbOyWzth2/Gs0RstK+90RBcO0ncXoXy/beYll1SXw846Nf2zdnEz0QQ==}
+    engines: {node: '>=16.20.0'}
     cpu: [arm]
     os: [linux]
 
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260316.1':
-    resolution: {integrity: sha512-osY+4HCIpi9Bu4jNz49k8BVOB9A04BG6mWF7WltmAQWBIAeosa4n/qtKokfAZDTD5/moHSn20p7hZAlGI8JWjw==}
+  '@typescript/typescript-linux-loong64@7.0.2':
+    resolution: {integrity: sha512-uEHck9i8hoAzXPiYRib1O7miOnz23SxIeVl6F4LXox+qov1K35jHcEW6VHKvZI+pyvl7fZEP4MCU5LYvIq1GuQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [loong64]
+    os: [linux]
+
+  '@typescript/typescript-linux-mips64el@7.0.2':
+    resolution: {integrity: sha512-R4KvAMnE43W5Qeqb0Ly56O3mWMWIAgsMyz36DCaycd5nbg/9kzm0liw3JocfRqyJY0KPmzFjbswozXyW0DnIYA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [mips64el]
+    os: [linux]
+
+  '@typescript/typescript-linux-ppc64@7.0.2':
+    resolution: {integrity: sha512-DORx5b3sd/4S7eayxm4FQv+A7CrkUIGRaHiwI8oiHTAI1fAPWhF4J0vAlkC8biAlHSVVwxMQ3tjZ2/DVbnQiiA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [ppc64]
+    os: [linux]
+
+  '@typescript/typescript-linux-riscv64@7.0.2':
+    resolution: {integrity: sha512-wf0jqEDOjrPRnKwYRyyJDRo11KMbvMFrU+q4zqKyChODBzvlkbhNQfKvLxQCcwTpdDaXSHZTVuh0JoCrKCUMHQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [riscv64]
+    os: [linux]
+
+  '@typescript/typescript-linux-s390x@7.0.2':
+    resolution: {integrity: sha512-IkwJc3L7yhytWd/ewjyxNDfOmswCm9GWMJT/ue/dU4aZNbwZeYAetq42VyLmsmSjvoX7z74X6ZaYCtzAr0EuGw==}
+    engines: {node: '>=16.20.0'}
+    cpu: [s390x]
+    os: [linux]
+
+  '@typescript/typescript-linux-x64@7.0.2':
+    resolution: {integrity: sha512-EYdf2cNg7rgCWJnxCdJ+F3V39O8ihb37eHAu1LK8oAFizgTQbPOK7zHHXbPt8rX24COqODXeI3sIf0fCXG7H/A==}
+    engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [linux]
 
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260316.1':
-    resolution: {integrity: sha512-DcWceiTXClIakJhk0+8KjQ+pBp435HaA6uw9EtDTo75uWUEPVf9D489KKbylRChci/paYX8uPKlROo9+6N8M9g==}
+  '@typescript/typescript-netbsd-arm64@7.0.2':
+    resolution: {integrity: sha512-+polYF4MF04aPpO5FTkHran9yUQDSXqy5GiSDKpsll5jy3l3+g9QLhpf39T+ePtefhXLOGrLl0QIjkQP6VnelA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [netbsd]
+
+  '@typescript/typescript-netbsd-x64@7.0.2':
+    resolution: {integrity: sha512-8YIT0EHM/3dq10ZOVF/A7pc/YSMtbcecct4rWtexrnSCHOPcpC2KTLXfTCR6vDpnSiY12heNb1GiN/wu+T/FyA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [netbsd]
+
+  '@typescript/typescript-openbsd-arm64@7.0.2':
+    resolution: {integrity: sha512-APT8+ClYnuYm1u9+kgGXoMj2VzWzcymwh2gNSQVySHfkRDGOTVkoWLjCmOQSaO+PoqQ57B0flRp9SA+7GnnkzQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [openbsd]
+
+  '@typescript/typescript-openbsd-x64@7.0.2':
+    resolution: {integrity: sha512-yX7s+Q0Dln0Dt9tEzZsAjXXR/+ytBM7AlglaqyeMPxQszJ1JhlJdZ6jLA+IzldHtflX81em7lDao1xXu+aRRkg==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [openbsd]
+
+  '@typescript/typescript-sunos-x64@7.0.2':
+    resolution: {integrity: sha512-dLJDGaLZ1D4HPQn62u1n8mBDkJREwMsAkCdkwd4Ieqw+x3TUyTsqY0YiBCtE6H6OzzgGk3iuZ3vFWRS+E8/d1g==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [sunos]
+
+  '@typescript/typescript-win32-arm64@7.0.2':
+    resolution: {integrity: sha512-Gyl1Vy6OsWesLzmq+EP0Fb7b4Nid5232AvcA2SFcdYreldpNtYFFofPjnt62y9hQy7VTaZp65ICJjuAQRaVcIQ==}
+    engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [win32]
 
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260316.1':
-    resolution: {integrity: sha512-LvpV1hyQS0U9yMLHgWexhC7oSeBpcNbIJtYC6Iyvu63Mb6J/cP0k2fQmnAVB2yesMMQFtuY6v2YIx17vE0Ymfw==}
+  '@typescript/typescript-win32-x64@7.0.2':
+    resolution: {integrity: sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g==}
+    engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
 
-  '@typescript/native-preview@7.0.0-dev.20260316.1':
-    resolution: {integrity: sha512-s+QGNx+3zxTZBuZw3oNOFlHqpbmg0cTgBd/b6SRZ5mo3vFChkhflYqRW2IvTvU9a3PPX3bQAkQ/gWbDZCmNC3Q==}
+  '@typescript/typescript6@6.0.2':
+    resolution: {integrity: sha512-mbCddXd+jm7hfx7w2YU64/Av4/NqqeG3GoRZgxPcgoTxYjhrcfJRw9ULch71SS4G+Q3bOXFhRvPqjguN0Hyp5w==}
     hasBin: true
 
   '@typespec/ts-http-runtime@0.3.9':
@@ -9484,14 +9542,14 @@ packages:
       eslint: ^8.57.0 || ^9.0.0 || ^10.0.0
       typescript: '>=4.8.4 <6.1.0'
 
-  typescript@5.8.2:
-    resolution: {integrity: sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ==}
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typescript@5.9.3:
-    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
-    engines: {node: '>=14.17'}
+  typescript@7.0.2:
+    resolution: {integrity: sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==}
+    engines: {node: '>=16.20.0'}
     hasBin: true
 
   typical@4.0.0:
@@ -11545,10 +11603,10 @@ snapshots:
       - utf-8-validate
       - ws
 
-  '@gitlab/opencode-gitlab-auth@1.3.3(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)))':
+  '@gitlab/opencode-gitlab-auth@1.3.3(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)))':
     dependencies:
       '@fastify/rate-limit': 10.3.0
-      '@opencode-ai/plugin': 1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))
+      '@opencode-ai/plugin': 1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))
       fastify: 5.12.4
       open: 10.1.2
 
@@ -11571,7 +11629,7 @@ snapshots:
       '@types/json-schema': 7.0.15
       js-yaml: 4.1.1
 
-  '@hey-api/openapi-ts@0.97.3(typescript@5.8.2)':
+  '@hey-api/openapi-ts@0.97.3(typescript@7.0.2)':
     dependencies:
       '@hey-api/codegen-core': 0.8.2
       '@hey-api/json-schema-ref-parser': 1.4.2
@@ -11583,7 +11641,7 @@ snapshots:
       color-support: 1.1.3
       commander: 14.0.3
       get-tsconfig: 4.14.0
-      typescript: 5.8.2
+      typescript: 7.0.2
     transitivePeerDependencies:
       - magicast
 
@@ -11659,21 +11717,21 @@ snapshots:
 
   '@isaacs/string-locale-compare@1.1.0': {}
 
-  '@joshwooding/vite-plugin-react-docgen-typescript@0.6.4(typescript@5.8.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1))':
+  '@joshwooding/vite-plugin-react-docgen-typescript@0.6.4(typescript@7.0.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3))':
     dependencies:
       glob: 13.0.6
-      react-docgen-typescript: 2.4.0(typescript@5.8.2)
-      vite: 7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1)
-    optionalDependencies:
-      typescript: 5.8.2
-
-  '@joshwooding/vite-plugin-react-docgen-typescript@0.6.4(typescript@5.9.3)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3))':
-    dependencies:
-      glob: 13.0.6
-      react-docgen-typescript: 2.4.0(typescript@5.9.3)
+      react-docgen-typescript: 2.4.0(typescript@7.0.2)
       vite: 7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3)
     optionalDependencies:
-      typescript: 5.9.3
+      typescript: 7.0.2
+
+  '@joshwooding/vite-plugin-react-docgen-typescript@0.6.4(typescript@7.0.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1))':
+    dependencies:
+      glob: 13.0.6
+      react-docgen-typescript: 2.4.0(typescript@7.0.2)
+      vite: 7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1)
+    optionalDependencies:
+      typescript: 7.0.2
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -12207,16 +12265,16 @@ snapshots:
       hono: 4.13.7
       jose: 5.9.6
 
-  '@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))':
+  '@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@opencode-ai/sdk': 1.18.30
       effect: 4.0.0-beta.83(patch_hash=02c5672e1ad8a029bed5f2ad87933024aa704d7b845d0c049ad036d980ef4852)
       zod: 4.1.8
     optionalDependencies:
-      '@opentui/core': 0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10)
-      '@opentui/keymap': 0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10)
-      '@opentui/solid': 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)
+      '@opentui/core': 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
+      '@opentui/keymap': 0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10)
+      '@opentui/solid': 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)
 
   '@opencode-ai/sdk@1.18.30':
     dependencies:
@@ -12328,9 +12386,9 @@ snapshots:
   '@opentui/core-win32-x64@0.5.11':
     optional: true
 
-  '@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10)':
+  '@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)':
     dependencies:
-      bun-ffi-structs: 0.3.1(typescript@5.8.2)
+      bun-ffi-structs: 0.3.1(typescript@7.0.2)
       diff: 8.0.4
       marked: 17.0.1
       string-width: 7.2.0
@@ -12348,68 +12406,22 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@opentui/core@0.5.11(typescript@5.9.3)(web-tree-sitter@0.25.10)':
+  '@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10)':
     dependencies:
-      bun-ffi-structs: 0.3.1(typescript@5.9.3)
-      diff: 8.0.4
-      marked: 17.0.1
-      string-width: 7.2.0
-      strip-ansi: 7.1.2
-      web-tree-sitter: 0.25.10
+      '@opentui/core': 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
     optionalDependencies:
-      '@opentui/core-darwin-arm64': 0.5.11
-      '@opentui/core-darwin-x64': 0.5.11
-      '@opentui/core-linux-arm64': 0.5.11
-      '@opentui/core-linux-arm64-musl': 0.5.11
-      '@opentui/core-linux-x64': 0.5.11
-      '@opentui/core-linux-x64-musl': 0.5.11
-      '@opentui/core-win32-arm64': 0.5.11
-      '@opentui/core-win32-x64': 0.5.11
-    transitivePeerDependencies:
-      - typescript
-
-  '@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10)':
-    dependencies:
-      '@opentui/core': 0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10)
-    optionalDependencies:
-      '@opentui/solid': 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)
+      '@opentui/solid': 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)
       react: 19.3.0
       solid-js: 1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0)
     transitivePeerDependencies:
       - typescript
       - web-tree-sitter
 
-  '@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.9.3)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.9.3)(web-tree-sitter@0.25.10)':
-    dependencies:
-      '@opentui/core': 0.5.11(typescript@5.9.3)(web-tree-sitter@0.25.10)
-    optionalDependencies:
-      '@opentui/solid': 0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.9.3)(web-tree-sitter@0.25.10)
-      react: 19.3.0
-      solid-js: 1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0)
-    transitivePeerDependencies:
-      - typescript
-      - web-tree-sitter
-
-  '@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10)':
+  '@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10)':
     dependencies:
       '@babel/core': 7.28.0(supports-color@10.2.2)
       '@babel/preset-typescript': 7.27.1(@babel/core@7.28.0(supports-color@10.2.2))(supports-color@10.2.2)
-      '@opentui/core': 0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10)
-      babel-plugin-module-resolver: 5.0.2
-      babel-preset-solid: 1.9.12(@babel/core@7.28.0(supports-color@10.2.2))(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))
-      entities: 7.0.1
-      s-js: 0.4.9
-      solid-js: 1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0)
-    transitivePeerDependencies:
-      - supports-color
-      - typescript
-      - web-tree-sitter
-
-  '@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.9.3)(web-tree-sitter@0.25.10)':
-    dependencies:
-      '@babel/core': 7.28.0(supports-color@10.2.2)
-      '@babel/preset-typescript': 7.27.1(@babel/core@7.28.0(supports-color@10.2.2))(supports-color@10.2.2)
-      '@opentui/core': 0.5.11(typescript@5.9.3)(web-tree-sitter@0.25.10)
+      '@opentui/core': 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
       babel-plugin-module-resolver: 5.0.2
       babel-preset-solid: 1.9.12(@babel/core@7.28.0(supports-color@10.2.2))(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))
       entities: 7.0.1
@@ -12655,10 +12667,10 @@ snapshots:
 
   '@protobufjs/utf8@1.1.2': {}
 
-  '@qdrant/js-client-rest@1.17.0(typescript@5.8.2)':
+  '@qdrant/js-client-rest@1.17.0(typescript@7.0.2)':
     dependencies:
       '@qdrant/openapi-typescript-fetch': 1.2.6
-      typescript: 5.8.2
+      typescript: 7.0.2
       undici: 6.28.1
 
   '@qdrant/openapi-typescript-fetch@1.2.6': {}
@@ -13724,40 +13736,40 @@ snapshots:
     dependencies:
       '@types/yargs-parser': 21.0.3
 
-  '@typescript-eslint/eslint-plugin@8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
+  '@typescript-eslint/eslint-plugin@8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2))(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)':
     dependencies:
       '@eslint-community/regexpp': 4.12.2
-      '@typescript-eslint/parser': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+      '@typescript-eslint/parser': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)
       '@typescript-eslint/scope-manager': 8.70.0
-      '@typescript-eslint/type-utils': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
-      '@typescript-eslint/utils': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+      '@typescript-eslint/type-utils': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)
+      '@typescript-eslint/utils': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)
       '@typescript-eslint/visitor-keys': 8.70.0
       eslint: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
       ignore: 7.0.5
       natural-compare: 1.4.0
-      ts-api-utils: 2.5.0(typescript@5.9.3)
-      typescript: 5.9.3
+      ts-api-utils: 2.5.0(typescript@7.0.2)
+      typescript: 7.0.2
     transitivePeerDependencies:
       - supports-color
 
-  '@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
+  '@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)':
     dependencies:
       '@typescript-eslint/scope-manager': 8.70.0
       '@typescript-eslint/types': 8.70.0
-      '@typescript-eslint/typescript-estree': 8.70.0(supports-color@8.1.1)(typescript@5.9.3)
+      '@typescript-eslint/typescript-estree': 8.70.0(supports-color@8.1.1)(typescript@7.0.2)
       '@typescript-eslint/visitor-keys': 8.70.0
       debug: 4.4.3(supports-color@8.1.1)
       eslint: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
-      typescript: 5.9.3
+      typescript: 7.0.2
     transitivePeerDependencies:
       - supports-color
 
-  '@typescript-eslint/project-service@8.70.0(supports-color@8.1.1)(typescript@5.9.3)':
+  '@typescript-eslint/project-service@8.70.0(supports-color@8.1.1)(typescript@7.0.2)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.70.0(typescript@5.9.3)
+      '@typescript-eslint/tsconfig-utils': 8.70.0(typescript@7.0.2)
       '@typescript-eslint/types': 8.70.0
       debug: 4.4.3(supports-color@8.1.1)
-      typescript: 5.9.3
+      typescript: 7.0.2
     transitivePeerDependencies:
       - supports-color
 
@@ -13766,47 +13778,47 @@ snapshots:
       '@typescript-eslint/types': 8.70.0
       '@typescript-eslint/visitor-keys': 8.70.0
 
-  '@typescript-eslint/tsconfig-utils@8.70.0(typescript@5.9.3)':
+  '@typescript-eslint/tsconfig-utils@8.70.0(typescript@7.0.2)':
     dependencies:
-      typescript: 5.9.3
+      typescript: 7.0.2
 
-  '@typescript-eslint/type-utils@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
+  '@typescript-eslint/type-utils@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)':
     dependencies:
       '@typescript-eslint/types': 8.70.0
-      '@typescript-eslint/typescript-estree': 8.70.0(supports-color@8.1.1)(typescript@5.9.3)
-      '@typescript-eslint/utils': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+      '@typescript-eslint/typescript-estree': 8.70.0(supports-color@8.1.1)(typescript@7.0.2)
+      '@typescript-eslint/utils': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)
       debug: 4.4.3(supports-color@8.1.1)
       eslint: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
-      ts-api-utils: 2.5.0(typescript@5.9.3)
-      typescript: 5.9.3
+      ts-api-utils: 2.5.0(typescript@7.0.2)
+      typescript: 7.0.2
     transitivePeerDependencies:
       - supports-color
 
   '@typescript-eslint/types@8.70.0': {}
 
-  '@typescript-eslint/typescript-estree@8.70.0(supports-color@8.1.1)(typescript@5.9.3)':
+  '@typescript-eslint/typescript-estree@8.70.0(supports-color@8.1.1)(typescript@7.0.2)':
     dependencies:
-      '@typescript-eslint/project-service': 8.70.0(supports-color@8.1.1)(typescript@5.9.3)
-      '@typescript-eslint/tsconfig-utils': 8.70.0(typescript@5.9.3)
+      '@typescript-eslint/project-service': 8.70.0(supports-color@8.1.1)(typescript@7.0.2)
+      '@typescript-eslint/tsconfig-utils': 8.70.0(typescript@7.0.2)
       '@typescript-eslint/types': 8.70.0
       '@typescript-eslint/visitor-keys': 8.70.0
       debug: 4.4.3(supports-color@8.1.1)
       minimatch: 10.2.6
       semver: 7.8.5
       tinyglobby: 0.2.17
-      ts-api-utils: 2.5.0(typescript@5.9.3)
-      typescript: 5.9.3
+      ts-api-utils: 2.5.0(typescript@7.0.2)
+      typescript: 7.0.2
     transitivePeerDependencies:
       - supports-color
 
-  '@typescript-eslint/utils@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
+  '@typescript-eslint/utils@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)':
     dependencies:
       '@eslint-community/eslint-utils': 4.10.1(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))
       '@typescript-eslint/scope-manager': 8.70.0
       '@typescript-eslint/types': 8.70.0
-      '@typescript-eslint/typescript-estree': 8.70.0(supports-color@8.1.1)(typescript@5.9.3)
+      '@typescript-eslint/typescript-estree': 8.70.0(supports-color@8.1.1)(typescript@7.0.2)
       eslint: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
-      typescript: 5.9.3
+      typescript: 7.0.2
     transitivePeerDependencies:
       - supports-color
 
@@ -13815,36 +13827,69 @@ snapshots:
       '@typescript-eslint/types': 8.70.0
       eslint-visitor-keys: 5.0.1
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260316.1':
+  '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true
 
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260316.1':
+  '@typescript/typescript-darwin-arm64@7.0.2':
     optional: true
 
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260316.1':
+  '@typescript/typescript-darwin-x64@7.0.2':
     optional: true
 
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260316.1':
+  '@typescript/typescript-freebsd-arm64@7.0.2':
     optional: true
 
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260316.1':
+  '@typescript/typescript-freebsd-x64@7.0.2':
     optional: true
 
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260316.1':
+  '@typescript/typescript-linux-arm64@7.0.2':
     optional: true
 
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260316.1':
+  '@typescript/typescript-linux-arm@7.0.2':
     optional: true
 
-  '@typescript/native-preview@7.0.0-dev.20260316.1':
-    optionalDependencies:
-      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260316.1
-      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260316.1
-      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260316.1
-      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260316.1
-      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260316.1
-      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260316.1
-      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260316.1
+  '@typescript/typescript-linux-loong64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-mips64el@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-ppc64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-riscv64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-s390x@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-netbsd-arm64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-netbsd-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-openbsd-arm64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-openbsd-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-sunos-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-win32-arm64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-win32-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript6@6.0.2':
+    dependencies:
+      '@typescript/old': typescript@6.0.3
 
   '@typespec/ts-http-runtime@0.3.9(supports-color@8.1.1)':
     dependencies:
@@ -14429,13 +14474,9 @@ snapshots:
       ieee754: 1.2.1
     optional: true
 
-  bun-ffi-structs@0.3.1(typescript@5.8.2):
+  bun-ffi-structs@0.3.1(typescript@7.0.2):
     dependencies:
-      typescript: 5.8.2
-
-  bun-ffi-structs@0.3.1(typescript@5.9.3):
-    dependencies:
-      typescript: 5.9.3
+      typescript: 7.0.2
 
   bun-pty@0.4.8(patch_hash=c510287faa485334a084b8cc0e8f74d3895717394f1abcadec0745005abdbb72): {}
 
@@ -16347,7 +16388,7 @@ snapshots:
 
   kind-of@6.0.3: {}
 
-  knip@5.85.0(@types/node@24.12.4)(typescript@5.9.3):
+  knip@5.85.0(@types/node@24.12.4)(typescript@7.0.2):
     dependencies:
       '@nodelib/fs.walk': 1.2.8
       '@types/node': 24.12.4
@@ -16361,7 +16402,7 @@ snapshots:
       picomatch: 4.0.7
       smol-toml: 1.8.0
       strip-json-comments: 5.0.3
-      typescript: 5.9.3
+      typescript: 7.0.2
       zod: 4.6.5
 
   kubernetes-types@1.30.0: {}
@@ -17016,16 +17057,16 @@ snapshots:
 
   openapi-types@12.1.3: {}
 
-  opencode-gitlab-auth@2.1.0(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))):
+  opencode-gitlab-auth@2.1.0(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))):
     dependencies:
       '@fastify/rate-limit': 10.3.0
-      '@opencode-ai/plugin': 1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))
+      '@opencode-ai/plugin': 1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))
       fastify: 5.12.4
       open: 10.1.2
 
-  opencode-poe-auth@0.0.1(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))):
+  opencode-poe-auth@0.0.1(@opencode-ai/plugin@1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))):
     dependencies:
-      '@opencode-ai/plugin': 1.18.30(@opentui/core@0.5.11(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@5.8.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@5.8.2)(web-tree-sitter@0.25.10))
+      '@opencode-ai/plugin': 1.18.30(@opentui/core@0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/keymap@0.5.11(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))(react@19.3.0)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(typescript@7.0.2)(web-tree-sitter@0.25.10))(@opentui/solid@0.5.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(typescript@7.0.2)(web-tree-sitter@0.25.10))
       open: 10.1.2
       poe-oauth: 0.0.14
 
@@ -17443,13 +17484,9 @@ snapshots:
       strip-json-comments: 2.0.1
     optional: true
 
-  react-docgen-typescript@2.4.0(typescript@5.8.2):
+  react-docgen-typescript@2.4.0(typescript@7.0.2):
     dependencies:
-      typescript: 5.8.2
-
-  react-docgen-typescript@2.4.0(typescript@5.9.3):
-    dependencies:
-      typescript: 5.9.3
+      typescript: 7.0.2
 
   react-dom@19.3.0(react@19.3.0):
     dependencies:
@@ -18000,9 +18037,9 @@ snapshots:
 
   std-env@4.2.0: {}
 
-  storybook-solidjs-vite@10.0.9(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(supports-color@10.2.2)(typescript@5.8.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1)):
+  storybook-solidjs-vite@10.0.9(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1)):
     dependencies:
-      '@joshwooding/vite-plugin-react-docgen-typescript': 0.6.4(typescript@5.8.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1))
+      '@joshwooding/vite-plugin-react-docgen-typescript': 0.6.4(typescript@7.0.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1))
       '@storybook/builder-vite': 10.6.0(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1))
       '@storybook/global': 5.0.0
       solid-js: 1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0)
@@ -18010,14 +18047,14 @@ snapshots:
       vite: 7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1)
       vite-plugin-solid: 2.11.10(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@10.2.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.9.1))
     optionalDependencies:
-      typescript: 5.8.2
+      typescript: 7.0.2
     transitivePeerDependencies:
       - '@testing-library/jest-dom'
       - supports-color
 
-  storybook-solidjs-vite@10.0.9(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(supports-color@8.1.1)(typescript@5.9.3)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3)):
+  storybook-solidjs-vite@10.0.9(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(supports-color@8.1.1)(typescript@7.0.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3)):
     dependencies:
-      '@joshwooding/vite-plugin-react-docgen-typescript': 0.6.4(typescript@5.9.3)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3))
+      '@joshwooding/vite-plugin-react-docgen-typescript': 0.6.4(typescript@7.0.2)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3))
       '@storybook/builder-vite': 10.6.0(storybook@10.2.10(@testing-library/dom@10.4.2)(prettier@3.6.2)(react@19.3.0))(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3))
       '@storybook/global': 5.0.0
       solid-js: 1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0)
@@ -18025,7 +18062,7 @@ snapshots:
       vite: 7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3)
       vite-plugin-solid: 2.11.10(@testing-library/jest-dom@6.9.1)(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))(supports-color@8.1.1)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.30.1)(yaml@2.8.3))
     optionalDependencies:
-      typescript: 5.9.3
+      typescript: 7.0.2
     transitivePeerDependencies:
       - '@testing-library/jest-dom'
       - supports-color
@@ -18253,9 +18290,9 @@ snapshots:
 
   ts-algebra@2.0.0: {}
 
-  ts-api-utils@2.5.0(typescript@5.9.3):
+  ts-api-utils@2.5.0(typescript@7.0.2):
     dependencies:
-      typescript: 5.9.3
+      typescript: 7.0.2
 
   ts-dedent@2.3.0: {}
 
@@ -18310,20 +18347,41 @@ snapshots:
       tunnel: 0.0.6
       underscore: 1.13.8
 
-  typescript-eslint@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3):
+  typescript-eslint@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2):
     dependencies:
-      '@typescript-eslint/eslint-plugin': 8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
-      '@typescript-eslint/parser': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
-      '@typescript-eslint/typescript-estree': 8.70.0(supports-color@8.1.1)(typescript@5.9.3)
-      '@typescript-eslint/utils': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+      '@typescript-eslint/eslint-plugin': 8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2))(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)
+      '@typescript-eslint/parser': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)
+      '@typescript-eslint/typescript-estree': 8.70.0(supports-color@8.1.1)(typescript@7.0.2)
+      '@typescript-eslint/utils': 8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@7.0.2)
       eslint: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
-      typescript: 5.9.3
+      typescript: 7.0.2
     transitivePeerDependencies:
       - supports-color
 
-  typescript@5.8.2: {}
+  typescript@6.0.3: {}
 
-  typescript@5.9.3: {}
+  typescript@7.0.2:
+    optionalDependencies:
+      '@typescript/typescript-aix-ppc64': 7.0.2
+      '@typescript/typescript-darwin-arm64': 7.0.2
+      '@typescript/typescript-darwin-x64': 7.0.2
+      '@typescript/typescript-freebsd-arm64': 7.0.2
+      '@typescript/typescript-freebsd-x64': 7.0.2
+      '@typescript/typescript-linux-arm': 7.0.2
+      '@typescript/typescript-linux-arm64': 7.0.2
+      '@typescript/typescript-linux-loong64': 7.0.2
+      '@typescript/typescript-linux-mips64el': 7.0.2
+      '@typescript/typescript-linux-ppc64': 7.0.2
+      '@typescript/typescript-linux-riscv64': 7.0.2
+      '@typescript/typescript-linux-s390x': 7.0.2
+      '@typescript/typescript-linux-x64': 7.0.2
+      '@typescript/typescript-netbsd-arm64': 7.0.2
+      '@typescript/typescript-netbsd-x64': 7.0.2
+      '@typescript/typescript-openbsd-arm64': 7.0.2
+      '@typescript/typescript-openbsd-x64': 7.0.2
+      '@typescript/typescript-sunos-x64': 7.0.2
+      '@typescript/typescript-win32-arm64': 7.0.2
+      '@typescript/typescript-win32-x64': 7.0.2
 
   typical@4.0.0: {}
 

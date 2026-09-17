@@ -16,6 +16,12 @@ import {
   codemModelsLoadedMessage,
   codemSkillsLoadedMessage,
 } from "./codem-webview-dto.ts"
+import {
+  APP_SERVER_CONTROL_UI_COMMANDS,
+  isControlUiCommand,
+  MatureUiControlPlane,
+  type ControlPlaneService,
+} from "./mature-ui-control.ts"
 
 type AppServerMessageType =
   | "requestThreadModes"
@@ -39,6 +45,7 @@ type AppServerMessageType =
   | "requestSkills"
   | "sendCommand"
   | "sendMessage"
+  | (typeof APP_SERVER_CONTROL_UI_COMMANDS)[number]
 
 export const APP_SERVER_MATURE_UI_COMMANDS = [
   "requestThreadModes",
@@ -62,6 +69,7 @@ export const APP_SERVER_MATURE_UI_COMMANDS = [
   "requestSkills",
   "sendCommand",
   "sendMessage",
+  ...APP_SERVER_CONTROL_UI_COMMANDS,
 ] as const satisfies readonly AppServerMessageType[]
 
 export interface MatureUiPrompt {
@@ -69,7 +77,7 @@ export interface MatureUiPrompt {
   readonly attachments: readonly AppServerPromptAttachment[]
 }
 
-export interface MatureUiAppServerPort {
+export interface MatureUiAppServerPort extends ControlPlaneService {
   readModes: import("./service").CodeMAppServerService["readModes"]
   setModes: import("./service").CodeMAppServerService["setModes"]
   startThread(
@@ -105,7 +113,6 @@ export interface MatureUiAppServerPort {
   deleteThread(cwd: string, threadId: string): Promise<void>
   forkThread(cwd: string, threadId: string): Promise<string>
   listSkills: import("./service").CodeMAppServerService["listSkills"]
-  listPermissionProfiles(cwd: string): Promise<readonly AppServerPermissionProfile[]>
   respondToInteraction(
     requestId: string,
     response: ReturnType<AppServerMatureUiAdapter["permissionResponse" | "questionResponse" | "rejectInteraction"]>,
@@ -137,6 +144,7 @@ export class MatureUiAppServerController {
   private readonly options: MatureUiAppServerControllerOptions
   private readonly loadedThreads = new Set<string>()
   private readonly runningThreads = new Set<string>()
+  private readonly control: MatureUiControlPlane
   private timelineEpoch = 0
   private historyRequest = 0
   private currentThreadId: string | null = null
@@ -145,6 +153,15 @@ export class MatureUiAppServerController {
     this.options = options
     this.service = options.service
     this.adapter = options.adapter ?? new AppServerMatureUiAdapter()
+    this.control = new MatureUiControlPlane({
+      service: options.service,
+      cwdForThread: (threadId) => options.cwdForThread(threadId),
+      currentThreadId: () => this.currentThreadId,
+      loadedThreads: this.loadedThreads,
+      ensureLoaded: (cwd, threadId) => this.ensureLoaded(cwd, threadId),
+      forgetLoaded: (threadId) => this.forgetLoaded(threadId),
+      post: (message) => this.post(message),
+    })
   }
 
   accepts(type: WebviewMessage["type"]): type is AppServerMessageType {
@@ -182,9 +199,7 @@ export class MatureUiAppServerController {
     if (threadId && !this.loadedThreads.has(threadId)) return
     if (event.type === "thread-closed") {
       this.historyRequest++
-      this.loadedThreads.delete(event.threadId)
-      this.runningThreads.delete(event.threadId)
-      if (this.currentThreadId === event.threadId) this.setCurrentThread(null)
+      this.forgetLoaded(event.threadId)
     }
     if (event.type === "thread-cleared" && this.currentThreadId === event.threadId) {
       void this.loadMessages({ type: "loadMessages", sessionID: event.threadId, mode: "replace" })
@@ -200,6 +215,7 @@ export class MatureUiAppServerController {
       this.timelineEpoch++
       this.runningThreads.delete(event.threadId)
     }
+    if (event.type === "side-question-completed") this.control.forgetSideQuestion(event.sideQuestionId)
     for (const message of this.adapter.accept(event)) this.post(message)
   }
 
@@ -500,6 +516,15 @@ export class MatureUiAppServerController {
     }
     if (message.type === "enhancePrompt") {
       this.post({ type: "enhancePromptError", requestId: message.requestId, error: reason })
+      return
+    }
+    if (isControlUiCommand(message.type)) {
+      this.post(
+        this.control.failure(
+          message as Extract<WebviewMessage, { readonly type: (typeof APP_SERVER_CONTROL_UI_COMMANDS)[number] }>,
+          reason,
+        ),
+      )
       return
     }
     this.post({ type: "error", message: reason, ...(sessionId(message) ? { sessionID: sessionId(message) } : {}) })

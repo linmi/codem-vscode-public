@@ -396,6 +396,33 @@ describe("AppServerMatureUiAdapter", () => {
     assert.equal(reopened.messages.length, 2)
   })
 
+  it("copies Core archived onto SessionInfo and does not invent revert", () => {
+    const loaded = new AppServerMatureUiAdapter().sessionsLoaded([
+      {
+        id: "thread-1",
+        cwd: "/workspace",
+        archived: true,
+        model: "codem-router/auto",
+        profile: "default",
+        preview: "Old",
+        startedAt: "2026-09-15T00:00:00.000Z",
+        turnCount: 1,
+      },
+    ])
+    assert.deepEqual(loaded, {
+      type: "sessionsLoaded",
+      sessions: [
+        {
+          id: "thread-1",
+          title: "Old",
+          createdAt: "2026-09-15T00:00:00.000Z",
+          updatedAt: "2026-09-15T00:00:00.000Z",
+          archived: true,
+        },
+      ],
+    })
+  })
+
   it("preserves tool payloads longer than the shared preview", () => {
     const entry = historyTurn()
     const output = "x".repeat(8000)

@@ -219,14 +219,20 @@ Verified against the current tree, not a new runtime Cycle. Pins are unchanged: 
 | --- | --- |
 | Host SDK | `packages/app-server` owns runtime, bundle, preflight, JSON-RPC, `cwd`-keyed connection pool, thread/turn, HITL, modes, spaces, and shutdown. No editor/DOM dependency. |
 | History | `packages/session-history` reads Core JSONL schema 13. No second transcript store. |
-| VS Code chat | `CodeMAppServerService` + `MatureUiAppServerController` handle 21 commands. Model catalog, skills, and thread modes use CodeM native DTOs (`codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*`). Unsupported App Server commands fail closed with `尚未迁移到 CodeM App Server`. |
+| VS Code chat | `CodeMAppServerService` + `MatureUiAppServerController` handle 38 commands. Model catalog, skills, thread modes, and Host control-plane reads/mutations use CodeM native DTOs. Unsupported App Server commands fail closed with `尚未迁移到 CodeM App Server`. |
 | Dual transport | `KiloConnectionService` remains for leftover Host coordination, but `connect()` / `getServer()` no longer spawn `kilo serve`. Unmigrated Autocomplete, Agent Manager, notebook, and `app-server-control` gaps fail closed. |
-| Parity gate | 257 inbound Webview commands: 199 host/service, 21 controllers, 0 pending, 37 Core v1 gaps. `assertMatureUiProductionReady()` is red. |
+| Parity gate | 274 inbound Webview commands: 199 host/service, 38 controllers, 0 pending, 37 Core v1 gaps. `assertMatureUiProductionReady()` is red. |
 | JetBrains | No `@codem/app-server` import. |
-| Tests this day | `pnpm test:app-server` 74, `pnpm typecheck:app-server`, VS Code host App Server suite 54. Extension Host live turn was not re-run. |
+| Tests this day | `pnpm test:app-server` 81, `pnpm typecheck:app-server`, `pnpm typecheck:vscode`, VS Code host App Server suite 68. Default `pnpm test:vscode` still includes the pre-existing `app-server-text-render` renderer check (1 fail on this host; not changed this Cycle). Live Extension Host HITL/reload is `pnpm --dir apps/vscode run test:extension-host`. |
 
-`vscode-plugin-plan.md` v1.2 is the product-status write-up for these numbers. Earlier inventory figures in this file (264, 262, 18 controllers, 40 gaps, extension `0.1.10`/`0.1.11`) are checkpoints, not current authority.
+`vscode-plugin-plan.md` v1.3 is the product-status write-up for these numbers. Earlier inventory figures in this file (264, 262, 18 controllers, 40 gaps, extension `0.1.10`/`0.1.11`) are checkpoints, not current authority.
+
+## Extension Host live HITL + JSONL reload (2026-09-17)
+
+Pinned Core 0.8.37 command-execution approval options may omit `label` (empty string) and put the human name on `name`. Host now fills the DTO label from `label` / `name` / `kind` / `optionId` so the request is not rejected as `-32602`. The fake Core fixture ignores Host replies to client requests (it must not echo `result` frames as unknown RPC responses) and completes the turn after `allow_once`.
+
+VS Code host coverage for the cycle is `apps/vscode/tests/host/services/app-server/acceptance-cycle.test.ts` (sendMessage + permission HITL + schema 13 reload, reject/duplicate/stale, cancel/crash). Live launch is `pnpm --dir apps/vscode run test:extension-host` (`hitl-reload.ts`): trusted disposable workspace, signed-in broker, one `sendMessage` with `permissionMode: "default"`, at least one HITL, dispose Host, `loadMessages` matches `@codem/session-history` schema 13. Re-run on this darwin-arm64 checkout: `HITL_RELOAD_EXTENSION_HOST_PASS`, no `kilo serve`. Production gate remains red (37 Core v1 gaps; Kilo types still in tree).
 
 ## Leftover `@opencode-ai/protocol` pruned from `packages/protocol` (2026-09-17)
 
-`packages/protocol` now holds only `@codem/protocol` catalog/mode DTOs. The leftover OpenCode HttpApi schema that previously occupied that path was seeded into leftover `@opencode-ai/server` (`packages/server/src/protocol/`) and leftover `@kilocode/cli` now imports those leftover types from `@opencode-ai/server/protocol/*`. The `@opencode-ai/protocol` package name and `packages/codem-protocol` path were deleted rather than kept as aliases. OpenCode leftover schema was not copied into `@codem/protocol`.
+`packages/protocol` now holds only `@codem/protocol` catalog, mode, and Host-control DTOs. The leftover OpenCode HttpApi schema that previously occupied that path was seeded into leftover `@opencode-ai/server` (`packages/server/src/protocol/`) and leftover `@kilocode/cli` now imports those leftover types from `@opencode-ai/server/protocol/*`. The `@opencode-ai/protocol` package name and `packages/codem-protocol` path were deleted rather than kept as aliases. OpenCode leftover schema was not copied into `@codem/protocol`.

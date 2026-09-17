@@ -129,6 +129,14 @@ export function useSlashCommand(
       },
     },
     {
+      name: "rewind",
+      description: "Rewind the thread to the last Core checkpoint",
+      hints: ["checkpoint"],
+      action: () => {
+        window.dispatchEvent(new CustomEvent("rewindSession"))
+      },
+    },
+    {
       name: "memory",
       description: "Manage project memory",
       hints: ["mem"],

@@ -548,6 +548,60 @@ describe("AppServerHost", () => {
     }
   })
 
+  it("projects commandExecution approval when Core omits option labels", { timeout: 5000 }, async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "hitl-label", version: "1" },
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, HITL_EMPTY_LABEL: "1" },
+      assertAuthenticated: () => {},
+    })
+    const events: AppServerHostEvent[] = []
+    let sawCompleted!: () => void
+    const seen = new Promise<void>((resolve, reject) => {
+      host.onEvent((event) => {
+        events.push(event)
+        if (event.type === "interaction") resolve()
+        if (event.type === "turn-completed") sawCompleted()
+        if (event.type === "protocol-error") reject(new Error(event.message))
+      })
+    })
+    const completed = new Promise<void>((resolve) => {
+      sawCompleted = resolve
+    })
+    void seen.catch(() => {})
+    try {
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      await host.startTurn({ cwd: fixture.root, threadId, submissionId: "hitl", text: "echo" })
+      await seen
+      const interaction = events.find((event) => event.type === "interaction")
+      assert.ok(interaction?.type === "interaction" && interaction.interaction.kind === "permission")
+      assert.deepEqual(
+        interaction.interaction.options.map((option) => option.id),
+        ["allow_once", "reject_once"],
+      )
+      assert.deepEqual(
+        interaction.interaction.options.map((option) => option.label),
+        ["allow_once", "Reject"],
+      )
+      await host.respondToInteraction(interaction.interaction.requestId, {
+        kind: "permission",
+        optionId: "allow_once",
+      })
+      await completed
+      assert.equal(
+        events.some((event) => event.type === "protocol-error" || event.type === "connection-closed"),
+        false,
+      )
+      assert.equal(
+        events.filter((event) => event.type === "connection-ready").length,
+        1,
+      )
+    } finally {
+      await host.close()
+    }
+  })
+
   it("fails closed on an unknown Core notification", { timeout: 5000 }, async () => {
     const fixture = createFixture()
     const host = new AppServerHost({
@@ -620,12 +674,20 @@ capture({ argv: process.argv.slice(2), environment: { credentialHost: JSON.parse
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n")
 const modes = new Map()
 let failedModeRead = false
+let hitlThread = null
 const mode = (threadId) => modes.get(threadId) ?? { revision: 0, permissionEpoch: 0, permissionMode: "default", workMode: "normal" }
 const lines = readline.createInterface({ input: process.stdin })
 lines.on("close", () => process.exit(0))
 lines.on("line", (line) => {
   const frame = JSON.parse(line)
   if (!Object.prototype.hasOwnProperty.call(frame, "id")) return
+  if (typeof frame.method !== "string") {
+    if (hitlThread && frame.id === "hitl-1") {
+      send({ jsonrpc: "2.0", method: "item/completed", params: { threadId: hitlThread, turnId: "turn-1", item: { id: "tool-1", type: "commandExecution", status: "completed", callId: "call-1", summary: "exit 0", output: "HITL_OK", isError: false } } })
+      send({ jsonrpc: "2.0", method: "turn/completed", params: { threadId: hitlThread, turn: { id: "turn-1", status: "completed", stopReason: "end_turn", error: null } } })
+    }
+    return
+  }
   capture({ method: frame.method, params: frame.params })
   if (frame.method === "initialize") return send({ jsonrpc: "2.0", id: frame.id, result: { protocolVersion: 1, agentInfo: { version: "0.8.37+1.gfixture" }, capabilities: ${JSON.stringify(capabilities)} } })
   if (frame.method === "thread/start") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1" } } })
@@ -682,6 +744,11 @@ lines.on("line", (line) => {
     send({ jsonrpc: "2.0", method: "turn/started", params: { threadId: frame.params.threadId, turn: { id: "turn-1" } } })
     send({ jsonrpc: "2.0", id: frame.id, result: { turn: { id: "turn-1" } } })
     send({ jsonrpc: "2.0", method: "item/started", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "tool-1", type: "commandExecution", status: "inProgress", tool: "run_bash", callId: "call-1", arguments: { command: "pwd" } } } })
+    if (process.env.HITL_EMPTY_LABEL) {
+      hitlThread = frame.params.threadId
+      send({ jsonrpc: "2.0", id: "hitl-1", method: "item/commandExecution/requestApproval", params: { threadId: frame.params.threadId, turnId: "turn-1", requestId: "permission-1", tool: "run_bash", callId: "call-1", options: [{ optionId: "allow_once", label: "" }, { optionId: "reject_once", name: "Reject" }], preview: { kind: "bash_command", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), command: "echo HITL_OK", risk: {}, suggestedRules: [] } } })
+      return
+    }
     send({ jsonrpc: "2.0", method: "item/commandExecution/outputDelta", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "tool-1", delta: "running pwd" } })
     send({ jsonrpc: "2.0", method: "item/toolCall/guardUpdated", params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "tool-1", callId: "call-1", guard: { tool: "run_bash", status: "pass", reason: "ok", rawResultBytes: null, returnedResultBytes: 11, formattedCapBytes: null, globalBackstopApplied: false, suggestion: null } } })
     const diff = JSON.stringify({ tool_call_id: "call-1", path: "src/example.ts", change_type: "modified", is_binary: false, truncated: false, stats: { lines_added: 1, lines_removed: 0 }, hunks: [{ old_start: 1, old_count: 1, new_start: 1, new_count: 2, lines: [{ kind: "context", old_line: 1, new_line: 1, text: "const before = true" }, { kind: "insert", old_line: null, new_line: 2, text: "const after = true" }] }], raw_unified: null })

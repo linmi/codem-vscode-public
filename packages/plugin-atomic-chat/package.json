@@ -12,7 +12,7 @@
     "src"
   ],
   "scripts": {
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:ci": "mkdir -p .artifacts/unit && vitest run --reporter=junit --outputFile=.artifacts/unit/junit.xml",
     "test:watch": "vitest"
@@ -24,7 +24,6 @@
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "@typescript/native-preview": "catalog:",
     "vitest": "^4.0.16"
   },
   "repository": {
