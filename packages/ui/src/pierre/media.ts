@@ -1,4 +1,4 @@
-import type { FileContent } from "@kilocode/sdk/v2"
+import type { FileContent } from "../types/session"
 
 export type MediaKind = "image" | "audio" | "svg"
 

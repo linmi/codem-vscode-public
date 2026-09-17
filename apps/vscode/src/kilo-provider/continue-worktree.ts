@@ -13,7 +13,7 @@ export function handleContinueInWorktree(ctx: Ctx): void {
         ctx.post({ type: "continueInWorktreeProgress", status, detail, error })
       })
       .catch((err: unknown) => {
-        console.error("[CodeM New] continueInWorktree failed:", err)
+        console.error("[CodeM] continueInWorktree failed:", err)
         ctx.post({
           type: "continueInWorktreeProgress",
           status: "error",
@@ -24,7 +24,7 @@ export function handleContinueInWorktree(ctx: Ctx): void {
   }
 
   if (!ctx.sessionId) return
-  console.error("[CodeM New] continueInWorktree: no handler registered")
+  console.error("[CodeM] continueInWorktree: no handler registered")
   ctx.post({
     type: "continueInWorktreeProgress",
     status: "error",

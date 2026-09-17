@@ -1,9 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { AppServerPermissionMode } from "@codem/app-server/modes"
-import { createThreadPermissions } from "../../../../webview-ui/src/context/thread-permissions"
-import type { ThreadPermissionView } from "../../../../webview-ui/src/utils/thread-permission-state"
-import type { WebviewMessage } from "../../../../webview-ui/src/types/messages"
+import { createThreadPermissions } from "../../../../webview-ui/src/context/thread-permissions.ts"
+import type { ThreadPermissionView } from "../../../../webview-ui/src/utils/thread-permission-state.ts"
+import type { WebviewMessage } from "../../../../webview-ui/src/types/messages/index.ts"
 
 function fixture() {
   const views: Record<string, ThreadPermissionView> = {}

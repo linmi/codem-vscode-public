@@ -1,6 +1,6 @@
-import type { SessionBoard } from "@kilocode/sdk/v2/client"
+import type { SessionBoard } from "./leftover"
 
-export type { SessionBoard } from "@kilocode/sdk/v2/client"
+export type { SessionBoard } from "./leftover"
 
 export interface RequestSessionBoardMessage {
   type: "requestSessionBoard"

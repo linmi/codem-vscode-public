@@ -78,7 +78,7 @@ export async function handlePermissionResponse(
   const target = ctx.getPermissionSession?.(permissionId) ?? sessionID
   const claimed = ctx.isPermissionResponseClaimed?.(permissionId) ?? false
   if (!target || (!dir && !claimed) || (ctx.getPermissionSession?.(permissionId) && target !== sessionID)) {
-    console.error("[CodeM New] CodeMProvider: Unknown permission route")
+    console.error("[CodeM] CodeMProvider: Unknown permission route")
     ctx.postMessage({ type: "permissionError", permissionID: permissionId })
     return
   }
@@ -103,7 +103,7 @@ export async function handlePermissionResponse(
         .then(() => "ok" as const)
         .catch((error: unknown) => {
           if (isNotFoundError(error)) return "stale" as const
-          console.error("[CodeM New] CodeMProvider: Failed to save always-rules:", error)
+          console.error("[CodeM] CodeMProvider: Failed to save always-rules:", error)
           return "error" as const
         })
       if (saveResult === "stale") {
@@ -119,7 +119,7 @@ export async function handlePermissionResponse(
       .then(() => "ok" as const)
       .catch((error: unknown) => {
         if (isNotFoundError(error)) return "stale" as const
-        console.error("[CodeM New] CodeMProvider: Failed to respond to permission:", error)
+        console.error("[CodeM] CodeMProvider: Failed to respond to permission:", error)
         return "error" as const
       })
     if (replyResult === "stale") {
@@ -133,7 +133,7 @@ export async function handlePermissionResponse(
   }
 
   const result = await run(permissionId, target, action).catch((error: unknown) => {
-    console.error("[CodeM New] CodeMProvider: Failed to process permission response:", error)
+    console.error("[CodeM] CodeMProvider: Failed to process permission response:", error)
     return { kind: "error" } as const
   })
   if (result.kind === "error") {
@@ -172,7 +172,7 @@ export async function fetchAndSendPendingPermissions(ctx: PermissionContext): Pr
       for (const dir of dirs) {
         const { data, error } = await ctx.client.permission.list({ directory: dir })
         if (error) {
-          console.error(`[CodeM New] CodeMProvider: Failed to fetch pending permissions for ${dir}:`, error)
+          console.error(`[CodeM] CodeMProvider: Failed to fetch pending permissions for ${dir}:`, error)
           continue
         }
         valid.add(dir)
@@ -206,6 +206,6 @@ export async function fetchAndSendPendingPermissions(ctx: PermissionContext): Pr
       return
     }
   } catch (error) {
-    console.error("[CodeM New] CodeMProvider: Failed to fetch pending permissions:", error)
+    console.error("[CodeM] CodeMProvider: Failed to fetch pending permissions:", error)
   }
 }

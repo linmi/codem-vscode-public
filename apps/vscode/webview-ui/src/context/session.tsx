@@ -602,11 +602,11 @@ export const SessionProvider: ParentComponent = (props) => {
     if (!pending || agents().length === 0 || (pending.modelID && catalog() <= pending.after)) return
     setPendingKiloModel(null)
     if (pending.modelID && !provider.providers()[KILO_PROVIDER_ID]?.models[pending.modelID]) {
-      console.warn("[CodeM New] Ignoring unavailable CodeM catalog model:", pending.modelID)
+      console.warn("[CodeM] Ignoring unavailable CodeM catalog model:", pending.modelID)
       return
     }
     if (pending.agent && !agentNames().has(pending.agent)) {
-      console.warn("[CodeM New] Ignoring unavailable CodeM agent:", pending.agent)
+      console.warn("[CodeM] Ignoring unavailable CodeM agent:", pending.agent)
       return
     }
     if (pending.agent) selectAgent(pending.agent)
@@ -1086,7 +1086,7 @@ export const SessionProvider: ParentComponent = (props) => {
           title: language.t("session.cloud.import.failed") ?? "Failed to import cloud session",
           description: message.error,
         })
-        console.error("[CodeM New] Cloud session import failed:", message.error)
+        console.error("[CodeM] Cloud session import failed:", message.error)
         break
       }
 
@@ -1496,7 +1496,7 @@ export const SessionProvider: ParentComponent = (props) => {
     const effectiveMessageID = messageID || part.messageID
 
     if (!effectiveMessageID) {
-      console.warn("[CodeM New] Part updated without messageID:", part.id, part.type)
+      console.warn("[CodeM] Part updated without messageID:", part.id, part.type)
       return
     }
 
@@ -2258,7 +2258,7 @@ export const SessionProvider: ParentComponent = (props) => {
     browserFeedback?: BrowserFeedbackData,
   ): boolean {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot send message: not connected")
+      console.warn("[CodeM] Cannot send message: not connected")
       return false
     }
 
@@ -2337,7 +2337,7 @@ export const SessionProvider: ParentComponent = (props) => {
     overrides?: { agent?: string; model?: string; variant?: string; messageID?: string },
   ): boolean {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot send command: not connected")
+      console.warn("[CodeM] Cannot send command: not connected")
       return false
     }
 
@@ -2459,7 +2459,7 @@ export const SessionProvider: ParentComponent = (props) => {
     const sessionID = currentSessionID()
     const scope = sessionID ?? draftSessionID()
     if (!scope) {
-      console.warn("[CodeM New] Cannot abort: no current or pending session")
+      console.warn("[CodeM] Cannot abort: no current or pending session")
       return
     }
     const messageID = [...pendingSubmissions].reverse().find(([, sid]) => sid === scope)?.[0]
@@ -2476,13 +2476,13 @@ export const SessionProvider: ParentComponent = (props) => {
 
   function compact() {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot compact: not connected")
+      console.warn("[CodeM] Cannot compact: not connected")
       return
     }
 
     const sessionID = currentSessionID()
     if (!sessionID) {
-      console.warn("[CodeM New] Cannot compact: no current session")
+      console.warn("[CodeM] Cannot compact: no current session")
       return
     }
 
@@ -2499,12 +2499,12 @@ export const SessionProvider: ParentComponent = (props) => {
   /** Core thread/rewind/start。不改走 revertSession。 */
   function rewindThread() {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot rewind: not connected")
+      console.warn("[CodeM] Cannot rewind: not connected")
       return
     }
     const sessionID = currentSessionID()
     if (!sessionID) {
-      console.warn("[CodeM New] Cannot rewind: no current session")
+      console.warn("[CodeM] Cannot rewind: no current session")
       return
     }
     vscode.postMessage({ type: "rewindThread", sessionID, requestID: crypto.randomUUID() })
@@ -2512,7 +2512,7 @@ export const SessionProvider: ParentComponent = (props) => {
 
   function archiveThread(id: string) {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot archive thread: not connected")
+      console.warn("[CodeM] Cannot archive thread: not connected")
       return
     }
     vscode.postMessage({ type: "archiveThread", sessionID: id, requestID: crypto.randomUUID() })
@@ -2520,7 +2520,7 @@ export const SessionProvider: ParentComponent = (props) => {
 
   function unarchiveThread(id: string) {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot unarchive thread: not connected")
+      console.warn("[CodeM] Cannot unarchive thread: not connected")
       return
     }
     vscode.postMessage({ type: "unarchiveThread", sessionID: id, requestID: crypto.randomUUID() })
@@ -2650,7 +2650,7 @@ export const SessionProvider: ParentComponent = (props) => {
 
   function createSession() {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot create session: not connected")
+      console.warn("[CodeM] Cannot create session: not connected")
       return
     }
 
@@ -2673,7 +2673,7 @@ export const SessionProvider: ParentComponent = (props) => {
 
   function loadSessions() {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot load sessions: not connected")
+      console.warn("[CodeM] Cannot load sessions: not connected")
       return
     }
     vscode.postMessage({ type: "loadSessions" })
@@ -2702,7 +2702,7 @@ export const SessionProvider: ParentComponent = (props) => {
   function selectSession(id: string, options: { focus?: boolean; scrollToBottom?: boolean } = {}) {
     // Cloud preview sessions use a separate keyed path (selectCloudSession).
     if (id.startsWith("cloud:")) {
-      console.warn("[CodeM New] Cannot select cloud preview session via selectSession")
+      console.warn("[CodeM] Cannot select cloud preview session via selectSession")
       return
     }
     // Always reassign: a later plain selection must clear a request that
@@ -2773,7 +2773,7 @@ export const SessionProvider: ParentComponent = (props) => {
 
   function selectCloudSession(cloudSessionId: string) {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot select cloud session: not connected")
+      console.warn("[CodeM] Cannot select cloud session: not connected")
       return
     }
     const key = `cloud:${cloudSessionId}`
@@ -2788,7 +2788,7 @@ export const SessionProvider: ParentComponent = (props) => {
 
   function deleteSession(id: string) {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot delete session: not connected")
+      console.warn("[CodeM] Cannot delete session: not connected")
       return
     }
     // Optimistically remove from the list so the UI updates immediately
@@ -2810,7 +2810,7 @@ export const SessionProvider: ParentComponent = (props) => {
 
   function renameSession(id: string, title: string) {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot rename session: not connected")
+      console.warn("[CodeM] Cannot rename session: not connected")
       return
     }
     vscode.postMessage({ type: "renameSession", sessionID: id, title })
@@ -2818,11 +2818,11 @@ export const SessionProvider: ParentComponent = (props) => {
 
   function exportSessionTranscript(id: string) {
     if (!server.isConnected()) {
-      console.warn("[CodeM New] Cannot export session transcript: not connected")
+      console.warn("[CodeM] Cannot export session transcript: not connected")
       return
     }
     if (id.startsWith("cloud:")) {
-      console.warn("[CodeM New] Cannot export cloud session transcript")
+      console.warn("[CodeM] Cannot export cloud session transcript")
       return
     }
     vscode.postMessage({ type: "exportSessionTranscript", sessionID: id })

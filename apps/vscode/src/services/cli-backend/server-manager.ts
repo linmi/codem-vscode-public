@@ -63,8 +63,8 @@ export class ServerManager {
   private async startServer(): Promise<ServerInstance> {
     const password = crypto.randomBytes(32).toString("hex")
     const cliPath = this.getCliPath()
-    console.log("[CodeM New] ServerManager: 📍 CLI path:", cliPath)
-    console.log("[CodeM New] ServerManager: 🔐 Generated password (length):", password.length)
+    console.log("[CodeM] ServerManager: 📍 CLI path:", cliPath)
+    console.log("[CodeM] ServerManager: 🔐 Generated password (length):", password.length)
 
     // Verify the CLI binary exists
     if (!fs.existsSync(cliPath)) {
@@ -74,12 +74,12 @@ export class ServerManager {
     }
 
     const stat = fs.statSync(cliPath)
-    console.log("[CodeM New] ServerManager: 📄 CLI isFile:", stat.isFile())
-    console.log("[CodeM New] ServerManager: 📄 CLI mode (octal):", (stat.mode & 0o777).toString(8))
+    console.log("[CodeM] ServerManager: 📄 CLI isFile:", stat.isFile())
+    console.log("[CodeM] ServerManager: 📄 CLI mode (octal):", (stat.mode & 0o777).toString(8))
 
     const extraEnv = await this.env?.()
     return new Promise((resolve, reject) => {
-      console.log("[CodeM New] ServerManager: 🎬 Spawning CLI process:", cliPath, ["serve", "--port", "0"])
+      console.log("[CodeM] ServerManager: 🎬 Spawning CLI process:", cliPath, ["serve", "--port", "0"])
       const cfg = vscode.workspace.getConfiguration("codem")
       const claudeCompat = cfg.get<boolean>("claudeCodeCompat", false)
       const claudeMigration = resolveClaudeMigrationEnv(
@@ -150,7 +150,7 @@ export class ServerManager {
         stdio: ["ignore", "pipe", "pipe"],
         detached: true,
       })
-      console.log("[CodeM New] ServerManager: 📦 Process spawned with PID:", serverProcess.pid)
+      console.log("[CodeM] ServerManager: 📦 Process spawned with PID:", serverProcess.pid)
 
       let resolved = false
       let output = ""
@@ -158,26 +158,26 @@ export class ServerManager {
 
       serverProcess.stdout?.on("data", (data: Buffer) => {
         const chunk = data.toString()
-        console.log("[CodeM New] ServerManager: 📥 CLI Server stdout:", chunk)
+        console.log("[CodeM] ServerManager: 📥 CLI Server stdout:", chunk)
 
         const state = scanServerPort(output, chunk, STARTUP_OUTPUT_LIMIT)
         output = state.output
         const port = state.port
         if (port !== null && !resolved) {
           resolved = true
-          console.log("[CodeM New] ServerManager: 🎯 Port detected:", port)
+          console.log("[CodeM] ServerManager: 🎯 Port detected:", port)
           resolve({ port, password, process: serverProcess })
         }
       })
 
       serverProcess.stderr?.on("data", (data: Buffer) => {
         const errorOutput = data.toString()
-        console.error("[CodeM New] ServerManager: ⚠️ CLI Server stderr:", errorOutput)
+        console.error("[CodeM] ServerManager: ⚠️ CLI Server stderr:", errorOutput)
         stderrLines.push(errorOutput)
       })
 
       serverProcess.on("error", (err: NodeJS.ErrnoException) => {
-        console.error("[CodeM New] ServerManager: ❌ Process error:", err)
+        console.error("[CodeM] ServerManager: ❌ Process error:", err)
         if (!resolved) {
           const spawnErr = err as NodeJS.ErrnoException & { spawnargs?: string[] }
           const code = err.code || err.name || "UNKNOWN"
@@ -196,7 +196,7 @@ export class ServerManager {
       })
 
       serverProcess.on("exit", (code, signal) => {
-        console.warn("[CodeM New] ServerManager: 🛑 Process exited:", { code, signal })
+        console.warn("[CodeM] ServerManager: 🛑 Process exited:", { code, signal })
         if (this.instance?.process === serverProcess) {
           this.instance = null
           this.onExit?.(code, signal)
@@ -212,7 +212,7 @@ export class ServerManager {
 
       setTimeout(() => {
         if (!resolved) {
-          console.error(`[CodeM New] ServerManager: ⏰ Server startup timeout (${STARTUP_TIMEOUT_SECONDS}s)`)
+          console.error(`[CodeM] ServerManager: ⏰ Server startup timeout (${STARTUP_TIMEOUT_SECONDS}s)`)
           ServerManager.killProcess(serverProcess)
           const { userMessage, userDetails } = toErrorMessage(
             t("server.startupTimeout", { seconds: STARTUP_TIMEOUT_SECONDS }),
@@ -229,7 +229,7 @@ export class ServerManager {
     // Always use the bundled binary from the extension directory
     const binName = process.platform === "win32" ? "kilo.exe" : "kilo"
     const cliPath = path.join(this.context.extensionPath, "bin", binName)
-    console.log("[CodeM New] ServerManager: 📦 Using CLI path:", cliPath)
+    console.log("[CodeM] ServerManager: 📦 Using CLI path:", cliPath)
     return cliPath
   }
 
@@ -261,14 +261,14 @@ export class ServerManager {
     const proc = this.instance.process
     this.instance = null
 
-    console.log("[CodeM New] ServerManager: 🔴 Disposing — sending SIGTERM to process group, PID:", proc.pid)
+    console.log("[CodeM] ServerManager: 🔴 Disposing — sending SIGTERM to process group, PID:", proc.pid)
     ServerManager.killProcess(proc, "SIGTERM")
 
     // SIGKILL fallback after 5s. Ensures the process tree dies even if SIGTERM is ignored
     // or Instance.disposeAll() hangs past the serve.ts shutdown timeout.
     const timer = setTimeout(() => {
       if (proc.exitCode === null) {
-        console.warn("[CodeM New] ServerManager: ⚠️ Process did not exit after SIGTERM, sending SIGKILL")
+        console.warn("[CodeM] ServerManager: ⚠️ Process did not exit after SIGTERM, sending SIGKILL")
         ServerManager.killProcess(proc, "SIGKILL")
       }
     }, 5000)

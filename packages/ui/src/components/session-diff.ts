@@ -5,7 +5,7 @@
 // diffs render at their real file positions.
 import { parseDiffFromFile, processFile, type FileDiffMetadata } from "@pierre/diffs"
 import { formatPatch, parsePatch, structuredPatch } from "diff"
-import type { SnapshotFileDiff, VcsFileDiff } from "@kilocode/sdk/v2"
+import type { SnapshotFileDiff, VcsFileDiff } from "../types/session"
 
 type LegacyDiff = {
   file: string

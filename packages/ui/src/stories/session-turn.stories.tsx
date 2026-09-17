@@ -6,7 +6,7 @@ import { FileComponentProvider } from "@codem/ui/context/file"
 import { DialogProvider } from "@codem/ui/context/dialog"
 import { MarkedProvider } from "@codem/ui/context/marked"
 import { File } from "@codem/ui/components/file"
-import type { UserMessage, AssistantMessage, TextPart, ToolPart } from "@kilocode/sdk/v2"
+import type { UserMessage, AssistantMessage, TextPart, ToolPart } from "../types/session"
 
 const SESSION_ID = "session-turn-story-001"
 const USER_MSG_ID = "user-turn-msg-001"

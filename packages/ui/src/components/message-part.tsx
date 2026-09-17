@@ -29,7 +29,7 @@ import {
   Todo,
   QuestionAnswer,
   QuestionInfo,
-} from "@kilocode/sdk/v2"
+} from "../types/session"
 import { useData } from "../context"
 import { useBoardNavigation } from "../context/board-navigation"
 import { checkFile } from "../file-link-validator"

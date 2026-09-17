@@ -79,7 +79,7 @@ async function run(commands: Array<{ cmd: string; args: string[]; env?: NodeJS.P
     const ok = await exec(command.cmd, command.args, command.env ? { env: command.env } : {}).then(
       () => true,
       (error) => {
-        console.debug("[CodeM New] notification sound command failed", { cmd: command.cmd, error })
+        console.debug("[CodeM] notification sound command failed", { cmd: command.cmd, error })
         return false
       },
     )
@@ -144,11 +144,11 @@ async function perform(name: TuiAttentionSoundName, selected: AttentionSoundID, 
   const file = path.resolve(dir, `${id}.wav`)
   if (!file.startsWith(`${path.resolve(dir)}${path.sep}`)) return false
   if (!fs.existsSync(file)) {
-    console.warn("[CodeM New] notification sound is missing", { file })
+    console.warn("[CodeM] notification sound is missing", { file })
     return false
   }
   const ok = await run(fileCommands(file))
-  if (ok) console.debug("[CodeM New] notification sound played", { name, selected })
+  if (ok) console.debug("[CodeM] notification sound played", { name, selected })
   return ok
 }
 

@@ -196,14 +196,14 @@ export class PRMergeActions {
   private async save(repo: string, method: Method): Promise<void> {
     const save = this.host.savePRMergeMethod
     if (!save) return
-    await save(repo, method).catch((error) => console.error("[CodeM New] Failed to save PR merge method", error))
+    await save(repo, method).catch((error) => console.error("[CodeM] Failed to save PR merge method", error))
   }
 
   private refresh(context: PRReviewContext, settle = false): void {
     try {
       this.host.refresh(context, settle)
     } catch (error) {
-      console.error("[CodeM New] Failed to refresh pull request after merge action", error)
+      console.error("[CodeM] Failed to refresh pull request after merge action", error)
     }
   }
 }

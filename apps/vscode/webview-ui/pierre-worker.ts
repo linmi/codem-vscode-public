@@ -47,7 +47,7 @@ function createPool() {
     { workerFactory, poolSize: 2 },
     { theme: DIFF_THEME, lineDiffType: LINE_DIFF_TYPE, preferredHighlighter: ENGINE },
   )
-  void pool.initialize().catch((err) => console.warn("[CodeM New] Failed to initialize Pierre worker pool", err))
+  void pool.initialize().catch((err) => console.warn("[CodeM] Failed to initialize Pierre worker pool", err))
   return pool
 }
 

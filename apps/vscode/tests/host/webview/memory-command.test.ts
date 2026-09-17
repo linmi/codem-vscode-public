@@ -1,5 +1,9 @@
-import { describe, expect, it } from "bun:test"
-import { parseMemoryCommand, type ParsedMemoryCommand } from "../../webview-ui/src/utils/memory-command"
+import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { describe, it } from "node:test"
+import { fileURLToPath } from "node:url"
+import { parseMemoryCommand, type ParsedMemoryCommand } from "../../../webview-ui/src/utils/memory-command.ts"
 
 type MemoryOperation =
   | "enable"
@@ -25,9 +29,12 @@ type Case = {
   rest?: string
 }
 
-const cases = (await Bun.file(
-  new URL("../../../../packages/kilo-memory/tests/command-cases.json", import.meta.url),
-).json()) as Case[]
+const cases = JSON.parse(
+  readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "../../../../../packages/kilo-memory/tests/command-cases.json"),
+    "utf8",
+  ),
+) as Case[]
 
 function expected(item: Case): ParsedMemoryCommand | undefined {
   if (item.result === "none") return
@@ -59,11 +66,11 @@ describe("parseMemoryCommand", () => {
     for (const item of cases) {
       const parsed = parseMemoryCommand(item.input)
       if (item.result === "usage") {
-        expect(parsed?.kind, item.name).toBe("usage")
-        expect(parsed && "reason" in parsed ? parsed.reason : "", item.name).toContain(item.reason ?? "")
+        assert.equal(parsed?.kind, "usage", item.name)
+        assert.equal(parsed && "reason" in parsed ? parsed.reason.includes(item.reason ?? "") : false, true, item.name)
         continue
       }
-      expect(parsed, item.name).toEqual(expected(item))
+      assert.deepEqual(parsed, expected(item), item.name)
     }
   })
 })

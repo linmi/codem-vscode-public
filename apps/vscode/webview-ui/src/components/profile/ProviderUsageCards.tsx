@@ -1,6 +1,6 @@
 import { Component, For, Show } from "solid-js"
 import type { KiloPassState, ProviderUsageData } from "../../types/messages"
-import type { ProviderUsageSnapshot } from "@kilocode/sdk/v2/client"
+import type { ProviderUsageSnapshot } from "../../types/messages/leftover"
 import { Button } from "@codem/ui/components/button"
 import { Card, CardActions, CardDescription, CardHeader, CardTitle } from "@codem/ui/components/card"
 import { PassMeter } from "@codem/ui/components/pass-meter"
@@ -9,7 +9,7 @@ import { Spinner } from "@codem/ui/components/spinner"
 import { Tag } from "@codem/ui/components/tag"
 import { useLanguage } from "../../context/language"
 import { localeToBcp47 } from "../../context/language-utils"
-import { formatWindow, windowLabel, windowProgress } from "@kilocode/kilo-gateway/provider-usage"
+import { formatWindow, windowLabel, windowProgress } from "../../utils/provider-usage-format"
 
 export interface ProviderUsageCardsProps {
   data: ProviderUsageData | undefined

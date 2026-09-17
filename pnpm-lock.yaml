@@ -1837,9 +1837,6 @@ importers:
 
   packages/ui:
     dependencies:
-      '@kilocode/sdk':
-        specifier: workspace:*
-        version: link:../sdk/js
       '@kobalte/core':
         specifier: 'catalog:'
         version: 0.13.11(solid-js@1.9.12(patch_hash=799bbe96afbffbaefae96cfe9034e47d88c370c83f8050d8b33ac3feac00f2e0))

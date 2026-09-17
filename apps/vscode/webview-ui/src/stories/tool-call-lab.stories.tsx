@@ -7,7 +7,7 @@ import type {
   ReasoningPart,
   TextPart,
   ToolPart,
-} from "@kilocode/sdk/v2"
+} from "@codem/ui/types/session"
 import { StoryProviders, defaultMockData, mockSessionValue } from "./StoryProviders"
 import { AssistantMessage } from "../components/chat/AssistantMessage"
 import { ErrorDisplay } from "../components/chat/ErrorDisplay"

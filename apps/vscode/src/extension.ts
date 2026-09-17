@@ -76,7 +76,7 @@ export async function activate(context: vscode.ExtensionContext) {
   })
 
   const browserBroker = new BrowserBroker({
-    log: (...args) => console.warn("[CodeM New] BrowserBroker:", ...args),
+    log: (...args) => console.warn("[CodeM] BrowserBroker:", ...args),
     enabled: () => vscode.workspace.getConfiguration("codem.experimental").get("browserAutomation", false),
     trusted: () => vscode.workspace.isTrusted,
     useSystemChrome: () => vscode.workspace.getConfiguration("codem.browserAutomation").get("useSystemChrome", true),
@@ -102,8 +102,8 @@ export async function activate(context: vscode.ExtensionContext) {
     if (state === "connected") {
       try {
         remoteService.setClient(connectionService.getClient())
-        console.log("[CodeM New] CLI connected, calling remoteService.refresh()")
-        remoteService.refresh().catch((err) => console.warn("[CodeM New] initial remote refresh failed:", err))
+        console.log("[CodeM] CLI connected, calling remoteService.refresh()")
+        remoteService.refresh().catch((err) => console.warn("[CodeM] initial remote refresh failed:", err))
       } catch {
         remoteService.setClient(null)
       }
@@ -115,7 +115,7 @@ export async function activate(context: vscode.ExtensionContext) {
   })
 
   for (const folder of vscode.workspace.workspaceFolders ?? []) {
-    void markWorkspace(folder.uri.fsPath, (msg) => console.warn(`[CodeM New] ${msg}`))
+    void markWorkspace(folder.uri.fsPath, (msg) => console.warn(`[CodeM] ${msg}`))
   }
 
   // Track all open tab panel providers so toolbar button commands can target them.
@@ -212,7 +212,7 @@ export async function activate(context: vscode.ExtensionContext) {
     )
     if (answer !== "Enable Keep Awake") return false
     await context.globalState.update("caffeination.confirmed", true).then(undefined, (error: unknown) => {
-      console.warn("[CodeM New] Could not save Keep Awake confirmation:", error)
+      console.warn("[CodeM] Could not save Keep Awake confirmation:", error)
     })
     return true
   })
@@ -228,7 +228,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!extension.isActive) await extension.activate()
       return extension.exports?.getAPI(1).git.path
     },
-    log: (message) => console.warn(`[CodeM New] ${message}`),
+    log: (message) => console.warn(`[CodeM] ${message}`),
   })
   const binary = process.platform === "win32" ? await git() : git
   const agentManagerHost = new VscodeHost(
@@ -335,7 +335,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const tabProvider = attach(panel)
         panel.onDidDispose(
           () => {
-            console.log("[CodeM New] Tab panel restored from restart disposed")
+            console.log("[CodeM] Tab panel restored from restart disposed")
             tabPanels.delete(panel)
             tabProvider.dispose()
           },
@@ -530,7 +530,7 @@ export async function activate(context: vscode.ExtensionContext) {
       provider.postMessage({ type: "triggerTask", text: `Generate a terminal command: ${input}` })
     }),
     vscode.commands.registerCommand("codem.toggleRemote", () => {
-      remoteService.toggle().catch((err) => console.error("[CodeM New] toggleRemote command failed:", err))
+      remoteService.toggle().catch((err) => console.error("[CodeM] toggleRemote command failed:", err))
     }),
     vscode.commands.registerCommand("codem.openInTab", () => {
       return openKiloInNewTab(context, tabPanels, attach)
@@ -623,14 +623,14 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   )
 
-  // Register URI handler for extension deep links (vscode://codem.codem/kilocode/...)
+  // Register URI handler for leftover deep links (vscode://codem.codem/kilocode/...).
   context.subscriptions.push(
     vscode.window.registerUriHandler({
       async handleUri(uri: vscode.Uri) {
         const sessionMatch = uri.path.match(/^\/kilocode\/s\/([a-zA-Z0-9_-]+)$/)
         const sessionId = sessionMatch?.[1]
         if (sessionId) {
-          console.log("[CodeM New] URI handler: opening cloud session:", sessionId)
+          console.log("[CodeM] URI handler: opening cloud session:", sessionId)
           await vscode.commands.executeCommand(`${CodeMProvider.viewType}.focus`)
           provider.openCloudSession(sessionId)
           return
@@ -641,7 +641,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const modelID = params.get("model") || undefined
         const agent = params.get("agent") || undefined
         if (!modelID && !agent) return
-        console.log("[CodeM New] URI handler: applying linked CodeM selection:", { modelID, agent })
+        console.log("[CodeM] URI handler: applying linked CodeM selection:", { modelID, agent })
         await vscode.commands.executeCommand(`${CodeMProvider.viewType}.focus`)
         provider.selectKiloModel(modelID, agent)
       },
@@ -658,7 +658,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("codem.reload", () => {
-      provider.reload().catch((e) => console.error("[CodeM New] reload command failed:", e))
+      provider.reload().catch((e) => console.error("[CodeM] reload command failed:", e))
     }),
   )
 
@@ -680,7 +680,7 @@ export async function activate(context: vscode.ExtensionContext) {
     dispose: () => {
       shuttingDown = true
       void caffeination?.dispose().catch((error: unknown) => {
-        console.warn("[CodeM New] Keep-awake cleanup failed:", error)
+        console.warn("[CodeM] Keep-awake cleanup failed:", error)
       })
       unsubscribeStateChange()
       attention.dispose()
@@ -696,7 +696,7 @@ export async function deactivate() {
   shuttingDown = true
   const results = await Promise.allSettled([caffeination?.dispose(), agentManager?.shutdown()])
   for (const result of results) {
-    if (result.status === "rejected") console.warn("[CodeM New] Extension shutdown failed:", result.reason)
+    if (result.status === "rejected") console.warn("[CodeM] Extension shutdown failed:", result.reason)
   }
 }
 
@@ -720,7 +720,7 @@ function openKiloInNewTab(
 
   panel.onDidDispose(
     () => {
-      console.log("[CodeM New] Tab panel disposed")
+      console.log("[CodeM] Tab panel disposed")
       tabPanels.delete(panel)
       tabProvider.dispose()
     },

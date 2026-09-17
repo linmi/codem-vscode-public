@@ -243,7 +243,7 @@ export class VscodeHost implements Host {
       const res = await client.session.list({ directory: dir, roots: true }, { throwOnError: true })
       return res.data
     } catch (err) {
-      console.warn(`[CodeM New] Agent Manager: failed to list project sessions for ${dir}:`, err)
+      console.warn(`[CodeM] Agent Manager: failed to list project sessions for ${dir}:`, err)
       return []
     }
   }

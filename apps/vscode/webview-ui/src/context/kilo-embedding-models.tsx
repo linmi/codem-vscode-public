@@ -1,8 +1,5 @@
 import { createContext, createSignal, onCleanup, useContext, type Accessor, type ParentComponent } from "solid-js"
-import {
-  EMPTY_KILO_EMBEDDING_MODEL_CATALOG,
-  type KiloEmbeddingModelCatalog,
-} from "@kilocode/kilo-indexing/embedding-models"
+import { EMPTY_KILO_EMBEDDING_MODEL_CATALOG, type KiloEmbeddingModelCatalog } from "../utils/indexing-helpers"
 import { useVSCode } from "./vscode"
 import type { ExtensionMessage } from "../types/messages"
 

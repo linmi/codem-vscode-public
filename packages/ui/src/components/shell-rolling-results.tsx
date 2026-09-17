@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
 import stripAnsi from "strip-ansi"
-import type { ToolPart } from "@kilocode/sdk/v2"
+import type { ToolPart } from "../types/session"
 import { useReducedMotion } from "../hooks/use-reduced-motion"
 import { useI18n } from "../context/i18n"
 import { deferredHighlight } from "../context/marked"

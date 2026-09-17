@@ -2,7 +2,7 @@
 /** Stories for Anaconda Desktop provider setup. */
 
 import type { Meta, StoryObj } from "storybook-solidjs-vite"
-import type { AnacondaDesktopStatus } from "@kilocode/sdk/v2/client"
+import type { AnacondaDesktopStatus } from "../types/messages/leftover"
 import { useDialog } from "@codem/ui/context/dialog"
 import { onMount } from "solid-js"
 import { StoryProviders } from "./StoryProviders"

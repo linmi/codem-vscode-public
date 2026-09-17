@@ -1,5 +1,5 @@
 import { PART_MAPPING, ToolRegistry } from "@codem/ui/components/message-part"
-import type { AssistantMessage, Part } from "@kilocode/sdk/v2"
+import type { AssistantMessage, Part } from "@codem/ui/types/session"
 import { snapshotProgress } from "../context/session-utils"
 
 export const UPSTREAM_SUPPRESSED_TOOLS = new Set(["todowrite", "todoread"])

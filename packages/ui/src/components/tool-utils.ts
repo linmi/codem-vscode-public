@@ -1,4 +1,4 @@
-import type { ToolPart } from "@kilocode/sdk/v2"
+import type { ToolPart } from "../types/session"
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js"
 import { useReducedMotion } from "../hooks/use-reduced-motion"
 import {

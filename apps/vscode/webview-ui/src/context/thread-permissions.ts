@@ -4,7 +4,7 @@ import {
   acceptThreadPermissionMessage,
   emptyThreadPermissionView,
   type ThreadPermissionView,
-} from "../utils/thread-permission-state"
+} from "../utils/thread-permission-state.ts"
 
 const TYPED_PERMISSION_MODES = ["default", "auto", "yolo"] as const satisfies readonly CodemPermissionMode[]
 

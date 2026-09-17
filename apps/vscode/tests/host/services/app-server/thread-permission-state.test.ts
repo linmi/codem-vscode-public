@@ -1,4 +1,4 @@
-import { DEFAULT_PROMPT_SETTINGS } from "../../../../src/shared/prompt-defaults"
+import { DEFAULT_PROMPT_SETTINGS } from "../../../../src/shared/prompt-defaults.ts"
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { readFileSync } from "node:fs"
@@ -6,7 +6,7 @@ import { MatureUiAppServerController } from "../../../../src/services/app-server
 import {
   acceptThreadPermissionMessage,
   emptyThreadPermissionView,
-} from "../../../../webview-ui/src/utils/thread-permission-state"
+} from "../../../../webview-ui/src/utils/thread-permission-state.ts"
 
 const state = { revision: 2, permissionEpoch: 1, permissionMode: "auto", workMode: "normal" } as const
 describe("thread permission presentation", () => {

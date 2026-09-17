@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { FilePart } from "@kilocode/sdk/v2"
+import type { FilePart } from "../../src/types/session"
 import { attached, inline, kind } from "../../src/components/message-file"
 
 function file(part: Partial<FilePart> = {}): FilePart {

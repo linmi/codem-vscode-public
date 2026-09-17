@@ -1,14 +1,13 @@
-import { historyTurn } from "../host/services/app-server/fixtures/history"
+import { historyTurn } from "../host/services/app-server/fixtures/history.ts"
 import assert from "node:assert/strict"
 import { Window } from "happy-dom"
-import type { Message as SDKMessage, Part as SDKPart, AssistantMessage } from "@kilocode/sdk/v2"
-import { AppServerMatureUiAdapter } from "../../src/services/app-server/mature-ui-adapter"
-import type { Message } from "../../webview-ui/src/types/messages/sessions"
+import type { Message as SDKMessage, Part as SDKPart, AssistantMessage } from "@codem/ui/types/session"
+import { AppServerMatureUiAdapter } from "../../src/services/app-server/mature-ui-adapter.ts"
+import type { Message } from "../../webview-ui/src/types/messages/sessions.ts"
 
 const win = new Window({ url: "http://localhost" })
-// Bun 1.3.14 does not populate happy-dom's vm-backed error constructors.
 Object.assign(win, { SyntaxError })
-Object.assign(globalThis, {
+const globals: Record<string, unknown> = {
   window: win,
   document: win.document,
   navigator: win.navigator,
@@ -26,14 +25,17 @@ Object.assign(globalThis, {
   requestAnimationFrame: win.requestAnimationFrame.bind(win),
   cancelAnimationFrame: win.cancelAnimationFrame.bind(win),
   getComputedStyle: win.getComputedStyle.bind(win),
-})
+}
+for (const [key, value] of Object.entries(globals)) {
+  Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
+}
 
-const { createSignal, Show, batch } = await import("solid-js")
+const { createSignal, batch } = await import("solid-js")
 const { render } = await import("solid-js/web")
 const { Part } = await import("@codem/ui/components/message-part")
 const { DataProvider } = await import("@codem/ui/context/data")
 const { MarkedProvider, createMarkedParser } = await import("@codem/ui/context/marked")
-const { isRenderable } = await import("../../webview-ui/src/utils/transcript-parts")
+const { isRenderable } = await import("../../webview-ui/src/utils/transcript-parts.ts")
 const parser = createMarkedParser({})
 const adapter = new AppServerMatureUiAdapter()
 const threadId = "render-thread"
@@ -49,25 +51,25 @@ const root = document.createElement("div")
 document.body.append(root)
 let dispose: (() => void) | undefined
 const settle = () => win.happyDOM.waitUntilComplete()
-
-try {
-  // Use the same SDK boundary cast and actual renderer as AssistantMessage.tsx.
-  // The old adapter crashes here while TextPartDisplay reads time.completed.
+const mount = () => {
+  dispose?.()
+  root.replaceChildren()
   dispose = render(
     () => (
-      <DataProvider
-        directory="/fixture"
-        data={{ session: [], session_status: {}, session_diff: {}, message: {}, part: {} }}
-      >
+      <DataProvider directory="/fixture" data={{ session: [], session_status: {}, session_diff: {}, message: {}, part: {} }}>
         <MarkedProvider nativeParser={(text) => parser.parse(text)}>
-          <Show when={message().id} keyed>
-            {() => <Part part={part()} message={message() as SDKMessage} />}
-          </Show>
+          <Part part={part()} message={message() as SDKMessage} />
         </MarkedProvider>
       </DataProvider>
     ),
     root,
   )
+}
+
+try {
+  // Use the same SDK boundary cast and actual renderer as AssistantMessage.tsx.
+  // The old adapter crashes here while TextPartDisplay reads time.completed.
+  mount()
   await settle()
   assert.match(root.textContent ?? "", /Hello from CodeM/)
   assert.equal(message().time?.completed, undefined)
@@ -100,6 +102,7 @@ try {
     .find((event) => event.type === "messageCreated")
   if (terminal?.type !== "messageCreated") throw new Error("missing completed assistant message")
   setMessage(terminal.message)
+  mount()
   await settle()
   assert.equal(typeof message().time?.completed, "number")
   assert.equal(isRenderable(part(), message() as AssistantMessage), true)
@@ -113,12 +116,15 @@ try {
     })
     if (history.type !== "messagesLoaded") throw new Error("missing history")
     const assistant = history.messages.find((entry) => entry.role === "assistant")
-    const text = assistant?.parts?.find((entry) => entry.type === "text")
+    const text = assistant?.parts?.find(
+      (entry) => entry.type === "text" && "text" in entry && /answer 1/.test(String(entry.text)),
+    )
     assert.ok(assistant && text)
     batch(() => {
       setMessage(assistant)
       setPart(text as SDKPart)
     })
+    mount()
     await settle()
     assert.equal(isRenderable(part(), message() as AssistantMessage), true)
     assert.match(root.textContent ?? "", /answer 1/)

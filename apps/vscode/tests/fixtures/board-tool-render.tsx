@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { Window } from "happy-dom"
-import type { AssistantMessage, ToolPart } from "@kilocode/sdk/v2"
+import type { AssistantMessage, ToolPart } from "@codem/ui/types/session"
 
 const window = new Window({ url: "http://localhost" })
 Object.assign(globalThis, {

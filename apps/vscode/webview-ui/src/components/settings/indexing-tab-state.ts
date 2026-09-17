@@ -1,4 +1,4 @@
-import type { IndexingConfig } from "@kilocode/kilo-indexing/config"
+import type { IndexingConfig } from "../../types/messages"
 
 export type IndexingScope = "global" | "project"
 export type IndexingInheritance = "none" | "inherited" | "partial"
@@ -39,7 +39,7 @@ function get(input: IndexingConfig, path: readonly string[]) {
 
 export function indexingConfig(scope: IndexingScope, global: IndexingConfig, project: IndexingConfig) {
   if (scope === "global") return global
-  return mergeEffective(global, project) as IndexingConfig
+  return mergeEffective(global as Record<string, unknown>, project as Record<string, unknown>) as IndexingConfig
 }
 
 export function indexingUpdate(
@@ -48,7 +48,10 @@ export function indexingUpdate(
   project: IndexingConfig,
   patch: IndexingConfig,
 ) {
-  return mergeUpdate(scope === "global" ? global : project, patch) as IndexingConfig
+  return mergeUpdate(
+    (scope === "global" ? global : project) as Record<string, unknown>,
+    patch as Record<string, unknown>,
+  ) as IndexingConfig
 }
 
 export function indexingSource(

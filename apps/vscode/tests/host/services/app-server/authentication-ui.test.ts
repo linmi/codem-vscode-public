@@ -1,9 +1,10 @@
-import { describe, expect, it } from "bun:test"
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
 import { codeMWebviewProfile } from "../../../../src/services/app-server/authentication-ui.ts"
 
 describe("codeMWebviewProfile", () => {
   it("projects the CodeM broker identity without inventing legacy account data", () => {
-    expect(
+    assert.deepEqual(
       codeMWebviewProfile({
         loggedIn: true,
         authMethod: "oauth",
@@ -13,16 +14,17 @@ describe("codeMWebviewProfile", () => {
         userId: "user-1",
         displayName: "CodeM User",
       }),
-    ).toEqual({
-      profile: { email: "user-1", name: "CodeM User" },
-      balance: null,
-      kiloPass: null,
-      currentOrgId: "tenant-1",
-    })
+      {
+        profile: { email: "user-1", name: "CodeM User" },
+        balance: null,
+        kiloPass: null,
+        currentOrgId: "tenant-1",
+      },
+    )
   })
 
   it("projects signed-out status as no profile", () => {
-    expect(
+    assert.equal(
       codeMWebviewProfile({
         loggedIn: false,
         authMethod: null,
@@ -32,6 +34,7 @@ describe("codeMWebviewProfile", () => {
         userId: null,
         displayName: null,
       }),
-    ).toBeNull()
+      null,
+    )
   })
 })

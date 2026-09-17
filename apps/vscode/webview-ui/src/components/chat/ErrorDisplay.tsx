@@ -5,7 +5,7 @@ import { useDialog } from "@codem/ui/context/dialog"
 import { ErrorDetails } from "@codem/ui/components/error-details"
 import { Icon } from "@codem/ui/components/icon"
 import { Button } from "@codem/ui/components/button"
-import type { AssistantMessage } from "@kilocode/sdk/v2"
+import type { AssistantMessage } from "@codem/ui/types/session"
 import { useLanguage } from "../../context/language"
 import { useProvider } from "../../context/provider"
 import {

@@ -1,7 +1,7 @@
-import type { KilocodeSessionModelUsageResponse } from "@kilocode/sdk/v2"
 import type { Part, TokenUsage } from "./parts"
+import type { SessionModelUsage } from "./leftover"
 
-export type SessionModelUsage = KilocodeSessionModelUsageResponse
+export type { SessionModelUsage }
 
 export type SessionCloseReason = "completed" | "error" | "interrupted" | "superseded"
 

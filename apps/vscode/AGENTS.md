@@ -26,7 +26,7 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 
 ## UI boundary
 
-- New CodeM web UI belongs in the Solid package at `packages/ui` and is imported through `@codem/ui` exports such as `@codem/ui/components/button`.
+- New CodeM web UI belongs in the Solid package at `packages/ui` and is imported through `@codem/ui` exports such as `@codem/ui/components/button` and `@codem/ui/types/session`. Webview production source must not import `@kilocode/sdk`.
 - Packages under `packages/legacy` are CLI Console build inputs. Do not add new product UI to them.
 - Do not introduce shadcn or a second React webview stack.
 - Keep VS Code-specific theme adapters, CSP, editor messaging, and lifecycle code in this app. Keep reusable tokens and components in `packages/ui`.
@@ -51,7 +51,7 @@ pnpm lint:vscode
 pnpm build:vscode
 ```
 
-Imported scripts may invoke the pinned Bun binary as a TypeScript runtime. They may not install dependencies or create a Bun lockfile. Worktree setup uses `pnpm install --frozen-lockfile`.
+The default VS Code gate uses Node: `pnpm test:vscode` is `node --test --experimental-strip-types`, and typecheck/bundle are `tsc` / `node esbuild.js`. Leftover launch, packaging, SDK prepare, and `test:vscode:legacy` scripts may still invoke the pinned Bun binary as a TypeScript runtime. They may not install dependencies or create a Bun lockfile. Worktree setup uses `pnpm install --frozen-lockfile`.
 
 Do not run the full imported unit suite by default. When tests are in scope, choose the smallest relevant test files and report host-sensitive failures without weakening or deleting assertions.
 

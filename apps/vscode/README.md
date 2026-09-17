@@ -16,13 +16,13 @@ pnpm lint:vscode
 pnpm build:vscode
 ```
 
-`pnpm test:vscode` runs only the current App Server UI adapter tests. The retained imported interaction suite is available explicitly as `pnpm test:vscode:legacy`; it is intentionally excluded from the default path because it contains hundreds of host-sensitive tests.
+`pnpm test:vscode` runs the current App Server UI adapter tests and the Webview leftover-SDK gate on Node (`node --test --experimental-strip-types`). The retained imported interaction suite is available explicitly as `pnpm test:vscode:legacy` (still Bun); it is intentionally excluded from the default path because it contains hundreds of host-sensitive tests.
 
 The packaged extension identity is `codem.codem`. Commands, views, context keys, and settings use the `codem.*` namespace.
 
 ## Architecture
 
-The executable product and protocol contract is documented in [`../../vscode-plugin-plan.md`](../../vscode-plugin-plan.md). Shared Solid components belong in `packages/ui` and are imported as `@codem/ui/components/*`. `@codem/app-server` owns the reusable Core runtime and strict Host protocol. Catalog and mode DTOs come from `@codem/protocol` (`packages/protocol`); the adapter never forwards raw RPC frames. The discarded reduced `CodeMProvider` Webview is not part of the build: the mature Sidebar/Open in Tab/Agent Manager surface is the only UI migration target. The final cutover removes the Kilo agent transport atomically, while editor-owned interactions and dedicated Autocomplete remain real services.
+The executable product and protocol contract is documented in [`../../vscode-plugin-plan.md`](../../vscode-plugin-plan.md). Shared Solid components belong in `packages/ui` and are imported as `@codem/ui/components/*`. Timeline Message/Part types come from `@codem/ui/types/session`. `@codem/app-server` owns the reusable Core runtime and strict Host protocol. Catalog and mode DTOs come from `@codem/protocol` (`packages/protocol`); the adapter never forwards raw RPC frames. The discarded reduced `CodeMProvider` Webview is not part of the build: the mature Sidebar/Open in Tab/Agent Manager surface is the only UI migration target. The final cutover removes the Kilo agent transport atomically, while editor-owned interactions and dedicated Autocomplete remain real services.
 
 The production parity gate accounts for all **277** Webview inbound commands: 199 remain real editor/dedicated-service commands, 42 have complete App Server v1 controller mappings, and 36 are explicit online Core v1 protocol gaps. This preview enables the controller-ready base path. `app-server-control` gaps fail closed with `尚未迁移到 CodeM App Server`. The full gate remains red until every gap is resolved and the Kilo transport is deleted.
 

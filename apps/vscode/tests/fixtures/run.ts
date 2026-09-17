@@ -1,20 +1,26 @@
-import { expect } from "bun:test"
-import { unlinkSync } from "node:fs"
+import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
+import { unlinkSync, writeFileSync } from "node:fs"
+import { createRequire } from "node:module"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { solidPlugin } from "esbuild-plugin-solid"
 
+const here = path.dirname(fileURLToPath(import.meta.url))
+
 export async function fixture(name: string) {
-  const root = path.resolve(import.meta.dir, "../..")
+  const root = path.resolve(here, "../..")
   const webview = path.join(root, "webview-ui")
-  const solid = path.dirname(Bun.resolveSync("solid-js/package.json", webview))
+  const require = createRequire(path.join(root, "package.json"))
+  const solid = path.dirname(require.resolve("solid-js/package.json"))
   const aliases: Record<string, string> = {
     "solid-js": path.join(solid, "dist/solid.js"),
     "solid-js/web": path.join(solid, "web/dist/web.js"),
     "solid-js/store": path.join(solid, "store/dist/store.js"),
   }
   const result = await build({
-    entryPoints: [path.join(import.meta.dir, `${name}.tsx`)],
+    entryPoints: [path.join(here, `${name}.tsx`)],
     bundle: true,
     conditions: ["browser"],
     external: ["happy-dom"],
@@ -46,10 +52,10 @@ export async function fixture(name: string) {
     ],
   })
   const file = path.join(root, `.${name}-${crypto.randomUUID()}.mjs`)
-  await Bun.write(file, result.outputFiles[0]!.contents)
+  writeFileSync(file, result.outputFiles[0]!.contents)
   try {
-    const child = Bun.spawnSync(["bun", file], { cwd: webview, stdout: "pipe", stderr: "pipe" })
-    expect(child.exitCode, child.stdout.toString() + child.stderr.toString()).toBe(0)
+    const child = spawnSync(process.execPath, [file], { cwd: webview, encoding: "utf8" })
+    assert.equal(child.status, 0, `${child.stdout ?? ""}${child.stderr ?? ""}`)
   } finally {
     unlinkSync(file)
   }

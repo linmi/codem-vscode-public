@@ -50,7 +50,7 @@ export async function readAppID(root: string | undefined): Promise<string | unde
   // `appRoot` is not guaranteed to be populated on every host.
   if (!root) return undefined
   const raw = await fs.readFile(path.join(root, "product.json"), "utf8").catch((err) => {
-    console.debug("[CodeM New] could not read product.json for the notification identity", { root, err })
+    console.debug("[CodeM] could not read product.json for the notification identity", { root, err })
     return undefined
   })
   if (!raw) return undefined
@@ -58,7 +58,7 @@ export async function readAppID(root: string | undefined): Promise<string | unde
     try {
       return JSON.parse(raw)
     } catch (err) {
-      console.debug("[CodeM New] product.json is not valid JSON", { root, err })
+      console.debug("[CodeM] product.json is not valid JSON", { root, err })
       return undefined
     }
   })()
@@ -159,7 +159,7 @@ export function showOSNotification(notice: AttentionNotice): void {
       await run(command).then(
         () => undefined,
         (error) => {
-          console.debug("[CodeM New] OS notification failed", { cmd: command.cmd, error })
+          console.debug("[CodeM] OS notification failed", { cmd: command.cmd, error })
         },
       )
     })

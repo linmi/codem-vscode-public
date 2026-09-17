@@ -11,7 +11,7 @@ import { MarkedProvider } from "@codem/ui/context/marked"
 import { Diff } from "@codem/ui/components/diff"
 import { Code } from "@codem/ui/components/code"
 import { File } from "@codem/ui/components/file"
-import type { UserMessage, AssistantMessage, TextPart, ToolPart, ReasoningPart } from "@kilocode/sdk/v2"
+import type { UserMessage, AssistantMessage, TextPart, ToolPart, ReasoningPart } from "../types/session"
 
 const SESSION_ID = "session-story-001"
 const USER_MSG_ID = "user-msg-001"

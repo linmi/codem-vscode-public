@@ -30,7 +30,7 @@ registerExpandedTaskTool()
 registerVscodeToolOverrides()
 import HistoryView from "./components/history/HistoryView"
 import { MigrationWizard } from "./components/migration"
-import type { Message as SDKMessage, Part as SDKPart } from "@kilocode/sdk/v2"
+import type { Message as SDKMessage, Part as SDKPart } from "@codem/ui/types/session"
 import { cycleAgent as cycle } from "./context/session-agent"
 import "./styles/chat.css"
 
@@ -318,7 +318,7 @@ const AppContent: Component = () => {
 
   const open = (message: { type?: string; sessionID?: string }) => {
     if (message.type !== "openSession" || !message.sessionID) return
-    console.log("[CodeM New] App: opening local session:", message.sessionID)
+    console.log("[CodeM] App: opening local session:", message.sessionID)
     if (tabs) tabs.open(message.sessionID, { scrollToBottom: true })
     if (!tabs) session.selectSession(message.sessionID, { scrollToBottom: true })
     setCurrentView("newTask")
@@ -328,18 +328,18 @@ const AppContent: Component = () => {
     const handler = (event: MessageEvent) => {
       const message = event.data
       if (message?.type === "action" && message.action) {
-        console.log("[CodeM New] App: 🎬 action:", message.action)
+        console.log("[CodeM] App: 🎬 action:", message.action)
         handleViewAction(message.action)
       }
       if (message?.type === "navigate" && message.view && VALID_VIEWS.has(message.view)) {
-        console.log("[CodeM New] App: 🧭 navigate:", message.view, message.tab ? `tab=${message.tab}` : "")
+        console.log("[CodeM] App: 🧭 navigate:", message.view, message.tab ? `tab=${message.tab}` : "")
         if (message.tab) setSettingsTab(message.tab)
         setAgentManagerProjectId(message.projectId)
         setCurrentView(message.view as ViewType)
         vscode.postMessage({ type: "settingsTabChanged", tab: message.tab })
       }
       if (message?.type === "openCloudSession" && message.sessionId) {
-        console.log("[CodeM New] App: ☁️ openCloudSession:", message.sessionId)
+        console.log("[CodeM] App: ☁️ openCloudSession:", message.sessionId)
         session.selectCloudSession(message.sessionId)
         setCurrentView("newTask")
       }
@@ -347,7 +347,7 @@ const AppContent: Component = () => {
       handleKiloModel(message)
       handleForked(message)
       if (message?.type === "viewSubAgentSession" && message.sessionID) {
-        console.log("[CodeM New] App: 🔍 viewSubAgentSession:", message.sessionID)
+        console.log("[CodeM] App: 🔍 viewSubAgentSession:", message.sessionID)
         session.setCurrentSessionID(message.sessionID)
         setCurrentView("subAgentViewer")
       }

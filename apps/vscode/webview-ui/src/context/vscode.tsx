@@ -19,9 +19,9 @@ export function getVSCodeAPI(): VSCodeAPI {
       vscodeApi = acquireVsCodeApi()
     } else {
       // Mock for development/testing outside VS Code
-      console.warn("[CodeM New] Running outside VS Code, using mock API")
+      console.warn("[CodeM] Running outside VS Code, using mock API")
       vscodeApi = {
-        postMessage: (msg) => console.log("[CodeM New] Mock postMessage:", msg),
+        postMessage: (msg) => console.log("[CodeM] Mock postMessage:", msg),
         getState: () => undefined,
         setState: () => {},
       }

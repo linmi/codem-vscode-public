@@ -569,7 +569,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     }
     this.checkpoints.set(sid, pending)
     void pending.then(cleanup, (error) => {
-      console.error("[CodeM New] checkpoint mutation failed:", error)
+      console.error("[CodeM] checkpoint mutation failed:", error)
       cleanup()
     })
   }
@@ -705,7 +705,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
 
   private async syncWebviewState(reason: string): Promise<void> {
     const serverInfo = this.connectionService.getServerInfo()
-    console.log("[CodeM New] CodeMProvider: 🔄 syncWebviewState()", {
+    console.log("[CodeM] CodeMProvider: 🔄 syncWebviewState()", {
       reason,
       isWebviewReady: this.isWebviewReady,
       connectionState: this.connectionState,
@@ -714,7 +714,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     })
 
     if (!this.isWebviewReady) {
-      console.log("[CodeM New] CodeMProvider: ⏭️ syncWebviewState skipped (webview not ready)")
+      console.log("[CodeM] CodeMProvider: ⏭️ syncWebviewState skipped (webview not ready)")
       return
     }
 
@@ -924,7 +924,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     return retry(() => client.session.get({ sessionID: sessionId, directory }, { throwOnError: true }))
       .then((result) => result.data)
       .catch((error: unknown) => {
-        console.warn("[CodeM New] CodeMProvider: Failed to resolve managed session:", error)
+        console.warn("[CodeM] CodeMProvider: Failed to resolve managed session:", error)
         return undefined
       })
   }
@@ -1160,7 +1160,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       if (this.handleNotificationSettingsMessage(message)) return
       switch (message.type) {
         case "webviewReady":
-          console.log("[CodeM New] CodeMProvider: ✅ webviewReady received")
+          console.log("[CodeM] CodeMProvider: ✅ webviewReady received")
           this.isWebviewReady = true
           for (const event of this.connectionService.getPendingCompletions()) {
             this.postMessage(mapSSEEventToWebviewMessage(event, event.properties.sessionID))
@@ -1241,7 +1241,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           })
           break
         case "loadSessions":
-          this.handleLoadSessions().catch((e) => console.error("[CodeM New] handleLoadSessions failed:", e))
+          this.handleLoadSessions().catch((e) => console.error("[CodeM] handleLoadSessions failed:", e))
           break
         case "requestSessionModelUsage":
           void this.fetchAndSendSessionModelUsage(message.sessionID, message.requestID)
@@ -1274,17 +1274,17 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           break
         case "forkSession":
           handleForkSession(this.forkCtx, message.sessionId, message.messageId).catch((e) =>
-            console.error("[CodeM New] handleForkSession failed:", e),
+            console.error("[CodeM] handleForkSession failed:", e),
           )
           break
         case "retryConnection":
-          console.log("[CodeM New] CodeMProvider: 🔄 Retrying connection...")
+          console.log("[CodeM] CodeMProvider: 🔄 Retrying connection...")
           this.initializeConnection().catch((e) =>
-            console.error("[CodeM New] CodeMProvider: ❌ Retry connection failed:", e),
+            console.error("[CodeM] CodeMProvider: ❌ Retry connection failed:", e),
           )
           break
         case "reload":
-          this.handleReload().catch((e) => console.error("[CodeM New] CodeMProvider: Reload failed:", e))
+          this.handleReload().catch((e) => console.error("[CodeM] CodeMProvider: Reload failed:", e))
           break
         case "openSubAgentViewer":
           vscode.commands.executeCommand(
@@ -1297,7 +1297,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         case "saveImage":
           return saveImage(this.getWorkspaceDirectory(this.currentSession?.id), message)
         case "requestProviders":
-          this.fetchAndSendProviders().catch((e) => console.error("[CodeM New] fetchAndSendProviders failed:", e))
+          this.fetchAndSendProviders().catch((e) => console.error("[CodeM] fetchAndSendProviders failed:", e))
           break
         case "connectProvider":
         case "authorizeProviderOAuth":
@@ -1320,38 +1320,38 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           break
         case "fetchCustomProviderModels":
           this.handleFetchCustomProviderModels(message).catch((e) =>
-            console.error("[CodeM New] fetchCustomProviderModels failed:", e),
+            console.error("[CodeM] fetchCustomProviderModels failed:", e),
           )
           break
         case "compact":
           await this.handleCompact(message.sessionID, message.providerID, message.modelID)
           break
         case "requestAgents":
-          this.fetchAndSendAgents().catch((e) => console.error("[CodeM New] fetchAndSendAgents failed:", e))
+          this.fetchAndSendAgents().catch((e) => console.error("[CodeM] fetchAndSendAgents failed:", e))
           break
         case "requestSkills":
-          this.fetchAndSendSkills().catch((e) => console.error("[CodeM New] fetchAndSendSkills failed:", e))
+          this.fetchAndSendSkills().catch((e) => console.error("[CodeM] fetchAndSendSkills failed:", e))
           break
         case "removeSkill":
           this.removeSkillViaCli(message.location).catch((e: unknown) =>
-            console.error("[CodeM New] removeSkill failed:", e),
+            console.error("[CodeM] removeSkill failed:", e),
           )
           break
         case "removeAgent":
-          this.handleRemoveAgent(message.name).catch((e) => console.error("[CodeM New] handleRemoveAgent failed:", e))
+          this.handleRemoveAgent(message.name).catch((e) => console.error("[CodeM] handleRemoveAgent failed:", e))
           break
         case "removeMcp":
-          this.handleRemoveMcp(message.name).catch((e) => console.error("[CodeM New] handleRemoveMcp failed:", e))
+          this.handleRemoveMcp(message.name).catch((e) => console.error("[CodeM] handleRemoveMcp failed:", e))
           break
         case "requestMcpStatus":
-          this.fetchAndSendMcpStatus().catch((e) => console.error("[CodeM New] fetchAndSendMcpStatus failed:", e))
+          this.fetchAndSendMcpStatus().catch((e) => console.error("[CodeM] fetchAndSendMcpStatus failed:", e))
           break
         case "connectMcp": {
           const c1 = this.client
           if (c1) {
             void McpOAuth.connectMcpServer(c1, message.name, this.getWorkspaceDirectory(), () =>
               this.refreshMcpStatus(),
-            ).catch((e) => console.error("[CodeM New] connectMcpServer failed:", e))
+            ).catch((e) => console.error("[CodeM] connectMcpServer failed:", e))
           }
           break
         }
@@ -1360,7 +1360,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           if (c2) {
             void McpOAuth.disconnectMcpServer(c2, message.name, this.getWorkspaceDirectory(), () =>
               this.refreshMcpStatus(),
-            ).catch((e) => console.error("[CodeM New] disconnectMcpServer failed:", e))
+            ).catch((e) => console.error("[CodeM] disconnectMcpServer failed:", e))
           }
           break
         }
@@ -1369,7 +1369,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           if (c) {
             void McpOAuth.authenticateMcpServer(c, message.name, this.getWorkspaceDirectory(), () =>
               this.refreshMcpStatus(),
-            ).catch((e) => console.error("[CodeM New] authenticateMcpServer failed:", e))
+            ).catch((e) => console.error("[CodeM] authenticateMcpServer failed:", e))
           }
           break
         }
@@ -1400,14 +1400,14 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           await this.handleToggleSandbox(message)
           break
         case "requestConfig":
-          this.fetchAndSendConfig().catch((e) => console.error("[CodeM New] fetchAndSendConfig failed:", e))
+          this.fetchAndSendConfig().catch((e) => console.error("[CodeM] fetchAndSendConfig failed:", e))
           break
         case "requestGlobalConfig":
-          this.fetchAndSendGlobalConfig().catch((e) => console.error("[CodeM New] fetchAndSendGlobalConfig failed:", e))
+          this.fetchAndSendGlobalConfig().catch((e) => console.error("[CodeM] fetchAndSendGlobalConfig failed:", e))
           break
         case "requestIndexingStatus":
           this.fetchAndSendIndexingStatus().catch((e) =>
-            console.error("[CodeM New] fetchAndSendIndexingStatus failed:", e),
+            console.error("[CodeM] fetchAndSendIndexingStatus failed:", e),
           )
           break
         case "requestIndexingSettings": {
@@ -1420,11 +1420,11 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           break
         case "requestKiloEmbeddingModels":
           this.fetchAndSendKiloEmbeddingModels().catch((e) =>
-            console.error("[CodeM New] fetchAndSendKiloEmbeddingModels failed:", e),
+            console.error("[CodeM] fetchAndSendKiloEmbeddingModels failed:", e),
           )
           break
         case "requestImageModels":
-          this.fetchAndSendImageModels().catch((e) => console.error("[CodeM New] fetchAndSendImageModels failed:", e))
+          this.fetchAndSendImageModels().catch((e) => console.error("[CodeM] fetchAndSendImageModels failed:", e))
           break
         case "updateConfig":
           await this.handleUpdateConfig(
@@ -1474,7 +1474,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
             .then((s) => {
               if (s) this.sendRemoteStatus()
             })
-            .catch((err) => console.error("[CodeM New] remote message failed:", err))
+            .catch((err) => console.error("[CodeM] remote message failed:", err))
           break
         case "deleteSession":
           await this.handleDeleteSession(message.sessionID)
@@ -1493,7 +1493,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           break
         case "requestNotifications":
           this.fetchAndSendNotifications().catch((e) =>
-            console.error("[CodeM New] fetchAndSendNotifications failed:", e),
+            console.error("[CodeM] fetchAndSendNotifications failed:", e),
           )
           break
         case "requestCloudSessions":
@@ -1582,7 +1582,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
             .catch((err: unknown) => {
               const raw = getErrorMessage(err) || "Failed to enhance prompt"
               const msg = normalizeEnhancePromptErrorMessage(raw)
-              console.error("[CodeM New] CodeMProvider: Failed to enhance prompt:", err)
+              console.error("[CodeM] CodeMProvider: Failed to enhance prompt:", err)
               vscode.window.showErrorMessage(`Enhance prompt failed: ${msg}`)
               this.postMessage({
                 type: "enhancePromptError",
@@ -1708,7 +1708,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       if (message.scope === "inspector") this.inspectorSessionIds.add(message.sessionID)
       const parent = typeof message.parentSessionID === "string" ? message.parentSessionID : undefined
       this.handleSyncSession(message.sessionID, parent).catch((e) =>
-        console.error("[CodeM New] handleSyncSession failed:", e),
+        console.error("[CodeM] handleSyncSession failed:", e),
       )
       return true
     }
@@ -1851,7 +1851,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   }
 
   private async doInitializeConnection(): Promise<void> {
-    console.log("[CodeM New] CodeMProvider: 🔧 Starting initializeConnection...")
+    console.log("[CodeM] CodeMProvider: 🔧 Starting initializeConnection...")
 
     this.connectionState = "connecting"
     this.connectionGeneration++
@@ -1948,7 +1948,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
             await this.flushPendingSessionRefresh("sse-connected")
             this.recoverPendingPrompts()
           } catch (error) {
-            console.error("[CodeM New] CodeMProvider: ❌ Failed during connected state handling:", error)
+            console.error("[CodeM] CodeMProvider: ❌ Failed during connected state handling:", error)
             this.postMessage({
               type: "error",
               message: getErrorMessage(error) || "Failed to sync after connecting",
@@ -2019,9 +2019,9 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.postMessage(buildAutoApprovalReasonSettingMessage())
       this.postMessage({ type: "extensionDataReady" })
 
-      console.log("[CodeM New] CodeMProvider: ✅ initializeConnection completed successfully")
+      console.log("[CodeM] CodeMProvider: ✅ initializeConnection completed successfully")
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: ❌ Failed to initialize connection:", error)
+      console.error("[CodeM] CodeMProvider: ❌ Failed to initialize connection:", error)
       this.connectionState = "error"
       this.postMessage({
         type: "connectionState",
@@ -2069,7 +2069,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         session: this.sessionToWebview(this.currentSession!),
       })
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to create session:", error)
+      console.error("[CodeM] CodeMProvider: Failed to create session:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to create session",
@@ -2106,7 +2106,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         return r.data
       })
       .catch((e: unknown) => {
-        console.warn("[CodeM New] CodeMProvider: getSession failed (non-critical):", e)
+        console.warn("[CodeM] CodeMProvider: getSession failed (non-critical):", e)
         return undefined
       })
     this.postMessage({ type: "workspaceDirectoryChanged", directory: this.getWorkspaceDirectory(sessionID) })
@@ -2136,7 +2136,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           if (this.accept(sid, status, dir, epoch)) this.publish(sid, status)
         }
       })
-      .catch((error: unknown) => console.error("[CodeM New] CodeMProvider: Failed to fetch session statuses:", error))
+      .catch((error: unknown) => console.error("[CodeM] CodeMProvider: Failed to fetch session statuses:", error))
   }
 
   private fetchAndSendSessionModelUsage(sessionID: string, requestID: string): Promise<void> {
@@ -2149,7 +2149,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         this.postMessage({ type: "sessionModelUsageLoaded", sessionID, requestID, data: response.data })
       })
       .catch((error: unknown) => {
-        console.warn("[CodeM New] CodeMProvider: Failed to load session model usage:", error)
+        console.warn("[CodeM] CodeMProvider: Failed to load session model usage:", error)
         this.postMessage({ type: "sessionModelUsageLoaded", sessionID, requestID })
       })
   }
@@ -2247,7 +2247,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.recoverPendingPrompts()
     } catch (error) {
       if (abort?.signal.aborted) return
-      console.error("[CodeM New] CodeMProvider: Failed to load messages:", error)
+      console.error("[CodeM] CodeMProvider: Failed to load messages:", error)
       this.postMessage({ type: "error", message: getErrorMessage(error) || "Failed to load messages", sessionID })
     }
   }
@@ -2314,7 +2314,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.recoverPendingPrompts()
     } catch (err) {
       this.syncedChildSessions.delete(sessionID)
-      console.error("[CodeM New] CodeMProvider: Failed to sync child session:", err)
+      console.error("[CodeM] CodeMProvider: Failed to sync child session:", err)
     }
   }
 
@@ -2364,7 +2364,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
    */
   private async flushPendingSessionRefresh(reason: string): Promise<void> {
     if (!this.pendingSessionRefresh) return
-    console.log("[CodeM New] CodeMProvider: 🔄 Flushing deferred sessions refresh", { reason })
+    console.log("[CodeM] CodeMProvider: 🔄 Flushing deferred sessions refresh", { reason })
     const revision = ++this.sessionRefreshRevision
     const scope = this.opts.projectQualifier?.()?.projectId
     if (scope !== undefined) this.projectID = undefined
@@ -2373,7 +2373,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       const resolved = await flushPendingSessionRefreshUtil(ctx)
       if (resolved && scope === this.opts.projectQualifier?.()?.projectId) this.projectID = resolved
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to flush session refresh:", error)
+      console.error("[CodeM] CodeMProvider: Failed to flush session refresh:", error)
     }
     this.pendingSessionRefresh = ctx.pendingSessionRefresh
   }
@@ -2390,7 +2390,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       const resolved = await loadSessionsUtil(ctx)
       if (resolved && scope === this.opts.projectQualifier?.()?.projectId) this.projectID = resolved
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to load sessions:", error)
+      console.error("[CodeM] CodeMProvider: Failed to load sessions:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to load sessions",
@@ -2443,7 +2443,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         truncated: output.truncated,
       })
     } catch (error) {
-      console.error("[CodeM New] Failed to capture terminal context:", error)
+      console.error("[CodeM] Failed to capture terminal context:", error)
       this.postMessage({
         type: "terminalContextError",
         requestId,
@@ -2524,7 +2524,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       }
       this.postMessage({ type: "sessionDeleted", sessionID })
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to delete session:", error)
+      console.error("[CodeM] CodeMProvider: Failed to delete session:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to delete session",
@@ -2553,7 +2553,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       )
       this.postMessage({ ...result, success: response.data === true })
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to delete message:", error)
+      console.error("[CodeM] CodeMProvider: Failed to delete message:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to delete message",
@@ -2577,7 +2577,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       if (this.currentSession?.id === sessionID) this.setCurrentSession(updated)
       this.postMessage({ type: "sessionUpdated", session: this.sessionToWebview(updated) })
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to rename session:", error)
+      console.error("[CodeM] CodeMProvider: Failed to rename session:", error)
       this.postMessage({ type: "error", message: getErrorMessage(error) || "Failed to rename session" })
     }
   }
@@ -2598,7 +2598,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       })
       if (saved) void vscode.window.showInformationMessage("Session transcript exported as Markdown.")
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to export session transcript:", error)
+      console.error("[CodeM] CodeMProvider: Failed to export session transcript:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to export session transcript",
@@ -2623,7 +2623,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     const result = await (
       force ? client.kilocode.providerUsage.refresh({ directory }) : client.kilocode.providerUsage.get({ directory })
     ).catch((error) => {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch provider usage:", error)
+      console.error("[CodeM] CodeMProvider: Failed to fetch provider usage:", error)
       return undefined
     })
     if (generation !== this.providerUsageGeneration) return
@@ -2708,7 +2708,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
             generation = this.providersGeneration
             continue
           }
-          console.error("[CodeM New] CodeMProvider: Failed to fetch providers:", error)
+          console.error("[CodeM] CodeMProvider: Failed to fetch providers:", error)
         }
         if (!this.providersQueued) return
         generation = this.providersGeneration
@@ -2814,7 +2814,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.cachedAgentsMessage = message
       this.postMessage(message)
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch agents:", error)
+      console.error("[CodeM] CodeMProvider: Failed to fetch agents:", error)
     }
   }
 
@@ -2843,7 +2843,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.cachedSkillsMessage = message
       this.postMessage(message)
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch skills:", error)
+      console.error("[CodeM] CodeMProvider: Failed to fetch skills:", error)
     }
   }
 
@@ -2870,13 +2870,13 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       const dir = this.getWorkspaceDirectory()
       const result = await this.client.kilocode.removeSkill({ location, directory: dir })
       if (result.error) {
-        console.error("[CodeM New] removeSkill returned error:", result.error)
+        console.error("[CodeM] removeSkill returned error:", result.error)
         this.cachedSkillsMessage = null
         await this.refreshLiveCatalogs()
         return false
       }
     } catch (error) {
-      console.error("[CodeM New] Failed to remove skill:", error)
+      console.error("[CodeM] Failed to remove skill:", error)
       this.cachedSkillsMessage = null
       await this.refreshLiveCatalogs()
       return false
@@ -2894,7 +2894,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       name,
     })
     if (!result.success) {
-      console.error("[CodeM New] Failed to remove agent:", result.error)
+      console.error("[CodeM] Failed to remove agent:", result.error)
       void vscode.window.showErrorMessage(result.error ?? `Failed to remove agent "${name}".`)
     }
     this.cachedAgentsMessage = null
@@ -2904,7 +2904,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   private async handleRemoveMcp(name: string): Promise<void> {
     const removed = await removeMcp(this.removeConfigItemCtx, name)
     if (!removed) {
-      console.error("[CodeM New] CodeMProvider: Failed to remove MCP server:", name)
+      console.error("[CodeM] CodeMProvider: Failed to remove MCP server:", name)
     }
   }
 
@@ -2929,7 +2929,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         this.postMessage(message)
       }
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch MCP status:", error)
+      console.error("[CodeM] CodeMProvider: Failed to fetch MCP status:", error)
     }
   }
 
@@ -2957,7 +2957,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     try {
       await this.refreshConfig("configLoaded")
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch config:", error)
+      console.error("[CodeM] CodeMProvider: Failed to fetch config:", error)
     }
   }
 
@@ -2969,7 +2969,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.cachedGlobalConfig = config ?? null
       this.postMessage({ type: "globalConfigLoaded", config })
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch global config:", error)
+      console.error("[CodeM] CodeMProvider: Failed to fetch global config:", error)
     }
   }
 
@@ -3012,7 +3012,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.cachedIndexingStatusMessage = message
       this.postMessage(message)
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch indexing status:", error)
+      console.error("[CodeM] CodeMProvider: Failed to fetch indexing status:", error)
     }
   }
 
@@ -3062,7 +3062,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       )
       this.postMessage({ type: "backgroundJobsLoaded", sessionID, requestID, jobs: data })
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch background jobs:", error)
+      console.error("[CodeM] CodeMProvider: Failed to fetch background jobs:", error)
       this.postMessage({
         type: "backgroundJobsLoaded",
         sessionID,
@@ -3086,7 +3086,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       )
       await this.fetchAndSendBackgroundJobs(sessionID, requestID)
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to cancel background job:", error)
+      console.error("[CodeM] CodeMProvider: Failed to cancel background job:", error)
       this.postMessage({
         type: "backgroundJobsLoaded",
         sessionID,
@@ -3106,7 +3106,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         { throwOnError: true },
       )
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to promote background job:", error)
+      console.error("[CodeM] CodeMProvider: Failed to promote background job:", error)
     }
   }
 
@@ -3184,7 +3184,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     try {
       await this.refreshConfig("configUpdated")
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch config after update:", error)
+      console.error("[CodeM] CodeMProvider: Failed to fetch config after update:", error)
     }
   }
 
@@ -3195,25 +3195,25 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
    */
   private async checkConfigWarnings(from: string): Promise<void> {
     if (this.configWarningsShown) {
-      console.log("[CodeM New] CodeMProvider: config warnings already shown", { from })
+      console.log("[CodeM] CodeMProvider: config warnings already shown", { from })
       return
     }
     if (!this.client) {
-      console.log("[CodeM New] CodeMProvider: config warnings skipped (no client)", { from })
+      console.log("[CodeM] CodeMProvider: config warnings skipped (no client)", { from })
       return
     }
     try {
       const dir = this.getWorkspaceDirectory()
-      console.log("[CodeM New] CodeMProvider: checking config warnings", { from, dir })
+      console.log("[CodeM] CodeMProvider: checking config warnings", { from, dir })
       const result = await this.client.config.warnings({ directory: dir })
       const list = result?.data ?? []
-      console.log("[CodeM New] CodeMProvider: config warnings fetched", { from, count: list.length })
+      console.log("[CodeM] CodeMProvider: config warnings fetched", { from, count: list.length })
       if (list.length === 0) return
       this.configWarningsShown = true
 
       const first = list[0]!
       const summary = list.length === 1 ? first.message : `${first.message} (and ${list.length - 1} more)`
-      console.warn("[CodeM New] CodeMProvider: showing config warnings", { from, count: list.length, path: first.path })
+      console.warn("[CodeM] CodeMProvider: showing config warnings", { from, count: list.length, path: first.path })
 
       const action = await vscode.window.showWarningMessage(`Config: ${summary}`, "Show Details")
       if (action === "Show Details") {
@@ -3227,7 +3227,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         channel.show()
       }
     } catch (err) {
-      console.warn("[CodeM New] CodeMProvider: checkConfigWarnings failed:", { from, err })
+      console.warn("[CodeM] CodeMProvider: checkConfigWarnings failed:", { from, err })
     }
   }
 
@@ -3481,7 +3481,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         .set(data.enabled)
         .then(() => true)
         .catch((error) => {
-          console.error("[CodeM New] Failed to persist sandbox default:", error)
+          console.error("[CodeM] Failed to persist sandbox default:", error)
           return false
         })
       this.postMessage({
@@ -3630,7 +3630,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       await Promise.all([
         refreshProviders ? this.fetchAndSendProviders() : Promise.resolve(),
         refreshAgents ? this.fetchAndSendAgents() : Promise.resolve(),
-      ]).catch((error) => console.error("[CodeM New] CodeMProvider: Post-config refresh failed:", error))
+      ]).catch((error) => console.error("[CodeM] CodeMProvider: Post-config refresh failed:", error))
     } catch (error) {
       this.postConfigFailure(error, completed, snapshot, dir)
     } finally {
@@ -3671,7 +3671,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     snapshot?: ConfigSnapshot,
     directory?: string,
   ): void {
-    console.error("[CodeM New] CodeMProvider: Failed to update config:", error)
+    console.error("[CodeM] CodeMProvider: Failed to update config:", error)
     const bindings = snapshot && directory ? this.bindingsFor(directory, snapshot.targets) : undefined
     this.postMessage({
       type: "configUpdateFailed",
@@ -3813,7 +3813,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         }
 
         const delay = backoff(attempt, result.response?.headers)
-        console.log(`[CodeM New] CodeMProvider: Retry on ${status}, attempt ${attempt}/${MAX_RETRIES}, delay ${delay}ms`)
+        console.log(`[CodeM] CodeMProvider: Retry on ${status}, attempt ${attempt}/${MAX_RETRIES}, delay ${delay}ms`)
 
         this.postMessage({
           type: "sessionStatus",
@@ -4247,7 +4247,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         ),
       )
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to send message:", error)
+      console.error("[CodeM] CodeMProvider: Failed to send message:", error)
       this.postMessage({
         type: "sendMessageFailed",
         error: getErrorMessage(error) || "Failed to send message",
@@ -4343,7 +4343,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         this.postMessage({ type: "sessionCommandCompleted", messageID })
       }
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to send command:", error)
+      console.error("[CodeM] CodeMProvider: Failed to send command:", error)
       this.postMessage({
         type: "sendMessageFailed",
         error: getErrorMessage(error) || "Failed to send command",
@@ -4410,7 +4410,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       )
       this.postMessage({ type: "sessionResumeResult", sessionID, requestID })
     } catch (error) {
-      console.error("[CodeM New] Failed to resume session:", error)
+      console.error("[CodeM] Failed to resume session:", error)
       this.postMessage({
         type: "sessionResumeResult",
         sessionID,
@@ -4432,7 +4432,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     const dir = this.getWorkspaceDirectory(sessionID)
     const { data, error } = await this.client.session.revert({ sessionID, messageID, partID, directory: dir })
     if (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to revert session:", error)
+      console.error("[CodeM] CodeMProvider: Failed to revert session:", error)
       this.postMessage({ type: "error", message: "Failed to revert session", sessionID })
       throw error
     }
@@ -4447,7 +4447,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     const dir = this.getWorkspaceDirectory(sessionID)
     const { data, error } = await this.client.session.unrevert({ sessionID, directory: dir })
     if (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to unrevert session:", error)
+      console.error("[CodeM] CodeMProvider: Failed to unrevert session:", error)
       this.postMessage({ type: "error", message: "Failed to redo session", sessionID })
       throw error
     }
@@ -4471,12 +4471,12 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
 
     const target = sessionID || this.currentSession?.id
     if (!target) {
-      console.error("[CodeM New] CodeMProvider: No sessionID for compact")
+      console.error("[CodeM] CodeMProvider: No sessionID for compact")
       return
     }
 
     if (!providerID || !modelID) {
-      console.error("[CodeM New] CodeMProvider: No model selected for compact")
+      console.error("[CodeM] CodeMProvider: No model selected for compact")
       this.postMessage({
         type: "error",
         message: "No model selected. Connect a provider to compact this session.",
@@ -4491,7 +4491,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         { throwOnError: true },
       )
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to compact session:", error)
+      console.error("[CodeM] CodeMProvider: Failed to compact session:", error)
       this.postMessage({
         type: "error",
         message: getErrorMessage(error) || "Failed to compact session",
@@ -4590,7 +4590,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
 
     await this.client.global
       .dispose()
-      .catch((e: unknown) => console.warn("[CodeM New] CodeMProvider: global.dispose() after org switch failed:", e))
+      .catch((e: unknown) => console.warn("[CodeM] CodeMProvider: global.dispose() after org switch failed:", e))
 
     // Org switch succeeded — refresh profile and providers independently (best-effort)
     try {
@@ -4598,12 +4598,12 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       // Broadcast to all webviews (sidebar, profile tab, agent manager, etc.)
       this.connectionService.notifyProfileChanged(profileResult.data ?? null)
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to refresh profile after org switch:", error)
+      console.error("[CodeM] CodeMProvider: Failed to refresh profile after org switch:", error)
     }
     try {
       await this.fetchAndSendProviders()
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to refresh providers after org switch:", error)
+      console.error("[CodeM] CodeMProvider: Failed to refresh providers after org switch:", error)
     }
   }
 
@@ -4739,7 +4739,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   /** Reload config, skills, agents, and commands from disk by rebooting the instance. */
   private async handleReload(): Promise<void> {
     if (!this.client) {
-      console.warn("[CodeM New] handleReload: no client connection")
+      console.warn("[CodeM] handleReload: no client connection")
       return
     }
     const dir = this.getWorkspaceDirectory(this.currentSession?.id)
@@ -4756,7 +4756,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         )
         return
       }
-      console.error("[CodeM New] handleReload: reload endpoint failed:", err)
+      console.error("[CodeM] handleReload: reload endpoint failed:", err)
       const detail = err instanceof Error && err.message ? err.message : "See extension logs for details."
       vscode.window.showErrorMessage(`Reload failed. ${detail}`)
       return
@@ -5085,7 +5085,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       }
       const childId = childID(part)
       if (childId && !this.trackedSessionIds.has(childId)) {
-        console.log("[CodeM New] CodeMProvider: 🔗 Auto-adopting child session from task tool", { childId })
+        console.log("[CodeM] CodeMProvider: 🔗 Auto-adopting child session from task tool", { childId })
         void this.handleSyncSession(childId, part.sessionID ?? sessionID)
       }
     }
@@ -5161,12 +5161,12 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         typeof (message as { type?: unknown }).type === "string"
           ? (message as { type: string }).type
           : "<unknown>"
-      console.warn("[CodeM New] CodeMProvider: ⚠️ postMessage dropped (no webview)", { type })
+      console.warn("[CodeM] CodeMProvider: ⚠️ postMessage dropped (no webview)", { type })
       return
     }
 
     void this.webview.postMessage(message).then(undefined, (error) => {
-      console.error("[CodeM New] CodeMProvider: ❌ postMessage failed", error)
+      console.error("[CodeM] CodeMProvider: ❌ postMessage failed", error)
     })
   }
 
@@ -5199,7 +5199,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         void vscode.window.showInformationMessage(`Project memory ${operation === "enable" ? "enabled" : "disabled"}.`)
       }
     } catch (error) {
-      console.error("[CodeM New] CodeMProvider: Failed to toggle memory:", error)
+      console.error("[CodeM] CodeMProvider: Failed to toggle memory:", error)
       void vscode.window.showErrorMessage(getErrorMessage(error) || "Failed to toggle memory")
     }
   }
@@ -5230,7 +5230,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       const remote = repo.state?.remotes?.find((r: { name: string }) => r.name === "origin")
       return remote?.fetchUrl ?? remote?.pushUrl
     } catch (error) {
-      console.warn("[CodeM New] CodeMProvider: Failed to get git remote URL:", error)
+      console.warn("[CodeM] CodeMProvider: Failed to get git remote URL:", error)
       return undefined
     }
   }
@@ -5334,7 +5334,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     // Ambiguous ids degrade to the legacy resolution instead of throwing: this
     // runs eagerly per webview message, where a throw would drop the message.
     if (routed === null)
-      console.warn(`[CodeM New] CodeMProvider: session ${sessionId} is ambiguous across projects, using workspace root`)
+      console.warn(`[CodeM] CodeMProvider: session ${sessionId} is ambiguous across projects, using workspace root`)
     if (routed) return routed
     return resolveWorkspaceDirectory({
       sessionID: sessionId,
@@ -5347,7 +5347,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     const routed = this.routeSessionDirectory(sessionId)
     if (routed === null)
       console.warn(
-        `[CodeM New] CodeMProvider: session ${sessionId} is ambiguous across projects, using tracked directory`,
+        `[CodeM] CodeMProvider: session ${sessionId} is ambiguous across projects, using tracked directory`,
       )
     if (routed) return routed
     return this.sessionDirectories.get(sessionId) ?? session?.directory ?? this.getRootDirectory()
@@ -5450,7 +5450,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     const history = await retry(() =>
       this.client!.session.messages({ sessionID, directory, limit: 0 }, { throwOnError: true }),
     ).catch((error: unknown) => {
-      console.warn("[CodeM New] CodeMProvider: Failed to recover session Git directory:", error)
+      console.warn("[CodeM] CodeMProvider: Failed to recover session Git directory:", error)
       return undefined
     })
     if (!history) {

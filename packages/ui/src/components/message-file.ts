@@ -1,4 +1,4 @@
-import type { FilePart } from "@kilocode/sdk/v2"
+import type { FilePart } from "../types/session"
 
 export function attached(part: FilePart) {
   return part.url.startsWith("data:")

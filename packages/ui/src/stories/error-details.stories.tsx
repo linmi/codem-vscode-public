@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 import type { Meta, StoryObj } from "storybook-solidjs-vite"
-import type { AssistantMessage } from "@kilocode/sdk/v2"
+import type { AssistantMessage } from "../types/session"
 import type { UiI18n, UiI18nKey, UiI18nParams } from "@codem/ui/context/i18n"
 import { I18nProvider } from "@codem/ui/context/i18n"
 import { Card } from "@codem/ui/components/card"

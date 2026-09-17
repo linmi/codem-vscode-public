@@ -10,7 +10,7 @@ import { useVSCode } from "./vscode"
 import type { CodemModelCatalog } from "@codem/protocol"
 import { CODEM_BUILTIN_INTELLIGENCE_TIERS } from "@codem/protocol"
 import type { Provider, ProviderModel, ModelSelection, ExtensionMessage, ProviderAuthState } from "../types/messages"
-import type { ProviderAuthMethod } from "@kilocode/sdk/v2/client"
+import type { ProviderAuthMethod } from "../types/messages/leftover"
 import { flattenModels, findModel as _findModel, isModelValid as isValid } from "./provider-utils"
 import { KILO_AUTO } from "../../../src/shared/provider-model"
 

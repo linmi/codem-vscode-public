@@ -236,3 +236,9 @@ VS Code host coverage for the cycle is `apps/vscode/tests/host/services/app-serv
 ## Leftover `@opencode-ai/protocol` pruned from `packages/protocol` (2026-09-17)
 
 `packages/protocol` now holds only `@codem/protocol` catalog, mode, and Host-control DTOs. The leftover OpenCode HttpApi schema that previously occupied that path was seeded into leftover `@opencode-ai/server` (`packages/server/src/protocol/`) and leftover `@kilocode/cli` now imports those leftover types from `@opencode-ai/server/protocol/*`. The `@opencode-ai/protocol` package name and `packages/codem-protocol` path were deleted rather than kept as aliases. OpenCode leftover schema was not copied into `@codem/protocol`.
+
+## Webview leftover SDK types and marketplace keywords (2026-09-17)
+
+Webview production source no longer imports `@kilocode/sdk`, `@kilocode/kilo-memory`, `@kilocode/kilo-indexing`, or `@kilocode/kilo-gateway`. Timeline Message/Part types live at `@codem/ui/types/session`; leftover indexing/memory/usage/board/auth DTOs are handwritten in `apps/vscode/webview-ui/src/types/messages/leftover.ts`. `@codem/ui` dropped its `@kilocode/sdk` dependency. Marketplace keywords `zoo code` / `opencode` / `open code` were removed. Host log prefix `[CodeM New]` became `[CodeM]`. Live `vscode://codem.codem/kilocode/...` URI paths were not renamed. Host still imports leftover SDK for unmigrated surfaces.
+
+The default VS Code gate now runs on Node: `pnpm test:vscode` is `node --test --experimental-strip-types` over `tests/host/services/app-server` and `tests/host/webview`; typecheck/bundle use `tsc` and `node esbuild.js`. Leftover launch, packaging, SDK prepare, and `test:vscode:legacy` still invoke the pinned Bun binary. The workspace `bun` 1.3.14 dependency remains for those leftover scripts and JetBrains/CLI.

@@ -56,7 +56,7 @@ export async function handleRequestCloudSessions(
       nextCursor: result.data?.nextCursor ?? null,
     })
   } catch (error) {
-    console.error("[CodeM New] CodeMProvider: Failed to fetch cloud sessions:", error)
+    console.error("[CodeM] CodeMProvider: Failed to fetch cloud sessions:", error)
     ctx.postMessage({
       type: "error",
       message: error instanceof Error ? error.message : "Failed to fetch cloud sessions",
@@ -99,7 +99,7 @@ export async function handleRequestCloudSessionData(ctx: CloudSessionContext, se
       messages,
     })
   } catch (err) {
-    console.error("[CodeM New] Failed to load cloud session data:", err)
+    console.error("[CodeM] Failed to load cloud session data:", err)
     ctx.postMessage({
       type: "cloudSessionImportFailed",
       cloudSessionId: sessionId,
@@ -152,7 +152,7 @@ export async function handleImportAndSend(
     )
     session = result.data as Session | undefined
   } catch (error) {
-    console.error("[CodeM New] CodeMProvider: ❌ Cloud session import failed:", error)
+    console.error("[CodeM] CodeMProvider: ❌ Cloud session import failed:", error)
     ctx.postMessage({
       type: "cloudSessionImportFailed",
       cloudSessionId,
@@ -247,7 +247,7 @@ export async function handleImportAndSend(
       ctx.postMessage({ type: "sessionCommandCompleted", messageID })
     }
   } catch (err) {
-    console.error("[CodeM New] Failed to send message after cloud import:", err)
+    console.error("[CodeM] Failed to send message after cloud import:", err)
     ctx.postMessage({
       type: "sendMessageFailed",
       error: err instanceof Error ? err.message : "Failed to send message after import",

@@ -59,7 +59,7 @@ export function registerCommitMessageService(
       try {
         client = await connectionService.getClientAsync(path)
       } catch (err) {
-        console.error("[CodeM New] Failed to connect to CodeM backend:", err)
+        console.error("[CodeM] Failed to connect to CodeM backend:", err)
         vscode.window.showErrorMessage("尚未迁移到 CodeM App Server")
         return
       }
@@ -102,7 +102,7 @@ export function registerCommitMessageService(
               repository.inputBox.value = message
               lastGeneratedMessage = message
               lastWorkspacePath = path
-              console.log("[CodeM New] Commit message generated successfully")
+              console.log("[CodeM] Commit message generated successfully")
             } finally {
               clearTimeout(timer)
             }
@@ -110,16 +110,16 @@ export function registerCommitMessageService(
         )
         .then(undefined, (error: unknown) => {
           if (userCancelled) {
-            console.log("[CodeM New] Commit message generation was cancelled by user")
+            console.log("[CodeM] Commit message generation was cancelled by user")
             return
           }
           if (timedOut) {
-            console.log("[CodeM New] Commit message generation timed out")
+            console.log("[CodeM] Commit message generation timed out")
             vscode.window.showErrorMessage("Commit message generation timed out. Please try again.")
             return
           }
           const msg = getErrorMessage(error)
-          console.error("[CodeM New] Failed to generate commit message:", msg)
+          console.error("[CodeM] Failed to generate commit message:", msg)
           vscode.window.showErrorMessage(msg || "Failed to generate commit message. Please try again.")
         })
     },

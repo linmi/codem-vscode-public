@@ -112,7 +112,7 @@ export class KiloProviderMemory {
   async handle(message: Record<string, unknown>): Promise<boolean> {
     if (message.type === "requestMemory") {
       this.fetch(typeof message.sessionID === "string" ? message.sessionID : undefined).catch((err: unknown) =>
-        console.error("[CodeM New] fetchAndSendMemory failed:", err),
+        console.error("[CodeM] fetchAndSendMemory failed:", err),
       )
       return true
     }
@@ -181,7 +181,7 @@ export class KiloProviderMemory {
       this.cache(directory, msg)
       this.input.post(msg)
     } catch (err) {
-      console.error("[CodeM New] CodeMProvider: Failed to fetch memory:", err)
+      console.error("[CodeM] CodeMProvider: Failed to fetch memory:", err)
       this.input.post({
         type: "memoryLoaded",
         sessionID,
@@ -273,7 +273,7 @@ export class KiloProviderMemory {
         matchOnDetail: true,
       })
     } catch (err) {
-      console.error("[CodeM New] CodeMProvider: Failed to show memory:", err)
+      console.error("[CodeM] CodeMProvider: Failed to show memory:", err)
       this.input.post({
         type: "memoryLoaded",
         sessionID,
@@ -348,7 +348,7 @@ export class KiloProviderMemory {
         message.operation === "status"
           ? { data }
           : await retry(() => api.status({ directory }, { throwOnError: true })).catch((err: unknown) => {
-              console.warn("[CodeM New] Memory changed but refresh failed:", err)
+              console.warn("[CodeM] Memory changed but refresh failed:", err)
               return undefined
             })
       const status = refreshed?.data
@@ -376,7 +376,7 @@ export class KiloProviderMemory {
       }
       return true
     } catch (err) {
-      console.error("[CodeM New] CodeMProvider: Failed memory operation:", err)
+      console.error("[CodeM] CodeMProvider: Failed memory operation:", err)
       this.input.post({
         type: "memoryOperationResult",
         operation: message.operation,

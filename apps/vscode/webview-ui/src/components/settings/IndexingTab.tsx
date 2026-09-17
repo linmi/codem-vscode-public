@@ -1,8 +1,13 @@
 import { Component, For, Show, createMemo, createSignal } from "solid-js"
 import { Button } from "@codem/ui/components/button"
 import { Card } from "@codem/ui/components/card"
-import { DEFAULT_VECTOR_STORE, isFileExtension, parseFileExtensions } from "@kilocode/kilo-indexing/config"
-import { formatKiloEmbeddingModelLabel, getKiloEmbeddingModel } from "@kilocode/kilo-indexing/embedding-models"
+import {
+  DEFAULT_VECTOR_STORE,
+  formatKiloEmbeddingModelLabel,
+  getKiloEmbeddingModel,
+  isFileExtension,
+  parseFileExtensions,
+} from "../../utils/indexing-helpers"
 import { Select } from "@codem/ui/components/select"
 import { Switch } from "@codem/ui/components/switch"
 import { TextField } from "@codem/ui/components/text-field"

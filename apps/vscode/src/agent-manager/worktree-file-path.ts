@@ -29,7 +29,7 @@ export function resolveWorktreeFile(
     if (resolved !== dir && !resolved.startsWith(dir + path.sep)) return
     return resolved
   } catch (err) {
-    console.error("[CodeM New] AgentManagerProvider: Cannot resolve file path:", err)
+    console.error("[CodeM] AgentManagerProvider: Cannot resolve file path:", err)
     return
   }
 }

@@ -8,4 +8,4 @@ import { ThemeProvider } from "@codem/ui/theme"
 import "@codem/ui/styles"
 ```
 
-VS Code webview 只通过这些导出消费共享控件。编辑器主题桥、CSP 和 postMessage 留在 `apps/vscode`。
+VS Code webview 只通过这些导出消费共享控件。时间线 Message/Part 类型走 `@codem/ui/types/session`，不引用 leftover `@kilocode/sdk`。编辑器主题桥、CSP 和 postMessage 留在 `apps/vscode`。

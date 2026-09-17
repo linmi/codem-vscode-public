@@ -32,7 +32,7 @@ export function handleNetworkEvent(type: string, props: Props, client: KiloClien
   if (type === "session.network.restored" && props.requestID) {
     const entry = waits.get(props.requestID)
     if (!entry) return
-    console.log("[CodeM New] network: auto-replying to restore", props.requestID)
+    console.log("[CodeM] network: auto-replying to restore", props.requestID)
     void (client as any)?.network?.reply({ requestID: props.requestID, directory: dir(entry.sid) })
     waits.delete(props.requestID)
     return

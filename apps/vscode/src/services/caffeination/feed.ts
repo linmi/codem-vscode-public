@@ -65,7 +65,7 @@ export function feed(opts: {
       promise: Promise.resolve()
         .then<Snapshot>(() => (opts.watching() ? opts.load(dir) : {}))
         .catch((error: unknown) => {
-          console.warn(`[CodeM New] Keep-awake status refresh failed for ${dir}:`, error)
+          console.warn(`[CodeM] Keep-awake status refresh failed for ${dir}:`, error)
           return {}
         })
         .then((snapshot) => {

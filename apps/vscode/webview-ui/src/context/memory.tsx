@@ -5,7 +5,7 @@ import { useSession } from "./session"
 import { useVSCode } from "./vscode"
 import { useLanguage } from "./language"
 import { showToast } from "@codem/ui/components/toast"
-import type { MemoryStatusResponse } from "@kilocode/sdk/v2"
+import type { MemoryStatusResponse } from "../types/messages/leftover"
 import type { ExtensionMessage } from "../types/messages"
 
 export interface MemoryContextValue {

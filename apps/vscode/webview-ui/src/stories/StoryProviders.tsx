@@ -41,7 +41,7 @@ import { TranscriptSearchProvider } from "../context/transcript-search"
 import { dict as uiEn } from "@codem/ui/i18n/en"
 import { dict as appEn } from "../i18n/en"
 import { dict as amEn } from "../../agent-manager/i18n/en"
-import { hasIndexingPlugin } from "@kilocode/kilo-indexing/detect"
+import { hasIndexingPlugin } from "../utils/indexing-helpers"
 import { resolveTemplate } from "../context/language-utils"
 import type {
   Config,

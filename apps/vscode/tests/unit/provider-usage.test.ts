@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import type { ProviderUsage, ProviderUsageWindow } from "@kilocode/sdk/v2/client"
-import { formatWindow, windowLabel, windowProgress } from "@kilocode/kilo-gateway/provider-usage"
+import type { ProviderUsage, ProviderUsageWindow } from "../../webview-ui/src/types/messages/leftover"
+import { formatWindow, windowLabel, windowProgress } from "../../webview-ui/src/utils/provider-usage-format"
 
 const { CodeMProvider } = await import("../../src/CodeMProvider")
 

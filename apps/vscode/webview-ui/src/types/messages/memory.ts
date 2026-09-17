@@ -8,13 +8,11 @@ import type {
   MemoryRememberResponse,
   MemoryRebuildResponse,
   MemoryStatusResponse,
-} from "@kilocode/sdk/v2"
-import type { MemoryOperation as SharedMemoryOperation } from "@kilocode/kilo-memory/commands"
-import type { MemorySchema } from "@kilocode/kilo-memory/schema"
+  MemoryOperation,
+  MemorySourceFile,
+} from "./leftover"
 
-export type MemorySourceFile = MemorySchema.Source
-
-export type MemoryOperation = SharedMemoryOperation
+export type { MemorySourceFile, MemoryOperation }
 
 export type MemoryResultOperation = MemoryOperation
 

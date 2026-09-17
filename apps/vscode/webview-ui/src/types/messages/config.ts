@@ -2,7 +2,7 @@ import type { PermissionConfig } from "./permissions"
 import type { AgentConfig } from "./agents"
 import type { ProviderConfig } from "./providers"
 
-type SdkIndexingStatus = import("@kilocode/sdk/v2/client").IndexingStatus
+import type { IndexingStatus as SdkIndexingStatus } from "./leftover"
 
 export interface McpConfig {
   type?: "local" | "remote"

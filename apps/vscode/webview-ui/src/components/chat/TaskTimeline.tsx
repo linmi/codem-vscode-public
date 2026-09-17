@@ -6,7 +6,7 @@
 
 import { Component, For, Show, createMemo, createEffect, createSignal, on, onCleanup } from "solid-js"
 import { Portal } from "solid-js/web"
-import type { AssistantMessage as SDKAssistantMessage, Part as SDKPart } from "@kilocode/sdk/v2"
+import type { AssistantMessage as SDKAssistantMessage, Part as SDKPart } from "@codem/ui/types/session"
 import { useSession } from "../../context/session"
 import { visibleParts } from "../../context/session-queue"
 import { color, label } from "../../utils/timeline/colors"

@@ -129,7 +129,8 @@
     "./styles/tailwind": "./src/styles/tailwind/index.css",
     "./theme": "./src/theme/index.ts",
     "./theme/*": "./src/theme/*.ts",
-    "./theme/context": "./src/theme/context.tsx"
+    "./theme/context": "./src/theme/context.tsx",
+    "./types/session": "./src/types/session.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -144,7 +145,6 @@
   },
   "dependencies": {
     "@kobalte/core": "catalog:",
-    "@kilocode/sdk": "workspace:*",
     "@opencode-ai/core": "workspace:*",
     "@pierre/diffs": "catalog:",
     "@shikijs/stream": "catalog:",

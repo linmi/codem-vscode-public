@@ -1,10 +1,10 @@
 import {
   AssistantMessage,
+  type SessionStatus,
   type SnapshotFileDiff,
   Message as MessageType,
   Part as PartType,
-} from "@kilocode/sdk/v2/client"
-import type { SessionStatus } from "@kilocode/sdk/v2"
+} from "../types/session"
 import { useData } from "../context"
 import { useFileComponent } from "../context/file"
 

@@ -15,7 +15,7 @@ export async function interceptMessage(
   ctx: Context,
 ): Promise<Record<string, unknown> | null> {
   const next = ctx.before
-    ? await ctx.before(msg).catch((e) => (console.error("[CodeM New] interceptor error:", e), null))
+    ? await ctx.before(msg).catch((e) => (console.error("[CodeM] interceptor error:", e), null))
     : msg
   if (next === null || next.type !== "requestGitChangesContext") return next
   const sid = typeof next.sessionID === "string" ? next.sessionID : undefined
@@ -27,6 +27,6 @@ export async function interceptMessage(
     base: typeof resolved.gitChangesBase === "string" ? resolved.gitChangesBase : undefined,
     post: ctx.post,
     error: ctx.error,
-  }).catch((e) => console.error("[CodeM New] git changes error:", e))
+  }).catch((e) => console.error("[CodeM] git changes error:", e))
   return null
 }

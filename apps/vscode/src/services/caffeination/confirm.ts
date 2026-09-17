@@ -27,7 +27,7 @@ export function confirmCaffeination(
         return service.setEnabled(true)
       })
       .catch((error: unknown) => {
-        console.warn("[CodeM New] Keep-awake confirmation failed:", error)
+        console.warn("[CodeM] Keep-awake confirmation failed:", error)
       })
       .finally(() => {
         pending = undefined

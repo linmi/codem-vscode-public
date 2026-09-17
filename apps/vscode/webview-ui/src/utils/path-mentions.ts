@@ -25,7 +25,7 @@ export function convertToMentionPath(path: string, cwd: string): string {
       cleaned = cleaned.substring(1)
     }
   } catch (err) {
-    console.error("[CodeM New] Failed to decode dropped URI:", err, cleaned)
+    console.error("[CodeM] Failed to decode dropped URI:", err, cleaned)
   }
 
   const normalized = cleaned.replace(/\\/g, "/")

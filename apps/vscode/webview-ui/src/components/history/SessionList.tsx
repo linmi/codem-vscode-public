@@ -60,7 +60,7 @@ const SessionList: Component<SessionListProps> = (props) => {
   })
 
   onMount(() => {
-    console.log("[CodeM New] SessionList mounted, loading sessions")
+    console.log("[CodeM] SessionList mounted, loading sessions")
     session.loadSessions()
   })
 

@@ -23,7 +23,7 @@ import type {
   Part as SDKPart,
   Message as SDKMessage,
   ToolPart,
-} from "@kilocode/sdk/v2"
+} from "@codem/ui/types/session"
 import { useData } from "@codem/ui/context/data"
 import { useSession } from "../../context/session"
 import { useDisplay } from "../../context/display"
