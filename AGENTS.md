@@ -69,7 +69,7 @@ When a migration Cycle touches one of these boundaries, update all production ca
 4. Keep generated output and dependency directories out of source control.
 5. Preserve Kilo, OpenCode, and third-party license notices for retained code.
 6. Record material upstream intake and pruning in `UPSTREAM.md`.
-7. Do not create commits or push unless the user explicitly requests it for the current task.
+7. After each independently verifiable Cycle, create a commit for that Cycle. Do not leave finished Cycle work uncommitted. Push only with explicit authorization.
 
 ## Validation
 
@@ -98,6 +98,6 @@ The imported VS Code unit suite uses Bun internally. A historical baseline run h
 
 ## Git and Delivery
 
-- Keep each commit scoped to one Cycle and create it only when explicitly requested.
+- Keep each commit scoped to one Cycle. Commit as soon as that Cycle is done; do not wait for a second request.
 - Push only with explicit authorization.
 - Deliver the result, verification, and remaining blockers first.
