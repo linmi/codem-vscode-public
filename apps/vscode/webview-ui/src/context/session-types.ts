@@ -1,5 +1,12 @@
 import type { createThreadPermissions } from "./thread-permissions"
 import type { Accessor } from "solid-js"
+import type {
+  CodemCoreSpaceSnapshot,
+  CodemLiveItem,
+  CodemLivePage,
+  CodemLiveTurn,
+  CodemLiveUsageSnapshot,
+} from "@codem/protocol"
 import type { ReviewMessageData } from "../../../src/shared/review-comments"
 import type { BrowserFeedbackData } from "../../../src/shared/browser-feedback"
 import type {
@@ -118,6 +125,14 @@ export interface SessionContextValue {
   costBreakdown: Accessor<Array<{ label: string; cost: number }>>
   contextUsage: Accessor<ContextUsage | undefined>
   modelUsage: Accessor<SessionModelUsage | undefined>
+  /** 最近一次 live token 用量。非耐久，不是 Kilo sessionModelUsage。 */
+  liveUsage: Accessor<CodemLiveUsageSnapshot | undefined>
+  /** Core space/list 快照。不是 CLI broker 空间表。 */
+  coreSpaceSnapshot: Accessor<CodemCoreSpaceSnapshot | undefined>
+  /** 实时 turns。不是 JSONL 历史。 */
+  liveThreadTurns: Accessor<CodemLivePage<CodemLiveTurn> | undefined>
+  /** 实时 items。不是 JSONL 历史。 */
+  liveThreadItems: Accessor<CodemLivePage<CodemLiveItem> | undefined>
 
   // Skills loaded from the CLI backend
   skills: Accessor<SkillInfo[]>
@@ -199,6 +214,12 @@ export interface SessionContextValue {
   rewindThread: () => void
   archiveThread: (id: string) => void
   unarchiveThread: (id: string) => void
+  /** Core space/list 只读快照。不能用来切换空间。 */
+  requestCoreSpaceSnapshot: () => void
+  /** 实时 turns。不是 JSONL 历史，不能替代 loadMessages。 */
+  requestLiveThreadTurns: () => void
+  /** 实时 items。不是 JSONL 历史，不能替代 loadMessages。 */
+  requestLiveThreadItems: () => void
   respondToPermission: (
     permissionId: string,
     response: "once" | "always" | "reject",

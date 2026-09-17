@@ -145,5 +145,64 @@ export interface CodemBackgroundTerminalClean {
   readonly processIds: readonly number[]
 }
 
+/**
+ * Core `space/list` 空注入快照。不是 CLI broker / `project_list`，
+ * 也不是空间写入权威；选择器仍走 broker。
+ * Posted on `coreSpaceSnapshotLoaded`.
+ */
+export interface CodemCoreSpace {
+  readonly projectKey: string
+  readonly displayName: string
+}
+
+export interface CodemCoreSpaceSnapshot {
+  readonly current: CodemCoreSpace | null
+  readonly spaces: readonly CodemCoreSpace[]
+}
+
+/** 实时 `thread/turns/list` 行。不是 JSONL 历史，不能替代 `loadMessages`。 */
+export interface CodemLiveTurn {
+  readonly id: string
+  readonly status: string | null
+  readonly startedAt: string | null
+}
+
+/**
+ * 实时 `thread/items/list` 白名单行。
+ * 不含 input / output / text / finalAnswer，避免把路径或密钥送进 Webview。
+ */
+export interface CodemLiveItem {
+  readonly id: string
+  readonly type: string
+  readonly status: string
+  readonly callId: string | null
+  readonly toolName: string | null
+  readonly label: string
+  readonly isError: boolean
+  readonly subagentId: string | null
+  readonly subagentKind: string | null
+}
+
+/** 实时分页。`entries` 不是 transcript store。 */
+export interface CodemLivePage<T> {
+  readonly entries: readonly T[]
+  readonly nextCursor: string | null
+  readonly total: number
+}
+
+/**
+ * 最近一次 `thread/tokenUsage/updated`。
+ * `durable: false`：不是 JSONL / Kilo sessionModelUsage 账单。
+ * Posted on `liveThreadUsageLoaded`.
+ */
+export interface CodemLiveUsageSnapshot {
+  readonly durable: false
+  readonly observed: boolean
+  readonly inputTokens: number | null
+  readonly outputTokens: number | null
+  readonly cacheReadTokens: number | null
+  readonly cacheCreationTokens: number | null
+}
+
 /** 带 requestID 的 CodeM 控制面结果：成功载荷或失败原因，互斥。 */
 export type CodemCommandResult<T extends object> = T | { readonly error: string }

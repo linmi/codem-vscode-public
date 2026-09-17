@@ -2,14 +2,19 @@ import type {
   AppServerBackgroundTerminalClean,
   AppServerBackgroundTerminalList,
   AppServerConfigSnapshot,
+  AppServerCoreSpaceSnapshot,
   AppServerEnvironmentInfo,
   AppServerHookList,
+  AppServerItem,
+  AppServerLivePage,
+  AppServerLiveTurn,
   AppServerLoadedThreads,
   AppServerModelProviderCapabilities,
   AppServerPermissionProfile,
   AppServerPluginList,
   AppServerToolList,
 } from "@codem/app-server"
+import type { CodemLiveUsageSnapshot } from "@codem/protocol"
 import type { ExtensionMessage } from "../../../webview-ui/src/types/messages/extension-messages"
 import type { WebviewMessage } from "../../../webview-ui/src/types/messages/webview-messages"
 import {
@@ -17,16 +22,25 @@ import {
   copyBackgroundTerminalClean,
   copyBackgroundTerminals,
   copyConfigSnapshot,
+  copyCoreSpaceSnapshot,
   copyEnvironmentInfo,
   copyHookList,
+  copyLiveThreadItems,
+  copyLiveThreadTurns,
+  copyLiveUsageSnapshot,
   copyLoadedThreads,
   copyModelProviderCapabilities,
   copyPermissionProfiles,
   copyPluginList,
   copyToolList,
+  emptyLiveUsageSnapshot,
 } from "./codem-webview-dto.ts"
 
-/** Host 已有、本 Cycle 新接到 Webview 的 CodeM 命令。不复用 Kilo requestConfig / clearSession / revertSession。 */
+/**
+ * Host 已有、接到 Webview 的 CodeM 命令。
+ * 更改要点：本 Cycle 增补 space/list 快照、live turns/items、last-known usage。
+ * 不复用 Kilo requestConfig / clearSession / revertSession，也不把 turns/items 当 JSONL。
+ */
 export const APP_SERVER_CONTROL_UI_COMMANDS = [
   "archiveThread",
   "cancelSideQuestion",
@@ -34,12 +48,16 @@ export const APP_SERVER_CONTROL_UI_COMMANDS = [
   "clearThread",
   "requestBackgroundTerminals",
   "requestConfigSnapshot",
+  "requestCoreSpaceSnapshot",
   "requestEnvironmentInfo",
   "requestHooks",
+  "requestLiveThreadItems",
+  "requestLiveThreadTurns",
   "requestLoadedThreadIds",
   "requestModelProviderCapabilities",
   "requestPermissionProfiles",
   "requestPlugins",
+  "requestSessionModelUsage",
   "requestTools",
   "rewindThread",
   "runShellCommand",
@@ -71,6 +89,12 @@ export interface ControlPlaneService {
   cleanBackgroundTerminals(cwd: string, threadId: string): Promise<AppServerBackgroundTerminalClean>
   runShellCommand(cwd: string, threadId: string, command: string): Promise<void>
   cancelSideQuestion(cwd: string, threadId: string, sideQuestionId: string): Promise<void>
+  /** Core space/list 快照。不是 CLI broker。 */
+  readCoreSpaceSnapshot(cwd: string): Promise<AppServerCoreSpaceSnapshot>
+  /** 实时 turns。Durable history 仍只读 JSONL。 */
+  listLiveThreadTurns(cwd: string, threadId: string, cursor?: string): Promise<AppServerLivePage<AppServerLiveTurn>>
+  /** 实时 items。Durable history 仍只读 JSONL。 */
+  listLiveThreadItems(cwd: string, threadId: string, cursor?: string): Promise<AppServerLivePage<AppServerItem>>
 }
 
 export interface ControlPlaneContext {
@@ -93,6 +117,8 @@ export class MatureUiControlPlane {
     string,
     { readonly threadId: string; sideQuestionId: string | null; cancelled: boolean }
   >()
+  /** 最近一次 usage-updated。不是耐久账单。 */
+  private readonly liveUsage = new Map<string, CodemLiveUsageSnapshot>()
 
   constructor(ctx: ControlPlaneContext) {
     this.ctx = ctx
@@ -113,9 +139,23 @@ export class MatureUiControlPlane {
   }
 
   forgetThread(threadId: string): void {
+    this.liveUsage.delete(threadId)
     for (const [requestId, pending] of this.sideQuestions) {
       if (pending.threadId === threadId) this.sideQuestions.delete(requestId)
     }
+  }
+
+  /** 缓存 thread/tokenUsage/updated。标明非耐久。 */
+  rememberLiveUsage(
+    threadId: string,
+    usage: {
+      readonly inputTokens: number | null
+      readonly outputTokens: number | null
+      readonly cacheReadTokens: number | null
+      readonly cacheCreationTokens: number | null
+    },
+  ): void {
+    this.liveUsage.set(threadId, copyLiveUsageSnapshot(usage))
   }
 
   async handle(message: Extract<WebviewMessage, { readonly type: ControlUiCommand }>): Promise<void> {
@@ -154,6 +194,14 @@ export class MatureUiControlPlane {
         return this.runShellCommand(message.sessionID, message.requestID, message.command)
       case "cancelSideQuestion":
         return this.cancelSideQuestion(message.sessionID, message.requestID)
+      case "requestCoreSpaceSnapshot":
+        return this.requestCoreSpaceSnapshot(message.requestID)
+      case "requestLiveThreadTurns":
+        return this.requestLiveThreadTurns(message.sessionID, message.requestID, message.cursor)
+      case "requestLiveThreadItems":
+        return this.requestLiveThreadItems(message.sessionID, message.requestID, message.cursor)
+      case "requestSessionModelUsage":
+        return this.requestSessionModelUsage(message.sessionID, message.requestID)
     }
   }
 
@@ -196,6 +244,14 @@ export class MatureUiControlPlane {
         return { type: "runShellCommandResult", sessionID: sessionID!, requestID, result }
       case "cancelSideQuestion":
         return { type: "cancelSideQuestionResult", sessionID: sessionID!, requestID, result }
+      case "requestCoreSpaceSnapshot":
+        return { type: "coreSpaceSnapshotLoaded", requestID, result }
+      case "requestLiveThreadTurns":
+        return { type: "liveThreadTurnsLoaded", sessionID: sessionID!, requestID, result }
+      case "requestLiveThreadItems":
+        return { type: "liveThreadItemsLoaded", sessionID: sessionID!, requestID, result }
+      case "requestSessionModelUsage":
+        return { type: "liveThreadUsageLoaded", sessionID: sessionID!, requestID, result }
     }
   }
 
@@ -369,6 +425,67 @@ export class MatureUiControlPlane {
       await this.ctx.service.cancelSideQuestion(cwd, sessionID, pending.sideQuestionId)
     }
     this.ctx.post(controlResultMessage("cancelSideQuestionResult", requestID, { cancelled: true }, sessionID))
+  }
+
+  /** Core space/list 只读快照。禁止用它替换 broker 写路径。 */
+  private async requestCoreSpaceSnapshot(requestId: string): Promise<void> {
+    const requestID = exactId(requestId, "requestCoreSpaceSnapshot requestID")
+    const cwd = this.ctx.cwdForThread(this.ctx.currentThreadId() ?? undefined)
+    this.ctx.post(
+      controlResultMessage(
+        "coreSpaceSnapshotLoaded",
+        requestID,
+        copyCoreSpaceSnapshot(await this.ctx.service.readCoreSpaceSnapshot(cwd)),
+      ),
+    )
+  }
+
+  /** 实时 turns。loadMessages 仍只读 @codem/session-history。 */
+  private async requestLiveThreadTurns(threadId: string, requestId: string, cursor?: string): Promise<void> {
+    const sessionID = exactId(threadId, "requestLiveThreadTurns sessionID")
+    const requestID = exactId(requestId, "requestLiveThreadTurns requestID")
+    const pageCursor = cursor === undefined ? undefined : exactId(cursor, "requestLiveThreadTurns cursor")
+    const cwd = this.ctx.cwdForThread(sessionID)
+    await this.ctx.ensureLoaded(cwd, sessionID)
+    this.ctx.post(
+      controlResultMessage(
+        "liveThreadTurnsLoaded",
+        requestID,
+        copyLiveThreadTurns(await this.ctx.service.listLiveThreadTurns(cwd, sessionID, pageCursor)),
+        sessionID,
+      ),
+    )
+  }
+
+  /** 实时 items。loadMessages 仍只读 @codem/session-history。 */
+  private async requestLiveThreadItems(threadId: string, requestId: string, cursor?: string): Promise<void> {
+    const sessionID = exactId(threadId, "requestLiveThreadItems sessionID")
+    const requestID = exactId(requestId, "requestLiveThreadItems requestID")
+    const pageCursor = cursor === undefined ? undefined : exactId(cursor, "requestLiveThreadItems cursor")
+    const cwd = this.ctx.cwdForThread(sessionID)
+    await this.ctx.ensureLoaded(cwd, sessionID)
+    this.ctx.post(
+      controlResultMessage(
+        "liveThreadItemsLoaded",
+        requestID,
+        copyLiveThreadItems(await this.ctx.service.listLiveThreadItems(cwd, sessionID, pageCursor)),
+        sessionID,
+      ),
+    )
+  }
+
+  /** last-known live usage。没有耐久读方法，未观察到事件就返回空快照。 */
+  private async requestSessionModelUsage(threadId: string, requestId: string): Promise<void> {
+    const sessionID = exactId(threadId, "requestSessionModelUsage sessionID")
+    const requestID = exactId(requestId, "requestSessionModelUsage requestID")
+    this.ctx.post(
+      controlResultMessage(
+        "liveThreadUsageLoaded",
+        requestID,
+        this.liveUsage.get(sessionID) ?? emptyLiveUsageSnapshot(),
+        sessionID,
+      ),
+    )
   }
 
   private requireLoaded(threadId: string): void {

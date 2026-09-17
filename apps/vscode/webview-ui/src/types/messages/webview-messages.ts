@@ -122,6 +122,7 @@ export interface LoadSessionsRequest {
   type: "loadSessions"
 }
 
+/** 最近一次 live token 用量。非耐久，不是 Kilo sessionModelUsage 账单。 */
 export interface RequestSessionModelUsageMessage {
   type: "requestSessionModelUsage"
   sessionID: string
@@ -1236,6 +1237,31 @@ export interface RunShellCommandRequest {
   command: string
 }
 
+/**
+ * Core `space/list` 空注入快照。不是 CLI broker / `project_list`，
+ * 不能用来切换空间；写入权威仍是 broker。
+ */
+export interface RequestCoreSpaceSnapshotMessage {
+  type: "requestCoreSpaceSnapshot"
+  requestID: string
+}
+
+/** 实时 `thread/turns/list`。不是 JSONL 历史，不能替代 `loadMessages`。 */
+export interface RequestLiveThreadTurnsMessage {
+  type: "requestLiveThreadTurns"
+  sessionID: string
+  requestID: string
+  cursor?: string
+}
+
+/** 实时 `thread/items/list`。不是 JSONL 历史，不能替代 `loadMessages`。 */
+export interface RequestLiveThreadItemsMessage {
+  type: "requestLiveThreadItems"
+  sessionID: string
+  requestID: string
+  cursor?: string
+}
+
 // Open the standalone changes viewer tab from the sidebar
 export interface OpenChangesRequest {
   type: "openChanges"
@@ -1792,6 +1818,9 @@ export type WebviewMessage =
   | TerminateBackgroundTerminalRequest
   | CleanBackgroundTerminalsRequest
   | RunShellCommandRequest
+  | RequestCoreSpaceSnapshotMessage
+  | RequestLiveThreadTurnsMessage
+  | RequestLiveThreadItemsMessage
   | OpenChangesRequest
   | OpenDiffVirtualRequest
   | OpenPRCommentRequest

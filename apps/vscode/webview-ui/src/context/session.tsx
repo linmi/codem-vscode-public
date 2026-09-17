@@ -104,6 +104,13 @@ import { createModelSelector } from "./session-model-selector"
 import { activities, type Activity } from "../utils/session-activity"
 import { active as activeTiming, hold, type Timing } from "./session-timing"
 import type { SessionContextValue } from "./session-types"
+import type {
+  CodemCoreSpaceSnapshot,
+  CodemLiveItem,
+  CodemLivePage,
+  CodemLiveTurn,
+  CodemLiveUsageSnapshot,
+} from "@codem/protocol"
 
 const RECENT_LIMIT = 5
 const MESSAGE_PAGE_LIMIT = 80
@@ -123,6 +130,10 @@ interface SessionStore {
   favoriteModels: ModelSelection[]
   modelUsageHistory: ModelUsageMap
   modelUsage: Record<string, { requestID: string; data?: SessionModelUsage }>
+  /** 最近一次 live usage。非耐久。 */
+  liveUsage: Record<string, { requestID: string; snapshot?: CodemLiveUsageSnapshot }>
+  liveThreadTurns: Record<string, CodemLivePage<CodemLiveTurn>>
+  liveThreadItems: Record<string, CodemLivePage<CodemLiveItem>>
 }
 
 interface CloseState {
@@ -393,7 +404,11 @@ export const SessionProvider: ParentComponent = (props) => {
     favoriteModels: [],
     modelUsageHistory: {},
     modelUsage: {},
+    liveUsage: {},
+    liveThreadTurns: {},
+    liveThreadItems: {},
   })
+  const [coreSpaceSnapshot, setCoreSpaceSnapshot] = createSignal<CodemCoreSpaceSnapshot | undefined>()
   const [modelUsageReady, setModelUsageReady] = createSignal(false)
   let modelUsageQueued = false
 
@@ -401,7 +416,7 @@ export const SessionProvider: ParentComponent = (props) => {
     const sessionID = currentSessionID()
     if (!sessionID || sessionID.startsWith("cloud:")) return
     const requestID = crypto.randomUUID()
-    setStore("modelUsage", sessionID, { requestID, data: store.modelUsage[sessionID]?.data })
+    setStore("liveUsage", sessionID, { requestID, snapshot: store.liveUsage[sessionID]?.snapshot })
     vscode.postMessage({ type: "requestSessionModelUsage", sessionID, requestID })
   }
 
@@ -863,12 +878,33 @@ export const SessionProvider: ParentComponent = (props) => {
   }
 
   function handleModelUsageMessage(message: ExtensionMessage): boolean {
-    if (message.type !== "sessionModelUsageLoaded") return false
-    const state = store.modelUsage[message.sessionID]
-    if (state?.requestID === message.requestID) {
-      setStore("modelUsage", message.sessionID, { requestID: message.requestID, data: message.data })
+    if (message.type === "liveThreadUsageLoaded") {
+      if ("error" in message.result) return true
+      const state = store.liveUsage[message.sessionID]
+      if (state?.requestID === message.requestID) {
+        setStore("liveUsage", message.sessionID, { requestID: message.requestID, snapshot: message.result })
+      }
+      return true
     }
+    // leftover Kilo sessionModelUsageLoaded 不是 CodeM usage 权威
+    if (message.type !== "sessionModelUsageLoaded") return false
     return true
+  }
+
+  function handleCodemSnapshotMessage(message: ExtensionMessage): boolean {
+    if (message.type === "coreSpaceSnapshotLoaded") {
+      if (!("error" in message.result)) setCoreSpaceSnapshot(message.result)
+      return true
+    }
+    if (message.type === "liveThreadTurnsLoaded") {
+      if (!("error" in message.result)) setStore("liveThreadTurns", message.sessionID, message.result)
+      return true
+    }
+    if (message.type === "liveThreadItemsLoaded") {
+      if (!("error" in message.result)) setStore("liveThreadItems", message.sessionID, message.result)
+      return true
+    }
+    return false
   }
 
   function refreshModelUsageForMessage(message: ExtensionMessage) {
@@ -902,6 +938,7 @@ export const SessionProvider: ParentComponent = (props) => {
     // Route suggestion messages (extracted to stay within complexity limit)
     routeSuggestionMessage(message)
     if (handleModelUsageMessage(message)) return
+    if (handleCodemSnapshotMessage(message)) return
     refreshModelUsageForMessage(message)
     if (handleStreamMessage(message)) return
     handleCommandCompletion(message)
@@ -1950,6 +1987,9 @@ export const SessionProvider: ParentComponent = (props) => {
           for (const [id, state] of Object.entries(s.modelUsage)) {
             if (id === sessionID || state.data?.sessionIDs.includes(sessionID)) delete s.modelUsage[id]
           }
+          delete s.liveUsage[sessionID]
+          delete s.liveThreadTurns[sessionID]
+          delete s.liveThreadItems[sessionID]
           delete s.agentSelections[sessionID]
           delete s.sessionOverrides[sessionID]
           for (const key of sessionVariantKeys(s.variantSelections, sessionID)) delete s.variantSelections[key]
@@ -2486,6 +2526,25 @@ export const SessionProvider: ParentComponent = (props) => {
     vscode.postMessage({ type: "unarchiveThread", sessionID: id, requestID: crypto.randomUUID() })
   }
 
+  /** Core space/list 只读快照。不能用来切换空间。 */
+  function requestCoreSpaceSnapshot() {
+    vscode.postMessage({ type: "requestCoreSpaceSnapshot", requestID: crypto.randomUUID() })
+  }
+
+  /** 实时 turns。不是 JSONL 历史，不能替代 loadMessages。 */
+  function requestLiveThreadTurns() {
+    const sessionID = currentSessionID()
+    if (!sessionID) return
+    vscode.postMessage({ type: "requestLiveThreadTurns", sessionID, requestID: crypto.randomUUID() })
+  }
+
+  /** 实时 items。不是 JSONL 历史，不能替代 loadMessages。 */
+  function requestLiveThreadItems() {
+    const sessionID = currentSessionID()
+    if (!sessionID) return
+    vscode.postMessage({ type: "requestLiveThreadItems", sessionID, requestID: crypto.randomUUID() })
+  }
+
   function respondToPermission(
     permissionId: string,
     response: "once" | "always" | "reject",
@@ -2967,6 +3026,21 @@ export const SessionProvider: ParentComponent = (props) => {
     return id ? store.modelUsage[id]?.data : undefined
   })
 
+  const liveUsage = createMemo<CodemLiveUsageSnapshot | undefined>(() => {
+    const id = currentSessionID()
+    return id ? store.liveUsage[id]?.snapshot : undefined
+  })
+
+  const liveThreadTurns = createMemo<CodemLivePage<CodemLiveTurn> | undefined>(() => {
+    const id = currentSessionID()
+    return id ? store.liveThreadTurns[id] : undefined
+  })
+
+  const liveThreadItems = createMemo<CodemLivePage<CodemLiveItem> | undefined>(() => {
+    const id = currentSessionID()
+    return id ? store.liveThreadItems[id] : undefined
+  })
+
   const contextUsage = createMemo<ContextUsage | undefined>(() => {
     const msgs = visibleMessages()
     for (let i = msgs.length - 1; i >= 0; i--) {
@@ -3027,6 +3101,10 @@ export const SessionProvider: ParentComponent = (props) => {
     costBreakdown,
     contextUsage,
     modelUsage,
+    liveUsage,
+    coreSpaceSnapshot,
+    liveThreadTurns,
+    liveThreadItems,
     agents,
     allAgents,
     skills,
@@ -3082,6 +3160,9 @@ export const SessionProvider: ParentComponent = (props) => {
     rewindThread,
     archiveThread,
     unarchiveThread,
+    requestCoreSpaceSnapshot,
+    requestLiveThreadTurns,
+    requestLiveThreadItems,
     respondToPermission,
     replyToQuestion,
     rejectQuestion,

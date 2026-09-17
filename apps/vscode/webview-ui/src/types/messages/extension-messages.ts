@@ -38,6 +38,11 @@ import type {
   CodemPluginList,
   CodemSkillSummary,
   CodemToolList,
+  CodemCoreSpaceSnapshot,
+  CodemLiveItem,
+  CodemLivePage,
+  CodemLiveTurn,
+  CodemLiveUsageSnapshot,
 } from "@codem/protocol"
 import type {
   BrowserSettings,
@@ -1157,6 +1162,37 @@ export interface CancelSideQuestionResultMessage {
   result: CodemCommandResult<{ cancelled: true }>
 }
 
+/** Core `space/list` 快照。不是 CLI broker / `project_list`。 */
+export interface CoreSpaceSnapshotLoadedMessage {
+  type: "coreSpaceSnapshotLoaded"
+  requestID: string
+  result: CodemCommandResult<CodemCoreSpaceSnapshot>
+}
+
+/** 实时 turns。不是 JSONL 历史。 */
+export interface LiveThreadTurnsLoadedMessage {
+  type: "liveThreadTurnsLoaded"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<CodemLivePage<CodemLiveTurn>>
+}
+
+/** 实时 items。不是 JSONL 历史。 */
+export interface LiveThreadItemsLoadedMessage {
+  type: "liveThreadItemsLoaded"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<CodemLivePage<CodemLiveItem>>
+}
+
+/** 最近一次 live token 用量。非耐久，不是 Kilo sessionModelUsage。 */
+export interface LiveThreadUsageLoadedMessage {
+  type: "liveThreadUsageLoaded"
+  sessionID: string
+  requestID: string
+  result: CodemCommandResult<CodemLiveUsageSnapshot>
+}
+
 export interface SandboxStatusMessage {
   type: "sandboxStatus"
   sessionID: string
@@ -1785,6 +1821,10 @@ export type ExtensionMessage =
   | CleanBackgroundTerminalsResultMessage
   | RunShellCommandResultMessage
   | CancelSideQuestionResultMessage
+  | CoreSpaceSnapshotLoadedMessage
+  | LiveThreadTurnsLoadedMessage
+  | LiveThreadItemsLoadedMessage
+  | LiveThreadUsageLoadedMessage
   | SandboxStatusMessage
   | SandboxDefaultStatusMessage
   | SandboxStatusErrorMessage

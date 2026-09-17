@@ -469,6 +469,9 @@ function createFixture() {
     cleanBackgroundTerminals: async () => ({ cwd: "/workspace", results: [] }),
     runShellCommand: async () => undefined,
     cancelSideQuestion: async () => undefined,
+    readCoreSpaceSnapshot: async () => ({ current: null, spaces: [] }),
+    listLiveThreadTurns: async () => ({ entries: [], nextCursor: null, total: 0 }),
+    listLiveThreadItems: async () => ({ entries: [], nextCursor: null, total: 0 }),
     respondToInteraction: async (requestId, response) => {
       calls.responses.push({ requestId, response })
     },

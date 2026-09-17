@@ -78,8 +78,24 @@ export const TaskHeader: Component<TaskHeaderProps> = (props) => {
   })
 
   const tokens = createMemo(() => {
+    const live = session.liveUsage()
+    if (live?.observed) {
+      return {
+        input: live.inputTokens ?? 0,
+        output: live.outputTokens ?? 0,
+        cached: live.cacheReadTokens ?? 0,
+      }
+    }
     const usage = session.modelUsage()
     return hasModelUsage(usage) ? tokenSummary(usage) : calcTokenUsage(session.visibleMessages())
+  })
+  const liveSnapshotCaption = createMemo(() => {
+    const turns = session.liveThreadTurns()
+    const items = session.liveThreadItems()
+    if (!turns && !items) return undefined
+    const turnCount = turns?.total ?? 0
+    const itemCount = items?.total ?? 0
+    return `实时快照（不是 JSONL 历史）· ${turnCount} turns · ${itemCount} items`
   })
 
   const hasTimeline = createMemo(() => {
@@ -305,7 +321,17 @@ export const TaskHeader: Component<TaskHeaderProps> = (props) => {
           <div data-slot="task-header-graph-row">
             <ContextProgress />
           </div>
-          <Show when={tokens()}>{(tk) => <TaskUsage tokens={tk()} usage={session.modelUsage()} />}</Show>
+          <Show when={tokens()}>
+            {(tk) => (
+              <div>
+                <TaskUsage tokens={tk()} usage={session.modelUsage()} />
+                <Show when={session.liveUsage()?.observed}>
+                  <p class="task-header-usage-meta">最近一次 live token 用量（非耐久，不是会话历史账单）</p>
+                </Show>
+                <Show when={liveSnapshotCaption()}>{(text) => <p class="task-header-usage-meta">{text()}</p>}</Show>
+              </div>
+            )}
+          </Show>
         </div>
       </Show>
       <BackgroundAgents readonly={props.readonly} />

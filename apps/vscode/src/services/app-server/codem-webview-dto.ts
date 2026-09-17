@@ -2,8 +2,12 @@ import type {
   AppServerBackgroundTerminalClean,
   AppServerBackgroundTerminalList,
   AppServerConfigSnapshot,
+  AppServerCoreSpaceSnapshot,
   AppServerEnvironmentInfo,
   AppServerHookList,
+  AppServerItem,
+  AppServerLivePage,
+  AppServerLiveTurn,
   AppServerLoadedThreads,
   AppServerModelProviderCapabilities,
   AppServerPermissionProfile,
@@ -13,9 +17,14 @@ import type {
 import type {
   CodemCommandResult,
   CodemConfigSnapshot,
+  CodemCoreSpaceSnapshot,
   CodemEnvironmentInfo,
   CodemHookList,
   CodemJsonValue,
+  CodemLiveItem,
+  CodemLivePage,
+  CodemLiveTurn,
+  CodemLiveUsageSnapshot,
   CodemLoadedThreads,
   CodemModelCatalog,
   CodemModelProviderCapabilities,
@@ -175,6 +184,79 @@ export function copyBackgroundTerminals(list: AppServerBackgroundTerminalList) {
 
 export function copyBackgroundTerminalClean(result: AppServerBackgroundTerminalClean) {
   return { processIds: result.results.map((entry) => entry.processId) }
+}
+
+/** Core space/list：只拷 projectKey / displayName。不是 broker 空间表。 */
+export function copyCoreSpaceSnapshot(snapshot: AppServerCoreSpaceSnapshot): CodemCoreSpaceSnapshot {
+  return {
+    current: snapshot.current
+      ? { projectKey: snapshot.current.projectKey, displayName: snapshot.current.displayName }
+      : null,
+    spaces: snapshot.spaces.map((space) => ({
+      projectKey: space.projectKey,
+      displayName: space.displayName,
+    })),
+  }
+}
+
+/** 实时 turns：只拷 id / status / startedAt。不是 JSONL 历史。 */
+export function copyLiveThreadTurns(page: AppServerLivePage<AppServerLiveTurn>): CodemLivePage<CodemLiveTurn> {
+  return {
+    entries: page.entries.map((turn) => ({
+      id: turn.id,
+      status: turn.status,
+      startedAt: turn.startedAt,
+    })),
+    nextCursor: page.nextCursor,
+    total: page.total,
+  }
+}
+
+/** 实时 items：丢掉 input / output / text / finalAnswer。不是 JSONL 历史。 */
+export function copyLiveThreadItems(page: AppServerLivePage<AppServerItem>): CodemLivePage<CodemLiveItem> {
+  return {
+    entries: page.entries.map((item) => ({
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      callId: item.callId,
+      toolName: item.toolName,
+      label: item.label,
+      isError: item.isError,
+      subagentId: item.subagentId,
+      subagentKind: item.subagentKind,
+    })),
+    nextCursor: page.nextCursor,
+    total: page.total,
+  }
+}
+
+/** 最近一次 live usage。durable 永远是 false。 */
+export function copyLiveUsageSnapshot(usage: {
+  readonly inputTokens: number | null
+  readonly outputTokens: number | null
+  readonly cacheReadTokens: number | null
+  readonly cacheCreationTokens: number | null
+}): CodemLiveUsageSnapshot {
+  return {
+    durable: false,
+    observed: true,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    cacheReadTokens: usage.cacheReadTokens,
+    cacheCreationTokens: usage.cacheCreationTokens,
+  }
+}
+
+export function emptyLiveUsageSnapshot(): CodemLiveUsageSnapshot {
+  return {
+    durable: false,
+    observed: false,
+    inputTokens: null,
+    outputTokens: null,
+    cacheReadTokens: null,
+    cacheCreationTokens: null,
+  }
 }
 
 export function controlResultMessage<Type extends ExtensionMessage["type"], T extends object>(

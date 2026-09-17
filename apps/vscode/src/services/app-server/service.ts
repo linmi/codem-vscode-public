@@ -308,6 +308,24 @@ export class CodeMAppServerService implements vscode.Disposable {
     return this.useHost((host) => host.listLoadedThreadIds(cwd))
   }
 
+  /** Core space/list 快照。产品空间写入权威仍是 CLI broker。 */
+  readCoreSpaceSnapshot(cwd: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.readCoreSpaceSnapshot(cwd))
+  }
+
+  /** 实时 thread/turns/list。Durable history 仍只读 JSONL。 */
+  listLiveThreadTurns(cwd: string, threadId: string, cursor?: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.listLiveThreadTurns(cwd, threadId, cursor))
+  }
+
+  /** 实时 thread/items/list。Durable history 仍只读 JSONL。 */
+  listLiveThreadItems(cwd: string, threadId: string, cursor?: string) {
+    requireTrustedWorkspace()
+    return this.useHost((host) => host.listLiveThreadItems(cwd, threadId, cursor))
+  }
+
   listBackgroundTerminals(cwd: string, threadId: string) {
     requireTrustedWorkspace()
     return this.useHost((host) => host.listBackgroundTerminals(cwd, threadId))

@@ -9,8 +9,13 @@ import {
   codemSkillsLoadedMessage,
   copyBackgroundTerminals,
   copyConfigSnapshot,
+  copyCoreSpaceSnapshot,
   copyEnvironmentInfo,
+  copyLiveThreadItems,
+  copyLiveThreadTurns,
+  copyLiveUsageSnapshot,
   copyPluginList,
+  emptyLiveUsageSnapshot,
 } from "../../../../src/services/app-server/codem-webview-dto.ts"
 
 const hostDto = readFileSync(
@@ -99,5 +104,74 @@ describe("CodeM webview catalog DTO", () => {
       }),
       { terminals: [{ processId: 3, inProgress: false }] },
     )
+  })
+
+  it("copies Core space and live snapshots without paths, payloads, or durable usage", () => {
+    assert.deepEqual(
+      copyCoreSpaceSnapshot({
+        current: { projectKey: "proj_a", displayName: "Alpha" },
+        spaces: [{ projectKey: "proj_a", displayName: "Alpha" }],
+      }),
+      { current: { projectKey: "proj_a", displayName: "Alpha" }, spaces: [{ projectKey: "proj_a", displayName: "Alpha" }] },
+    )
+    assert.deepEqual(
+      copyLiveThreadTurns({
+        entries: [{ id: "turn-1", status: "completed", startedAt: "2026-09-17T00:00:00.000Z" }],
+        nextCursor: null,
+        total: 1,
+      }),
+      {
+        entries: [{ id: "turn-1", status: "completed", startedAt: "2026-09-17T00:00:00.000Z" }],
+        nextCursor: null,
+        total: 1,
+      },
+    )
+    const items = copyLiveThreadItems({
+      entries: [
+        {
+          id: "item-1",
+          type: "toolCall",
+          status: "completed",
+          callId: "call-1",
+          toolName: "bash",
+          label: "bash",
+          input: { command: "pwd", path: "/tmp/secret" },
+          text: "hello",
+          summary: "sum",
+          output: "/workspace",
+          isError: false,
+          subagentId: null,
+          subagentKind: null,
+          replaced: 1,
+          kept: 2,
+          finalAnswer: { status: "complete", kind: "chat", summary: "done", artifacts: [] },
+        },
+      ],
+      nextCursor: null,
+      total: 1,
+    })
+    assert.deepEqual(items.entries[0], {
+      id: "item-1",
+      type: "toolCall",
+      status: "completed",
+      callId: "call-1",
+      toolName: "bash",
+      label: "bash",
+      isError: false,
+      subagentId: null,
+      subagentKind: null,
+    })
+    assert.equal("input" in items.entries[0], false)
+    assert.equal("finalAnswer" in items.entries[0], false)
+    assert.deepEqual(copyLiveUsageSnapshot({ inputTokens: 1, outputTokens: 2, cacheReadTokens: 3, cacheCreationTokens: 4 }), {
+      durable: false,
+      observed: true,
+      inputTokens: 1,
+      outputTokens: 2,
+      cacheReadTokens: 3,
+      cacheCreationTokens: 4,
+    })
+    assert.equal(emptyLiveUsageSnapshot().durable, false)
+    assert.equal(emptyLiveUsageSnapshot().observed, false)
   })
 })

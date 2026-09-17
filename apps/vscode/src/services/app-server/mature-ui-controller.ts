@@ -215,6 +215,15 @@ export class MatureUiAppServerController {
       this.runningThreads.delete(event.threadId)
     }
     if (event.type === "side-question-completed") this.control.forgetSideQuestion(event.sideQuestionId)
+    // last-known live usage；不是耐久账单，也不填 Kilo SessionModelUsage。
+    if (event.type === "usage-updated") {
+      this.control.rememberLiveUsage(event.threadId, {
+        inputTokens: event.inputTokens,
+        outputTokens: event.outputTokens,
+        cacheReadTokens: event.cacheReadTokens,
+        cacheCreationTokens: event.cacheCreationTokens,
+      })
+    }
     for (const message of this.adapter.accept(event)) this.post(message)
   }
 
@@ -325,6 +334,7 @@ export class MatureUiAppServerController {
     this.post(this.adapter.sessionsLoaded(result.threads))
   }
 
+  /** 只读 @codem/session-history JSONL。不走 thread/turns/list 或 thread/items/list。 */
   private async loadMessages(message: Extract<WebviewMessage, { readonly type: "loadMessages" }>): Promise<void> {
     const request = ++this.historyRequest
     const cwd = this.options.cwdForThread(message.sessionID)

@@ -219,11 +219,11 @@ Verified against the current tree, not a new runtime Cycle. Pins are unchanged: 
 | --- | --- |
 | Host SDK | `packages/app-server` owns runtime, bundle, preflight, JSON-RPC, `cwd`-keyed connection pool, thread/turn, HITL, modes, spaces, and shutdown. No editor/DOM dependency. |
 | History | `packages/session-history` reads Core JSONL schema 13. No second transcript store. |
-| VS Code chat | `CodeMAppServerService` + `MatureUiAppServerController` handle 38 commands. Model catalog, skills, thread modes, and Host control-plane reads/mutations use CodeM native DTOs. Unsupported App Server commands fail closed with `尚未迁移到 CodeM App Server`. |
+| VS Code chat | `CodeMAppServerService` + `MatureUiAppServerController` handle 42 commands. Model catalog, skills, thread modes, and Host control-plane reads/mutations use CodeM native DTOs. Unsupported App Server commands fail closed with `尚未迁移到 CodeM App Server`. |
 | Dual transport | `KiloConnectionService` remains for leftover Host coordination, but `connect()` / `getServer()` no longer spawn `kilo serve`. Unmigrated Autocomplete, Agent Manager, notebook, and `app-server-control` gaps fail closed. |
-| Parity gate | 274 inbound Webview commands: 199 host/service, 38 controllers, 0 pending, 37 Core v1 gaps. `assertMatureUiProductionReady()` is red. |
+| Parity gate | 277 inbound Webview commands: 199 host/service, 42 controllers, 0 pending, 36 Core v1 gaps. `assertMatureUiProductionReady()` is red. |
 | JetBrains | No `@codem/app-server` import. |
-| Tests this day | `pnpm test:app-server` 81, `pnpm typecheck:app-server`, `pnpm typecheck:vscode`, VS Code host App Server suite 68. Default `pnpm test:vscode` still includes the pre-existing `app-server-text-render` renderer check (1 fail on this host; not changed this Cycle). Live Extension Host HITL/reload is `pnpm --dir apps/vscode run test:extension-host`. |
+| Tests this day | `pnpm test:protocol` 6, `pnpm test:app-server` 81, VS Code host App Server suite 79, `check-types:webview`. Host `check-types` still has the preexisting TS6059. Default `pnpm test:vscode` still includes the pre-existing `app-server-text-render` renderer check (1 fail on this host; not changed this Cycle). Live Extension Host HITL/reload is `pnpm --dir apps/vscode run test:extension-host`. |
 
 `vscode-plugin-plan.md` v1.3 is the product-status write-up for these numbers. Earlier inventory figures in this file (264, 262, 18 controllers, 40 gaps, extension `0.1.10`/`0.1.11`) are checkpoints, not current authority.
 

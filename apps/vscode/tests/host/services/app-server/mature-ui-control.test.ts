@@ -127,6 +127,85 @@ describe("MatureUi control-plane commands", () => {
       result: { cancelled: true },
     })
   })
+
+  it("reads Core space/list as a snapshot and does not treat it as broker write", async () => {
+    const fixture = createFixture()
+    await fixture.controller.handle({ type: "requestCoreSpaceSnapshot", requestID: "space-1" })
+    assert.deepEqual(fixture.calls.spaces, [{ cwd: "/workspace" }])
+    assert.deepEqual(fixture.messages.at(-1), {
+      type: "coreSpaceSnapshotLoaded",
+      requestID: "space-1",
+      result: { current: null, spaces: [{ projectKey: "proj_a", displayName: "Alpha" }] },
+    })
+  })
+
+  it("loads live turns and items without reading JSONL history", async () => {
+    const fixture = createFixture()
+    await fixture.controller.handle({ type: "createSession" })
+    fixture.calls.history.length = 0
+    await fixture.controller.handle({ type: "requestLiveThreadTurns", sessionID: "thread-1", requestID: "turns-1" })
+    await fixture.controller.handle({ type: "requestLiveThreadItems", sessionID: "thread-1", requestID: "items-1" })
+    assert.deepEqual(fixture.calls.history, [])
+    assert.deepEqual(fixture.calls.liveTurns, [{ cwd: "/workspace", threadId: "thread-1", cursor: undefined }])
+    assert.deepEqual(fixture.calls.liveItems, [{ cwd: "/workspace", threadId: "thread-1", cursor: undefined }])
+    assert.deepEqual(
+      fixture.messages.filter((message) => message.type === "liveThreadTurnsLoaded").at(-1),
+      {
+        type: "liveThreadTurnsLoaded",
+        sessionID: "thread-1",
+        requestID: "turns-1",
+        result: {
+          entries: [{ id: "turn-live", status: "completed", startedAt: "2026-09-17T00:00:00.000Z" }],
+          nextCursor: null,
+          total: 1,
+        },
+      },
+    )
+    const items = fixture.messages.filter((message) => message.type === "liveThreadItemsLoaded").at(-1)
+    assert.equal(items?.type, "liveThreadItemsLoaded")
+    assert.equal(items && "result" in items && !("error" in items.result) && "input" in items.result.entries[0], false)
+  })
+
+  it("returns last-known live usage and does not invent a Kilo usage bill", async () => {
+    const fixture = createFixture()
+    await fixture.controller.handle({ type: "createSession" })
+    fixture.controller.acceptEvent({
+      type: "usage-updated",
+      threadId: "thread-1",
+      inputTokens: 10,
+      outputTokens: 4,
+      cacheReadTokens: 2,
+      cacheCreationTokens: 1,
+    })
+    await fixture.controller.handle({ type: "requestSessionModelUsage", sessionID: "thread-1", requestID: "usage-1" })
+    assert.deepEqual(fixture.messages.at(-1), {
+      type: "liveThreadUsageLoaded",
+      sessionID: "thread-1",
+      requestID: "usage-1",
+      result: {
+        durable: false,
+        observed: true,
+        inputTokens: 10,
+        outputTokens: 4,
+        cacheReadTokens: 2,
+        cacheCreationTokens: 1,
+      },
+    })
+    await fixture.controller.handle({ type: "requestSessionModelUsage", sessionID: "thread-2", requestID: "usage-2" })
+    assert.deepEqual(fixture.messages.at(-1), {
+      type: "liveThreadUsageLoaded",
+      sessionID: "thread-2",
+      requestID: "usage-2",
+      result: {
+        durable: false,
+        observed: false,
+        inputTokens: null,
+        outputTokens: null,
+        cacheReadTokens: null,
+        cacheCreationTokens: null,
+      },
+    })
+  })
 })
 
 function createFixture() {
@@ -136,6 +215,10 @@ function createFixture() {
     clear: [] as Record<string, unknown>[],
     shell: [] as Record<string, unknown>[],
     cancelSide: [] as Record<string, unknown>[],
+    history: [] as Record<string, unknown>[],
+    spaces: [] as Record<string, unknown>[],
+    liveTurns: [] as Record<string, unknown>[],
+    liveItems: [] as Record<string, unknown>[],
   }
   const thread = {
     id: "thread-1",
@@ -153,7 +236,10 @@ function createFixture() {
     startThread: async () => thread.id,
     resumeThread: async () => undefined,
     listThreads: async () => ({ threads: [thread], nextCursor: null, total: 1 }),
-    readHistory: async () => ({ turns: [historyTurn()], nextCursor: null }),
+    readHistory: async (cwd, threadId) => {
+      calls.history.push({ cwd, threadId })
+      return { turns: [historyTurn()], nextCursor: null }
+    },
     listModels: async () => ({ activeModel: thread.model, models: [] }),
     startTurn: async () => "turn-1",
     steerTurn: async () => undefined,
@@ -211,6 +297,45 @@ function createFixture() {
     },
     cancelSideQuestion: async (cwd, threadId, sideQuestionId) => {
       calls.cancelSide.push({ cwd, threadId, sideQuestionId })
+    },
+    readCoreSpaceSnapshot: async (cwd) => {
+      calls.spaces.push({ cwd })
+      return { current: null, spaces: [{ projectKey: "proj_a", displayName: "Alpha" }] }
+    },
+    listLiveThreadTurns: async (cwd, threadId, cursor) => {
+      calls.liveTurns.push({ cwd, threadId, cursor })
+      return {
+        entries: [{ id: "turn-live", status: "completed", startedAt: "2026-09-17T00:00:00.000Z" }],
+        nextCursor: null,
+        total: 1,
+      }
+    },
+    listLiveThreadItems: async (cwd, threadId, cursor) => {
+      calls.liveItems.push({ cwd, threadId, cursor })
+      return {
+        entries: [
+          {
+            id: "item-1",
+            type: "agentMessage",
+            status: "completed",
+            callId: null,
+            toolName: null,
+            label: "reply",
+            input: { path: "/tmp/secret" },
+            text: "hello",
+            summary: "",
+            output: "done",
+            isError: false,
+            subagentId: null,
+            subagentKind: null,
+            replaced: null,
+            kept: null,
+            finalAnswer: null,
+          },
+        ],
+        nextCursor: null,
+        total: 1,
+      }
     },
     respondToInteraction: async () => undefined,
   }

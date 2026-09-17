@@ -28,7 +28,6 @@ export const APP_SERVER_V1_PROTOCOL_GAPS = {
   requestMemory: "Core v1 exposes no memory read method.",
   requestSandboxDefault: "Core v1 thread modes do not expose Kilo's persisted sandbox default.",
   requestSandboxStatus: "Core v1 thread modes do not expose Kilo's sandbox availability/status.",
-  requestSessionModelUsage: "Core v1 emits live usage deltas but has no durable usage read method.",
   resumeSession: "Core v1 has no message-scoped resume-from-point operation.",
   revertSession: "Core rewind is an interactive checkpoint turn, not message/part-scoped revert.",
   saveCustomProvider: "Core v1 exposes no custom-provider mutation method.",

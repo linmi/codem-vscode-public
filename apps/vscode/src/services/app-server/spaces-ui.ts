@@ -1,7 +1,10 @@
 import * as vscode from "vscode"
 import type { CodeMAppServerService } from "./service"
 
-/** Native UI keeps the new CodeM surface outside the transitional Solid webview. */
+/**
+ * 状态栏空间选择器。写入权威是 CLI broker（project_list / space_prepare / space_commit）。
+ * Core `space/list` 只是只读快照，禁止用它替换本写路径。
+ */
 export function registerSpaceSelector(service: CodeMAppServerService): vscode.Disposable {
   const status = vscode.window.createStatusBarItem("codem.space", vscode.StatusBarAlignment.Left, 10)
   status.name = "CodeM Space"

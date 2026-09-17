@@ -7,7 +7,11 @@ import {
   CODEM_BUILTIN_INTELLIGENCE_TIERS,
   parseCodemPermissionMode,
   type CodemConfigSnapshot,
+  type CodemCoreSpaceSnapshot,
   type CodemEnvironmentInfo,
+  type CodemLiveItem,
+  type CodemLiveTurn,
+  type CodemLiveUsageSnapshot,
   type CodemModelCatalog,
   type CodemModeState,
   type CodemPermissionProfile,
@@ -63,9 +67,34 @@ describe("@codem/protocol catalog and mode DTOs", () => {
     }
     const snapshot: CodemConfigSnapshot = { writable: false, writeOwner: "core", config: { theme: "dark" } }
     const profile: CodemPermissionProfile = { id: "auto", name: "Auto", description: "", settableAtRuntime: true }
+    const spaces: CodemCoreSpaceSnapshot = { current: null, spaces: [] }
+    const turn: CodemLiveTurn = { id: "turn-1", status: "completed", startedAt: "2026-09-17T00:00:00.000Z" }
+    const item: CodemLiveItem = {
+      id: "item-1",
+      type: "agentMessage",
+      status: "completed",
+      callId: null,
+      toolName: null,
+      label: "reply",
+      isError: false,
+      subagentId: null,
+      subagentKind: null,
+    }
+    const usage: CodemLiveUsageSnapshot = {
+      durable: false,
+      observed: true,
+      inputTokens: 10,
+      outputTokens: 4,
+      cacheReadTokens: 2,
+      cacheCreationTokens: 1,
+    }
     assert.equal("cwd" in environment, false)
     assert.equal(snapshot.writeOwner, "core")
     assert.equal(profile.settableAtRuntime, true)
+    assert.equal(spaces.current, null)
+    assert.equal("input" in item, false)
+    assert.equal(turn.status, "completed")
+    assert.equal(usage.durable, false)
   })
 
   it("does not import Node, VS Code, Electron, DOM, or leftover SDK packages from src/", () => {
