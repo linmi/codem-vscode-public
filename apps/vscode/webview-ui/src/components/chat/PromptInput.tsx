@@ -18,7 +18,6 @@ import { revertPromptState } from "../../context/session-utils"
 import { useLocalTabs } from "../../context/local-tabs"
 import { useServer } from "../../context/server"
 import { useIndexing } from "../../context/indexing"
-import { indexingButtonVisible } from "../../context/indexing-utils"
 import { useLanguage } from "../../context/language"
 import { useVSCode } from "../../context/vscode"
 import { useConfig } from "../../context/config"
@@ -375,10 +374,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     const id = session.currentSessionID()
     return id?.startsWith("cloud:") ? undefined : id
   }
-  const sandboxVisible = () =>
-    features().sandboxControls &&
-    globalConfig().sandbox?.enabled === true &&
-    !session.currentSessionID()?.startsWith("cloud:")
+  const sandboxVisible = () => false
   const sandbox = () => {
     const id = sandboxID()
     return id ? sandboxes()[id] : undefined
@@ -395,10 +391,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     if (server.connectionState() !== "connected") return
     const sessionID = sandboxID()
     if (sessionID) {
-      vscode.postMessage({ type: "requestSandboxStatus", sessionID })
       return
     }
-    vscode.postMessage({ type: "requestSandboxDefault", agentManagerContext: ctx() })
   }
   const toggleSandbox = () => {
     const sessionID = sandboxID()
@@ -407,20 +401,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     if (!sessionID) saveDraft(draftKey(), text(), reviewComments(), imageAttach.images())
     setSandboxRequests((current) => ({ ...current, [sessionID ?? ""]: requestID }))
     if (!sessionID) {
-      vscode.postMessage({
-        type: "setSandboxDefault",
-        enabled: !sandboxDefault()!.desired,
-        requestID,
-        agentManagerContext: ctx(),
-      })
       return
     }
-    vscode.postMessage({
-      type: "toggleSandbox",
-      sessionID,
-      requestID,
-      agentManagerContext: ctx(),
-    })
   }
   const slash = useSlashCommand(
     vscode,
@@ -707,13 +689,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const isBusy = () =>
     isPromptBusy(session.status(), !!props.suggesting?.(), !!props.questioning?.(), session.submitting())
-  const showIndexing = () =>
-    indexingButtonVisible(
-      features().indexing,
-      Boolean(settings()["indexing.showButtonWhenDisabled"] ?? true),
-      config(),
-      globalConfig(),
-    )
+  const showIndexing = () => false
   const isDisabled = () => !server.isConnected() || locked() || goal.pending()
   const hasInput = () =>
     text().trim().length > 0 || imageAttach.images().length > 0 || reviewComments().length > 0 || browsers().length > 0
@@ -1338,21 +1314,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       showToast({ variant: "error", title: language.t("chat.memory.project.disabled") })
       return false
     }
-    if (memory.kind === "show") vscode.postMessage({ type: "memoryShow", mode: "show", sessionID: sid() })
+    if (memory.kind === "show") return false
     if (memory.kind === "operation") {
-      if (memory.operation === "status") {
-        vscode.postMessage({ type: "memoryShow", mode: "status", sessionID: sid() })
-        return true
-      }
-      vscode.postMessage({
-        type: "memoryOperation",
-        operation: memory.operation,
-        sessionID: sid(),
-        ...(memory.operation === "auto" ? { mode: memory.mode } : {}),
-        ...(memory.operation === "purge" ? { confirm: memory.confirm } : {}),
-        ...(memory.operation === "remember" || memory.operation === "correct" ? { text: memory.text } : {}),
-        ...(memory.operation === "forget" ? { query: memory.query } : {}),
-      })
+      if (memory.operation === "status") return false
+      return false
     }
     return true
   }

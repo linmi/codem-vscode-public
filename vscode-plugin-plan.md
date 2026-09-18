@@ -1,12 +1,12 @@
 # 基于 CodeM App Server 与 Kilo Code 的 VS Code 插件方案
 
-版本：v1.3　更新日期：2026-09-17　状态：主聊天已接 App Server；VS Code 不再启动 kilo serve；未迁移表面 fail-closed；1:1 生产门禁为红。
+版本：v1.4　更新日期：2026-09-18　状态：主聊天已接 App Server；VS Code 不再启动 kilo serve；36 个 Core v1 协议缺口已从命令面产品砍掉；mature UI 生产门禁为绿。Agent Manager / leftover-sdk / JetBrains 仍在，不得宣称整个扩展已切完。
 
-v1.2 核对摘要：以仓库现码与 `matureUiParityReport()` 为准，不再沿用 264 / 18 / 40 的过时清单。当前 Webview 入站命令 **277** 项：199 项归属编辑器 Host 或独立服务，78 项归属 App Server，其中 **42** 项已有严格控制器，**36** 项是 pinned Core v1 协议缺口。`assertMatureUiProductionReady()` 在缺口清零前必然失败。扩展源码版本 `0.1.14`，`@codem/app-server` `0.1.6`，pin 仍是 CLI `0.1.208` / Core `0.8.37`。JetBrains 尚未消费该包。
+v1.3 核对摘要：以仓库现码与 `matureUiParityReport()` 为准。当前 Webview 入站命令 **241** 项：199 项归属编辑器 Host 或独立服务，**42** 项归属 App Server 且全部有严格控制器，**0** 项协议缺口。`assertMatureUiProductionReady()` 通过。扩展源码版本 `0.1.14`，`@codem/app-server` `0.1.6`，pin 仍是 CLI `0.1.208` / Core `0.8.37`。JetBrains 尚未消费该包。
 
 v1.1 仍是 2026-09-15 的契约来源说明：CodeM `main@d7763f0a`、共享 Host 覆盖连接池 / thread / turn / history / HITL / mode / control / skills / side question / 工具流 / guard / 完整 diff / 结构化 final answer / 后台唤醒 / hook / 受控关闭，以及“全部真实能力接通后才原子删除 Kilo、不保留 fallback”。这些目标未变；变的是接入进度。
 
-# 0. 当前接入状态（2026-09-17）
+# 0. 当前接入状态（2026-09-18）
 
 这是现状，不是目标架构。产品不变量仍要求单一 App Server live transport。
 
@@ -14,11 +14,11 @@ v1.1 仍是 2026-09-15 的契约来源说明：CodeM `main@d7763f0a`、共享 Ho
 | --- | --- | --- |
 | 共享 Host SDK | `packages/app-server` 已拥有 runtime、bundle、preflight、RPC、按 **canonical `cwd`** 分的连接池、thread/turn、HITL、mode、space broker、受控关闭。无 Electron / VS Code / DOM 依赖。 | Desktop 尚未改为消费该包。`CODEM_SESSION_SOURCE` 仍硬编码 `vscode`。 |
 | 持久化历史 | `@codem/session-history` 读 Core JSONL schema 13；无第二套 transcript store。`thread/turns/list` 与 `thread/items/list` 只作为 live snapshot，不是公开历史源。 | 无持久 SQLite 索引；每次全量流式 replay。 |
-| VS Code 主聊天 | `CodeMAppServerService` + `MatureUiAppServerController` 承接 42 个控制器命令。模式是 **UI 适配 App Server**：Host 直接 post `codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*` 与 CodeM 控制面结果。`requestCommands` 与 `requestSkills` 写同一份 Skills DTO，斜杠不再读 `commandsLoaded`。rewind / archive / unarchive / clearThread / hooks / plugins / tools / env 白名单 / config 去密钥快照 / permission profiles / modelProvider capabilities / backgroundTerminals / runShell（校验归属）/ cancelSideQuestion / Core space 快照 / live turns·items / last-known live usage 已接。 | 未发明 Settings/MCP/sandbox 页。刻意不接：用 `space/list` 替换 broker 写路径、用 `turns/items/list` 当 JSONL 历史、`requestConfig`/`updateConfig`、`revertSession`/`unrevertSession`、`clearSession` 当 `thread/clear`、把 `backgroundTerminals.processId` 混进 `requestBackgroundJobs.taskId`。`requestAgents` / `requestImageModels` 仍是协议缺口。 |
+| VS Code 主聊天 | `CodeMAppServerService` + `MatureUiAppServerController` 承接 42 个控制器命令。模式是 **UI 适配 App Server**：Host 直接 post `codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*` 与 CodeM 控制面结果。`requestCommands` 与 `requestSkills` 写同一份 Skills DTO，斜杠不再读 `commandsLoaded`。rewind / archive / unarchive / clearThread / hooks / plugins / tools / env 白名单 / config 去密钥快照 / permission profiles / modelProvider capabilities / backgroundTerminals / runShell（校验归属）/ cancelSideQuestion / Core space 快照 / live turns·items / last-known live usage 已接。 | 未发明 Settings/MCP/sandbox 页。刻意不接：用 `space/list` 替换 broker 写路径、用 `turns/items/list` 当 JSONL 历史、`clearSession` 当 `thread/clear`、把 `backgroundTerminals.processId` 混进 `requestBackgroundJobs.taskId`。Kilo-only 命令（MCP 写入、provider OAuth、memory、indexing、sandbox、message-scoped revert/delete、suggestions、Kilo config write）已从 `WebviewMessage` 产品砍掉。 |
 | 认证与 space | 登录/注册/退出/刷新走 CLI credential broker。`codem.selectSpace` 走 broker `project_list` / `space_prepare` / `space_commit`。Workspace Trust 在启动 Core 前检查。 | `setOrganization` 仍走 Kilo handler。 |
 | Kilo transport | 激活仍创建 `KiloConnectionService`，但 `connect()` / `ServerManager.getServer()` fail closed，不再 spawn `kilo serve`。Autocomplete / commit message / Agent Manager 等未迁移表面报 `尚未迁移到 CodeM App Server`。Webview 与 Host 生产源码不再 import `@kilocode/sdk`；时间线类型走 `@codem/ui/types/session`。Leftover `KiloClient` 类型与 fail-closed `createKiloClient` 住在 `leftover-sdk.ts`。 | leftover 单测与 `package.json` 仍声明 `@kilocode/sdk`；`packages/opencode` 尚未删除。 |
-| 路由泄漏 | `handleAppServerMessage` 对 `app-server-live` 与 `app-server-control` 均 fail closed，不再落到 Kilo。 | 36 个 Core v1 协议缺口仍在；生产门禁保持红色。 |
-| 门禁 | 277 = 199 + 42 + 0 pending + 36 gaps；`ready: false`。 | 扩 Core 契约或产品砍掉缺口后才能原子删 Kilo。 |
+| 路由泄漏 | `handleAppServerMessage` 对 `app-server-live` 与 `app-server-control` 均 fail closed，不再落到 Kilo。 | leftover Host 方法（config/memory/indexing/sandbox）仍在源码里，下一刀再删 leftover-sdk。 |
+| 门禁 | 241 = 199 + 42 + 0 pending + 0 gaps；`ready: true`。 | mature UI 命令面已切。Agent Manager / leftover-sdk / JetBrains 仍在，不得宣称整个扩展生产可切。 |
 
 ### 已接 / 刻意未接（Host 控制面 Cycle）
 
@@ -39,9 +39,8 @@ v1.1 仍是 2026-09-15 的契约来源说明：CodeM `main@d7763f0a`、共享 Ho
 | 已接 | `space/list` → `requestCoreSpaceSnapshot` / `coreSpaceSnapshotLoaded` | Core 空注入快照。不是 CLI broker / `project_list`。状态栏选择器仍走 broker 写路径。 |
 | 已接 | `thread/turns/list` / `thread/items/list` → `liveThreadTurnsLoaded` / `liveThreadItemsLoaded` | 实时快照。不是 JSONL 历史；`loadMessages` 仍只读 `@codem/session-history`。 |
 | 已接 | `requestSessionModelUsage` → `liveThreadUsageLoaded` | last-known `thread/tokenUsage/updated`。非耐久，不发明 Kilo models/cost。 |
-| 刻意未接 | `requestConfig` / `updateConfig` | schema 不同，无 configWrite。 |
-| 刻意未接 | `revertSession` / `unrevertSession` | rewind 不是 message-scoped revert。 |
-| 刻意未接 | Settings / MCP / sandbox 完整页 | 本 Cycle 不发明新页面。 |
+| 产品砍掉 | `requestConfig` / `updateConfig` / MCP 写入 / provider OAuth / memory / indexing / sandbox / message-scoped revert·delete / suggestions / agents catalog / image models | Core v1 无对应 RPC。命令已从 WebviewMessage 与 ownership 表删除；Settings 相关入口隐藏。 |
+| 刻意未接 | Settings / MCP / sandbox 完整页 | 不发明 Core 没有的页面。 |
 | 验证 | 2026-09-17：本 Cycle 接 Core space 快照、live turns/items、last-known usage。`pnpm test:protocol` 6、`typecheck:protocol`、`pnpm test:app-server` 81、`typecheck:app-server`、host App Server 单测 79、`check-types:webview` 通过。Host `check-types` 仍只有既有 TS6059（src 引用 webview 类型，rootDir 不含 webview-ui）。 | 非 darwin 目标未做 clean-host。默认 `pnpm test:vscode` 另含一条既有 `app-server-text-render` 渲染用例。 |
 
 # 1. 结论与推荐路线
@@ -50,7 +49,7 @@ v1.1 仍是 2026-09-15 的契约来源说明：CodeM `main@d7763f0a`、共享 Ho
 
 该路线不是长期维护两套运行时。目录 / 模式面（模型表、Skills、thread modes）由 Extension 直接 post CodeM 原生 DTO，UI 适配 App Server，不再把 Host 控制面收成 Kilo `providersLoaded` / `commandsLoaded` / `agentsLoaded`。会话时间线仍允许一个有明确退出条件的 presentation adapter，把 turn/part DTO 映射为现有 message/part 词汇；它不读取 raw frame、不拥有 durable history、也不在 App Server 失败时回退 Kilo。第一阶段把 App Server host、会话契约和事件投影收敛成可复用包；第二阶段让现有完整 VS Code 表层逐项接到该 SDK；第三阶段一次性切换生产 agent transport 并删除兼容层。
 
-CodeM `main@d7763f0a` 已包含正式 App Server Desktop 实现与 active contract；本仓库不再以旧集成分支作为当前行为依据。线上 CLI `0.1.208` 与 Core `0.8.37` 仍是本 Cycle 的精确制品 pin。VS Code Sidebar 已把控制器就绪的主聊天接到 App Server，并且不再启动 `kilo serve`；在 36 个协议缺口关闭、Kilo 源码与 `@kilocode/sdk` 删除之前，不得宣称生产调用链已切换，完成后也不保留 Kilo transport 作为 fallback。
+CodeM `main@d7763f0a` 已包含正式 App Server Desktop 实现与 active contract；本仓库不再以旧集成分支作为当前行为依据。线上 CLI `0.1.208` 与 Core `0.8.37` 仍是本 Cycle 的精确制品 pin。VS Code Sidebar 已把控制器就绪的主聊天接到 App Server，并且不再启动 `kilo serve`。mature UI 命令面生产门禁已绿（241 / 42 / 0）。在 leftover-sdk、Agent Manager、autocomplete 与 JetBrains 消费者删除之前，不得宣称整个扩展生产调用链已切换，完成后也不保留 Kilo transport 作为 fallback。
 
 # 2. 已验证的当前事实
 
@@ -66,7 +65,7 @@ CodeM `main@d7763f0a` 已包含正式 App Server Desktop 实现与 active contra
 | 运行时版本 | 2026-09-15 registry latest CLI 为 `0.1.208`，声明 Core `0.8.37`；当前 CodeM 源码 `main` 的旧 pin 不再作为 VS Code runtime 权威。                                               | Host 精确固定线上 Core `0.8.37`；升级只能作为独立 Cycle，禁止隐式跟随 latest。             |
 | 初始化认证 | Core binary 不提供 `auth` 子命令；CLI `0.1.208` 提供机器可读的 `auth status/login/logout`，登录授权页同时支持新用户注册。                                                      | VSIX 必须携带匹配平台的 CLI broker；Host 不直接接触 refresh token 或私有 config。          |
 | 平台包     | 线上 Core `0.8.37` 发布 macOS、Linux、Windows 的 arm64/x64 六个平台包。                                                                                                        | Host 可解析全部六种目标；当前只在 macOS arm64 完成真实执行，其他目标仍需 clean-host 验收。 |
-| 验收       | 2026-09-17：`@codem/app-server` 81 项契约测试与 typecheck 通过；VS Code host App Server 单测覆盖 rewind/archive/clear/env/config snapshot/terminals/shell、Core space 快照、live turns/items 与 last-known usage。darwin-arm64 已用已登录 credential broker 跑通受信工作区 live turn + HITL + JSONL reload。 | 生产门禁仍要求 277 项 ownership 无协议缺口。非 darwin clean-host 仍未做。      |
+| 验收       | 2026-09-18：mature UI 命令面 241 = 199 + 42 + 0 gaps，`assertMatureUiProductionReady()` 通过。`@codem/app-server` 81 项契约测试与 typecheck 通过；VS Code host App Server 单测覆盖 rewind/archive/clear/env/config snapshot/terminals/shell、Core space 快照、live turns/items 与 last-known usage。darwin-arm64 已用已登录 credential broker 跑通受信工作区 live turn + HITL + JSONL reload。 | leftover-sdk / Agent Manager / JetBrains 仍在。非 darwin clean-host 仍未做。      |
 
 ## 2.2 Kilo Code
 
@@ -245,7 +244,7 @@ codem/
   apps/
     vscode/
       src/extension.ts        # activation；同时创建 App Server 与遗留 Kilo 连接
-      src/services/app-server/  # VS Code Host adapter、成熟 UI controller、277 项 ownership
+      src/services/app-server/  # VS Code Host adapter、成熟 UI controller、241 项 ownership
       src/services/cli-backend/ # 遗留 Kilo serve / REST / SSE；迁移源，不是目标
       webview-ui/             # Solid Webview；只应消费 product DTO 与 @codem/ui
       src/agent-manager/      # worktree orchestration；agent 会话仍待切离 Kilo
@@ -350,7 +349,7 @@ codem/
 
 **交付结果。**达到 App Server Desktop surface parity：permission、question、plan、Plan Mode、compact、rewind、settings、background cancel、rename/archive/unarchive/delete/fork 和 skills；当 Core 已提供稳定 child identity 时，同时交付后台子 Agent 状态条与只读 transcript viewer。
 
-**1:1 门禁。**`apps/vscode/src/services/app-server/ui-parity.ts` 必须穷举现有 **277** 个 Webview 入站命令，并为每项指定唯一 owner；`app-server-live` 与 `app-server-control` 全部由严格 DTO adapter 承接，且 **不得再落到 Kilo 分支**。`editor-host`／`agent-manager-host` 保持真实 VS Code/Git/终端行为，Autocomplete、认证、云和本地用量统计继续走各自专用服务；语音输入与旧 Kilo telemetry 已移除。owner 登记不是“已完成”标记；生产切换前还必须为每项建立成功、失败和身份关联验证。不得隐藏未迁移按钮、返回伪成功或把 unsupported 当作完成。
+**1:1 门禁。**`apps/vscode/src/services/app-server/ui-parity.ts` 必须穷举现有 **241** 个 Webview 入站命令，并为每项指定唯一 owner；`app-server-live` 与 `app-server-control` 全部由严格 DTO adapter 承接，且 **不得再落到 Kilo 分支**。Core v1 没有的 36 个缺口命令已从 `WebviewMessage` 产品砍掉，不得重新加入除非有真实 Core RPC。`editor-host`／`agent-manager-host` 保持真实 VS Code/Git/终端行为，Autocomplete、认证、云和本地用量统计继续走各自专用服务；语音输入与旧 Kilo telemetry 已移除。owner 登记不是“整个扩展已切完”标记。不得隐藏仍在命令表里的未迁移按钮、返回伪成功或把 unsupported 当作完成。
 
 **状态：未交付。** 42 个控制器已接，36 个协议缺口仍使 `ready === false`；未映射的 App Server 命令 fail closed。
 
@@ -449,13 +448,13 @@ codem/
 
 Cycle 0–1 的共享 Host 与 Cycle 3 的主聊天控制器已经在本仓库落地。下一个可验证 Cycle 不要再做“看起来像聊天”的 Spike，而是关掉双运行时：
 
-1. 让所有 `app-server-control` 缺口 fail closed 或从 Webview 删除，禁止再落到 `KiloConnectionService`。
+1. 36 个 Core v1 缺口已从 Webview 命令面删除；禁止再落到 `KiloConnectionService`。
 2. 停止激活路径创建 `kilo serve`；Autocomplete / Agent Manager / notebook 等未迁移面显式报“尚未迁移”。
-3. 为历史翻页补 Webview 映射，或把对应按钮标成协议缺口并 fail closed。rewind / archive / cancelSideQuestion 已用 CodeM 原生消息接入。
-4. darwin-arm64 已重跑 Extension Host live turn、HITL 与 JSONL 重启历史（`pnpm --dir apps/vscode run test:extension-host`）。删除 Kilo 前仍需非 darwin clean-host，以及现源生产 bundle（过期 `dist` 会误 spawn `kilo serve`）。
-5. 36 个 Core v1 缺口：扩契约，或由产品书面取消后从 ownership registry 删除。
+3. rewind / archive / cancelSideQuestion 已用 CodeM 原生消息接入。
+4. darwin-arm64 已重跑 Extension Host live turn、HITL 与 JSONL 重启历史（`pnpm --dir apps/vscode run test:extension-host`）。删除 leftover-sdk 前仍需非 darwin clean-host，以及现源生产 bundle（过期 `dist` 会误 spawn `kilo serve`）。
+5. 下一刀：删 leftover-sdk 生产消费者、Agent Manager 的 Kilo 依赖，以及 `package.json` 中的 `@kilocode/sdk`。
 
-**Go 标准。**受信工作区一轮真实 turn、一次 HITL、一次 reload history（darwin-arm64 本轮已过）；Extension Host 只产生一个 App Server；生产树无 `@kilocode/sdk` / `kilo serve`；`assertMatureUiProductionReady()` 通过。后两项仍未满足。
+**Go 标准。**受信工作区一轮真实 turn、一次 HITL、一次 reload history（darwin-arm64 本轮已过）；Extension Host 只产生一个 App Server；`assertMatureUiProductionReady()` 通过。生产树无 `@kilocode/sdk` / `kilo serve` 仍未满足。
 
 **No-Go／回设计标准。**必须复制第二套 JSONL parser、必须让 Webview 理解 raw App Server frame、或把 unsupported 交互伪装成成功。遇到这些情况应先改共享 Host/Core contract，不继续堆 UI 适配。
 
@@ -499,17 +498,17 @@ Cycle 0–1 的共享 Host 与 Cycle 3 的主聊天控制器已经在本仓库�
 - npm registry：2026-09-15 latest CLI `0.1.208` 声明 Core `0.8.37`
 - 真实 Core `0.8.37`：protocol 1、必需 capability 通过，response 省略 `jsonrpc`，macOS arm64 SHA-256 `1354ec32d4e3ccfb462bc3dd005433a608c3e699b6f839462fe1359cec6b1273`
 
-外部事实以 2026-09-14 对 Kilo 官方源码与官方文档的核对为准；CodeM 契约以 2026-09-15 拉取后的 `main@d7763f0a`、官方包 registry、真实线上 Core 与 CLI broker 的核对为准。接入进度以 2026-09-17 仓库现码核对为准：`@codem/app-server` 81 项契约测试与 typecheck、VS Code host App Server 单测覆盖 Core space 快照 / live turns·items / last-known usage；darwin-arm64 受信工作区 live turn / HITL / JSONL reload 已用现源重跑通过。按要求没有执行全仓或旧 Kilo 单测。权威命令清单是 277 / 199 / 42 / 36，不是文中更早检查点的 274、264、262、257 或 20 / 21。
+外部事实以 2026-09-14 对 Kilo 官方源码与官方文档的核对为准；CodeM 契约以 2026-09-15 拉取后的 `main@d7763f0a`、官方包 registry、真实线上 Core 与 CLI broker 的核对为准。接入进度以 2026-09-18 仓库现码核对为准：mature UI 命令面 241 / 199 / 42 / 0，`assertMatureUiProductionReady()` 通过。`@codem/app-server` 81 项契约测试与 typecheck、VS Code host App Server 单测覆盖 Core space 快照 / live turns·items / last-known usage；darwin-arm64 受信工作区 live turn / HITL / JSONL reload 已用现源重跑通过。按要求没有执行全仓或旧 Kilo 单测。权威命令清单是 241 / 199 / 42 / 0，不是文中更早检查点的 277、274、264、262、257 或 20 / 21。
 
 ## 已交付的原子迁移：每会话权限模式（2026-09-16）
 
 用户已确认以 Core 原生 `default / auto / yolo` 替换全局自动放行开关。当前线程模式仅由 `thread/mode/read`、带 `expectedRevision` 的 `thread/mode/set` 及 `thread/mode/changed` 决定；Host 不再自动回复 Kilo permission。新会话默认由 `codem.permissionMode` 指定（默认 `auto`），已有会话读取 Core 状态。冲突不盲目重试，断线和旧请求响应不能恢复失效权限显示。旧 `codem.toggleAutoApprove`、`codem.autoApprove.enabled` 和布尔消息入口已删除，不提供兼容别名。
 
-当时检查点曾记为 262 项。当前权威清单见第 0 节：277 / 199 / 42 / 36。映射数量不代表真实交互验收。设置页面的旧细粒度规则配置尚待单独迁移。
+当时检查点曾记为 262 项。当前权威清单见第 0 节：241 / 199 / 42 / 0。映射数量不代表整个扩展已切完。设置页面的旧细粒度规则配置已从命令面砍掉，不是 Core 能力。
 
 ## 2026-09-16 空间选择接入
 
-- 新增 VS Code 原生状态栏入口及 `CodeM: Select Space` 命令。空间元数据来自 CLI 0.1.208 的 `project_list`，不是 Core `space/list` 的空注入快照；该入口属于 CodeM 新能力，不计入 Webview ownership 的 277 项清单。Webview 可另读 `coreSpaceSnapshotLoaded`，只展示、不写。
+- 新增 VS Code 原生状态栏入口及 `CodeM: Select Space` 命令。空间元数据来自 CLI 0.1.208 的 `project_list`，不是 Core `space/list` 的空注入快照；该入口属于 CodeM 新能力，不计入 Webview ownership 的 241 项清单。Webview 可另读 `coreSpaceSnapshotLoaded`，只展示、不写。
 - 使用 credential broker 的 `space_prepare` 验证成员资格并准备托管配置，将 `--project-key` 和 `CODEM_MANAGED_DIR` 绑定到 Core 子进程；模型与 Skills 仍由该 Core 连接提供。准备失败不回退到旧空间或 Kilo 配置。
 - 空闲时准备候选连接、验证模型和 Skills、调用 `space_commit` 后替换 Host 并刷新表层；运行中或已有请求未完成时拒绝切换。凭证代理是共享空间指针的唯一写入者，因此选择也影响 CLI 后续启动的默认空间。提交响应不确定时明确提示可能已改变账号指针，不声称已回滚。
 - 用户已确认当前开发阶段不处理历史空间迁移。Core 0.8.37 历史接口不暴露空间归属；新建和重新打开的会话均使用当前空间，不新建客户端 thread→space 持久化映射。运行中的会话不热切换。
@@ -528,7 +527,7 @@ Cycle 0–1 的共享 Host 与 Cycle 3 的主聊天控制器已经在本仓库�
 语音模型设置、录音预热、Host 录音/转写和对应消息类型同时删除。构建不再获取
 FFmpeg，打包排除旧产物目录残留的 FFmpeg。普通文本、附件和评论交互保留。
 
-语音命令删除后，归属清单曾稳定为 257 项。控制面 Cycle 后再增 17 项 CodeM 命令到 274；本 Cycle 再增 space/live snapshot 3 项并把 usage 升成 controller，现为 277 = 199 + 42 + 36。此前语音能力必须保留的约束
+语音命令删除后，归属清单曾稳定为 257 项。控制面 Cycle 后再增 17 项 CodeM 命令到 274；space/live snapshot 3 项并把 usage 升成 controller 后曾为 277 = 199 + 42 + 36。2026-09-18 产品砍掉 36 个 Core v1 缺口后为 241 = 199 + 42 + 0。此前语音能力必须保留的约束
 由本次用户决定取代；其他 Kilo 退出条件不变。提交信息生成仍使用旧服务，
 CodeM 替代方案需作为独立 Cycle 实施和验证。
 

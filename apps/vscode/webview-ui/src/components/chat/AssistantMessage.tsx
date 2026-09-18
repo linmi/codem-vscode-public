@@ -266,9 +266,7 @@ export const AssistantMessage: Component<AssistantMessageProps> = (props) => {
           )
 
           // Active suggestion tool parts render the interactive SuggestBar inline
-          const activeSuggestion = createMemo(() =>
-            props.interactivePrompts === false ? undefined : matchToolRequest(part, "suggest", session.suggestions()),
-          )
+          const activeSuggestion = createMemo(() => undefined)
           const bash = createMemo(() => {
             if (part.type !== "tool") return
             const tool = part as unknown as ToolPart

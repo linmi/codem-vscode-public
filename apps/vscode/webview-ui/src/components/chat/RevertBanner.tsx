@@ -29,10 +29,9 @@ export const RevertBanner: Component = () => {
     if (!boundary) return
     const next = users().find((m) => m.id > boundary)
     if (!next) {
-      session.unrevertSession()
       return
     }
-    session.revertSession(next.id)
+    return
   }
 
   return (
@@ -52,7 +51,7 @@ export const RevertBanner: Component = () => {
               {language.t("revert.banner.redo")}
             </Button>
             <Show when={count() > 1}>
-              <Button variant="ghost" size="small" onClick={() => session.unrevertSession()}>
+              <Button variant="ghost" size="small" onClick={() => undefined}>
                 {language.t("revert.banner.redo.all")}
               </Button>
             </Show>

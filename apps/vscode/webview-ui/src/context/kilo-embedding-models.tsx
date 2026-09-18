@@ -18,8 +18,6 @@ export const KiloEmbeddingModelsProvider: ParentComponent = (props) => {
     setCatalog(message.catalog)
   })
 
-  vscode.postMessage({ type: "requestKiloEmbeddingModels" })
-
   onCleanup(unsubscribe)
 
   return <KiloEmbeddingModelsContext.Provider value={{ catalog }}>{props.children}</KiloEmbeddingModelsContext.Provider>

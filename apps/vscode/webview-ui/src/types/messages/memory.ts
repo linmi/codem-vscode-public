@@ -64,26 +64,3 @@ export interface MemoryOperationResultMessage {
   error?: string
 }
 
-export interface RequestMemoryMessage {
-  type: "requestMemory"
-  sessionID?: string
-}
-
-export interface MemoryShowMessage {
-  type: "memoryShow"
-  sessionID?: string
-  mode?: "status" | "show"
-}
-
-export interface MemoryOperationMessage {
-  type: "memoryOperation"
-  operation: MemoryOperation
-  sessionID?: string
-  mode?: "status" | "on" | "off"
-  confirm?: boolean
-  text?: string
-  query?: string
-  key?: string
-  file?: MemorySourceFile
-  section?: string
-}

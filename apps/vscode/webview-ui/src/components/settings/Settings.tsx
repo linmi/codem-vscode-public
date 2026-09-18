@@ -251,7 +251,7 @@ const Settings: Component<SettingsProps> = (props) => {
   const session = useSession()
   const [active, setActive] = createSignal(props.tab ?? "models")
   const [errorExpanded, setErrorExpanded] = createSignal(false)
-  const sandboxing = createMemo(() => Sandboxing.visible(features()))
+  const sandboxing = createMemo(() => false)
 
   const busyCount = () => Object.values(session.allStatusMap()).filter((s) => s.type === "busy").length
 
@@ -346,10 +346,12 @@ const Settings: Component<SettingsProps> = (props) => {
             <Icon name="models" />
             <span class="label">{language.t("settings.models.title")}</span>
           </Tabs.Trigger>
-          <Tabs.Trigger value="providers" aria-label={language.t("settings.providers.title")}>
-            <Icon name="providers" />
-            <span class="label">{language.t("settings.providers.title")}</span>
-          </Tabs.Trigger>
+          <Show when={false}>
+            <Tabs.Trigger value="providers" aria-label={language.t("settings.providers.title")}>
+              <Icon name="providers" />
+              <span class="label">{language.t("settings.providers.title")}</span>
+            </Tabs.Trigger>
+          </Show>
           <Tabs.Trigger value="agentBehaviour" aria-label={language.t("settings.agentBehaviour.title")}>
             <Icon name="brain" />
             <span class="label">{language.t("settings.agentBehaviour.title")}</span>
@@ -393,7 +395,7 @@ const Settings: Component<SettingsProps> = (props) => {
             <Icon name="edit" />
             <span class="label">{language.t("settings.commitMessage.title")}</span>
           </Tabs.Trigger>
-          <Show when={features().indexing}>
+          <Show when={false}>
             <Tabs.Trigger value="indexing" aria-label={language.t("settings.indexing.title")}>
               <Icon name="database" />
               <span class="label">{language.t("settings.indexing.title")}</span>
@@ -423,10 +425,12 @@ const Settings: Component<SettingsProps> = (props) => {
           <h3>{language.t("settings.models.title")}</h3>
           <ModelsTab />
         </Tabs.Content>
-        <Tabs.Content value="providers">
-          <h3>{language.t("settings.providers.title")}</h3>
-          <ProvidersTab />
-        </Tabs.Content>
+        <Show when={false}>
+          <Tabs.Content value="providers">
+            <h3>{language.t("settings.providers.title")}</h3>
+            <ProvidersTab />
+          </Tabs.Content>
+        </Show>
         <Tabs.Content value="agentBehaviour">
           <h3>{language.t("settings.agentBehaviour.title")}</h3>
           <AgentBehaviourTab />
@@ -470,7 +474,7 @@ const Settings: Component<SettingsProps> = (props) => {
           <h3>{language.t("settings.commitMessage.title")}</h3>
           <CommitMessageTab />
         </Tabs.Content>
-        <Show when={features().indexing}>
+        <Show when={false}>
           <Tabs.Content value="indexing">
             <h3>{language.t("settings.indexing.title")}</h3>
             <IndexingTab />

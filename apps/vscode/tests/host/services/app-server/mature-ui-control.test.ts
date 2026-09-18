@@ -66,7 +66,7 @@ describe("MatureUi control-plane commands", () => {
       requestID: "cfg-1",
       result: { writable: false, writeOwner: "core", config: { theme: "dark" } },
     })
-    assert.equal(await fixture.controller.handle({ type: "requestConfig" }), false)
+    assert.equal(await fixture.controller.handle({ type: "clearSession" }), false)
 
     await fixture.controller.handle({ type: "requestPlugins", requestID: "plug-1" })
     assert.deepEqual(fixture.messages.at(-1), {

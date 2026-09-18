@@ -86,14 +86,7 @@ export const TranscriptRowView: Component<TranscriptRowViewProps> = (props) => {
                   ? () => session.deleteQueuedMessage(row().message.sessionID, row().message.id)
                   : undefined
               }
-              onRevert={
-                row().answered
-                  ? () => {
-                      if (session.status() !== "idle") return
-                      session.revertSession(row().message.id)
-                    }
-                  : undefined
-              }
+              onRevert={undefined}
             />
           </div>
         )}

@@ -18,7 +18,7 @@ export const ImageModelsProvider: ParentComponent = (props) => {
   const vscode = useVSCode()
   const [models, setModels] = createSignal<ImageModel[]>([])
 
-  const request = () => vscode.postMessage({ type: "requestImageModels" })
+  const request = () => undefined
 
   const unsubscribe = vscode.onMessage((message: ExtensionMessage) => {
     if (message.type !== "imageModelsLoaded") return

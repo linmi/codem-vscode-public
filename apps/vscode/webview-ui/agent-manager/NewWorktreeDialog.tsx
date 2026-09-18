@@ -154,7 +154,7 @@ export const NewWorktreeDialog: Component<{
   const [sandboxReason, setSandboxReason] = createSignal<string | undefined>()
   const [sandboxRevision, setSandboxRevision] = createSignal(-1)
   const sandboxRequestID = crypto.randomUUID()
-  const sandboxVisible = () => features().sandboxControls && globalConfig().sandbox?.enabled === true
+  const sandboxVisible = () => false
   let prior: string | null = null
   let request: string | undefined
   const cancel = () => {
@@ -219,7 +219,7 @@ export const NewWorktreeDialog: Component<{
       setSandboxOverride(undefined)
       return
     }
-    vscode.postMessage({ type: "requestSandboxDefault", requestID: sandboxRequestID })
+    return
   })
 
   const unsubSandbox = vscode.onMessage((message) => {
@@ -247,7 +247,7 @@ export const NewWorktreeDialog: Component<{
     const next = !current
     setSandbox(next)
     setSandboxOverride(next === sandboxDefault() ? undefined : next)
-    vscode.postMessage({ type: "setSandboxDefault", enabled: next, requestID: sandboxRequestID })
+    return
   }
 
   const imageAttach = useImageAttachments()

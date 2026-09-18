@@ -26,12 +26,12 @@ function createTransport() {
 }
 
 describe("createProviderAction", () => {
-  it("routes terminal provider messages by request id", () => {
+  it("does not post product-cut provider mutation commands", () => {
     const transport = createTransport()
     const action = createProviderAction(transport)
     const seen: string[] = []
 
-    action.send(
+    const requestId = action.send(
       {
         type: "connectProvider",
         providerID: "openai",
@@ -42,11 +42,7 @@ describe("createProviderAction", () => {
       },
     )
 
-    const sent = transport.sent[0]
-    expect(sent?.type).toBe("connectProvider")
-    expect("requestId" in (sent ?? {}) ? sent.requestId : "").toBeString()
-
-    const requestId = "requestId" in (sent ?? {}) ? sent.requestId : ""
+    expect(transport.sent).toEqual([])
     transport.receive({
       type: "providerConnected",
       requestId,
@@ -62,12 +58,12 @@ describe("createProviderAction", () => {
     action.dispose()
   })
 
-  it("keeps concurrent requests isolated", () => {
+  it("keeps concurrent local request ids isolated", () => {
     const transport = createTransport()
     const action = createProviderAction(transport)
     const seen: string[] = []
 
-    action.send(
+    const oauthId = action.send(
       {
         type: "authorizeProviderOAuth",
         providerID: "anthropic",
@@ -77,7 +73,7 @@ describe("createProviderAction", () => {
         onOAuthReady: (message) => seen.push(`oauth:${message.authorization.method}`),
       },
     )
-    action.send(
+    const disconnectId = action.send(
       {
         type: "disconnectProvider",
         providerID: "openai",
@@ -87,11 +83,7 @@ describe("createProviderAction", () => {
       },
     )
 
-    const oauth = transport.sent[0]
-    const disconnect = transport.sent[1]
-    const oauthId = "requestId" in (oauth ?? {}) ? oauth.requestId : ""
-    const disconnectId = "requestId" in (disconnect ?? {}) ? disconnect.requestId : ""
-
+    expect(transport.sent).toEqual([])
     transport.receive({
       type: "providerDisconnected",
       requestId: disconnectId,
@@ -138,6 +130,7 @@ describe("createProviderAction", () => {
     })
 
     expect(seen).toEqual([])
+    expect(transport.sent).toEqual([])
     action.dispose()
   })
 })

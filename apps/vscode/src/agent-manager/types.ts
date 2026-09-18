@@ -996,30 +996,6 @@ interface QuestionReplyIn {
   answers: string[][]
 }
 
-interface RequestSandboxDefaultIn {
-  type: "requestSandboxDefault"
-  requestID?: string
-  agentManagerContext?: string
-  contextDirectory?: string
-}
-
-interface SetSandboxDefaultIn {
-  type: "setSandboxDefault"
-  enabled: boolean
-  requestID: string
-  agentManagerContext?: string
-  contextDirectory?: string
-}
-
-interface ToggleSandboxIn {
-  type: "toggleSandbox"
-  sessionID?: string
-  draftID?: string
-  requestID: string
-  agentManagerContext?: string
-  contextDirectory?: string
-}
-
 interface RequestTerminalContextIn {
   type: "requestTerminalContext"
   requestId: string
@@ -1233,9 +1209,6 @@ export type AgentManagerInMessage =
   | SendMessageIn
   | SendCommandIn
   | QuestionReplyIn
-  | RequestSandboxDefaultIn
-  | SetSandboxDefaultIn
-  | ToggleSandboxIn
   | RequestTerminalContextIn
   | ClearSessionIn
   | AbortIn

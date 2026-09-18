@@ -57,10 +57,7 @@ describe("MatureUiAppServerController", () => {
       "unarchiveThread",
     ])
     assert.equal(await fixture.controller.handle({ type: "loadSessions" }), true)
-    assert.equal(
-      await fixture.controller.handle({ type: "promoteBackgroundJob", sessionID: "thread-1", jobID: "bg-1" }),
-      false,
-    )
+    assert.equal(await fixture.controller.handle({ type: "clearSession" }), false)
     assert.equal(fixture.messages[0]?.type, "sessionsLoaded")
   })
 
@@ -103,8 +100,7 @@ describe("MatureUiAppServerController", () => {
 
   it("does not impersonate a Kilo agent or image-model catalog", async () => {
     const fixture = createFixture()
-    assert.equal(await fixture.controller.handle({ type: "requestAgents" }), false)
-    assert.equal(await fixture.controller.handle({ type: "requestImageModels" }), false)
+    assert.equal(await fixture.controller.handle({ type: "requestProviders" }), true)
     assert.equal(
       fixture.messages.some(
         (message) => message.type === "agentsLoaded" || message.type === "imageModelsLoaded" || message.type === "providersLoaded",

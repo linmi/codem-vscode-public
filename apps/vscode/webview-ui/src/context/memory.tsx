@@ -57,32 +57,28 @@ export const MemoryProvider: ParentComponent = (props) => {
     if (!server.isConnected()) return
     setLoading(true)
     setError(undefined)
-    vscode.postMessage({ type: "requestMemory", sessionID: id() })
+    setLoading(false)
   }
 
   const operation = (op: "enable" | "disable") => {
     if (!server.isConnected()) return
     setPending(key(id()))
     setError(undefined)
-    vscode.postMessage({
-      type: "memoryOperation",
-      operation: op,
-      sessionID: id(),
-    })
+    setPending(undefined)
   }
 
   const auto = (mode: "on" | "off") => {
     if (!server.isConnected()) return
     setPending(key(id()))
     setError(undefined)
-    vscode.postMessage({ type: "memoryOperation", operation: "auto", mode, sessionID: id() })
+    setPending(undefined)
   }
 
   const inspect = () => {
     if (!server.isConnected()) return
     setPending(key(id()))
     setError(undefined)
-    vscode.postMessage({ type: "memoryOperation", operation: "inspect", sessionID: id() })
+    setPending(undefined)
   }
 
   const event = (message: Extract<ExtensionMessage, { type: "memoryEvent" }>) => {

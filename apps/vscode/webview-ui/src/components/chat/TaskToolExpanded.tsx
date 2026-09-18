@@ -180,7 +180,7 @@ const TaskToolRenderer: Component<ToolProps> = (props) => {
     e.stopPropagation()
     const id = session.currentSessionID()
     const child = childSessionId()
-    if (id && child) vscode.postMessage({ type: "promoteBackgroundJob", jobID: child, sessionID: id })
+    if (id && child) return
   }
 
   const trigger = () => (
@@ -199,7 +199,7 @@ const TaskToolRenderer: Component<ToolProps> = (props) => {
         </Show>
       </div>
       <Show when={childSessionId()}>
-        <Show when={features().backgroundSubagents && promotable()}>
+        <Show when={false}>
           <Tooltip value={language.t("task.backgroundAgents.continueInBackground")} placement="top">
             <IconButton
               icon="arrow-down-to-line"

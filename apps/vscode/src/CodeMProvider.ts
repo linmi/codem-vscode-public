@@ -124,7 +124,6 @@ import {
   handleQuestionReject,
   fetchAndSendPendingQuestions,
 } from "./kilo-provider/handlers/question"
-import { fetchAndSendPendingSuggestions } from "./kilo-provider/handlers/suggestion"
 import { nativeTitle } from "./kilo-provider/native-tab-title"
 import { isActivity, type Activity } from "../webview-ui/src/utils/session-activity"
 import type { PRReviewCommentData, ReviewMessageData } from "./shared/review-comments"
@@ -161,7 +160,6 @@ import { sandboxDefault, sandboxSessionMetadata } from "./shared/sandbox-session
 import {
   buildIndexingSettingsMessage,
   validIndexingSetting,
-  watchIndexingConfig,
 } from "./kilo-provider/indexing-settings"
 import {
   ConfigBindings,
@@ -496,9 +494,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   ) {
     this.projectDirectory = opts.projectDirectory
     this.slimEditMetadata = opts.slimEditMetadata ?? true
-    this.unsubscribeSandboxPreference = this.connectionService.sandboxPreference?.onChange(() => {
-      if (this.connectionState === "connected") void this.fetchAndSendSandboxDefault()
-    })
+    this.unsubscribeSandboxPreference = this.connectionService.sandboxPreference?.onChange(() => undefined)
     this.appServerController = this.opts.appServer
       ? new MatureUiAppServerController({
           service: this.opts.appServer,
@@ -689,7 +685,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       refresh: async () => {
         this.cachedAgentsMessage = null
         this.cachedConfigMessage = null
-        await Promise.all([this.fetchAndSendAgents(), this.fetchAndSendConfig()])
       },
       storage: this.extensionContext?.globalStorageUri,
     }
@@ -847,7 +842,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     const current = this.sessionDirectories.get(sessionId) ?? this.getRootDirectory()
     this.aborts.preserve(sessionId, this.sessionStatusMap.get(sessionId), current)
     this.sessionDirectories.set(sessionId, directory)
-    if (this.connectionState === "connected") void this.fetchAndSendSandboxStatus(sessionId)
   }
 
   public clearSessionDirectory(sessionId: string): void {
@@ -855,7 +849,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     this.aborts.preserve(sessionId, this.sessionStatusMap.get(sessionId), current)
     this.sessionDirectories.delete(sessionId)
     this.owners.delete(sessionId)
-    if (this.connectionState === "connected") void this.fetchAndSendSandboxStatus(sessionId)
   }
 
   /** Exposes the session→directory map so callers outside the webview can resolve worktree paths. */
@@ -986,7 +979,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       await Promise.all([
         fetchAndSendPendingPermissions(this.permissionCtx),
         fetchAndSendPendingQuestions(this.questionCtx),
-        fetchAndSendPendingSuggestions(this.questionCtx),
       ])
     }
   }
@@ -1068,7 +1060,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     this.autocompleteConfigDisposable?.dispose()
     this.autocompleteConfigDisposable = watchAutocompleteConfig((msg) => this.postMessage(msg))
     this.indexingConfigDisposable?.dispose()
-    this.indexingConfigDisposable = watchIndexingConfig(() => void this.sendIndexingSettings())
+    this.indexingConfigDisposable = null
     this.chatConfigDisposable?.dispose()
     this.chatConfigDisposable = watchChatConfig((msg) => this.postMessage(msg))
     this.throughputConfigDisposable?.dispose()
@@ -1097,7 +1089,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           post: (msg) => this.postMessage(msg),
           browserSettings: () => this.sendBrowserSettings(),
           exportTranscript: (sessionID) => this.handleExportSessionTranscript(sessionID),
-          resume: (sessionID, messageID, requestID) => this.handleResumeSession(sessionID, messageID, requestID),
           copy: (text) => vscode.env.clipboard.writeText(text),
           openSessions: (ids) => this.trackOpenSessions(ids),
           activity: (state) => {
@@ -1109,7 +1100,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           backgroundJobs: (sessionID, requestID) => this.fetchAndSendBackgroundJobs(sessionID, requestID),
           board: (msg) => this.handleBoardMessage(msg),
           cancelBackgroundJob: (jobID, sessionID, requestID) => this.cancelBackgroundJob(jobID, sessionID, requestID),
-          promoteBackgroundJob: (jobID, sessionID) => this.promoteBackgroundJob(jobID, sessionID),
           caffeination: () => void vscode.commands.executeCommand("codem.toggleCaffeination"),
         })
       ) {
@@ -1146,7 +1136,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.visibleTaskStreams.handle(message)
       this.handleStreamVisibilityMessage(message)
       if (this.handleChildSyncMessage(message)) return
-      if (await this.handleMemoryMessage(message)) return
       if (await this.handleProfileDataMessage(message)) return
       if (this.handleMigrationMessage(message)) return
       if (this.handleNotificationSettingsMessage(message)) return
@@ -1190,17 +1179,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         case "abort":
           this.cancelRetry(message.sessionID ?? "")
           await this.handleAbort(message.sessionID, message.scope)
-          break
-        case "revertSession":
-          this.checkpoint(message.sessionID, () =>
-            this.handleRevertSession(message.sessionID, message.messageID, message.partID),
-          )
-          break
-        case "unrevertSession":
-          this.checkpoint(message.sessionID, () => this.handleUnrevertSession(message.sessionID))
-          break
-        case "deleteMessage":
-          await this.handleDeleteMessage(message.sessionID, message.messageID, message.requestID)
           break
         case "permissionResponse":
           await handlePermissionResponse(
@@ -1291,13 +1269,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         case "requestProviders":
           this.fetchAndSendProviders().catch((e) => console.error("[CodeM] fetchAndSendProviders failed:", e))
           break
-        case "connectProvider":
-        case "authorizeProviderOAuth":
-        case "completeProviderOAuth":
-        case "disconnectProvider":
-        case "saveCustomProvider":
-          await this.handleProviderAction(message)
-          break
         case "anacondaDesktopStatus":
         case "anacondaDesktopOpen":
         case "anacondaDesktopSync":
@@ -1310,62 +1281,12 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
             error: getErrorMessage,
           })
           break
-        case "fetchCustomProviderModels":
-          this.handleFetchCustomProviderModels(message).catch((e) =>
-            console.error("[CodeM] fetchCustomProviderModels failed:", e),
-          )
-          break
         case "compact":
           await this.handleCompact(message.sessionID, message.providerID, message.modelID)
-          break
-        case "requestAgents":
-          this.fetchAndSendAgents().catch((e) => console.error("[CodeM] fetchAndSendAgents failed:", e))
           break
         case "requestSkills":
           this.fetchAndSendSkills().catch((e) => console.error("[CodeM] fetchAndSendSkills failed:", e))
           break
-        case "removeSkill":
-          this.removeSkillViaCli(message.location).catch((e: unknown) =>
-            console.error("[CodeM] removeSkill failed:", e),
-          )
-          break
-        case "removeAgent":
-          this.handleRemoveAgent(message.name).catch((e) => console.error("[CodeM] handleRemoveAgent failed:", e))
-          break
-        case "removeMcp":
-          this.handleRemoveMcp(message.name).catch((e) => console.error("[CodeM] handleRemoveMcp failed:", e))
-          break
-        case "requestMcpStatus":
-          this.fetchAndSendMcpStatus().catch((e) => console.error("[CodeM] fetchAndSendMcpStatus failed:", e))
-          break
-        case "connectMcp": {
-          const c1 = this.client
-          if (c1) {
-            void McpOAuth.connectMcpServer(c1, message.name, this.getWorkspaceDirectory(), () =>
-              this.refreshMcpStatus(),
-            ).catch((e) => console.error("[CodeM] connectMcpServer failed:", e))
-          }
-          break
-        }
-        case "disconnectMcp": {
-          const c2 = this.client
-          if (c2) {
-            void McpOAuth.disconnectMcpServer(c2, message.name, this.getWorkspaceDirectory(), () =>
-              this.refreshMcpStatus(),
-            ).catch((e) => console.error("[CodeM] disconnectMcpServer failed:", e))
-          }
-          break
-        }
-        case "authenticateMcp": {
-          const c = this.client
-          if (c) {
-            void McpOAuth.authenticateMcpServer(c, message.name, this.getWorkspaceDirectory(), () =>
-              this.refreshMcpStatus(),
-            ).catch((e) => console.error("[CodeM] authenticateMcpServer failed:", e))
-          }
-          break
-        }
-
         case "questionReply":
           this.noteFollowup(message.answers, message.sessionID)
           if (!(await handleQuestionReply(this.questionCtx, message.requestID, message.answers, message.sessionID))) {
@@ -1378,55 +1299,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           break
         case "sessionCostAlertResponse":
           await this.handleCostAlertResponse(message.sessionID, message.limit, message.response)
-          break
-        case "requestSandboxStatus":
-          await this.fetchAndSendSandboxStatus(message.sessionID)
-          break
-        case "requestSandboxDefault":
-          await this.fetchAndSendSandboxDefault(message.contextDirectory, message.requestID)
-          break
-        case "setSandboxDefault":
-          await this.handleSetSandboxDefault(message.enabled, message.requestID, message.contextDirectory)
-          break
-        case "toggleSandbox":
-          await this.handleToggleSandbox(message)
-          break
-        case "requestConfig":
-          this.fetchAndSendConfig().catch((e) => console.error("[CodeM] fetchAndSendConfig failed:", e))
-          break
-        case "requestGlobalConfig":
-          this.fetchAndSendGlobalConfig().catch((e) => console.error("[CodeM] fetchAndSendGlobalConfig failed:", e))
-          break
-        case "requestIndexingStatus":
-          this.fetchAndSendIndexingStatus().catch((e) =>
-            console.error("[CodeM] fetchAndSendIndexingStatus failed:", e),
-          )
-          break
-        case "requestIndexingSettings": {
-          const project = await this.sendIndexingSettings(message.projectId)
-          if (message.projectId && project) await this.fetchAndSendIndexingStatus(project.root, project.id)
-          break
-        }
-        case "setIndexingConsent":
-          await this.setIndexingConsent(message.projectId, message.enabled)
-          break
-        case "requestKiloEmbeddingModels":
-          this.fetchAndSendKiloEmbeddingModels().catch((e) =>
-            console.error("[CodeM] fetchAndSendKiloEmbeddingModels failed:", e),
-          )
-          break
-        case "requestImageModels":
-          this.fetchAndSendImageModels().catch((e) => console.error("[CodeM] fetchAndSendImageModels failed:", e))
-          break
-        case "updateConfig":
-          await this.handleUpdateConfig(
-            message.config,
-            message.projectConfig,
-            message.globalUnset,
-            message.projectUnset,
-            message.globalBindingId,
-            message.projectBindingId,
-          )
           break
         case "openSettingsTab":
           if (message.tab === "indexing") {
@@ -1869,9 +1741,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         (payload, directory) => {
           const event = unwrapSyncEvent(payload)
           if (!event) return false
-          if (event.type === "indexing.status" && directory) {
-            return sameDirectory(directory, this.indexingScope.directory)
-          }
+          if (event.type === "indexing.status") return false
           if (
             directory &&
             directory !== "global" &&
@@ -1884,7 +1754,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           // Remote status events are global and should always pass through
           if (event.type === "kilo-sessions.remote-status-changed") return true
           if (event.type === "memory.status" || event.type === "memory.updated" || event.type === "memory.error")
-            return true
+            return false
           const sessionId = this.resolveEventSessionId(event)
 
           // message.part.* events are always session-scoped; drop if session unknown.
@@ -1929,8 +1799,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         this.postConnectionState(error)
 
         if (state === "connected") {
-          const target = this.indexingScope
-          this.fetchAndSendIndexingStatus(target.directory, target.projectId)
           this.flushPendingKiloModel()
           // Fire config warnings independently so a failure in the
           // sequential await chain doesn't prevent warnings from being shown
@@ -1997,11 +1865,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       // Fetch providers, agents, skills, config, notifications, and session statuses in parallel
       await Promise.all([
         this.refreshLiveCatalogs(),
-        this.fetchAndSendAgents(),
-        this.fetchAndSendConfig(),
-        this.fetchAndSendIndexingStatus(),
         this.fetchAndSendNotifications(),
-        this.memory.fetch(),
         this.seedSessionStatusMap(),
       ])
       await this.refreshGitStatus(this.getWorkspaceDirectory())
@@ -4716,16 +4580,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   private async reloadAfterAuthChange(): Promise<void> {
     this.invalidateProviderUsage()
     this.invalidateProviders()
-    await Promise.all([
-      this.refreshLiveCatalogs(),
-      this.fetchAndSendConfig().then(() =>
-        Promise.all([
-          this.fetchAndSendAgents(),
-          this.fetchAndSendIndexingStatus(),
-          this.fetchAndSendNotifications(),
-        ]),
-      ),
-    ])
+    await Promise.all([this.refreshLiveCatalogs(), this.fetchAndSendNotifications()])
   }
 
   /** Reload config, skills, agents, and commands from disk by rebooting the instance. */
@@ -5030,7 +4885,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     // Fetch and push the updated config + refresh agents and providers so the
     // Settings panel and mode/model pickers reflect the change.
     if (event.type === "global.config.updated") {
-      void Promise.all([this.fetchAndSendConfigUpdated(), this.fetchAndSendAgents(), this.fetchAndSendProviders()])
+      void this.fetchAndSendProviders()
       return
     }
 

@@ -68,7 +68,7 @@ const AboutCodeMTab: Component<AboutCodeMTabProps> = (props) => {
     if (exporting()) return
     setExporting(true)
     const token = ++epoch
-    vscode.postMessage({ type: "requestGlobalConfig" })
+    setExporting(false)
     setTimeout(() => {
       if (epoch === token) setExporting(false)
     }, 5000)

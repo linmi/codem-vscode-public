@@ -2,8 +2,7 @@ import type { CodemPermissionMode } from "@codem/protocol"
 import type { FileAttachment } from "./parts"
 import type { MessageLoadMode } from "./sessions"
 import type { PermissionFileDiff } from "./permissions"
-import type { ModelSelection, ProviderConfig } from "./providers"
-import type { Config } from "./config"
+import type { ModelSelection } from "./providers"
 import type { ModelAllocation, ReviewCommentEntry, TerminalDestination, TerminalPlacement } from "./agent-manager"
 import type { PRReviewCommentData, ReviewMessageData } from "../../../../src/shared/review-comments"
 import type { BrowserFeedbackData } from "../../../../src/shared/browser-feedback"
@@ -11,7 +10,6 @@ import type { WorkStyle, WorkStyleState } from "../../../../src/shared/work-styl
 import type { RefreshProviderUsageMessage, RequestProviderUsageMessage } from "./provider-usage"
 import type { AnacondaDesktopWebviewMessage } from "../../../../src/shared/anaconda-desktop-messages"
 import type { RequestMigrationDataMessage, StartMigrationMessage } from "./migration"
-import type { MemoryShowMessage, MemoryOperationMessage, RequestMemoryMessage } from "./memory"
 import type { RequestSessionBoardMessage, ResetSessionBoardMessage } from "./board"
 import type { Activity } from "../../utils/session-activity"
 import type { PRReactionContent } from "../../../agent-manager/pr/pr-types"
@@ -41,13 +39,6 @@ export interface SendMessageRequest {
   contextDirectory?: string
 }
 
-export interface ResumeSessionRequest {
-  type: "resumeSession"
-  sessionID: string
-  messageID: string
-  requestID: string
-}
-
 export interface AbortRequest {
   type: "abort"
   sessionID: string
@@ -65,31 +56,6 @@ export interface CancelBackgroundJobMessage {
   jobID: string
   sessionID: string
   requestID: string
-}
-
-export interface PromoteBackgroundJobMessage {
-  type: "promoteBackgroundJob"
-  jobID: string
-  sessionID: string
-}
-
-export interface RevertSessionRequest {
-  type: "revertSession"
-  sessionID: string
-  messageID: string
-  partID?: string
-}
-
-export interface UnrevertSessionRequest {
-  type: "unrevertSession"
-  sessionID: string
-}
-
-export interface DeleteMessageRequest {
-  type: "deleteMessage"
-  sessionID: string
-  messageID: string
-  requestID?: string
 }
 
 export interface PermissionResponseRequest {
@@ -320,10 +286,6 @@ export interface OpenAdvancedWorktreeRequest {
   type: "openAdvancedWorktree"
 }
 
-export interface RequestAgentsMessage {
-  type: "requestAgents"
-}
-
 export interface RequestSkillsMessage {
   type: "requestSkills"
 }
@@ -350,40 +312,6 @@ export interface SendCommandRequest {
   contextDirectory?: string
 }
 
-export interface RemoveSkillMessage {
-  type: "removeSkill"
-  location: string
-}
-
-export interface RemoveModeMessage {
-  type: "removeAgent"
-  name: string
-}
-
-export interface RemoveMcpMessage {
-  type: "removeMcp"
-  name: string
-}
-
-export interface RequestMcpStatusMessage {
-  type: "requestMcpStatus"
-}
-
-export interface ConnectMcpMessage {
-  type: "connectMcp"
-  name: string
-}
-
-export interface DisconnectMcpMessage {
-  type: "disconnectMcp"
-  name: string
-}
-
-export interface AuthenticateMcpMessage {
-  type: "authenticateMcp"
-  name: string
-}
-
 export interface SetLanguageRequest {
   type: "setLanguage"
   locale: string
@@ -407,19 +335,6 @@ export interface SessionCostAlertResponseRequest {
   sessionID: string
   limit: number
   response: "continue" | "stop"
-}
-
-export interface SuggestionAcceptRequest {
-  type: "suggestionAccept"
-  requestID: string
-  sessionID: string
-  index: number
-}
-
-export interface SuggestionDismissRequest {
-  type: "suggestionDismiss"
-  requestID: string
-  sessionID: string
 }
 
 export interface DeleteSessionRequest {
@@ -525,56 +440,13 @@ export interface RequestClaudeCompatSettingMessage {
   type: "requestClaudeCompatSetting"
 }
 
-export interface RequestConfigMessage {
-  type: "requestConfig"
-}
-
-export interface RequestGlobalConfigMessage {
-  type: "requestGlobalConfig"
-}
-
-export interface RequestIndexingStatusMessage {
-  type: "requestIndexingStatus"
-}
-
-export interface RequestIndexingSettingsMessage {
-  type: "requestIndexingSettings"
-  projectId?: string
-}
-
-export interface SetIndexingConsentMessage {
-  type: "setIndexingConsent"
-  projectId: string
-  enabled: boolean
-}
-
 export interface RequestChatSettingsMessage {
   type: "requestChatSettings"
-}
-
-export interface RequestKiloEmbeddingModelsMessage {
-  type: "requestKiloEmbeddingModels"
-}
-
-export interface RequestImageModelsMessage {
-  type: "requestImageModels"
 }
 
 export interface OpenSettingsTabRequest {
   type: "openSettingsTab"
   tab: string
-}
-
-export interface UpdateConfigMessage {
-  type: "updateConfig"
-  /** Global config patch written to ~/.config/kilo/kilo.json. */
-  config: Partial<Config>
-  globalUnset?: string[][]
-  /** Project config patch written to the workspace's .kilo/kilo.jsonc or existing project config. */
-  projectConfig?: Partial<Config>
-  projectUnset?: string[][]
-  globalBindingId?: string
-  projectBindingId?: string
 }
 
 export interface RequestNotificationSettingsMessage {
@@ -1424,34 +1296,6 @@ export interface SetThreadPermissionModeMessage {
   permissionMode: CodemPermissionMode
 }
 
-export interface RequestSandboxStatusMessage {
-  type: "requestSandboxStatus"
-  sessionID: string
-}
-
-export interface RequestSandboxDefaultMessage {
-  type: "requestSandboxDefault"
-  requestID?: string
-  agentManagerContext?: string
-  contextDirectory?: string
-}
-
-export interface SetSandboxDefaultMessage {
-  type: "setSandboxDefault"
-  enabled: boolean
-  requestID: string
-  agentManagerContext?: string
-  contextDirectory?: string
-}
-
-export interface ToggleSandboxMessage {
-  type: "toggleSandbox"
-  sessionID: string
-  requestID: string
-  agentManagerContext?: string
-  contextDirectory?: string
-}
-
 export interface ToggleRemoteMessage {
   type: "toggleRemote"
 }
@@ -1467,59 +1311,6 @@ export interface SetRemoteEnabledMessage {
 
 export interface RequestRemoteStatusMessage {
   type: "requestRemoteStatus"
-}
-
-export interface ConnectProviderMessage {
-  type: "connectProvider"
-  requestId: string
-  providerID: string
-  apiKey: string
-  metadata?: Record<string, string>
-}
-
-export interface AuthorizeProviderOAuthMessage {
-  type: "authorizeProviderOAuth"
-  requestId: string
-  providerID: string
-  method: number
-}
-
-export interface CompleteProviderOAuthMessage {
-  type: "completeProviderOAuth"
-  requestId: string
-  providerID: string
-  method: number
-  code?: string
-}
-
-export interface DisconnectProviderMessage {
-  type: "disconnectProvider"
-  requestId: string
-  providerID: string
-}
-
-export interface SaveCustomProviderMessage {
-  type: "saveCustomProvider"
-  requestId: string
-  providerID: string
-  config: ProviderConfig
-  apiKey?: string
-  apiKeyChanged?: boolean
-}
-
-export interface FetchCustomProviderModelsMessage {
-  type: "fetchCustomProviderModels"
-  requestId: string
-  baseURL: string
-  apiKey?: string
-  /**
-   * When editing an existing provider and the key field is untouched, the
-   * webview has no key to send (keys are stripped before they reach it).
-   * It sends the providerID instead so the extension can authenticate the
-   * fetch with the stored key — which never crosses into the webview.
-   */
-  providerID?: string
-  headers?: Record<string, string>
 }
 
 export interface PersistRecentsRequest {
@@ -1633,16 +1424,11 @@ export type WebviewMessage =
   | DocumentCloseMessage
   | DocumentSendCommentsMessage
   | SendMessageRequest
-  | ResumeSessionRequest
   | AbortRequest
   | RequestBackgroundJobsMessage
   | RequestSessionBoardMessage
   | ResetSessionBoardMessage
   | CancelBackgroundJobMessage
-  | PromoteBackgroundJobMessage
-  | RevertSessionRequest
-  | UnrevertSessionRequest
-  | DeleteMessageRequest
   | PermissionResponseRequest
   | CreateSessionRequest
   | ClearSessionRequest
@@ -1677,23 +1463,13 @@ export type WebviewMessage =
   | SelectSourceRequest
   | RequestProvidersMessage
   | CompactRequest
-  | RequestAgentsMessage
   | RequestSkillsMessage
   | RequestCommandsMessage
   | SendCommandRequest
-  | RemoveSkillMessage
-  | RemoveModeMessage
-  | RemoveMcpMessage
-  | RequestMcpStatusMessage
-  | ConnectMcpMessage
-  | DisconnectMcpMessage
-  | AuthenticateMcpMessage
   | SetLanguageRequest
   | QuestionReplyRequest
   | QuestionRejectRequest
   | SessionCostAlertResponseRequest
-  | SuggestionAcceptRequest
-  | SuggestionDismissRequest
   | DeleteSessionRequest
   | RenameSessionRequest
   | ExportSessionTranscriptRequest
@@ -1714,14 +1490,7 @@ export type WebviewMessage =
   | StreamSessionVisibleMessage
   | RequestBrowserSettingsMessage
   | RequestClaudeCompatSettingMessage
-  | RequestConfigMessage
-  | RequestGlobalConfigMessage
-  | RequestIndexingStatusMessage
-  | RequestIndexingSettingsMessage
-  | SetIndexingConsentMessage
   | RequestChatSettingsMessage
-  | RequestKiloEmbeddingModelsMessage
-  | UpdateConfigMessage
   | OpenSettingsTabRequest
   | RequestNotificationSettingsMessage
   | TestNotificationMessage
@@ -1845,18 +1614,8 @@ export type WebviewMessage =
   | AgentManagerBrowserRequestMessage
   | RequestThreadModesMessage
   | SetThreadPermissionModeMessage
-  | RequestSandboxStatusMessage
-  | RequestSandboxDefaultMessage
-  | SetSandboxDefaultMessage
-  | ToggleSandboxMessage
   | DismissAgentMigrationBannerMessage
-  | ConnectProviderMessage
-  | AuthorizeProviderOAuthMessage
-  | CompleteProviderOAuthMessage
-  | DisconnectProviderMessage
   | AnacondaDesktopWebviewMessage
-  | SaveCustomProviderMessage
-  | FetchCustomProviderModelsMessage
   | PersistRecentsRequest
   | RequestRecentsMessage
   | RecordModelUsageMessage
@@ -1870,9 +1629,6 @@ export type WebviewMessage =
   | SetRemoteEnabledMessage
   | RequestRemoteStatusMessage
   | ContinueInWorktreeRequest
-  | RequestMemoryMessage
-  | MemoryShowMessage
-  | MemoryOperationMessage
   | CreateSectionRequest
   | RenameSectionRequest
   | DeleteSectionRequest
@@ -1887,7 +1643,6 @@ export type WebviewMessage =
   | AgentManagerTerminalRestartRequest
   | AgentManagerTerminalDestinationSelectedRequest
   | AgentManagerTerminalResizeRequest
-  | RequestImageModelsMessage
 
 // ============================================
 // VS Code API type

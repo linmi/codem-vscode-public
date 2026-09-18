@@ -1,44 +1,12 @@
 import { APP_SERVER_MATURE_UI_COMMANDS } from "./mature-ui-controller.ts"
 import { CODEM_UI_INTERACTION_OWNERS } from "./ui-parity.ts"
 
-export const APP_SERVER_V1_PROTOCOL_GAPS = {
-  authenticateMcp: "Core v1 accepts MCP launch settings but has no MCP authentication control method.",
-  authorizeProviderOAuth: "Core v1 model/list is read-only and exposes no provider OAuth flow.",
-  completeProviderOAuth: "Core v1 model/list is read-only and exposes no provider OAuth completion method.",
-  connectMcp: "Core v1 accepts MCP launch settings but has no mutable MCP connection method.",
-  connectProvider: "Core v1 model/list is read-only and exposes no provider connection method.",
-  deleteMessage: "Core v1 has no message-scoped delete operation.",
-  disconnectMcp: "Core v1 accepts MCP launch settings but has no mutable MCP disconnection method.",
-  disconnectProvider: "Core v1 model/list is read-only and exposes no provider disconnection method.",
-  fetchCustomProviderModels: "Core v1 model/list has no custom-provider credential or discovery request.",
-  memoryOperation: "Core v1 exposes no memory mutation method.",
-  memoryShow: "Core v1 exposes no memory presentation method.",
-  promoteBackgroundJob: "Core v1 can cancel a background task but cannot promote it to foreground.",
-  removeAgent: "Core v1 exposes no agent mutation method.",
-  removeMcp: "Core v1 accepts MCP launch settings but has no MCP removal method.",
-  removeSkill: "Core v1 skills/list is read-only.",
-  requestAgents: "Core v1 exposes skills/list but no equivalent agent catalog.",
-  requestConfig: "Core config/read is a redacted snapshot, not the Kilo Config schema consumed by Settings.",
-  requestGlobalConfig: "Core config/read is not the Kilo global Config schema; writing it would dual-store.",
-  requestImageModels: "Core v1 model/list does not expose the image-generation catalog required by this UI.",
-  requestIndexingSettings: "Core v1 exposes no indexing settings method.",
-  requestIndexingStatus: "Core v1 exposes no indexing status method.",
-  requestKiloEmbeddingModels: "Core v1 exposes no embedding-model catalog.",
-  requestMcpStatus: "Core v1 accepts MCP launch settings but exposes no MCP status method.",
-  requestMemory: "Core v1 exposes no memory read method.",
-  requestSandboxDefault: "Core v1 thread modes do not expose Kilo's persisted sandbox default.",
-  requestSandboxStatus: "Core v1 thread modes do not expose Kilo's sandbox availability/status.",
-  resumeSession: "Core v1 has no message-scoped resume-from-point operation.",
-  revertSession: "Core rewind is an interactive checkpoint turn, not message/part-scoped revert.",
-  saveCustomProvider: "Core v1 exposes no custom-provider mutation method.",
-  setIndexingConsent: "Core v1 exposes no indexing consent method.",
-  setSandboxDefault: "Core v1 thread modes cannot persist Kilo's sandbox default semantics.",
-  suggestionAccept: "Core v1 has user questions and approvals but no Kilo suggestion decision method.",
-  suggestionDismiss: "Core v1 has user questions and approvals but no Kilo suggestion decision method.",
-  toggleSandbox: "Core v1 thread modes cannot reproduce Kilo's sandbox transition semantics.",
-  unrevertSession: "Core v1 has no redo operation after rewind.",
-  updateConfig: "Core v1 exposes no project/global configuration mutation method.",
-} as const satisfies Partial<Record<keyof typeof CODEM_UI_INTERACTION_OWNERS, string>>
+/**
+ * Core v1 protocol gaps that used to block production cutover.
+ * Those commands were product-cut from WebviewMessage and the ownership table.
+ * Do not reintroduce them without a real Core RPC.
+ */
+export const APP_SERVER_V1_PROTOCOL_GAPS: Partial<Record<keyof typeof CODEM_UI_INTERACTION_OWNERS, string>> = {}
 
 export interface MatureUiParityReport {
   readonly totalCommands: number

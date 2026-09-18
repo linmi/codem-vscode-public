@@ -1,30 +1,11 @@
 import type {
-  AuthorizeProviderOAuthMessage,
-  CompleteProviderOAuthMessage,
-  ConnectProviderMessage,
-  DisconnectProviderMessage,
   ExtensionMessage,
   ProviderActionErrorMessage,
   ProviderConnectedMessage,
   ProviderDisconnectedMessage,
   ProviderOAuthReadyMessage,
-  SaveCustomProviderMessage,
   WebviewMessage,
 } from "../types/messages"
-
-type ProviderRequest =
-  | ConnectProviderMessage
-  | AuthorizeProviderOAuthMessage
-  | CompleteProviderOAuthMessage
-  | DisconnectProviderMessage
-  | SaveCustomProviderMessage
-
-type ProviderRequestInput =
-  | Omit<ConnectProviderMessage, "requestId">
-  | Omit<AuthorizeProviderOAuthMessage, "requestId">
-  | Omit<CompleteProviderOAuthMessage, "requestId">
-  | Omit<DisconnectProviderMessage, "requestId">
-  | Omit<SaveCustomProviderMessage, "requestId">
 
 type Transport = {
   postMessage: (message: WebviewMessage) => void
@@ -38,6 +19,11 @@ type Handlers = {
   onError?: (message: ProviderActionErrorMessage) => void
 }
 
+/**
+ * Provider OAuth / custom-provider commands were product-cut: Core v1 has no
+ * mutation RPC. Keep the correlation helper so hidden Settings dialogs compile,
+ * but do not post those commands.
+ */
 export function createProviderAction(vscode: Transport) {
   const pending = new Map<string, Handlers>()
   const unsubscribe = vscode.onMessage((message) => {
@@ -67,10 +53,10 @@ export function createProviderAction(vscode: Transport) {
     }
   })
 
-  function send(message: ProviderRequestInput, handlers: Handlers = {}) {
+  function send(_message: Record<string, unknown>, handlers: Handlers = {}) {
     const requestId = crypto.randomUUID()
     pending.set(requestId, handlers)
-    vscode.postMessage({ ...message, requestId } as ProviderRequest)
+    void vscode
     return requestId
   }
 

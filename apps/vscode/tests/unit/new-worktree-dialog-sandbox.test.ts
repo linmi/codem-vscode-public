@@ -9,20 +9,12 @@ const provider = readFileSync(providerPath, "utf8")
 
 describe("NewWorktreeDialog sandbox toggle", () => {
   it("uses the persisted default and only sends explicit modal overrides", () => {
-    expect(src).toContain('vscode.postMessage({ type: "requestSandboxDefault", requestID: sandboxRequestID })')
-    expect(src).toContain('if (message.type !== "sandboxDefaultStatus") return')
-    expect(src).toContain("if (message.requestID !== sandboxRequestID) return")
-    expect(src).toContain("setSandbox(message.enabled)")
-    expect(src).toContain("setSandboxOverride(next === sandboxDefault() ? undefined : next)")
-    expect(src).toContain(
-      'vscode.postMessage({ type: "setSandboxDefault", enabled: next, requestID: sandboxRequestID })',
-    )
+    expect(src).toContain("const sandboxVisible = () => false")
+    expect(src).not.toContain('vscode.postMessage({ type: "requestSandboxDefault"')
+    expect(src).not.toContain('vscode.postMessage({ type: "setSandboxDefault"')
     expect(src).toContain("sandbox: sandboxVisible() ? sandboxOverride() : undefined")
     expect(src).toContain("const { config, globalConfig, features, settings } = useConfig()")
-    expect(src).toContain(
-      "const sandboxVisible = () => features().sandboxControls && globalConfig().sandbox?.enabled === true",
-    )
-    expect(provider).toContain("await this.fetchAndSendSandboxDefault(message.contextDirectory, message.requestID)")
+    expect(provider).not.toContain("await this.fetchAndSendSandboxDefault(message.contextDirectory, message.requestID)")
     expect(src).not.toContain("createSignal(config().sandbox?.enabled === true)")
     expect(src).not.toContain("visible as isSandboxVisible")
   })

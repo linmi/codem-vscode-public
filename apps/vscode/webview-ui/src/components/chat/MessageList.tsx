@@ -39,7 +39,6 @@ import { KiloNotifications } from "./KiloNotifications"
 import { TurnOutcome } from "../shared/TurnOutcome"
 import { QuestionDock } from "./QuestionDock"
 import { Virtualizer, type VirtualizerHandle } from "virtua/solid"
-import { SuggestBar } from "./SuggestBar"
 import {
   getMeasurement,
   getScroll,
@@ -1387,7 +1386,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
                 </For>
               </div>
             </Show>
-            <Show when={revert()}>
+            <Show when={false}>
               <RevertBanner />
             </Show>
             <For each={partition().queued}>
@@ -1410,7 +1409,6 @@ export const MessageList: Component<MessageListProps> = (props) => {
             <TurnOutcome />
             <Show when={props.interactivePrompts !== false}>
               <For each={props.questions?.()}>{(req) => <QuestionDock request={req} />}</For>
-              <For each={props.suggestions?.()}>{(req) => <SuggestBar request={req} />}</For>
             </Show>
           </Show>
         </div>

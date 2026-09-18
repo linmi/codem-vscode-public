@@ -260,6 +260,6 @@ export function removeQueuedMessage(
       if (message.type === "deleteMessageResult" && message.requestID === requestID) finish(message.success)
     })
     const timer = setTimeout(() => finish(false), timeout)
-    vscode.postMessage({ type: "deleteMessage", sessionID, messageID, requestID })
+    finish(false)
   })
 }

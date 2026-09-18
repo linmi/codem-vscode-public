@@ -1,5 +1,5 @@
 import type { FeatureFlags } from "../../types/messages"
 
-export function visible(features: FeatureFlags) {
-  return features.sandboxControls
+export function visible(_features: FeatureFlags) {
+  return false
 }

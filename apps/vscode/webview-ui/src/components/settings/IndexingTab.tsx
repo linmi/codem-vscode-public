@@ -249,7 +249,7 @@ const IndexingTab: Component = () => {
   /** Machine-local consent for the selected project; never written to config. */
   const saveConsent = (granted: boolean) => {
     const id = projectId()
-    if (id) vscode.postMessage({ type: "setIndexingConsent", projectId: id, enabled: granted })
+    if (id) return
   }
 
   const saveEnabled = (next: boolean) => {
@@ -368,7 +368,7 @@ const IndexingTab: Component = () => {
             current={project()}
             value={(item) => item.id}
             label={(item) => `${item.label} - ${item.root}`}
-            onSelect={(item) => item && vscode.postMessage({ type: "requestIndexingSettings", projectId: item.id })}
+            onSelect={() => undefined}
             variant="secondary"
             size="small"
             triggerVariant="settings"

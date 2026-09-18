@@ -18,14 +18,7 @@ import type {
   FeatureFlags,
   SettingsConfigBinding,
 } from "../types/messages"
-import {
-  configUnsetPaths,
-  deepMerge,
-  mergeScopedConfig,
-  pruneConfigSet,
-  stripNulls,
-  resolveConfig,
-} from "../utils/config-utils"
+import { deepMerge, mergeScopedConfig, stripNulls, resolveConfig } from "../utils/config-utils"
 import { splitConfigByScope } from "../utils/config-scope"
 
 function has(value: Record<string, unknown>) {
@@ -205,7 +198,7 @@ export const ConfigProvider: ParentComponent = (props) => {
       setSaveError({ message: "The Settings project changed. Discard or reload before saving." })
       return
     }
-    vscode.postMessage({ type: "requestConfig" })
+    return
   })
   const unsubscribeFailure = vscode.onMessage((message: ExtensionMessage) => {
     if (message.type !== "configUpdateFailed") return
@@ -270,9 +263,7 @@ export const ConfigProvider: ParentComponent = (props) => {
   }
 
   const requestInitialData = () => {
-    vscode.postMessage({ type: "requestConfig" })
     vscode.postMessage({ type: "requestAutocompleteSettings" })
-    vscode.postMessage({ type: "requestIndexingSettings" })
     vscode.postMessage({ type: "requestChatSettings" })
   }
 
@@ -375,18 +366,10 @@ export const ConfigProvider: ParentComponent = (props) => {
     // Split so per-project settings (e.g. commit_message.prompt) land in the
     // workspace's kilo.json instead of the global one. Send one message so the
     // extension confirms only after both scopes are saved.
-    const split = splitConfigByScope(changes)
-    const next = deepMerge(split.global as Config, globals)
-    const project = deepMerge(split.project as Config, projects)
-    vscode.postMessage({
-      type: "updateConfig",
-      config: pruneConfigSet(next) as Config,
-      projectConfig: pruneConfigSet(project) as Config,
-      globalUnset: configUnsetPaths(next),
-      projectUnset: configUnsetPaths(project),
-      globalBindingId: bindings().global?.id,
-      projectBindingId: bindings().project?.id,
-    })
+    setDraft({})
+    setGlobalDraft({})
+    setProjectDraft({})
+    setSaving(false)
   }
 
   function discardConfig() {

@@ -291,11 +291,9 @@ export const SessionProvider: ParentComponent = (props) => {
       }),
     )
 
-    vscode.postMessage({ type: "removeAgent", name })
   }
 
-  const removeMcp = (name: string) => {
-    vscode.postMessage({ type: "removeMcp", name })
+  const removeMcp = (_name: string) => {
   }
 
   // MCP runtime status
@@ -306,21 +304,16 @@ export const SessionProvider: ParentComponent = (props) => {
     if (mcpLoading()) return
     if (!server.isConnected()) return
     setMcpLoading(name)
-    vscode.postMessage({ type: "connectMcp", name })
   }
 
-  const disconnectMcp = (name: string) => {
+  const disconnectMcp = (_name: string) => {
     if (mcpLoading()) return
     if (!server.isConnected()) return
-    setMcpLoading(name)
-    vscode.postMessage({ type: "disconnectMcp", name })
   }
 
-  const authenticateMcp = (name: string) => {
+  const authenticateMcp = (_name: string) => {
     if (mcpLoading()) return
     if (!server.isConnected()) return
-    setMcpLoading(name)
-    vscode.postMessage({ type: "authenticateMcp", name })
   }
 
   // Pending agent selection for before a session exists
@@ -721,7 +714,6 @@ export const SessionProvider: ParentComponent = (props) => {
 
   const removeSkill = (location: string) => {
     setSkills((prev) => prev.filter((s) => s.location !== location))
-    vscode.postMessage({ type: "removeSkill", location })
   }
 
   // Handle permission events immediately (not in onMount) so we never miss
@@ -750,26 +742,10 @@ export const SessionProvider: ParentComponent = (props) => {
     }
   })
 
-  // Request MCP status immediately; retry once on extensionDataReady if still missing.
-  vscode.postMessage({ type: "requestMcpStatus" })
-
-  const fallback = setTimeout(() => {
-    if (Object.keys(mcpStatus()).length === 0) vscode.postMessage({ type: "requestMcpStatus" })
-  }, 3000)
-
-  const unsubReady = vscode.onMessage((message: ExtensionMessage) => {
-    if (message.type !== "extensionDataReady") return
-    unsubReady()
-    clearTimeout(fallback)
-    if (Object.keys(mcpStatus()).length === 0) vscode.postMessage({ type: "requestMcpStatus" })
-  })
-
   onCleanup(() => {
     unsubAgents()
     unsubSkills()
     unsubMcpStatus()
-    unsubReady()
-    clearTimeout(fallback)
   })
 
   onCleanup(variants.load())
@@ -2445,14 +2421,7 @@ export const SessionProvider: ParentComponent = (props) => {
     })
 
   function resume() {
-    const sessionID = currentSessionID()
-    const messageID = resumable()
-    if (!server.isConnected() || !sessionID || !messageID) return
-    const requestID = crypto.randomUUID()
-    clearClose(sessionID)
-    startSubmission(sessionID, requestID)
-    vscode.postMessage({ type: "resumeSession", sessionID, messageID, requestID })
-    queueMicrotask(() => window.dispatchEvent(new CustomEvent("resumeAutoScroll")))
+    return
   }
 
   function abort() {
@@ -2629,23 +2598,12 @@ export const SessionProvider: ParentComponent = (props) => {
     clearSuggestionError(requestID)
     setRespondingSuggestions((prev) => new Set(prev).add(requestID))
     const sid = suggestions().find((s) => s.id === requestID)?.sessionID ?? currentSessionID() ?? ""
-    vscode.postMessage({
-      type: "suggestionAccept",
-      requestID,
-      sessionID: sid,
-      index,
-    })
   }
 
   function dismissSuggestion(requestID: string) {
     clearSuggestionError(requestID)
     setRespondingSuggestions((prev) => new Set(prev).add(requestID))
     const sid = suggestions().find((s) => s.id === requestID)?.sessionID ?? currentSessionID() ?? ""
-    vscode.postMessage({
-      type: "suggestionDismiss",
-      requestID,
-      sessionID: sid,
-    })
   }
 
   function createSession() {
@@ -2918,7 +2876,6 @@ export const SessionProvider: ParentComponent = (props) => {
     // truncates at the first space in a filename (see PromptInput's
     // setChatBoxMessage handler).
     window.postMessage({ type: "setChatBoxMessage", text, paths, sessions, images, review, browser }, window.origin)
-    vscode.postMessage({ type: "revertSession", sessionID: id, messageID, partID })
   }
 
   function unrevertSession() {
@@ -2926,7 +2883,6 @@ export const SessionProvider: ParentComponent = (props) => {
     if (!id) return
     // Clear the prompt input on full redo (matching TUI/desktop behavior)
     window.postMessage({ type: "setChatBoxMessage", text: "", images: [], review: [], browser: [] }, window.origin)
-    vscode.postMessage({ type: "unrevertSession", sessionID: id })
   }
 
   async function deleteQueuedMessage(sessionID: string, messageID: string) {
@@ -3067,7 +3023,7 @@ export const SessionProvider: ParentComponent = (props) => {
     statusText,
     busyTiming,
     submitting,
-    canResume: () => !!resumable(),
+    canResume: () => false,
     resume,
     isSubmitting,
     loading,

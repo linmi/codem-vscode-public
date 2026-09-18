@@ -63,6 +63,7 @@ const ContextTab: Component<{ onNavigateToModels?: () => void }> = (props) => {
 
   return (
     <div>
+      <Show when={false}>
       <h4 style={{ "margin-top": "0", "margin-bottom": "8px" }}>{language.t("settings.context.memory.title")}</h4>
       <Card>
         <SettingsRow title={language.t("settings.context.memory.project.title")} description={memoryStats()}>
@@ -121,6 +122,7 @@ const ContextTab: Component<{ onNavigateToModels?: () => void }> = (props) => {
           )}
         </Show>
       </Card>
+      </Show>
 
       {/* Compaction settings */}
       <h4 style={{ "margin-top": "16px", "margin-bottom": "8px" }}>

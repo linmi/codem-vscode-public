@@ -1,4 +1,3 @@
-import { routeSuggestionWebviewMessage } from "./handlers/suggestion"
 import * as ModelState from "./model-state"
 import { routeAutocompleteMessage } from "../services/autocomplete/settings"
 import type { SuggestionContext } from "./handlers/suggestion"
@@ -14,7 +13,6 @@ type Ctx = {
   post: (msg: unknown) => void
   browserSettings: () => void
   exportTranscript: (sessionID: string) => Promise<void>
-  resume: (sessionID: string, messageID: string, requestID: string) => Promise<void>
   copy: (text: string) => PromiseLike<void>
   openSessions: (ids: string[]) => void
   activity: (state: unknown) => void
@@ -22,7 +20,6 @@ type Ctx = {
   backgroundJobs: (sessionID: string, requestID: string) => Promise<void>
   board: (message: Record<string, unknown>) => Promise<boolean>
   cancelBackgroundJob: (jobID: string, sessionID: string, requestID: string) => Promise<void>
-  promoteBackgroundJob: (jobID: string, sessionID: string) => Promise<void>
   caffeination: () => void
 }
 
@@ -51,36 +48,13 @@ async function routeBackgroundMessage(
     }
     return true
   }
-  if (message.type === "promoteBackgroundJob") {
-    if (typeof message.jobID === "string" && typeof message.sessionID === "string") {
-      await ctx.promoteBackgroundJob(message.jobID, message.sessionID)
-    }
-    return true
-  }
   return undefined
-}
-
-function isResume(input: { sessionID?: unknown; messageID?: unknown; requestID?: unknown }): input is {
-  sessionID: string
-  messageID: string
-  requestID: string
-} {
-  return (
-    typeof input.sessionID === "string" && typeof input.messageID === "string" && typeof input.requestID === "string"
-  )
 }
 
 export async function routeEarlyMessage(
   message: { type: string; id?: unknown; text?: unknown; state?: unknown },
   ctx: Ctx,
 ): Promise<boolean> {
-  if (message.type === "resumeSession") {
-    const input = message as { sessionID?: unknown; messageID?: unknown; requestID?: unknown }
-    if (isResume(input)) {
-      await ctx.resume(input.sessionID, input.messageID, input.requestID)
-    }
-    return true
-  }
   if (message.type === "copyToClipboard") {
     if (typeof message.id !== "string") return true
     if (typeof message.text !== "string") {
@@ -103,7 +77,6 @@ export async function routeEarlyMessage(
     await ctx.modelUsage(message as ModelUsageMessage)
     return true
   }
-  await routeSuggestionWebviewMessage(ctx.question, message)
   if (await ModelState.handleMessage(message.type, message, ctx.client, ctx.post)) return true
   if (message.type === "exportSessionTranscript") {
     const input = message as { sessionID?: unknown }

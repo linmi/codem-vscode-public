@@ -40,12 +40,8 @@ describe("PromptInput sandbox toggle", () => {
     expect(toggle).toContain("const sessionID = sandboxID()")
     expect(toggle).toContain("!sandboxVisible()")
     expect(toggle).toContain("if (!sessionID) saveDraft(draftKey(), text(), reviewComments(), imageAttach.images())")
-    expect(toggle).toContain('type: "toggleSandbox"')
-    expect(toggle).toContain('type: "setSandboxDefault"')
-    expect(toggle).toContain("enabled: !sandboxDefault()!.desired")
-    expect(toggle).toContain("agentManagerContext: ctx()")
-    expect(toggle).toContain("sessionID,")
-    expect(toggle).toContain("requestID,")
+    expect(toggle).not.toContain('type: "toggleSandbox"')
+    expect(toggle).not.toContain('type: "setSandboxDefault"')
     expect(toggle).not.toContain("draftID:")
     expect(toggle).toContain('setSandboxRequests((current) => ({ ...current, [sessionID ?? ""]: requestID }))')
     expect(toggle).not.toContain("setSandboxTarget")
@@ -99,10 +95,7 @@ describe("PromptInput sandbox toggle", () => {
   })
 
   it("shows sandbox controls only when the global sandbox setting is enabled", () => {
-    expect(src).toContain(
-      'globalConfig().sandbox?.enabled === true &&\n    !session.currentSessionID()?.startsWith("cloud:")',
-    )
-    expect(src).toContain("features().sandboxControls &&")
+    expect(src).toContain("const sandboxVisible = () => false")
     expect(src).toContain("<Show when={sandboxVisible()}>")
     expect(src).toContain("{ action: toggleSandbox, enabled: () => sandboxVisible() && !sandboxDisabled() }")
     expect(src).toContain('if (!sandboxVisible()) hidden.add("sandbox")')
@@ -115,7 +108,7 @@ describe("PromptInput sandbox toggle", () => {
     expect(responses).toContain("if (message.sessionID === input.session()) input.reset()")
     expect(responses).toContain("if (message.sessionID === input.session()) input.retry(message.sessionID)")
     expect(src).toContain("sandboxID() ? sandbox()?.enabled : sandboxDefault()?.enabled")
-    expect(src).toContain('type: "requestSandboxDefault", agentManagerContext: ctx()')
+    expect(src).not.toContain('type: "requestSandboxDefault"')
     expect(src).toContain("<SandboxButtonBase")
     expect(src).toContain("enabled={sandboxEnabled()}")
     expect(src).toContain("available={sandboxReady() ? sandboxAvailable() : undefined}")

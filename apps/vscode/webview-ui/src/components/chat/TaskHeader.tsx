@@ -202,7 +202,7 @@ export const TaskHeader: Component<TaskHeaderProps> = (props) => {
     if (session.status() !== "idle") return
     if (part?.type !== "tool") return
     if (!part.messageID) return
-    session.revertSession(part.messageID, part.id)
+    return
   }
 
   return (

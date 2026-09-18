@@ -156,7 +156,7 @@ const ExperimentalTab: Component = () => {
           </Switch>
         </SettingsRow>
 
-        <Show when={experimental().image_generation}>
+        <Show when={false}>
           <SettingsRow
             title={language.t("settings.experimental.imageGenerationModel.title")}
             description={language.t("settings.experimental.imageGenerationModel.description")}

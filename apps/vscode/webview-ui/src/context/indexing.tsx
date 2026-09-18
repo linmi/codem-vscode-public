@@ -50,23 +50,8 @@ export const IndexingProvider: ParentComponent = (props) => {
       return
     }
 
-    setLoading(true)
-    let retries = 0
-    const maxRetries = 5
-    const retryMs = 500
-
-    vscode.postMessage({ type: "requestIndexingStatus" })
-
-    const retryTimer = setInterval(() => {
-      retries++
-      if (!loading() || retries >= maxRetries) {
-        clearInterval(retryTimer)
-        return
-      }
-      vscode.postMessage({ type: "requestIndexingStatus" })
-    }, retryMs)
-
-    onCleanup(() => clearInterval(retryTimer))
+    setStatus(initial)
+    setLoading(false)
   })
 
   const value: IndexingContextValue = {

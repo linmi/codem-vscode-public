@@ -319,14 +319,11 @@ const CustomProviderDialog = (props: CustomProviderDialogProps) => {
       setFetchedModels(fresh)
     })
 
-    vscode.postMessage({
-      type: "fetchCustomProviderModels",
-      requestId: rid,
-      baseURL: url,
-      apiKey,
-      providerID,
-      headers,
-    })
+    void rid
+    void url
+    void apiKey
+    void providerID
+    void headers
   }
 
   // ── Model picker actions ────────────────────────────────────────────
