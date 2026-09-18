@@ -26,7 +26,7 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 
 ## UI boundary
 
-- New CodeM web UI belongs in the Solid package at `packages/ui` and is imported through `@codem/ui` exports such as `@codem/ui/components/button` and `@codem/ui/types/session`. Webview production source must not import `@kilocode/sdk`. Host transcript Session/Message/Part types also come from `@codem/ui/types/session`; leftover `KiloClient` remains on `@kilocode/sdk` until those surfaces migrate.
+- New CodeM web UI belongs in the Solid package at `packages/ui` and is imported through `@codem/ui` exports such as `@codem/ui/components/button` and `@codem/ui/types/session`. Webview and Host production source must not import `@kilocode/sdk`. Transcript Session/Message/Part types come from `@codem/ui/types/session`. Leftover `KiloClient`, Event, Config, and session-import DTOs live in `src/services/cli-backend/leftover-sdk.ts`; `createKiloClient` fail-closes.
 - Packages under `packages/legacy` are CLI Console build inputs. Do not add new product UI to them.
 - Do not introduce shadcn or a second React webview stack.
 - Keep VS Code-specific theme adapters, CSP, editor messaging, and lifecycle code in this app. Keep reusable tokens and components in `packages/ui`.

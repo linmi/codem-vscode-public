@@ -1,5 +1,5 @@
 import type { Session } from "@codem/ui/types/session"
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import type { CreateWorktreeResult } from "./WorktreeManager"
 import type { WorktreeStateManager } from "./WorktreeStateManager"
 import { capture as captureGitState, apply as applyGitState, type GitSnapshot } from "./git-transfer"

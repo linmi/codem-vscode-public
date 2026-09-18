@@ -1,4 +1,4 @@
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 export async function stopSessionProcesses(
   client: KiloClient | null,
   sessionID: string,

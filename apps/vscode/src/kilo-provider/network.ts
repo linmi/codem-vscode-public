@@ -9,7 +9,7 @@
  * session resumes without user intervention.
  */
 
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 /** Pending network-offline requests: requestID -> { sessionID, refcount }. */
 const waits = new Map<string, { sid: string; refs: number }>()
 

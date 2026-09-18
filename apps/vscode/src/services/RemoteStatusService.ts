@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "./cli-backend/leftover-sdk"
 import { t } from "./cli-backend/i18n"
 
 export type RemoteState = { enabled: boolean; connected: boolean }

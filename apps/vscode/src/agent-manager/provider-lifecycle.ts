@@ -1,5 +1,5 @@
 import type { Session } from "@codem/ui/types/session"
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import { lstat } from "node:fs/promises"
 import { getErrorMessage } from "../kilo-provider-utils"
 import type { AgentManagerOutMessage } from "./types"

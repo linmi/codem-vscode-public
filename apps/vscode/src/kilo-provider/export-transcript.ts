@@ -1,7 +1,7 @@
 import * as path from "path"
 import * as vscode from "vscode"
 import type { Message, Part, Session } from "@codem/ui/types/session"
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import { fetchMessagePage } from "./message-page"
 
 type Item = {

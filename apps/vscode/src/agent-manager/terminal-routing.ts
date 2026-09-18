@@ -14,7 +14,7 @@
  * callbacks so this module is trivially unit-testable with fakes.
  */
 
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import type { AgentManagerInMessage, AgentManagerOutMessage, TerminalFont, TerminalPlacement } from "./types"
 import { TerminalManager } from "./terminal-manager"
 

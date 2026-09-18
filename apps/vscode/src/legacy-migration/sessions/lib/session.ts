@@ -1,4 +1,4 @@
-import type { KilocodeSessionImportSessionData as Session } from "@kilocode/sdk/v2"
+import type { KilocodeSessionImportSessionData as Session } from "../../../services/cli-backend/leftover-sdk"
 import type { LegacyHistoryItem } from "./legacy-types"
 import { createSessionID } from "./ids"
 

@@ -1,4 +1,4 @@
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import path from "node:path"
 import type { TerminalFont } from "./terminal-font"
 import { message, type RunHandle } from "./run/manager"

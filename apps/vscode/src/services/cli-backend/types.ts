@@ -3,9 +3,9 @@
 // ============================================
 // These types are specific to the VS Code extension. Transcript Session/Message/Part
 // types come from @codem/ui/types/session. Leftover KiloClient / Event / Config
-// types still come from "@kilocode/sdk/v2/client" until those surfaces migrate.
+// types live in ./leftover-sdk; Host production code must not import leftover @kilocode/sdk.
 
-import type { IndexingStatus as SdkIndexingStatus } from "@kilocode/sdk/v2/client"
+import type { IndexingStatus as SdkIndexingStatus } from "./leftover-sdk"
 /** Connection config used by the extension to reach the local CLI server */
 export interface ServerConfig {
   baseUrl: string

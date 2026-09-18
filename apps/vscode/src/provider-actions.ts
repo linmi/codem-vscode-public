@@ -2,7 +2,7 @@
  * Provider action handlers extracted from CodeMProvider to stay under max-lines.
  * These are pure async functions that operate on the SDK client — no vscode dependency.
  */
-import type { Config, KiloClient } from "@kilocode/sdk/v2"
+import type { Config, KiloClient } from "./services/cli-backend/leftover-sdk"
 import { validateProviderID as validateProviderIDShared } from "./shared/custom-provider"
 import {
   resolveCustomProviderAuth,

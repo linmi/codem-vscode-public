@@ -1,4 +1,4 @@
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import { retry } from "../services/cli-backend/retry"
 
 export const MESSAGE_PAGE_LIMIT = 80

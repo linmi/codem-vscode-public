@@ -1,6 +1,6 @@
 import * as fs from "fs"
 import type { SessionStatus } from "@codem/ui/types/session"
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import { sameDirectory } from "../kilo-provider-utils"
 import type { LocalStats, WorktreeStats } from "./GitStatsPoller"
 import type { PRStatus } from "./types"

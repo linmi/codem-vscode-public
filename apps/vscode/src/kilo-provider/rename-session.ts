@@ -1,5 +1,5 @@
 import type { Session } from "@codem/ui/types/session"
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import { parseSessionTitle } from "../shared/session-title"
 
 export async function renameSession(input: {

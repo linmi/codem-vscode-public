@@ -1,4 +1,4 @@
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import { configFeatures, serverFeatures } from "../features"
 import { retry } from "../services/cli-backend/retry"
 import type { ConfigTarget } from "./config-bindings"

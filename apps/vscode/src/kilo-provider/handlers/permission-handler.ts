@@ -5,7 +5,7 @@
  * pending permissions after SSE reconnections. No vscode dependency.
  */
 
-import type { KiloClient, PermissionRequest } from "@kilocode/sdk/v2/client"
+import type { KiloClient, PermissionRequest } from "../../services/cli-backend/leftover-sdk"
 import { isNotFoundError } from "./not-found"
 
 export type RecoverablePermission = PermissionRequest

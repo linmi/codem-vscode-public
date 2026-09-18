@@ -1,4 +1,4 @@
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import type { SandboxPreference } from "../services/sandbox-preference"
 
 export const SANDBOX_METADATA_KEY = "codem.sandbox"

@@ -1,4 +1,4 @@
-import type { KilocodeSessionImportProjectData as Project } from "@kilocode/sdk/v2"
+import type { KilocodeSessionImportProjectData as Project } from "../../../services/cli-backend/leftover-sdk"
 import type { LegacyHistoryItem } from "./legacy-types"
 import { createProjectID } from "./ids"
 

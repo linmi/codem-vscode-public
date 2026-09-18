@@ -5,7 +5,7 @@
  * and profile refresh. No vscode dependency.
  */
 
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../../services/cli-backend/leftover-sdk"
 import { getErrorMessage } from "../../kilo-provider-utils"
 
 export interface AuthContext {

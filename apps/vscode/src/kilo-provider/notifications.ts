@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import { retry } from "../services/cli-backend/retry"
 
 const KEY = "kilo.dismissedNotificationIds"

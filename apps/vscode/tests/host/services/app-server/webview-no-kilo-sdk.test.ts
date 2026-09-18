@@ -10,10 +10,15 @@ const uiSrc = join(vscodeRoot, "../../packages/ui/src")
 const vscodePackage = join(vscodeRoot, "package.json")
 
 function readSourceTree(directory: string): string {
+  return readSourceTreeExcept(directory)
+}
+
+function readSourceTreeExcept(directory: string, skip?: string): string {
   return readdirSync(directory, { withFileTypes: true })
     .map((entry) => {
       const path = join(directory, entry.name)
-      return entry.isDirectory() ? readSourceTree(path) : readFileSync(path, "utf8")
+      if (skip && path === skip) return ""
+      return entry.isDirectory() ? readSourceTreeExcept(path, skip) : readFileSync(path, "utf8")
     })
     .join("\n")
 }
@@ -38,18 +43,21 @@ describe("Webview leftover SDK cutover", () => {
     assert.equal(pkg.exports?.["./types/session"], "./src/types/session.ts")
   })
 
-  it("keeps Host transcript Session/Message/Part types off leftover SDK", () => {
+  it("does not import leftover @kilocode/sdk from Host production source except leftover-sdk.ts", () => {
     const hostSrc = join(vscodeRoot, "src")
-    const source = readSourceTree(hostSrc)
-    const leftover = /import type \{([^}]+)\} from ["']@kilocode\/sdk(?:\/v2(?:\/client)?)?["']/g
-    const forbidden = new Set(["Session", "SessionStatus", "SnapshotFileDiff", "ProviderListResponse", "Agent"])
-    for (const match of source.matchAll(leftover)) {
-      for (const name of match[1]!.split(",").map((part) => part.trim().split(" as ")[0]?.trim()).filter(Boolean)) {
-        assert.equal(forbidden.has(name!), false, name)
-      }
-    }
+    const leftoverPath = join(hostSrc, "services", "cli-backend", "leftover-sdk.ts")
+    assert.equal(existsSync(leftoverPath), true)
+    assert.match(readFileSync(leftoverPath, "utf8"), /from ["']@kilocode\/sdk\/v2\/client["']/)
+    const source = readSourceTreeExcept(hostSrc, leftoverPath)
+    assert.equal(/from\s+["']@kilocode\/sdk/.test(source), false)
     assert.match(source, /from ["']@codem\/ui\/types\/session["']/)
     assert.match(source, /createKiloClient/)
+    assert.match(source, /leftover-sdk/)
+  })
+
+  it("fail-closes leftover createKiloClient instead of building a REST client", async () => {
+    const { createKiloClient } = await import("../../../../src/services/cli-backend/leftover-sdk.ts")
+    assert.throws(() => createKiloClient({ baseUrl: "http://127.0.0.1:0" }), /尚未迁移到 CodeM App Server/)
   })
 
   it("drops leftover marketplace keywords from the VS Code shell", () => {

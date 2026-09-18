@@ -7,7 +7,7 @@
 
 import * as fs from "fs"
 import * as path from "path"
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import { validateModelSelections } from "../provider-actions"
 
 type PostMessage = (msg: unknown) => void

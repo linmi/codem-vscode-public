@@ -6,7 +6,7 @@
  * No vscode dependency.
  */
 
-import type { KiloClient, QuestionRequest } from "@kilocode/sdk/v2/client"
+import type { KiloClient, QuestionRequest } from "../../services/cli-backend/leftover-sdk"
 import { isNotFoundError } from "./not-found"
 
 export interface QuestionContext {

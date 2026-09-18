@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { ServerManager } from "./server-manager"
-import { createKiloClient, type EventSessionTurnClose, type KiloClient } from "@kilocode/sdk/v2/client"
+import { createKiloClient, type EventSessionTurnClose, type KiloClient } from "./leftover-sdk"
 import { SdkSSEAdapter, type SSEPayload } from "./sdk-sse-adapter"
 import type { ServerConfig } from "./types"
 import { createDuplicateEventFilter, resolveEventSessionId as resolveEventSessionIdPure } from "./connection-utils"

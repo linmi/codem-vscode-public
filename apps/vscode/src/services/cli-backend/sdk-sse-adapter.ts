@@ -1,4 +1,4 @@
-import type { KiloClient, GlobalEvent } from "@kilocode/sdk/v2/client"
+import type { KiloClient, GlobalEvent } from "./leftover-sdk"
 export type WirePayload = GlobalEvent["payload"]
 type Flat<T> = T extends {
   type: "sync"

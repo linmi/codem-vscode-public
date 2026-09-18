@@ -1,4 +1,4 @@
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "../services/cli-backend/leftover-sdk"
 import type { ConnectionState } from "../services/cli-backend/connection-service"
 import type { SSEPayload } from "../services/cli-backend/sdk-sse-adapter"
 import { sameDirectory } from "../kilo-provider-utils"

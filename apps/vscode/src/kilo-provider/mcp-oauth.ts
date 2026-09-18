@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import type { KiloClient, McpStatus } from "@kilocode/sdk/v2/client"
+import type { KiloClient, McpStatus } from "../services/cli-backend/leftover-sdk"
 import { getErrorMessage } from "../kilo-provider-utils"
 
 let lastMcpBrowserOpen: { url: string; at: number } | null = null

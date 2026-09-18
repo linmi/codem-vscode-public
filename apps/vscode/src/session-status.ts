@@ -1,5 +1,5 @@
 import type { SessionStatus } from "@codem/ui/types/session"
-import type { KiloClient } from "@kilocode/sdk/v2/client"
+import type { KiloClient } from "./services/cli-backend/leftover-sdk"
 /**
  * Fetch all current session statuses and seed the provided map + webview.
  * Called on connect so the Settings panel knows about already-running sessions

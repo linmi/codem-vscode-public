@@ -1,4 +1,4 @@
-import type { KilocodeSessionImportPartData as Part } from "@kilocode/sdk/v2"
+import type { KilocodeSessionImportPartData as Part } from "../../../../services/cli-backend/leftover-sdk"
 import type { LegacyApiMessage, LegacyHistoryItem } from "../legacy-types"
 import { createExtraPartID, createMessageID, createPartID, createSessionID } from "../ids"
 import { toReasoning, toText, toTool } from "./parts-builder"

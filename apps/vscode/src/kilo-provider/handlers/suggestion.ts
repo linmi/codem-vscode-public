@@ -5,7 +5,7 @@
  * No vscode dependency.
  */
 
-import type { KiloClient, SuggestionRequest } from "@kilocode/sdk/v2/client"
+import type { KiloClient, SuggestionRequest } from "../../services/cli-backend/leftover-sdk"
 import { recoveryDirs } from "./permission-handler"
 
 export type RecoverableSuggestion = SuggestionRequest

@@ -7,7 +7,7 @@
 
 import type { Session } from "@codem/ui/types/session"
 
-import type { KiloClient, TextPartInput, FilePartInput } from "@kilocode/sdk/v2/client"
+import type { KiloClient, TextPartInput, FilePartInput } from "../../services/cli-backend/leftover-sdk"
 import type { CloudSessionData, EditorContext } from "../../services/cli-backend/types"
 import { getErrorMessage, sessionToWebview, mapCloudSessionMessageToWebviewMessage } from "../../kilo-provider-utils"
 import type { MessageFile } from "../message-files"
