@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, mock } from "bun:test"
-import { stopSessionProcesses } from "../../src/kilo-provider/background-process"
+import { stopSessionProcesses } from "../../src/host/background-process"
 
 const warn = console.warn
 

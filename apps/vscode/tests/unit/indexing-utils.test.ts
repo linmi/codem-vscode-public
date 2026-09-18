@@ -5,7 +5,7 @@ import {
   indexingButtonVisible,
   indexingTone,
 } from "../../webview-ui/src/context/indexing-utils"
-import { mapSSEEventToWebviewMessage } from "../../src/kilo-provider-utils"
+import { mapSSEEventToWebviewMessage } from "../../src/host/utils"
 import { configFeatures } from "../../src/features"
 import type { EventIndexingStatus, IndexingStatus } from "@kilocode/sdk/v2/client"
 

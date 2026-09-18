@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { mergeFileSearchItems } from "../../src/kilo-provider/file-search-items"
+import { mergeFileSearchItems } from "../../src/host/file-search-items"
 
 describe("mergeFileSearchItems", () => {
   it("puts exact folder matches before file matches", () => {

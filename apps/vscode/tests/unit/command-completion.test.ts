@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { completesWithoutStatus, goalControl } from "../../src/kilo-provider/command-completion"
+import { completesWithoutStatus, goalControl } from "../../src/host/command-completion"
 
 describe("goalControl", () => {
   it.each(["", " \n", "pause", " pause ", "clear"])("accepts model-free goal %j", (args) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { handleFileSearch } from "../../src/kilo-provider/file-search"
+import { handleFileSearch } from "../../src/host/file-search"
 
 type Query = { query: string; directory: string; type: "file" | "directory"; limit: number }
 

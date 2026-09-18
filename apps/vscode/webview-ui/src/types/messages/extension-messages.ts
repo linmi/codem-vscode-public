@@ -75,12 +75,6 @@ import type {
   WorktreeGitStats,
   WorktreeState,
 } from "./agent-manager"
-import type {
-  MigrationCompleteMessage,
-  MigrationDataMessage,
-  MigrationProgressMessage,
-  MigrationSessionProgressMessage,
-} from "./migration"
 import type { MemoryEventMessage, MemoryLoadedMessage, MemoryOperationResultMessage } from "./memory"
 import type { SessionBoardLoadedMessage } from "./board"
 
@@ -1867,10 +1861,6 @@ export type ExtensionMessage =
   | AgentManagerTerminalErrorMessage
   | AgentManagerTerminalDestinationChangedMessage
   | AgentManagerScriptTerminalsMessage
-  | MigrationDataMessage
-  | MigrationProgressMessage
-  | MigrationSessionProgressMessage
-  | MigrationCompleteMessage
   | EnhancePromptResultMessage
   | EnhancePromptErrorMessage
   | ViewSubAgentSessionMessage

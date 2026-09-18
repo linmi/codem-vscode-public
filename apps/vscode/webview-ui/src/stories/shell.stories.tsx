@@ -36,7 +36,7 @@ const shellPart: ToolPart = {
       description: "Check for migration message types",
       command: `grep -n "migration\\|openMigration" apps/vscode/webview-ui/src/types/messages.ts`,
     },
-    output: `534:  view: "newTask" | "history" | "profile" | "settings" | "migration" // legacy-migration`,
+    output: `534:  view: "newTask" | "history" | "profile" | "settings" | "subAgentViewer"`,
     title: "Check for migration message types",
     metadata: {},
     time: { start: now - 5000, end: now - 4500 },

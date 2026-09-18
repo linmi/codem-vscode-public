@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { editPaths } from "../../src/kilo-provider/session-edits"
+import { editPaths } from "../../src/host/session-edits"
 
 describe("session edit paths", () => {
   it("ignores read tools and returns every file from mutating tools", () => {

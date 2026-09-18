@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { handleEditorAction } from "../../src/kilo-provider/editor-actions"
+import { handleEditorAction } from "../../src/host/editor-actions"
 import { formatReviewCommentsMarkdown, type PRReviewCommentData } from "../../src/shared/review-comments"
 import { thread } from "../../src/shared/pr-review"
 

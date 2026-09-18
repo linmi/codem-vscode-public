@@ -3,7 +3,7 @@ import {
   resolveContextDirectory,
   resolveNewSessionDirectory,
   resolveWorkspaceDirectory,
-} from "../../src/kilo-provider-utils"
+} from "../../src/host/utils"
 
 describe("resolveWorkspaceDirectory", () => {
   it("uses an explicit session worktree override", () => {

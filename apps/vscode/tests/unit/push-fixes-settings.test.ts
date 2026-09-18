@@ -4,7 +4,7 @@ import {
   buildPushFixesSettingMessage,
   pushFixes,
   watchPushFixesConfig,
-} from "../../src/kilo-provider/push-fixes-settings"
+} from "../../src/host/push-fixes-settings"
 
 type Stub = {
   getConfiguration: (section?: string) => {

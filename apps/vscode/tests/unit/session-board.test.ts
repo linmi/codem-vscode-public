@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { createKiloClient, type SessionBoard } from "@kilocode/sdk/v2/client"
 import { ProjectRouteService } from "../../src/agent-manager/project/route"
-import * as Board from "../../src/kilo-provider/session-board"
+import * as Board from "../../src/host/session-board"
 
 const snapshot: SessionBoard = { ownerSessionID: "ses_owner", revision: 12, messages: [], hasMore: false }
 

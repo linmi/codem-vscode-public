@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import type { KiloClient } from "@kilocode/sdk/v2/client"
-import { abortSession, SessionAbort } from "../../src/kilo-provider/abort"
+import { abortSession, SessionAbort } from "../../src/host/abort"
 
 function client(calls: unknown[], fail = false) {
   return {

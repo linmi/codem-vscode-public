@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import type { KiloConnectionService } from "../cli-backend/connection-service"
-import { getErrorMessage } from "../../kilo-provider-utils"
+import { getErrorMessage } from "../../host/utils"
 import { getCommitMessageLanguage } from "../i18n"
 
 let lastGeneratedMessage: string | undefined

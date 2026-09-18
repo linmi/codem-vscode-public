@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { matchFollowup, recordFollowup } from "../../src/kilo-provider/followup-session"
+import { matchFollowup, recordFollowup } from "../../src/host/followup-session"
 
 describe("followup-session", () => {
   it("records a pending follow-up for Start new session replies", () => {

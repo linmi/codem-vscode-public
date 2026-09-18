@@ -11,9 +11,9 @@ import { FileIgnoreController } from "./services/autocomplete/shims/FileIgnoreCo
 import { ChatTextAreaAutocomplete } from "./services/autocomplete/chat-autocomplete/ChatTextAreaAutocomplete"
 import { notebookUri } from "./services/autocomplete/continuedev/core/autocomplete/notebook"
 import { buildWebviewHtml, getWebviewFontSize, isCursorHost } from "./utils"
-import { saveImage } from "./kilo-provider/save-image"
-import { handleEditorAction } from "./kilo-provider/editor-actions"
-import { exportTranscript } from "./kilo-provider/export-transcript"
+import { saveImage } from "./host/save-image"
+import { handleEditorAction } from "./host/editor-actions"
+import { exportTranscript } from "./host/export-transcript"
 import {
   sessionToWebview,
   indexProvidersById,
@@ -31,7 +31,7 @@ import {
   SessionStreamScheduler,
   buildSettingPath,
   type SessionRefreshContext,
-} from "./kilo-provider-utils"
+} from "./host/utils"
 import { GitOps } from "./agent-manager/GitOps"
 import { GitStatsPoller, type LocalStats } from "./agent-manager/GitStatsPoller"
 import type { RemoteStatusService } from "./services/RemoteStatusService"
@@ -40,58 +40,51 @@ import { seedSessionStatuses } from "./session-status"
 import { normalizeEnhancePromptErrorMessage } from "./enhance-prompt-error"
 import { retry } from "./services/cli-backend/retry"
 import { normalize, type SSEPayload, type SyncPayload, type WirePayload } from "./services/cli-backend/sdk-sse-adapter"
-import { slimInfo, slimPart, slimParts } from "./kilo-provider/slim-metadata"
-import { handleSidebarWorktreeMessage } from "./kilo-provider/sidebar-worktree"
-import { parseMessageFiles, type MessageFile } from "./kilo-provider/message-files"
-import { renameSession } from "./kilo-provider/rename-session"
-import { handleFileSearch } from "./kilo-provider/file-search"
-import { handleSessionSearch } from "./kilo-provider/session-search"
-import { handleFilePicker } from "./kilo-provider/file-picker"
-import { watchFontSizeConfig } from "./kilo-provider/font-size"
+import { slimInfo, slimPart, slimParts } from "./host/slim-metadata"
+import { handleSidebarWorktreeMessage } from "./host/sidebar-worktree"
+import { parseMessageFiles, type MessageFile } from "./host/message-files"
+import { renameSession } from "./host/rename-session"
+import { handleFileSearch } from "./host/file-search"
+import { handleSessionSearch } from "./host/session-search"
+import { handleFilePicker } from "./host/file-picker"
+import { watchFontSizeConfig } from "./host/font-size"
 import { getTerminalContents } from "./services/terminal/context"
-import { disposeGitChangesTarget } from "./kilo-provider/git-changes-target"
-import { interceptMessage } from "./kilo-provider/git-changes-request"
-import { matchFollowup, recordFollowup, type Followup } from "./kilo-provider/followup-session"
-import { fetchMessagePage, MESSAGE_PAGE_LIMIT } from "./kilo-provider/message-page"
-import { editPaths } from "./kilo-provider/session-edits"
+import { disposeGitChangesTarget } from "./host/git-changes-target"
+import { interceptMessage } from "./host/git-changes-request"
+import { matchFollowup, recordFollowup, type Followup } from "./host/followup-session"
+import { fetchMessagePage, MESSAGE_PAGE_LIMIT } from "./host/message-page"
+import { editPaths } from "./host/session-edits"
 import {
   dismissNotification,
   fetchAndSendNotifications as fetchNotifications,
   resetReadNotifications,
   type NotificationsContext,
   type NotificationsMessage,
-} from "./kilo-provider/notifications"
-import { childID } from "./kilo-provider/task-session"
-import { VisibleTaskStreams } from "./kilo-provider/visible-task-streams"
-import { handleNetworkEvent, clearNetworkWaits } from "./kilo-provider/network"
-import { SessionAbort } from "./kilo-provider/abort"
+} from "./host/notifications"
+import { childID } from "./host/task-session"
+import { VisibleTaskStreams } from "./host/visible-task-streams"
+import { handleNetworkEvent, clearNetworkWaits } from "./host/network"
+import { SessionAbort } from "./host/abort"
 import {
   buildAutocompleteSettingsMessage,
   validAutocompleteSetting,
   watchAutocompleteConfig,
 } from "./services/autocomplete/settings"
-import { routeEarlyMessage } from "./kilo-provider/early-message"
-import * as Board from "./kilo-provider/session-board"
-import * as ModelState from "./kilo-provider/model-state"
-import { handleModelUsageMessage } from "./kilo-provider/model-usage"
-import { handleForkSession } from "./kilo-provider/fork-session"
-import { openConfig } from "./kilo-provider/open-config"
+import { routeEarlyMessage } from "./host/early-message"
+import * as Board from "./host/session-board"
+import * as ModelState from "./host/model-state"
+import { handleModelUsageMessage } from "./host/model-usage"
+import { handleForkSession } from "./host/fork-session"
+import { openConfig } from "./host/open-config"
 import {
   getWorkStylePayload,
   handleWorkStyleMessage,
   isWorkStyleSetting,
   watchWorkStyleConfig,
-} from "./kilo-provider/work-style"
+} from "./host/work-style"
 import { retryable, backoff, MAX_RETRIES } from "./util/retry"
-import { hasGit } from "./kilo-provider/git-status"
-import {
-  handleRequestMigrationData,
-  handleStartMigration,
-  type MigrationContext,
-  type MigrationSource,
-} from "./kilo-provider/handlers/migration"
-import type { MigrationSelections } from "./legacy-migration/legacy-types"
-import { handleSetOrganization, type AuthContext } from "./kilo-provider/handlers/auth"
+import { hasGit } from "./host/git-status"
+import { handleSetOrganization, type AuthContext } from "./host/handlers/auth"
 import { codeMWebviewProfile } from "./services/app-server/authentication-ui"
 import { MatureUiAppServerController } from "./services/app-server/mature-ui-controller"
 import { prepareMatureUiPrompt } from "./services/app-server/mature-ui-prompt"
@@ -106,22 +99,22 @@ import {
   handleRequestCloudSessionData,
   handleImportAndSend,
   type CloudSessionContext,
-} from "./kilo-provider/handlers/cloud-session"
+} from "./host/handlers/cloud-session"
 import {
   handlePermissionResponse,
   fetchAndSendPendingPermissions,
   type PermissionContext,
-} from "./kilo-provider/handlers/permission-handler"
+} from "./host/handlers/permission-handler"
 import {
   handleQuestionReply,
   handleQuestionReject,
   fetchAndSendPendingQuestions,
-} from "./kilo-provider/handlers/question"
-import { nativeTitle } from "./kilo-provider/native-tab-title"
+} from "./host/handlers/question"
+import { nativeTitle } from "./host/native-tab-title"
 import { isActivity, type Activity } from "../webview-ui/src/utils/session-activity"
 import type { PRReviewCommentData, ReviewMessageData } from "./shared/review-comments"
 import { feedbackMetadata, parseFeedback, type BrowserFeedbackData } from "./shared/browser-feedback"
-import { completesWithoutStatus, goalControl } from "./kilo-provider/command-completion"
+import { completesWithoutStatus, goalControl } from "./host/command-completion"
 import {
   computeDefaultSelection,
   fetchProviderData,
@@ -129,18 +122,18 @@ import {
   validateFavorites,
 } from "./provider-actions"
 import { AnacondaDesktopBridge } from "./anaconda-desktop/bridge"
-import type { CodeMProviderOptions } from "./kilo-provider/options"
+import type { CodeMProviderOptions } from "./host/options"
 import type { ProjectRef, SessionRef, WorktreeRef } from "./agent-manager/project/route"
-import { stopSessionProcesses } from "./kilo-provider/background-process"
+import { stopSessionProcesses } from "./host/background-process"
 import { sandboxSessionMetadata } from "./shared/sandbox-session"
 import { canonicalizePath } from "./agent-manager/project/paths"
-import { buildTimelineSettingMessage, validChatSetting, watchChatConfig } from "./kilo-provider/chat-settings"
-import { buildThroughputSettingMessage, watchThroughputConfig } from "./kilo-provider/throughput-settings"
+import { buildTimelineSettingMessage, validChatSetting, watchChatConfig } from "./host/chat-settings"
+import { buildThroughputSettingMessage, watchThroughputConfig } from "./host/throughput-settings"
 import {
   buildAutoApprovalReasonSettingMessage,
   watchAutoApprovalReasonConfig,
-} from "./kilo-provider/auto-approval-reason-settings"
-import { buildPushFixesSettingMessage, pushFixes, watchPushFixesConfig } from "./kilo-provider/push-fixes-settings"
+} from "./host/auto-approval-reason-settings"
+import { buildPushFixesSettingMessage, pushFixes, watchPushFixesConfig } from "./host/push-fixes-settings"
 
 type ReviewCommentsHandler = (comments: unknown[], autoSend: boolean, sessionID?: string, directory?: string) => void
 
@@ -332,7 +325,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   private readonly activeAlerts = new Map<string, number>() // sid -> limit currently shown in UI
   private unsubscribeEvent: (() => void) | null = null
   private unsubscribeState: (() => void) | null = null
-  private migrationCache: MigrationContext["migrationCache"] = new Map()
   private unsubscribeNotificationDismiss: (() => void) | null = null
   private unsubscribeAcknowledged: (() => void) | null = null
   private unsubscribeLanguageChange: (() => void) | null = null
@@ -544,7 +536,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   }
 
   // Strip metadata unused by the webview to keep session switches fast.
-  // Logic in kilo-provider/slim-metadata.ts.
+  // Logic in host/slim-metadata.ts.
   private slimInfo<T>(info: T): T {
     if (!this.slimEditMetadata) return info
     return slimInfo(info)
@@ -964,7 +956,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
 
       if (
         await routeEarlyMessage(message, {
-          question: this.questionCtx,
           client: this.client,
           post: (msg) => this.postMessage(msg),
           browserSettings: () => this.sendBrowserSettings(),
@@ -1017,7 +1008,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.handleStreamVisibilityMessage(message)
       if (this.handleChildSyncMessage(message)) return
       if (await this.handleProfileDataMessage(message)) return
-      if (this.handleMigrationMessage(message)) return
       if (this.handleNotificationSettingsMessage(message)) return
       switch (message.type) {
         case "webviewReady":
@@ -1531,28 +1521,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       case "testOSNotification":
         void this.handleTestOSNotification()
         break
-      default:
-        return false
-    }
-    return true
-  }
-
-  private handleMigrationMessage(message: { type: string }): boolean {
-    switch (message.type) {
-      case "requestMigrationData": {
-        const msg = message as unknown as { source: MigrationSource; operationId: string }
-        void handleRequestMigrationData(this.migrationCtx, msg.source, msg.operationId)
-        break
-      }
-      case "startMigration": {
-        const msg = message as unknown as {
-          source: MigrationSource
-          operationId: string
-          selections: MigrationSelections
-        }
-        void handleStartMigration(this.migrationCtx, msg.source, msg.operationId, msg.selections)
-        break
-      }
       default:
         return false
     }
@@ -2648,7 +2616,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     await fetchNotifications(this.notificationsContext())
   }
 
-  // Cloud session methods extracted to kilo-provider/handlers/cloud-session.ts
+  // Cloud session methods extracted to host/handlers/cloud-session.ts
 
   private async handleDismissNotification(notificationId: string): Promise<void> {
     await dismissNotification(this.notificationsContext(), notificationId)
@@ -3297,7 +3265,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  // Permission + question handlers extracted to kilo-provider/handlers/permission.ts and question.ts
+  // Permission + question handlers extracted to host/handlers/permission.ts and question.ts
 
   private get permissionCtx(): PermissionContext {
     return {
@@ -3338,7 +3306,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  // Cloud session handlers extracted to kilo-provider/handlers/cloud-session.ts
+  // Cloud session handlers extracted to host/handlers/cloud-session.ts
 
   private get cloudSessionCtx(): CloudSessionContext {
     const self = this
@@ -3362,7 +3330,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  // Auth handlers extracted to kilo-provider/handlers/auth.ts
+  // Auth handlers extracted to host/handlers/auth.ts
 
   private get authCtx(): AuthContext {
     return {
@@ -4315,16 +4283,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       topBar: this.opts.hideTopBar !== true && isCursorHost(),
       agentManagerSettings: this.opts.agentManagerSettings !== undefined,
     })
-  }
-
-  private get migrationCtx(): MigrationContext {
-    return {
-      client: this.client,
-      extensionContext: this.extensionContext,
-      postMessage: (msg) => this.postMessage(msg),
-      migrationCache: this.migrationCache,
-      refreshSessions: () => this.refreshSessions(),
-    }
   }
 
   // ── Worktree stats polling (sidebar diff badge) ──────────────────

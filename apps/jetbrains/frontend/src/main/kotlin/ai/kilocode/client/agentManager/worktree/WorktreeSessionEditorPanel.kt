@@ -248,7 +248,7 @@ class WorktreeSessionEditorPanel @RequiresEdt constructor(
     /**
      * Offered for any real session, including one mid-turn -- matching the Agent Manager surfaces this
      * mirrors, which gate fork only on the tab already existing (VS Code's idle check lives in its
-     * sidebar path alone, see apps/vscode/src/kilo-provider/fork-session.ts).
+     * sidebar path alone, see apps/vscode/src/host/fork-session.ts).
      *
      * A mid-turn fork is a snapshot, not a handover: the CLI detaches only in-flight subagent (`task`)
      * calls, so any other tool part that was pending or running is copied with that status and stays

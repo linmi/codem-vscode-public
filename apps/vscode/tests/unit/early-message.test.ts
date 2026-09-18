@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { routeEarlyMessage } from "../../src/kilo-provider/early-message"
+import { routeEarlyMessage } from "../../src/host/early-message"
 
 type Ctx = Parameters<typeof routeEarlyMessage>[1]
 

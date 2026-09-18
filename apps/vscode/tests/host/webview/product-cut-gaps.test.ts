@@ -43,6 +43,8 @@ const PRODUCT_CUT = [
   "toggleSandbox",
   "unrevertSession",
   "updateConfig",
+  "requestMigrationData",
+  "startMigration",
 ] as const
 
 describe("product-cut Core v1 protocol gaps", () => {

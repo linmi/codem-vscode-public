@@ -5,7 +5,7 @@ import {
   buildTimelineSettingMessage,
   validChatSetting,
   watchChatConfig,
-} from "../../src/kilo-provider/chat-settings"
+} from "../../src/host/chat-settings"
 
 type Stub = {
   getConfiguration: (section?: string) => {

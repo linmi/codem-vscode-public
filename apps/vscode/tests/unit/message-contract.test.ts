@@ -18,7 +18,7 @@ const MESSAGES_DIR = path.join(ROOT, "webview-ui/src/types/messages")
 const EXTENSION_MESSAGES_FILE = path.join(MESSAGES_DIR, "extension-messages.ts")
 const WEBVIEW_MESSAGES_FILE = path.join(MESSAGES_DIR, "webview-messages.ts")
 const KILO_PROVIDER_FILE = path.join(ROOT, "src/CodeMProvider.ts")
-const KILO_PROVIDER_UTILS_FILE = path.join(ROOT, "src/kilo-provider-utils.ts")
+const KILO_PROVIDER_UTILS_FILE = path.join(ROOT, "src/host/utils.ts")
 // Some wire types (partUpdated, partsUpdated) live in a file shared by the
 // extension and webview; the contract checks must include it.
 const SHARED_STREAM_MESSAGES_FILE = path.join(ROOT, "src/shared/stream-messages.ts")

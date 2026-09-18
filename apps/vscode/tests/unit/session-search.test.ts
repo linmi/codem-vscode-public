@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { handleSessionSearch } from "../../src/kilo-provider/session-search"
+import { handleSessionSearch } from "../../src/host/session-search"
 
 type Query = Record<string, unknown>
 

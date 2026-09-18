@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { mergeFileSearchResults } from "../../src/kilo-provider/file-search-results"
+import { mergeFileSearchResults } from "../../src/host/file-search-results"
 
 describe("mergeFileSearchResults", () => {
   it("returns backend results when no open files", () => {

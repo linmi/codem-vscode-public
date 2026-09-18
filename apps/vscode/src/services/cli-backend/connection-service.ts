@@ -6,7 +6,7 @@ import type { ServerConfig } from "./types"
 import { createDuplicateEventFilter, resolveEventSessionId as resolveEventSessionIdPure } from "./connection-utils"
 import { SandboxPreference } from "../sandbox-preference"
 import { ExplicitAbortState } from "./explicit-abort"
-import type { PermissionResponseResult } from "../../kilo-provider/handlers/permission-handler"
+import type { PermissionResponseResult } from "../../host/handlers/permission-handler"
 import { kiloTransportRetiredError } from "../../shared/kilo-transport-retired"
 
 export type ConnectionState = "connecting" | "connected" | "disconnected" | "error"

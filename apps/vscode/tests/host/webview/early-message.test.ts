@@ -8,10 +8,11 @@ const vscodeRoot = join(dirname(fileURLToPath(import.meta.url)), "../../..")
 
 describe("routeEarlyMessage product-cut commands", () => {
   it("does not resume, promote, or accept leftover suggestions", () => {
-    const source = readFileSync(join(vscodeRoot, "src/kilo-provider/early-message.ts"), "utf8")
+    const source = readFileSync(join(vscodeRoot, "src/host/early-message.ts"), "utf8")
     assert.equal(source.includes('"resumeSession"'), false)
     assert.equal(source.includes('"promoteBackgroundJob"'), false)
     assert.equal(source.includes("routeSuggestionWebviewMessage"), false)
+    assert.equal(source.includes("handlers/suggestion"), false)
     assert.equal(source.includes("promoteBackgroundJob"), false)
     assert.equal(source.includes("resume:"), false)
   })

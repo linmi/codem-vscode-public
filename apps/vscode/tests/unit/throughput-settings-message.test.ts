@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import * as vscode from "vscode"
-import { buildThroughputSettingMessage } from "../../src/kilo-provider/throughput-settings"
+import { buildThroughputSettingMessage } from "../../src/host/throughput-settings"
 
 type Stub = {
   getConfiguration: (section?: string) => {

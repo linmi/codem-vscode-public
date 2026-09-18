@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { dismissNotification, fetchAndSendNotifications } from "../../src/kilo-provider/notifications"
+import { dismissNotification, fetchAndSendNotifications } from "../../src/host/notifications"
 
 const KEY = "kilo.dismissedNotificationIds"
 

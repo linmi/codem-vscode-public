@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { loadSessions, flushPendingSessionRefresh, type SessionRefreshContext } from "../../src/kilo-provider-utils"
+import { loadSessions, flushPendingSessionRefresh, type SessionRefreshContext } from "../../src/host/utils"
 
 // vscode mock is provided by the shared preload (tests/setup/vscode-mock.ts)
 const { CodeMProvider } = await import("../../src/CodeMProvider")

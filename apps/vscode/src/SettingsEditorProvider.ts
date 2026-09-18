@@ -3,7 +3,7 @@ import { CodeMProvider } from "./CodeMProvider"
 import { resolvePanelProjectDirectory } from "./project-directory"
 import type { KiloConnectionService } from "./services/cli-backend"
 import type { RemoteStatusService } from "./services/RemoteStatusService"
-import type { AgentManagerSettingsHandler } from "./kilo-provider/options"
+import type { AgentManagerSettingsHandler } from "./host/options"
 import type { CodeMAuthenticationService } from "./services/app-server/authentication"
 import type { CodeMAppServerService } from "./services/app-server/service"
 

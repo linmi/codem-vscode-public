@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { slimInfo, slimPart } from "../../src/kilo-provider/slim-metadata"
+import { slimInfo, slimPart } from "../../src/host/slim-metadata"
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -233,23 +233,9 @@ export class VscodeHost implements Host {
     }
   }
 
-  /**
-   * List root sessions for one project directory via the shared CLI backend.
-   * Used by per-project session discovery so multi-project Agent Manager lists
-   * real Local/history sessions by their exact directory instead of only the
-   * persisted managed records. Returns [] when the backend is not connected or
-   * the listing fails, so one directory's failure cannot erase another's
-   * results.
-   */
-  private async listProjectSessions(dir: string): Promise<Session[]> {
-    try {
-      const client = await this.connectionService.getClientAsync(dir)
-      const res = await client.session.list({ directory: dir, roots: true }, { throwOnError: true })
-      return res.data
-    } catch (err) {
-      console.warn(`[CodeM] Agent Manager: failed to list project sessions for ${dir}:`, err)
-      return []
-    }
+  /** Leftover kilo session listing is retired; App Server history is not this panel. */
+  private async listProjectSessions(_dir: string): Promise<Session[]> {
+    return []
   }
 
   workspacePath(): string | undefined {

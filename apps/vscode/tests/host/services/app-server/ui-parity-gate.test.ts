@@ -48,6 +48,8 @@ const PRODUCT_CUT_COMMANDS = [
   "toggleSandbox",
   "unrevertSession",
   "updateConfig",
+  "requestMigrationData",
+  "startMigration",
 ] as const
 
 describe("mature UI production parity gate", () => {
@@ -69,10 +71,10 @@ describe("mature UI production parity gate", () => {
     }
   })
 
-  it("accounts for the complete 241-command mature Webview surface", () => {
+  it("accounts for the complete 239-command mature Webview surface", () => {
     const report = matureUiParityReport()
-    assert.equal(report.totalCommands, 241)
-    assert.equal(report.preservedHostCommands, 199)
+    assert.equal(report.totalCommands, 239)
+    assert.equal(report.preservedHostCommands, 197)
     assert.equal(report.appServerCommands, 42)
     assert.equal(report.controllerReady.length, 42)
     assert.equal(report.controllerPending.length, 0)

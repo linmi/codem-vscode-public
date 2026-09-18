@@ -4,14 +4,13 @@
  * The agent manager runs in the same webview context as other UI.
  * All its CSS classes must be prefixed with "am-" to avoid conflicts.
  * These tests also verify consistency between CSS definitions and TSX usage,
- * and that the provider sends correct message types for each action.
+ * and that leftover Host worktree/Kilo orchestration stays deleted.
  */
 
 import { describe, it, expect } from "bun:test"
 import fs from "node:fs"
 import path from "node:path"
 import { Project, SyntaxKind } from "ts-morph"
-import { WorktreeImporter } from "../../src/agent-manager/worktree-importer"
 
 const ROOT = path.resolve(import.meta.dir, "../..")
 const KILO_PROVIDER_FILE = path.join(ROOT, "src/CodeMProvider.ts")
@@ -87,15 +86,6 @@ const SHARED_CSS = path.join(ROOT, "webview-ui/src/styles/session-tabs.css")
 const TSX_FILE = TSX_FILES[0]!
 const KEYBIND_DEFAULTS_FILE = path.join(ROOT, "webview-ui/agent-manager/keybind-defaults.ts")
 const PROVIDER_FILE = path.join(ROOT, "src/agent-manager/AgentManagerProvider.ts")
-const DIFF_CONTROLLER_FILE = path.join(ROOT, "src/agent-manager/worktree-diff-controller.ts")
-const IMPORTER_FILE = path.join(ROOT, "src/agent-manager/worktree-importer.ts")
-const SETUP_SCRIPT_RUNNER_FILE = path.join(ROOT, "src/agent-manager/SetupScriptRunner.ts")
-const RUN_MESSAGE_FILE = path.join(ROOT, "src/agent-manager/run/message.ts")
-const TERMINAL_ROUTING_FILE = path.join(ROOT, "src/agent-manager/terminal-routing.ts")
-const SCRIPT_TERMINAL_FILE = path.join(ROOT, "src/agent-manager/ScriptTerminalManager.ts")
-const SCRIPT_TERMINAL_RUNTIME_FILE = path.join(ROOT, "src/agent-manager/script-terminal-runtime.ts")
-const RUN_TASK_FILE = path.join(ROOT, "src/agent-manager/run/task.ts")
-const RUN_DESTINATION_FILE = path.join(ROOT, "src/agent-manager/run/destination.ts")
 
 function readAllCss(): string {
   return CSS_FILES.map((f) => fs.readFileSync(f, "utf-8")).join("\n")
@@ -222,157 +212,16 @@ describe("Agent Manager edit preview", () => {
 })
 
 describe("Agent Manager Provider Messages", () => {
-  function getMethodBody(name: string): string {
-    const project = new Project({ compilerOptions: { allowJs: true } })
-    const source = project.addSourceFileAtPath(PROVIDER_FILE)
-    const cls = source.getFirstDescendantByKind(SyntaxKind.ClassDeclaration)
-    const method = cls?.getMethod(name)
-    expect(method, `method ${name} not found in AgentManagerProvider`).toBeTruthy()
-    const text = method!.getText()
-    // Follow one-line delegations into the extracted lifecycle module so the
-    // assertions keep covering the real handler logic.
-    const delegated = text.match(/return (\w+Lifecycle\w+)\(/)
-    if (!delegated) return text
-    const lifecycle = project.addSourceFileAtPath(path.join(ROOT, "src/agent-manager/provider-lifecycle.ts"))
-    const fn = lifecycle.getFunction(delegated[1]!)
-    expect(fn, `delegated function ${delegated[1]} not found in provider-lifecycle`).toBeTruthy()
-    return fn!.getText()
-  }
+  const source = fs.readFileSync(PROVIDER_FILE, "utf-8")
 
-  /**
-   * Regression: onAddSessionToWorktree must NOT send agentManager.worktreeSetup
-   * because that triggers a full-screen overlay with a spinner. Adding a session
-   * to an existing worktree should use agentManager.sessionAdded instead.
-   */
-  it("onAddSessionToWorktree should not send worktreeSetup messages", () => {
-    const body = getMethodBody("onAddSessionToWorktree")
-    expect(body).not.toContain("agentManager.worktreeSetup")
-  })
-
-  it("onAddSessionToWorktree should send sessionAdded message", () => {
-    const body = getMethodBody("onAddSessionToWorktree")
-    expect(body).toContain("agentManager.sessionAdded")
-  })
-
-  it("warms MCP before creating every new worktree session", () => {
-    const body = getMethodBody("createSessionInWorktree")
-    const warmup = body.indexOf("startSession(")
-    const create = body.indexOf("client.session.create(")
-
-    expect(warmup).toBeGreaterThanOrEqual(0)
-    expect(create).toBeGreaterThanOrEqual(0)
-    expect(warmup).toBeLessThan(create)
-  })
-
-  /**
-   * Regression: WorktreeDiffController calls getRoot() eagerly during
-   * construction, so the project contexts must exist before it is created.
-   * Constructing them later crashed extension activation at runtime.
-   */
-  it("creates project wiring before services that eagerly read the root", () => {
-    const text = fs.readFileSync(PROVIDER_FILE, "utf-8")
-    const wiring = text.indexOf("createProjectWiring(")
-    const diffs = text.indexOf("new WorktreeDiffController(")
-
-    expect(wiring).toBeGreaterThanOrEqual(0)
-    expect(diffs).toBeGreaterThanOrEqual(0)
-    expect(wiring).toBeLessThan(diffs)
-  })
-
-  /**
-   * Regression: project-management messages must be consumed before the
-   * state gate, because selectProject triggers the state initialization
-   * that later messages wait for.
-   */
-  it("handles project messages before state-gated dispatch", () => {
-    const body = getMethodBody("onMessage") + getMethodBody("dispatchMessage")
-    const projects = body.indexOf("handleProjectMessage(m, this.projects)")
-    const gate = body.indexOf("if (this.shouldWaitForState(m))")
-
-    expect(projects).toBeGreaterThanOrEqual(0)
-    expect(gate).toBeGreaterThanOrEqual(0)
-    expect(projects).toBeLessThan(gate)
-  })
-
-  it("state-mutating messages wait for state initialization", () => {
-    const body = fs.readFileSync(path.join(ROOT, "src/agent-manager/project/state-gate.ts"), "utf-8")
-    const messages = [
-      "agentManager.setTabOrder",
-      "agentManager.setWorktreeOrder",
-      "agentManager.persistSession",
-      "agentManager.forgetSession",
-      "agentManager.importFromBranch",
-      "agentManager.importFromPR",
-      "agentManager.createSection",
-      "agentManager.moveToSection",
-    ]
-
-    for (const message of messages) {
-      expect(body, `${message} should wait for loaded state`).toContain(message)
-    }
-
-    expect(getMethodBody("dispatchMessage")).toContain("if (this.shouldWaitForState(m))")
-  })
-
-  it("context state init updates local git exclude before loading persisted state", () => {
-    const text = fs.readFileSync(path.join(ROOT, "src/agent-manager/project/init.ts"), "utf-8")
-    const exclude = text.indexOf("ensureGitExclude(")
-    const load = text.indexOf("state.load()")
-
-    expect(exclude).toBeGreaterThanOrEqual(0)
-    expect(load).toBeGreaterThanOrEqual(0)
-    expect(exclude).toBeLessThan(load)
-  })
-
-  it("async shutdown waits for terminal router cleanup", () => {
-    const body = getMethodBody("disposeAsync")
-    expect(body).toContain("await this.terminalRouter.dispose()")
-    expect(body).not.toContain("void this.terminalRouter.dispose()")
-  })
-
-  it("stops both Local and worktree agents when their session tabs close", () => {
-    const text = fs.readFileSync(TSX_FILE, "utf-8")
-    const start = text.indexOf("const handleCloseTab =")
-    const end = text.indexOf("const handleTabMouseDown =", start)
-    const body = text.slice(start, end)
-    expect(start).toBeGreaterThanOrEqual(0)
-    expect(end).toBeGreaterThan(start)
-    expect(body).toContain("closedDrafts.add(sessionId)")
-    expect(body).toContain('vscode.postMessage({ type: "agentManager.closeSession", sessionId })')
-    expect(body).not.toContain('type: "agentManager.forgetSession"')
-    expect(getMethodBody("onCloseSession")).toContain("await host.sessions.abort([sessionId])")
-    expect(text).toContain("if (created.draftID && closedDrafts.delete(created.draftID)) return")
-  })
-
-  it("stops open sessions and clears remote registrations when the panel closes", () => {
-    const body = getMethodBody("attachPanel")
-    const abort = body.indexOf("ctx.sessions.abortSessions(ids)")
-    const dispose = body.indexOf("ctx.sessions.dispose()")
-    expect(abort).toBeGreaterThanOrEqual(0)
-    expect(dispose).toBeGreaterThan(abort)
-    expect(body).toContain("const ids = [...this.panelSessions]")
-    expect(body).toContain("if (this.activeSessionId) ids.push(this.activeSessionId)")
-    // Presence must be cleared via visiblePresence.clear() — a direct
-    // registerVisible("agent-manager", []) would leave a stale displayed id
-    // that re-registers on the next flush after the panel reopens.
-    expect(body).toContain("this.visiblePresence.clear()")
-    expect(body).not.toContain('this.connectionService.registerVisible("agent-manager"')
-    expect(body).not.toContain('this.connectionService.registerAttached("agent-manager"')
-    expect(body).toContain("this.activeSessionId = undefined")
-    const messages = getMethodBody("onSessionMessage")
-    expect(messages).toContain("if (m.draftID) this.panelSessions.add(m.draftID)")
-    expect(messages).toContain("this.panel?.sessions.acknowledgeDraft(m.draftID, m.sessionId)")
-    expect(messages).toContain("for (const id of m.sessionIDs) this.panelSessions.add(id)")
-  })
-
-  it("does not treat extension shutdown as a user panel close", () => {
-    const body = getMethodBody("disposeAsync")
-    expect(body.indexOf("this.panel = undefined")).toBeLessThan(body.indexOf("panel?.dispose()"))
-  })
-
-  it("reports all open Agent Manager sessions for remote control", () => {
-    const body = fs.readFileSync(TSX_FILE, "utf-8")
-    expect(body).toContain("reportRemoteSessions(vscode, localSessionIDs, managedSessions, isPending)")
+  it("fail-closes leftover worktree and Kilo session orchestration", () => {
+    expect(source).toContain("尚未迁移到 CodeM App Server")
+    expect(source).toContain("agentManager.requestState")
+    expect(source).toContain("agentManager.requestProjects")
+    expect(source).not.toContain("createProjectWiring(")
+    expect(source).not.toContain("new WorktreeDiffController(")
+    expect(source).not.toContain("WorktreeImporter")
+    expect(source).not.toContain("connectionService.getClient()")
   })
 })
 
@@ -509,372 +358,6 @@ describe("Agent Manager Worktree Actions", () => {
 // a VS Code test host.
 // ---------------------------------------------------------------------------
 
-describe("Agent Manager Provider — onMessage routing", () => {
-  let source: import("ts-morph").SourceFile
-  let cls: import("ts-morph").ClassDeclaration
-
-  function setup() {
-    if (source) return
-    const project = new Project({ compilerOptions: { allowJs: true } })
-    source = project.addSourceFileAtPath(PROVIDER_FILE)
-    cls = source.getFirstDescendantByKind(SyntaxKind.ClassDeclaration)!
-  }
-
-  function body(name: string): string {
-    setup()
-    const method = cls.getMethod(name)
-    expect(method, `method ${name} not found`).toBeTruthy()
-    const text = method!.getText()
-    // Follow one-line delegations into the extracted handler modules so the
-    // assertions keep covering the real handler logic.
-    const delegated = text.match(/return (\w+Lifecycle\w+|createMultiVersion)\(/)
-    if (!delegated) return text
-    const module = delegated[1] === "createMultiVersion" ? "provider-multi-version.ts" : "provider-lifecycle.ts"
-    const lifecycle = source.getProject().addSourceFileAtPath(path.join(ROOT, "src/agent-manager", module))
-    const fn = lifecycle.getFunction(delegated[1]!)
-    expect(fn, `delegated function ${delegated[1]} not found in ${module}`).toBeTruthy()
-    // The multi-version flow spans prepare, provision, and initial-prompt helpers,
-    // so ordering assertions need the whole module, not just the orchestrator.
-    if (delegated[1] === "createMultiVersion") return lifecycle.getText()
-    return fn!.getText()
-  }
-
-  function provider(): string {
-    return fs.readFileSync(PROVIDER_FILE, "utf-8")
-  }
-
-  function diff(): string {
-    return fs.readFileSync(DIFF_CONTROLLER_FILE, "utf-8")
-  }
-
-  function importer(): string {
-    return fs.readFileSync(IMPORTER_FILE, "utf-8")
-  }
-
-  // -- onMessage dispatches all expected message types -----------------------
-
-  it("provider routing handles all documented agentManager.* message types", () => {
-    const text =
-      provider() + fs.readFileSync(RUN_MESSAGE_FILE, "utf-8") + fs.readFileSync(TERMINAL_ROUTING_FILE, "utf-8")
-    const expected = [
-      "agentManager.createWorktree",
-      "agentManager.deleteWorktree",
-      "agentManager.promoteSession",
-      "agentManager.addSessionToWorktree",
-      "agentManager.forkSession",
-      "agentManager.closeSession",
-      "agentManager.persistSession",
-      "agentManager.forgetSession",
-      "agentManager.configureSetupScript",
-      "agentManager.configureRunScript",
-      "agentManager.runScript",
-      "agentManager.stopRunScript",
-      "agentManager.showTerminal",
-      "agentManager.showLocalTerminal",
-      "agentManager.showWorktreeTerminal",
-      "agentManager.showExistingLocalTerminal",
-      "agentManager.requestRepoInfo",
-      "agentManager.requestState",
-      "agentManager.setTabOrder",
-      "agentManager.setDefaultBaseBranch",
-      "agentManager.terminal.create",
-      "agentManager.terminal.close",
-      "agentManager.terminal.resize",
-    ]
-    for (const msg of expected) {
-      expect(text, `provider routing should handle "${msg}"`).toContain(msg)
-    }
-  })
-
-  it("session routing handles loadMessages for terminal switching", () => {
-    const text = body("onSessionMessage")
-    expect(text).toContain("loadMessages")
-    expect(text).toContain("syncOnSessionSwitch")
-  })
-
-  it("does not activate inspector-only transcript loads", () => {
-    const text = body("onSessionMessage")
-    expect(text).toContain("m.focus === false")
-    expect(text.indexOf("m.focus === false")).toBeLessThan(text.indexOf("this.activeSessionId = m.sessionID"))
-  })
-
-  it("terminal context reveals the terminal associated with the originating session", () => {
-    const text = body("onSessionMessage")
-    const show = text.indexOf("this.terminalManager.prepareContext(m.sessionID, m.agentManagerContext)")
-    expect(show).toBeGreaterThan(-1)
-    expect(text).toContain('type: "terminalContextError"')
-  })
-
-  it("session routing handles clearSession for SSE re-registration", () => {
-    const text = body("onSessionMessage")
-    expect(text).toContain("clearSession")
-    expect(text).toContain("trackSession")
-  })
-
-  it("onMessage delegates to cohesive routing groups", () => {
-    const text = body("onMessage") + body("dispatchMessage")
-    expect(text).toContain("onWorktreeMessage")
-    expect(text).toContain("onSessionMessage")
-    expect(text).toContain("onImportMessage")
-    expect(text).toContain("onDiffMessage")
-    expect(text).not.toContain("agentManager.requestState")
-  })
-
-  it("routes script terminal close and resize messages before user terminals", () => {
-    const text = body("dispatchMessage")
-    expect(text.indexOf("this.scripts.manager.intercept(m)")).toBeLessThan(
-      text.indexOf("this.terminalRouter.handle(m)"),
-    )
-  })
-
-  it("runs scripts through the vscode-free canonical PTY manager", () => {
-    const text = fs.readFileSync(SCRIPT_TERMINAL_FILE, "utf-8")
-    expect(text).toMatch(/client\.v2\.pty\s*\.create/)
-    expect(text).toContain("client.v2.pty.get")
-    expect(text).toContain("client.v2.pty.update")
-    expect(text).toContain("client.v2.pty.remove")
-    expect(text).not.toContain("vscode")
-  })
-
-  it("selects the Run adapter from the panel dropdown message", () => {
-    const text = fs.readFileSync(SCRIPT_TERMINAL_RUNTIME_FILE, "utf-8")
-    expect(text).toContain("pickRunStart")
-    expect(text).toContain("config.destination")
-    expect(text).not.toContain("readRunTerminalDestination")
-    expect(text.indexOf("pickRunStart")).toBeLessThan(text.indexOf("config.destination"))
-  })
-
-  it("keeps the legacy integrated Run adapter isolated and removable", () => {
-    const task = fs.readFileSync(RUN_TASK_FILE, "utf-8")
-    expect(task).toContain("vscode.tasks.executeTask")
-    expect(task).toContain("execution.terminate()")
-    expect(task).toContain("Promise.withResolvers<void>()")
-    expect(task).toContain("await ended.promise")
-    expect(task).toContain("STOP_TIMEOUT_MS")
-    expect(task).toContain("ended.resolve()")
-    expect(task.indexOf("vscode.tasks.onDidEndTaskProcess")).toBeLessThan(task.indexOf("vscode.tasks.taskExecutions"))
-    expect(task).toContain("Remove this")
-    const dest = fs.readFileSync(RUN_DESTINATION_FILE, "utf-8")
-    expect(dest).not.toContain('from "vscode"')
-    expect(dest).toContain("pickRunStart")
-    expect(dest).not.toContain("getConfiguration")
-  })
-
-  it("clears retained script terminals before removing worktree state", () => {
-    for (const name of ["onDeleteWorktree", "onRemoveStaleWorktree"]) {
-      const text = body(name)
-      expect(text).toContain("host.clearRun(worktreeId)")
-      expect(text.indexOf("host.clearRun(worktreeId)")).toBeLessThan(text.indexOf("state.removeWorktree"))
-    }
-    const deleted = body("onDeleteWorktree")
-    expect(deleted.indexOf("host.skipStats")).toBeLessThan(deleted.indexOf("host.removeRun"))
-    const helper = fs.readFileSync(path.join(ROOT, "src/agent-manager/script-terminal-runtime.ts"), "utf-8")
-    expect(helper).toContain('manager.clear("run", worktreeId, projectId)')
-    expect(helper).toContain('manager.clear("setup", worktreeId, projectId)')
-  })
-
-  // -- onDeleteWorktree invariants -------------------------------------------
-
-  /**
-   * Regression: deletion must clean up both disk (manager) and state, then
-   * push to webview. Missing any step leaves ghost worktrees or stale UI.
-   */
-  it("does not restore running indicators after a session is deleted", () => {
-    const lifecycle = body("onSessionLifecycle")
-    const status = body("onSessionStatus")
-    const helper = fs.readFileSync(path.join(ROOT, "src/agent-manager/session-lifecycle.ts"), "utf-8")
-
-    expect(lifecycle).toContain("removed: this.removedSessions")
-    expect(lifecycle).toContain("busy: this.busySessions")
-    expect(helper).toContain("deps.removed.add(id)")
-    expect(helper).toContain("deps.busy.delete(id)")
-    expect(helper).toContain("if (deps.removed.has(info.id)) return")
-    expect(status).toContain("this.removedSessions.has(sid)")
-  })
-
-  it("limits snapshot cleanup to explicit worktree deletion without deleting sessions", () => {
-    const text = body("onDeleteWorktree")
-    expect(text).toContain(".codem.removeSnapshot")
-    expect(text).not.toContain("session.delete")
-    for (const name of ["onCreateWorktree", "onCreateMultiVersion", "onRemoveStaleWorktree"]) {
-      expect(body(name)).not.toContain("removeSnapshot")
-    }
-  })
-
-  // -- onCreateWorktree invariants -------------------------------------------
-
-  /**
-   * Regression: the setup script MUST run before session creation.
-   * If reversed, the agent starts in an unconfigured worktree (missing .env,
-   * deps, etc.) which causes hard-to-debug failures.
-   */
-  it("onCreateWorktree runs setup script before creating session", () => {
-    const text = body("onCreateWorktree")
-    const setupIdx = text.indexOf("host.runSetup(")
-    const sessionIdx = text.indexOf("host.createSession(")
-    expect(setupIdx, "setup script call must exist").toBeGreaterThan(-1)
-    expect(sessionIdx, "session creation call must exist").toBeGreaterThan(-1)
-    expect(setupIdx, "setup script must run before session creation").toBeLessThan(sessionIdx)
-  })
-
-  /**
-   * Regression: if session creation fails after the worktree was already
-   * created on disk, the worktree must be cleaned up to avoid orphaned dirs.
-   */
-  it("onCreateWorktree cleans up worktree on session creation failure", () => {
-    const text = body("onCreateWorktree")
-    expect(text).toContain("removeWorktree")
-  })
-
-  it("multi-version creation registers each session after publishing its worktree mapping", () => {
-    const text = body("onCreateMultiVersion")
-    const ready = text.indexOf("host.notifyReady(session.id, wt.result, wt.worktree.id)")
-    const register = text.indexOf("host.sessions.register(session)")
-    const initial = text.indexOf("agentManager.sendInitialMessage")
-
-    expect(ready, "multi-version path must publish ready state").toBeGreaterThan(-1)
-    expect(register, "multi-version path must register the created session").toBeGreaterThan(-1)
-    expect(register, "sessionCreated must follow the worktree mapping").toBeGreaterThan(ready)
-    expect(initial, "initial prompt phase must exist").toBeGreaterThan(-1)
-    expect(register, "session must be registered before the initial prompt").toBeLessThan(initial)
-  })
-
-  // -- onPromoteSession invariants -------------------------------------------
-
-  /**
-   * Regression: same setup-before-move ordering as onCreateWorktree.
-   */
-  it("onPromoteSession runs setup script before modifying session", () => {
-    const text = body("onPromoteSession")
-    const setupIdx = text.indexOf("host.runSetup(")
-    const moveIdx = text.indexOf("moveSession")
-    expect(setupIdx).toBeGreaterThan(-1)
-    expect(moveIdx).toBeGreaterThan(-1)
-    expect(setupIdx, "setup must run before move").toBeLessThan(moveIdx)
-  })
-
-  /**
-   * Regression: promote must handle the case where the session doesn't
-   * exist in state yet (e.g. a workspace session that was never tracked).
-   * It must branch between addSession (new) and moveSession (existing).
-   */
-  it("onPromoteSession handles both new and existing sessions", () => {
-    const text = body("onPromoteSession")
-    expect(text).toContain("getSession")
-    expect(text).toContain("addSession")
-    expect(text).toContain("moveSession")
-  })
-
-  // -- notifyWorktreeReady invariants ----------------------------------------
-
-  /**
-   * Regression: pushState must come before the ready/meta messages.
-   * If reversed, the webview receives the "ready" signal but can't find
-   * the worktree/session in state, causing a blank panel.
-   */
-  it("notifyWorktreeReady pushes state before sending ready message", () => {
-    const text = body("notifyWorktreeReady")
-    const pushIdx = text.indexOf("this.pushState()")
-    const readyIdx = text.indexOf("agentManager.worktreeSetup")
-    expect(pushIdx, "pushState must come before worktreeSetup").toBeLessThan(readyIdx)
-  })
-
-  // -- agentManager.requestState in non-git workspace -------------------------
-
-  /**
-   * Regression: when the workspace is not a git repo, this.state is undefined.
-   * pushState() silently returns in that case, so requestState must explicitly
-   * call pushEmptyState() instead — otherwise the webview stays stuck on
-   * loading skeletons forever.
-   */
-  it("requestState handler calls pushEmptyState when this.state is falsy", () => {
-    const text = body("onRequestState")
-    expect(text, "must call pushEmptyState when state is absent").toContain("pushEmptyState")
-    expect(text, "must guard on this.state being falsy").toMatch(/!this\.state/)
-  })
-
-  it("requestState handler calls pushState when this.state is truthy", () => {
-    const text = body("onRequestState")
-    expect(text, "must call pushState for the normal path").toContain("this.pushState()")
-  })
-
-  it("worktree diff behavior lives in the cohesive diff controller", () => {
-    const text = diff()
-    const providerText = body("onDiffMessage")
-    expect(text).toContain("class WorktreeDiffController")
-    expect(text).toContain("buildWorktreePatch")
-    expect(text).toContain("revertFile")
-    // Summary/detail diff data comes from the shared DiffSourceCatalog sources
-    // (workspace/staged/unstaged/session), not a bespoke in-controller pipeline.
-    expect(text).toContain("catalog.build")
-    expect(text).toContain("shouldStopDiffPolling")
-    expect(providerText).toContain("this.diffs")
-  })
-
-  it("worktree import behavior lives in the cohesive importer", () => {
-    const text = importer()
-    for (const value of ["createFromPR", "createWorktree", "this.busy(projectId)"]) expect(text).toContain(value)
-    expect(body("onImportMessage")).toContain("this.importer")
-  })
-
-  it("preserves branch and PR import ordering and rollback", async () => {
-    const run = async (kind: "branch" | "pr", fail?: "setup" | "duplicate") => {
-      const events: string[] = []
-      const create = async () => {
-        events.push("create")
-        if (fail === "duplicate") throw new Error("already checked out")
-        return { branch: "topic", path: "/repo/topic", parentBranch: "main" }
-      }
-      const importer = new WorktreeImporter({
-        manager: () =>
-          ({ createWorktree: create, createFromPR: create, removeWorktree: async () => events.push("disk") }) as never,
-        state: () =>
-          ({
-            addWorktree: (input: { branchOwned: boolean }) => ({
-              id: events.push(`add:${input.branchOwned}`) ? "worktree" : "",
-            }),
-            addSession: () => events.push("state-session"),
-            removeWorktree: () => events.push("state-remove"),
-          }) as never,
-        post: (msg) => events.push("message" in msg ? String(msg.message) : msg.type),
-        push: () => events.push("push"),
-        setup: async () => {
-          events.push("setup")
-          if (fail === "setup") throw new Error("setup failed")
-        },
-        session: async () => (events.push("session"), { id: "session" }) as never,
-        register: () => events.push("register"),
-        ready: () => events.push("ready"),
-        log: () => events.push("log"),
-      })
-      const action = () => (kind === "branch" ? importer.branch("topic") : importer.pr("https://example.test/pull/1"))
-      await action()
-      if (fail === "setup") await action()
-      return events.join("|")
-    }
-    for (const kind of ["branch", "pr"] as const) {
-      const branch = kind === "branch"
-      const creating = branch ? "Creating worktree from branch..." : "Resolving PR..."
-      const setup = branch ? "Running setup script..." : "Setting up worktree..."
-      const success = branch ? "Opened branch topic" : "Opened PR branch topic"
-      expect(await run(kind)).toBe(
-        `${creating}|create|add:false|push|${setup}|setup|session|state-session|register|ready|${success}|log`,
-      )
-      expect(await run(kind, "setup")).toBe(
-        `${creating}|create|add:false|push|${setup}|setup|disk|state-remove|push|setup failed|setup failed|${creating}|create|add:false|push|${setup}|setup|disk|state-remove|push|setup failed|setup failed`,
-      )
-      const duplicate = branch
-        ? 'Branch "topic" is already checked out in another worktree'
-        : "This PR's branch is already checked out in another worktree"
-      expect(await run(kind, "duplicate")).toBe(`${creating}|create|${duplicate}|${duplicate}`)
-    }
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Webview — non-git skeleton fix
-// ---------------------------------------------------------------------------
-
 describe("Agent Manager Webview — non-git sessionsLoaded fix", () => {
   const tsx = readAllTsx()
 
@@ -902,7 +385,7 @@ describe("Agent Manager Webview — non-git sessionsLoaded fix", () => {
 
 describe("CodeMProvider — pending session refresh on reconnect", () => {
   const provider = fs.readFileSync(KILO_PROVIDER_FILE, "utf-8")
-  const utils = fs.readFileSync(path.join(ROOT, "src/kilo-provider-utils.ts"), "utf-8")
+  const utils = fs.readFileSync(path.join(ROOT, "src/host/utils.ts"), "utf-8")
 
   /**
    * Regression: when the Agent Manager opens its panel, initializeState()
@@ -912,13 +395,13 @@ describe("CodeMProvider — pending session refresh on reconnect", () => {
    * The worktree would show up in the sidebar but display "No sessions open".
    *
    * The fix uses a pendingSessionRefresh flag: loadSessions() (in
-   * kilo-provider-utils) sets it when httpClient is unavailable, and
+   * host/utils) sets it when httpClient is unavailable, and
    * both initializeConnection() and the "connected" state handler flush
    * the pending refresh.
    */
   it("loadSessions sets pendingSessionRefresh when client is null", () => {
     const start = utils.indexOf("export async function loadSessions")
-    expect(start, "loadSessions must exist in kilo-provider-utils").toBeGreaterThan(-1)
+    expect(start, "loadSessions must exist in host/utils").toBeGreaterThan(-1)
     const snippet = utils.slice(start, start + 700)
     expect(snippet, "must set pendingSessionRefresh when client missing").toContain("ctx.pendingSessionRefresh = true")
     expect(snippet, "must avoid noisy errors while still connecting").toContain('ctx.connectionState !== "connecting"')
@@ -963,117 +446,6 @@ describe("CodeMProvider — pending session refresh on reconnect", () => {
 })
 
 // ---------------------------------------------------------------------------
-describe("SetupScriptRunner — task execution model", () => {
-  const runner = fs.readFileSync(SETUP_SCRIPT_RUNNER_FILE, "utf-8")
-  const taskAdapter = fs.readFileSync(path.join(ROOT, "src/agent-manager/task-runner.ts"), "utf-8")
-
-  it("runner is vscode-free and delegates execution via RunTask callback", () => {
-    expect(runner).not.toContain("vscode")
-    expect(runner).toContain("RunTask")
-    expect(runner).toContain("buildSetupTaskCommand")
-  })
-
-  it("runner still provides WORKTREE_PATH and REPO_PATH env vars", () => {
-    expect(runner).toContain("WORKTREE_PATH")
-    expect(runner).toContain("REPO_PATH")
-  })
-
-  it("task-runner adapter hosts the vscode task execution", () => {
-    expect(taskAdapter).toContain("vscode.tasks.executeTask")
-    expect(taskAdapter).toContain("onDidEndTaskProcess")
-    expect(taskAdapter).toContain("new vscode.ProcessExecution")
-  })
-
-  it("does not use manual terminal command injection", () => {
-    expect(runner).not.toContain("createTerminal")
-    expect(runner).not.toContain("sendText")
-  })
-})
-
-// ---------------------------------------------------------------------------
-// VS Code import boundary — layering enforcement
-//
-// The agent-manager is being decoupled from VS Code so it can eventually run
-// outside the extension host. These tests enforce the layering:
-//
-//   1. Only files on the VSCODE_ALLOWED list may import "vscode".
-//   2. Each allowed file has a maxLines cap — shrink it as logic is extracted.
-//
-// To improve the architecture:
-//   - Extract business logic from allowed files into vscode-free modules.
-//   - Lower maxLines once the extraction lands.
-//   - Remove entries from VSCODE_ALLOWED once they no longer need vscode.
-// ---------------------------------------------------------------------------
-
-const AGENT_MANAGER_DIR = path.join(ROOT, "src/agent-manager")
-
-/**
- * Exception list: files currently allowed to import `vscode`.
- *
- * Each entry has a maxLines cap. The goal is to shrink these over time and
- * eventually remove entries as logic moves into vscode-free modules.
- *
- * When you extract code out of one of these files, lower its maxLines to
- * the new line count rounded up to the nearest 50.
- *
- * DO NOT raise maxLines to accommodate new code. If adding a feature would
- * exceed the cap, extract logic into a vscode-free helper module and have
- * the provider call it. Only raise the cap as a last resort when the code
- * is structurally impossible to extract (e.g. deep vscode API interleaving)
- * — and document the reason in the entry's `note` field.
- */
-const VSCODE_ALLOWED: Record<string, { note: string }> = {
-  // VS Code adapter implementing the Host interface for the Agent Manager
-  "vscode-host.ts": {
-    note: "vscode adapter implementing Host interface",
-  },
-  // Thin adapter: wraps vscode.window terminal APIs behind TerminalHost interface
-  "terminal-host.ts": {
-    note: "vscode adapter for SessionTerminalManager",
-  },
-  // Thin adapter: wraps vscode.tasks API behind RunTask callback
-  "task-runner.ts": {
-    note: "vscode adapter for SetupScriptRunner",
-  },
-  // Reads terminal.integrated.* and editor.font* config for xterm font settings
-  "terminal-font.ts": {
-    note: "vscode config reader for integrated terminal font settings",
-  },
-  // Reads + watches the terminal button destination setting
-  "terminal-destination.ts": {
-    note: "vscode config reader for the terminal destination setting",
-  },
-}
-
-/**
- * File size caps — prevent large files from growing unchecked.
- *
- * When you extract code out of one of these files, lower its maxLines to
- * the new line count rounded up to the nearest 50.
- *
- * DO NOT raise maxLines to accommodate new code. If adding a feature would
- * exceed the cap, extract logic into a vscode-free helper module and have
- * the provider call it. Only raise the cap as a last resort when the code
- * is structurally impossible to extract (e.g. deep vscode API interleaving)
- * — and document the reason in the entry's `note` field.
- */
-const MAX_LINES: Record<string, { maxLines: number; note: string }> = {
-  "AgentManagerProvider.ts": {
-    maxLines: 1900,
-    note: "worktree lifecycle handlers extracted into provider-lifecycle.ts; extract more orchestration next",
-  },
-}
-
-function importsVscode(content: string): boolean {
-  return /(?:from|require\()\s*["']vscode["']/.test(content)
-}
-
-function agentManagerSourceFiles(): string[] {
-  return fs
-    .readdirSync(AGENT_MANAGER_DIR)
-    .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.endsWith(".spec.ts"))
-}
-
 describe("Agent Manager — VS Code import boundary", () => {
   it("routes GitHub CLI execution through execGhRead", () => {
     const gh = path.join(AGENT_MANAGER_DIR, "gh.ts")

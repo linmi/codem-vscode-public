@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { renameSession } from "../../src/kilo-provider/rename-session"
+import { renameSession } from "../../src/host/rename-session"
 import { SESSION_TITLE_LIMIT } from "../../src/shared/session-title"
 
 type Params = { sessionID: string; directory?: string; title?: string }

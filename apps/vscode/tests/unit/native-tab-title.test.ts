@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import type { Session } from "@kilocode/sdk/v2/client"
-import { nativeTitle } from "../../src/kilo-provider/native-tab-title"
+import { nativeTitle } from "../../src/host/native-tab-title"
 
 const session = (title: string | null) => ({ title }) as Session
 

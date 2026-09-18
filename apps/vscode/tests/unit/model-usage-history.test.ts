@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { recordModelUsage, validateModelUsage } from "../../src/kilo-provider/model-usage"
+import { recordModelUsage, validateModelUsage } from "../../src/host/model-usage"
 
 describe("model usage history", () => {
   it("increments a model and updates its last-used timestamp", () => {

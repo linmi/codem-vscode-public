@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { formatTranscript } from "../../src/kilo-provider/export-transcript"
+import { formatTranscript } from "../../src/host/export-transcript"
 
 describe("formatTranscript", () => {
   it("formats complete Markdown session exports and skips hidden text", () => {

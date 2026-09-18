@@ -5,7 +5,7 @@ import {
   handleQuestionReject,
   handleQuestionReply,
   type QuestionContext,
-} from "../../src/kilo-provider/handlers/question"
+} from "../../src/host/handlers/question"
 
 function pending(id: string, sessionID: string): QuestionRequest {
   return {

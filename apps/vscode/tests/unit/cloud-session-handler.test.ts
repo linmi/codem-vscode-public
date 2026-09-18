@@ -3,7 +3,7 @@ import {
   handleImportAndSend,
   handleRequestCloudSessionData,
   type CloudSessionContext,
-} from "../../src/kilo-provider/handlers/cloud-session"
+} from "../../src/host/handlers/cloud-session"
 
 function stalled(options?: { signal?: AbortSignal }) {
   return new Promise<never>((_resolve, reject) => {

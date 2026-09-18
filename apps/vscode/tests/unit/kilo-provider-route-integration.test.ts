@@ -15,7 +15,7 @@ type SessionGetParams = { sessionID: string; directory: string }
 /**
  * Minimal connection service mock: exposes a controllable client whose
  * session.get records every call so tests can assert which directory was
- * queried. Mirrors the shape used by kilo-provider-session-refresh.test.ts.
+ * queried. Mirrors the shape used by host-session-refresh.test.ts.
  */
 function mockConnection(getImpl?: (p: SessionGetParams) => Promise<unknown>, vcs = "git") {
   const calls: SessionGetParams[] = []

@@ -6,7 +6,7 @@ import {
   recoveryDirs,
   type RecoverablePermission,
   type PermissionContext,
-} from "../../src/kilo-provider/handlers/permission-handler"
+} from "../../src/host/handlers/permission-handler"
 import { KiloConnectionService } from "../../src/services/cli-backend/connection-service"
 
 /** Minimal permission shape returned by the SDK's permission.list(). */

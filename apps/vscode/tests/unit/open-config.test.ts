@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, rm, stat, writeFile } from "fs/promises"
 import * as os from "os"
 import * as path from "path"
 import * as vscode from "vscode"
-import { globalFiles, localFiles } from "../../src/kilo-provider/config-file"
-import { openConfig } from "../../src/kilo-provider/open-config"
+import { globalFiles, localFiles } from "../../src/host/config-file"
+import { openConfig } from "../../src/host/open-config"
 
 type Uri = { fsPath: string }
 

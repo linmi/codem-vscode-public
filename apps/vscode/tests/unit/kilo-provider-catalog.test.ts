@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import type { Config } from "@kilocode/sdk/v2/client"
-import type { AuthContext } from "../../src/kilo-provider/handlers/auth"
+import type { AuthContext } from "../../src/host/handlers/auth"
 
 const { CodeMProvider } = await import("../../src/CodeMProvider")
 

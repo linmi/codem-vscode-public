@@ -28,7 +28,6 @@ import IndexingTab from "./IndexingTab"
 import SandboxingTab from "./SandboxingTab"
 import * as Sandboxing from "./sandboxing"
 import { useServer } from "../../context/server"
-import type { MigrationSource } from "../../types/messages"
 import { configMessage } from "../../utils/open-config"
 import type {
   AgentManagerSettingsBranchesLoadedMessage,
@@ -49,7 +48,6 @@ export interface SettingsProps {
   agentManagerProjectId?: string
   agentManagerSettings?: boolean
   onTabChange?: (tab: string) => void
-  onMigrationClick?: (source: MigrationSource) => void
 }
 
 const AgentManagerTab: Component<{ projectId?: string }> = (props) => {
@@ -500,7 +498,6 @@ const Settings: Component<SettingsProps> = (props) => {
             port={server.serverInfo()?.port ?? null}
             connectionState={server.connectionState()}
             extensionVersion={server.extensionVersion()}
-            onMigrationClick={props.onMigrationClick}
           />
         </Tabs.Content>
       </Tabs>

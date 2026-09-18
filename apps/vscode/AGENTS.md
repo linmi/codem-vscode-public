@@ -6,7 +6,7 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 
 - This directory is the imported Kilo 7.6.2 VS Code baseline with a CodeM-branded shell and public `codem.*` identifiers. Source version is `0.1.14`. It is not a finished CodeM extension.
 - Controller-ready chat (42 Webview commands) goes through `@codem/app-server`. The catalog/mode path is UI-adapts-to-App-Server: Host posts `codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*` and CodeM control-plane result DTOs, not Kilo `providersLoaded` / `commandsLoaded` / `agentsLoaded`. Activation still constructs `KiloConnectionService` for leftover Host coordination, but `connect()` / `getServer()` fail closed and never spawn `kilo serve`. Unknown App Server-owned commands report `尚未迁移到 CodeM App Server` instead of falling through to Kilo.
-- The executable parity inventory is 241 commands: 199 host/service, 42 App Server controllers, 0 Core v1 gaps. `assertMatureUiProductionReady()` is green. The 36 former gaps were product-cut from `WebviewMessage` and the ownership table. Product-cut leftover Host methods were deleted from `CodeMProvider`; memory/indexing VS Code commands fail closed. Leftover-sdk, Agent Manager, autocomplete, and JetBrains remain outside this gate.
+- The executable parity inventory is 239 commands: 197 host/service, 42 App Server controllers, 0 Core v1 gaps. `assertMatureUiProductionReady()` is green. The 36 former Core v1 gaps plus Roo/Kilo session-import commands were product-cut from `WebviewMessage` and the ownership table. Product-cut leftover Host methods were deleted from `CodeMProvider`; memory/indexing VS Code commands fail closed. Host helpers live in `src/host/` (not `kilo-provider`). Agent Manager Host is a fail-closed panel shell; leftover worktree/Kilo session orchestration was deleted. Leftover-sdk, autocomplete, and JetBrains remain outside this gate.
 - Preserve useful VS Code surfaces while migrating the runtime and product model to CodeM App Server.
 - Do not extend Kilo REST/SSE, `kilo serve`, Kilo Session/provider stores, Gateway behavior, Kilo branding, or old command/view IDs for new CodeM work.
 - Keep each migration Cycle independently verifiable. When a boundary is migrated, update all production callers, contracts, tests, paths, and imports, then delete the superseded path.
@@ -16,8 +16,8 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 - `src/extension.ts`: activation; creates both `CodeMAppServerService` and `KiloConnectionService`.
 - `src/services/app-server/`: CodeM Host adapter, mature UI controller, ownership registry, space selector, credential-broker UI.
 - `src/services/cli-backend/`: imported Kilo process and transport boundary; migration source, not target architecture.
-- `src/kilo-provider/` and `src/CodeMProvider.ts`: current host/webview coordination; App Server messages are handled first.
-- `src/agent-manager/`: worktree, terminal, Git, and Agent Manager host integration; still Kilo-backed.
+- `src/host/` and `src/CodeMProvider.ts`: current host/webview coordination; App Server messages are handled first.
+- `src/agent-manager/`: Agent Manager panel host (fail-closed leftover orchestration) plus Git/diff helpers still used by the editor.
 - `webview-ui/`: current SolidJS webview implementation.
 - `tests/unit/`: package unit tests; run only focused files relevant to the current Cycle.
 - `tests/host/`: tests and fixtures relocated from the Host source tree. The default test command selects its App Server suite; imported Vitest suites retain their existing runner requirements and are excluded from Playwright discovery.

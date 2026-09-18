@@ -3,7 +3,7 @@ import {
   SessionStreamScheduler,
   type PartBatch,
   type PartUpdate,
-} from "../../src/kilo-provider/session-stream-scheduler"
+} from "../../src/host/session-stream-scheduler"
 
 type Item = PartUpdate
 type Sent = PartUpdate | PartBatch

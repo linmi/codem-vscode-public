@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { sameDirectory } from "../../src/kilo-provider-utils"
+import { sameDirectory } from "../../src/host/utils"
 
 const platform = Object.getOwnPropertyDescriptor(process, "platform")
 

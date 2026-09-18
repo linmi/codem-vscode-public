@@ -11,7 +11,7 @@ import {
   getErrorMessage,
   getConfigErrorDetails,
   type ProviderInfo,
-} from "../../src/kilo-provider-utils"
+} from "../../src/host/utils"
 import type { CloudSessionMessage } from "../../src/services/cli-backend/types"
 import type { SyncPayload } from "../../src/services/cli-backend/sdk-sse-adapter"
 import type {

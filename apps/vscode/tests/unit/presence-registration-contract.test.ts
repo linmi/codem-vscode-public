@@ -136,45 +136,9 @@ describe("KiloConnectionService connection snapshot contract", () => {
 describe("AgentManagerProvider visible-presence contract", () => {
   const source = readFile(AGENT_MANAGER_PROVIDER_FILE)
 
-  it("routes all agent-manager visible registration through AgentManagerVisiblePresence", () => {
-    // Exactly one direct registerVisible("agent-manager", ...) call site — the
-    // presence callback. Cleanup paths that bypassed it (registering [] without
-    // clearing the displayed id) let a stale id re-register on the next flush.
-    const sites = source.match(/registerVisible\("agent-manager"/g) ?? []
-    expect(sites).toHaveLength(1)
-    expect(source).toMatch(
-      /new AgentManagerVisiblePresence\(\s*\(ids\) => this\.connectionService\.registerVisible\("agent-manager", ids\)/,
-    )
-  })
-
-  it("async shutdown clears both the visible and attached registrations", () => {
-    // clear() resets the displayed id and empties the attached set, so a
-    // stale id cannot re-register on a later flush.
-    const match = source.match(/private async disposeAsync\(\): Promise<void> \{([\s\S]*?)\n {2}\}/)
-    expect(match).not.toBeNull()
-    expect(match![1]).toContain("this.visiblePresence.clear()")
-  })
-
-  it("routes the webview presence messages to visiblePresence.handle", () => {
-    // The webview reports the open tab set (→ attached) and the actually
-    // displayed real session id (null for terminal/review/pending/empty
-    // tabs, → visible); both flow through the presence helper.
-    expect(source).toMatch(
-      /if \(m\.type === "agentManager\.openSessions" \|\| m\.type === "agentManager\.visibleSession"\) \{\s*this\.visiblePresence\.handle\(m\)/,
-    )
-  })
-
-  it("does not let background message loads override webview visibility", () => {
-    const match = source.match(/if \(m\.type === "loadMessages"\) \{([\s\S]*?)\n {4}\}/)
-    expect(match).not.toBeNull()
-    expect(match![1]).not.toContain("visiblePresence.setDisplayed")
-  })
-
-  it("recomputes visible presence when panel visibility changes", () => {
-    // A hidden Agent Manager panel must drop its session from visible (while
-    // keeping it attached); reappearing must re-register the retained id.
-    const match = source.match(/ctx\.onDidChangeVisibility\(\(visible\) => \{([\s\S]*?)\n {4}\}\)/)
-    expect(match).not.toBeNull()
-    expect(match![1]).toContain("this.visiblePresence.flush()")
+  it("does not register leftover Kilo visible presence", () => {
+    expect(source).not.toContain("AgentManagerVisiblePresence")
+    expect(source).not.toContain('registerVisible("agent-manager"')
+    expect(source).not.toContain("visiblePresence")
   })
 })

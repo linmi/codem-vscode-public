@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { buildWebviewHtml, getWebviewFontSize } from "./utils"
-import { watchFontSizeConfig } from "./kilo-provider/font-size"
+import { watchFontSizeConfig } from "./host/font-size"
 import { appendOutput, getWorkspaceRoot } from "./review-utils"
 import { getDiffMarkdownRender, setDiffMarkdownRender } from "./review-settings"
 

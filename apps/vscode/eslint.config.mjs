@@ -59,14 +59,6 @@ export default [
     rules: { complexity: ["error", 48] },
   },
   {
-    files: ["src/legacy-migration/migration-service.ts"],
-    rules: { complexity: ["error", 45] },
-  },
-  {
-    files: ["webview-ui/src/components/migration/MigrationWizard.tsx"],
-    rules: { complexity: ["error", 37] },
-  },
-  {
     files: ["webview-ui/src/context/session.tsx"],
     // Raised from the default 3000 as this session context grew past the cap
     // after upstream merges; kept as a targeted override rather than loosening
@@ -78,12 +70,12 @@ export default [
     rules: { complexity: ["error", 30] },
   },
   {
-    files: ["src/agent-manager/WorktreeManager.ts", "webview-ui/src/components/chat/QuestionDock.tsx"],
+    files: ["webview-ui/src/components/chat/QuestionDock.tsx"],
     rules: { complexity: ["error", 28] },
   },
   {
     files: [
-      "src/kilo-provider-utils.ts",
+      "src/host/utils.ts",
       "src/services/autocomplete/continuedev/core/autocomplete/postprocessing/index.ts",
     ],
     rules: { complexity: ["error", 27] },

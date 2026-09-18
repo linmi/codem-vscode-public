@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import { childID } from "../../src/kilo-provider/task-session"
-import { VisibleTaskStreams } from "../../src/kilo-provider/visible-task-streams"
+import { childID } from "../../src/host/task-session"
+import { VisibleTaskStreams } from "../../src/host/visible-task-streams"
 
 describe("childID", () => {
   it("reads session ID from top-level metadata", () => {

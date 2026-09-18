@@ -350,7 +350,7 @@ describe("CodeMProvider — remote focus lifecycle", () => {
 })
 
 describe("CodeMProvider — continueInWorktree error fallback", () => {
-  const helper = fs.readFileSync(path.join(ROOT, "src/kilo-provider/continue-worktree.ts"), "utf-8")
+  const helper = fs.readFileSync(path.join(ROOT, "src/host/continue-worktree.ts"), "utf-8")
 
   it("sends error progress when handler is missing", () => {
     expect(helper, "must send error status back to webview").toContain('"error"')

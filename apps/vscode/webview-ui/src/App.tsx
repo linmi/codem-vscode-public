@@ -29,7 +29,6 @@ registerExpandedTaskTool()
 // Apply VS Code sidebar preferences to other tools (e.g. bash expanded by default).
 registerVscodeToolOverrides()
 import HistoryView from "./components/history/HistoryView"
-import { MigrationWizard } from "./components/migration"
 import type { Message as SDKMessage, Part as SDKPart } from "@codem/ui/types/session"
 import { cycleAgent as cycle } from "./context/session-agent"
 import "./styles/chat.css"
@@ -243,7 +242,6 @@ const AppContent: Component = () => {
   const [currentView, setCurrentView] = createSignal<ViewType>("newTask")
   const [settingsTab, setSettingsTab] = createSignal<string | undefined>()
   const [agentManagerProjectId, setAgentManagerProjectId] = createSignal<string | undefined>()
-  const [migration, setMigration] = createSignal(false)
   const session = useSession()
   const tabs = useLocalTabs()
   const server = useServer()
@@ -253,9 +251,7 @@ const AppContent: Component = () => {
   )
   createEffect(() => vscode.postMessage({ type: "sessionActivity", state: activity() }))
   useSessionVisibility(() =>
-    !migration() && (currentView() === "newTask" || currentView() === "subAgentViewer")
-      ? session.currentSessionID()
-      : undefined,
+    currentView() === "newTask" || currentView() === "subAgentViewer" ? session.currentSessionID() : undefined,
   )
 
   const handleViewAction = (action: string) => {
@@ -391,61 +387,53 @@ const AppContent: Component = () => {
           onHistory={() => handleViewAction("historyButtonClicked")}
         />
       </Show>
-      <Show
-        when={migration()}
+      <Switch
         fallback={
-          <Switch
-            fallback={
-              <ChatView
-                continueInWorktree
-                onForkMessage={session.status() === "idle" ? handleForkMessage : undefined}
-                promptBoxId="sidebar:fallback"
-                emptyState={emptyState}
-              />
-            }
-          >
-            <Match when={currentView() === "newTask"}>
-              <ChatView
-                onSelectSession={handleSelectSession}
-                onShowHistory={() => setCurrentView("history")}
-                onForkMessage={session.status() === "idle" ? handleForkMessage : undefined}
-                continueInWorktree
-                promptBoxId="sidebar:new-task"
-                emptyState={emptyState}
-              />
-            </Match>
-            <Match when={currentView() === "history"}>
-              <HistoryView onSelectSession={handleSelectSession} onBack={() => setCurrentView("newTask")} />
-            </Match>
-            <Match when={currentView() === "profile"}>
-              <ProfileView
-                profileData={server.profileData()}
-                providerUsage={server.providerUsage()}
-                providerUsageLoading={server.providerUsageLoading()}
-                providerUsageError={server.providerUsageError()}
-                deviceAuth={server.deviceAuth()}
-                onLogin={server.startLogin}
-                onRequestProviderUsage={server.requestProviderUsage}
-                onRefreshProviderUsage={server.refreshProviderUsage}
-              />
-            </Match>
-            <Match when={currentView() === "settings"}>
-              <Settings
-                tab={settingsTab()}
-                agentManagerProjectId={agentManagerProjectId()}
-                agentManagerSettings={host.KILO_AGENT_MANAGER_SETTINGS === true}
-                onTabChange={setSettingsTab}
-                onMigrationClick={() => setMigration(true)}
-              />
-            </Match>
-            <Match when={currentView() === "subAgentViewer"}>
-              <ChatView readonly />
-            </Match>
-          </Switch>
+          <ChatView
+            continueInWorktree
+            onForkMessage={session.status() === "idle" ? handleForkMessage : undefined}
+            promptBoxId="sidebar:fallback"
+            emptyState={emptyState}
+          />
         }
       >
-        <MigrationWizard onBack={() => setMigration(false)} onComplete={() => setMigration(false)} />
-      </Show>
+        <Match when={currentView() === "newTask"}>
+          <ChatView
+            onSelectSession={handleSelectSession}
+            onShowHistory={() => setCurrentView("history")}
+            onForkMessage={session.status() === "idle" ? handleForkMessage : undefined}
+            continueInWorktree
+            promptBoxId="sidebar:new-task"
+            emptyState={emptyState}
+          />
+        </Match>
+        <Match when={currentView() === "history"}>
+          <HistoryView onSelectSession={handleSelectSession} onBack={() => setCurrentView("newTask")} />
+        </Match>
+        <Match when={currentView() === "profile"}>
+          <ProfileView
+            profileData={server.profileData()}
+            providerUsage={server.providerUsage()}
+            providerUsageLoading={server.providerUsageLoading()}
+            providerUsageError={server.providerUsageError()}
+            deviceAuth={server.deviceAuth()}
+            onLogin={server.startLogin}
+            onRequestProviderUsage={server.requestProviderUsage}
+            onRefreshProviderUsage={server.refreshProviderUsage}
+          />
+        </Match>
+        <Match when={currentView() === "settings"}>
+          <Settings
+            tab={settingsTab()}
+            agentManagerProjectId={agentManagerProjectId()}
+            agentManagerSettings={host.KILO_AGENT_MANAGER_SETTINGS === true}
+            onTabChange={setSettingsTab}
+          />
+        </Match>
+        <Match when={currentView() === "subAgentViewer"}>
+          <ChatView readonly />
+        </Match>
+      </Switch>
     </div>
   )
 }

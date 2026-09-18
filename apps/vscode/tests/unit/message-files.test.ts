@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { parseMessageFiles } from "../../src/kilo-provider/message-files"
+import { parseMessageFiles } from "../../src/host/message-files"
 
 describe("parseMessageFiles", () => {
   it("accepts terminal text attachments with source metadata", () => {
