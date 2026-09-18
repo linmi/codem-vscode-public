@@ -1,12 +1,5 @@
 import { realpath } from "node:fs/promises"
-import type {
-  EventKilocodeNotebookCancelled,
-  EventKilocodeNotebookRequested,
-  KiloClient,
-  NotebookFailure,
-  NotebookRequest,
-  NotebookResult,
-} from "@kilocode/sdk/v2/client"
+import type { EventKilocodeNotebookCancelled, EventKilocodeNotebookRequested, KiloClient, NotebookFailure, NotebookRequest, NotebookResult } from "@kilocode/sdk/v2/client"
 import { FileIgnoreController } from "../autocomplete/shims/FileIgnoreController"
 import type { ConnectionState, KiloConnectionService } from "../cli-backend/connection-service"
 import type { SSEPayload } from "../cli-backend/sdk-sse-adapter"

@@ -9,7 +9,7 @@
 
 import { restoreWorktrees } from "../state-recovery"
 import type { ProjectContext, ProjectInitResult } from "./context"
-import type { Session } from "@kilocode/sdk/v2/client"
+import type { Session } from "@codem/ui/types/session"
 import type { ProjectRef, SessionRef, WorktreeRef } from "./route"
 import { sessionToWebview } from "../../kilo-provider-utils"
 

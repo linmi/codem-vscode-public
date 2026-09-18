@@ -1,4 +1,5 @@
-import type { Session, Agent, Event, ProviderListResponse } from "@kilocode/sdk/v2/client"
+import type { Session, Agent, ProviderListResponse } from "@codem/ui/types/session"
+import type { Event } from "@kilocode/sdk/v2/client"
 import type { SyncPayload } from "./services/cli-backend/sdk-sse-adapter"
 import { prettifyError } from "zod/v4"
 import type { CloudSessionMessage, IndexingStatus } from "./services/cli-backend/types"

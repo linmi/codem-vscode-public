@@ -1,6 +1,7 @@
 import * as fs from "fs"
 import * as path from "path"
-import type { KiloClient, Session } from "@kilocode/sdk/v2/client"
+import type { Session } from "@codem/ui/types/session"
+import type { KiloClient } from "@kilocode/sdk/v2/client"
 import type { KiloConnectionService } from "../services/cli-backend"
 import { getErrorMessage } from "../kilo-provider-utils"
 import { resolveLocalDiffTarget } from "../diff/shared/target"

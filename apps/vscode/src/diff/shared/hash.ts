@@ -1,5 +1,4 @@
-import type { SnapshotFileDiff } from "@kilocode/sdk/v2/client"
-
+import type { SnapshotFileDiff } from "@codem/ui/types/session"
 export function hashFileDiffs(
   diffs: Array<
     SnapshotFileDiff & {

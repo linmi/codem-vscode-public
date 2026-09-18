@@ -8,7 +8,7 @@
  * files listed in the architecture test allowlist.
  */
 
-import type { Session } from "@kilocode/sdk/v2/client"
+import type { Session } from "@codem/ui/types/session"
 import type { ProjectRef, SessionRef, WorktreeRef } from "./project/route"
 
 // ---------------------------------------------------------------------------

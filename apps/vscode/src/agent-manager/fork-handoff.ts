@@ -1,5 +1,4 @@
 import type { KiloClient } from "@kilocode/sdk/v2/client"
-
 export interface ForkHandoffInput {
   client: KiloClient
   sessionId: string

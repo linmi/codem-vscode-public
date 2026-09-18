@@ -10,7 +10,6 @@
  */
 
 import type { KiloClient } from "@kilocode/sdk/v2/client"
-
 /** Pending network-offline requests: requestID -> { sessionID, refcount }. */
 const waits = new Map<string, { sid: string; refs: number }>()
 

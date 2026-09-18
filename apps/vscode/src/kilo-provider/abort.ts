@@ -1,4 +1,5 @@
-import type { KiloClient, SessionStatus } from "@kilocode/sdk/v2/client"
+import type { SessionStatus } from "@codem/ui/types/session"
+import type { KiloClient } from "@kilocode/sdk/v2/client"
 import { sameDirectory } from "../kilo-provider-utils"
 
 export class SessionAbort {

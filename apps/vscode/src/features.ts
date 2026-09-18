@@ -1,6 +1,5 @@
 import { hasIndexingPlugin } from "@kilocode/kilo-indexing/detect"
 import type { KiloClient } from "@kilocode/sdk/v2"
-
 type PluginSpec = string | [string, Record<string, unknown>]
 
 type ConfigLike = {

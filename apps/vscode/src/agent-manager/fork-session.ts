@@ -1,4 +1,5 @@
-import type { KiloClient, Session } from "@kilocode/sdk/v2/client"
+import type { Session } from "@codem/ui/types/session"
+import type { KiloClient } from "@kilocode/sdk/v2/client"
 import { getErrorMessage } from "../kilo-provider-utils"
 import type { WorktreeStateManager } from "./WorktreeStateManager"
 import { recordForkHandoff } from "./fork-handoff"

@@ -1,4 +1,4 @@
-import type { Session, SessionStatus } from "@kilocode/sdk/v2/client"
+import type { Session, SessionStatus } from "@codem/ui/types/session"
 import type { KiloConnectionService } from "../services/cli-backend"
 import { forkSession } from "../agent-manager/fork-session"
 

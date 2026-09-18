@@ -1,4 +1,4 @@
-import type { Session } from "@kilocode/sdk/v2/client"
+import type { Session } from "@codem/ui/types/session"
 import type { AgentManagerOutMessage } from "./types"
 import type { WorktreeManager, CreateWorktreeResult } from "./WorktreeManager"
 import type { WorktreeStateManager } from "./WorktreeStateManager"

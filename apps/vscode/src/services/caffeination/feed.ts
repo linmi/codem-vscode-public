@@ -1,5 +1,5 @@
 import { realpathSync } from "node:fs"
-import type { SessionStatus } from "@kilocode/sdk/v2/client"
+import type { SessionStatus } from "@codem/ui/types/session"
 import type { SSEPayload } from "../cli-backend/sdk-sse-adapter"
 
 type Snapshot = Record<string, Pick<SessionStatus, "type">>

@@ -89,6 +89,31 @@ export type Session = {
   }
 }
 
+export type Agent = {
+  name: string
+  displayName?: string
+  source?: string
+  description?: string
+  deprecated?: boolean
+  mode: "subagent" | "primary" | "all"
+  native?: boolean
+  hidden?: boolean
+  topP?: number
+  temperature?: number
+  color?: string
+  permission: PermissionRuleset
+  model?: {
+    modelID: string
+    providerID: string
+  }
+  variant?: string
+  prompt?: string
+  options: {
+    [key: string]: unknown
+  }
+  steps?: number
+}
+
 export type JsonSchema = {
   [key: string]: unknown
 }
@@ -722,4 +747,13 @@ export type Provider = {
   models: {
     [key: string]: Model
   }
+}
+
+export type ProviderListResponse = {
+  all: Array<Provider>
+  default: {
+    [key: string]: string
+  }
+  connected: Array<string>
+  failed: Array<string>
 }

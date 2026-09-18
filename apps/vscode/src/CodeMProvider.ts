@@ -3,16 +3,8 @@ import * as path from "path"
 import { existsSync } from "fs"
 import * as vscode from "vscode"
 import { TRANSIENT as MEMORY_TRANSIENT } from "@kilocode/kilo-memory/schema"
-import type {
-  KiloClient,
-  ProviderUsage,
-  Session,
-  SessionStatus,
-  Event,
-  TextPartInput,
-  FilePartInput,
-  Config,
-} from "@kilocode/sdk/v2/client"
+import type { Session, SessionStatus } from "@codem/ui/types/session"
+import type { KiloClient, ProviderUsage, Event, TextPartInput, FilePartInput, Config } from "@kilocode/sdk/v2/client"
 import { MaxCostNudge, type MaxCostChoice } from "@opencode-ai/core/kilocode/cost/max-cost-nudge"
 import { type KiloConnectionService, ServerStartupError } from "./services/cli-backend"
 import { previewSound, testOSNotification } from "./services/attention"
@@ -156,7 +148,7 @@ import {
 import type { StoredProviderKey } from "./provider-actions"
 import { AnacondaDesktopBridge } from "./anaconda-desktop/bridge"
 import { fetchOpenAIModels, FetchModelsError } from "./shared/fetch-models"
-import type { Agent } from "@kilocode/sdk/v2/client"
+import type { Agent } from "@codem/ui/types/session"
 import { configFeatures, serverFeatures } from "./features"
 import { fetchSnapshot } from "./kilo-provider/config-snapshot"
 import type { CodeMProviderOptions } from "./kilo-provider/options"

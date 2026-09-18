@@ -38,6 +38,20 @@ describe("Webview leftover SDK cutover", () => {
     assert.equal(pkg.exports?.["./types/session"], "./src/types/session.ts")
   })
 
+  it("keeps Host transcript Session/Message/Part types off leftover SDK", () => {
+    const hostSrc = join(vscodeRoot, "src")
+    const source = readSourceTree(hostSrc)
+    const leftover = /import type \{([^}]+)\} from ["']@kilocode\/sdk(?:\/v2(?:\/client)?)?["']/g
+    const forbidden = new Set(["Session", "SessionStatus", "SnapshotFileDiff", "ProviderListResponse", "Agent"])
+    for (const match of source.matchAll(leftover)) {
+      for (const name of match[1]!.split(",").map((part) => part.trim().split(" as ")[0]?.trim()).filter(Boolean)) {
+        assert.equal(forbidden.has(name!), false, name)
+      }
+    }
+    assert.match(source, /from ["']@codem\/ui\/types\/session["']/)
+    assert.match(source, /createKiloClient/)
+  })
+
   it("drops leftover marketplace keywords from the VS Code shell", () => {
     const pkg = JSON.parse(readFileSync(vscodePackage, "utf8")) as { keywords?: string[] }
     const keywords = new Set(pkg.keywords ?? [])

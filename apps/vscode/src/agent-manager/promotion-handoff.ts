@@ -1,5 +1,4 @@
 import type { KiloClient } from "@kilocode/sdk/v2/client"
-
 export interface PromoteHandoffInput {
   client: KiloClient
   sessionId: string

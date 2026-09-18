@@ -1,5 +1,5 @@
 import { createHash } from "crypto"
-import type { SnapshotFileDiff } from "@kilocode/sdk/v2/client"
+import type { SnapshotFileDiff } from "@codem/ui/types/session"
 import { normalize, text } from "@codem/ui/components/session-diff"
 import { encodeImageSide, imageMime } from "../shared/image"
 import { classifyGenerated, type GeneratedAttributes, type GeneratedFiles } from "../shared/git-attributes"

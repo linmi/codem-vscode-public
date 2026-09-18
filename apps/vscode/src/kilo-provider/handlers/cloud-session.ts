@@ -5,7 +5,9 @@
  * flow that clones a cloud session locally on first message. No vscode dependency.
  */
 
-import type { KiloClient, Session, TextPartInput, FilePartInput } from "@kilocode/sdk/v2/client"
+import type { Session } from "@codem/ui/types/session"
+
+import type { KiloClient, TextPartInput, FilePartInput } from "@kilocode/sdk/v2/client"
 import type { CloudSessionData, EditorContext } from "../../services/cli-backend/types"
 import { getErrorMessage, sessionToWebview, mapCloudSessionMessageToWebviewMessage } from "../../kilo-provider-utils"
 import type { MessageFile } from "../message-files"
