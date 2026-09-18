@@ -50,9 +50,7 @@ function setup(list: () => Promise<ReturnType<typeof catalog>>, org: () => strin
   const internal = provider as unknown as Internals
   Object.assign(internal, {
     connectionState: "connected",
-    fetchAndSendAgents: async () => {},
     fetchAndSendSkills: async () => {},
-    fetchAndSendIndexingStatus: async () => {},
     fetchAndSendNotifications: async () => {},
   })
   const reloads: Promise<void>[] = []

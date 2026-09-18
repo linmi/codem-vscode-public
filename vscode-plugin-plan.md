@@ -17,7 +17,7 @@ v1.1 仍是 2026-09-15 的契约来源说明：CodeM `main@d7763f0a`、共享 Ho
 | VS Code 主聊天 | `CodeMAppServerService` + `MatureUiAppServerController` 承接 42 个控制器命令。模式是 **UI 适配 App Server**：Host 直接 post `codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*` 与 CodeM 控制面结果。`requestCommands` 与 `requestSkills` 写同一份 Skills DTO，斜杠不再读 `commandsLoaded`。rewind / archive / unarchive / clearThread / hooks / plugins / tools / env 白名单 / config 去密钥快照 / permission profiles / modelProvider capabilities / backgroundTerminals / runShell（校验归属）/ cancelSideQuestion / Core space 快照 / live turns·items / last-known live usage 已接。 | 未发明 Settings/MCP/sandbox 页。刻意不接：用 `space/list` 替换 broker 写路径、用 `turns/items/list` 当 JSONL 历史、`clearSession` 当 `thread/clear`、把 `backgroundTerminals.processId` 混进 `requestBackgroundJobs.taskId`。Kilo-only 命令（MCP 写入、provider OAuth、memory、indexing、sandbox、message-scoped revert/delete、suggestions、Kilo config write）已从 `WebviewMessage` 产品砍掉。 |
 | 认证与 space | 登录/注册/退出/刷新走 CLI credential broker。`codem.selectSpace` 走 broker `project_list` / `space_prepare` / `space_commit`。Workspace Trust 在启动 Core 前检查。 | `setOrganization` 仍走 Kilo handler。 |
 | Kilo transport | 激活仍创建 `KiloConnectionService`，但 `connect()` / `ServerManager.getServer()` fail closed，不再 spawn `kilo serve`。Autocomplete / commit message / Agent Manager 等未迁移表面报 `尚未迁移到 CodeM App Server`。Webview 与 Host 生产源码不再 import `@kilocode/sdk`；时间线类型走 `@codem/ui/types/session`。Leftover `KiloClient` 类型与 fail-closed `createKiloClient` 住在 `leftover-sdk.ts`。 | leftover 单测与 `package.json` 仍声明 `@kilocode/sdk`；`packages/opencode` 尚未删除。 |
-| 路由泄漏 | `handleAppServerMessage` 对 `app-server-live` 与 `app-server-control` 均 fail closed，不再落到 Kilo。 | leftover Host 方法（config/memory/indexing/sandbox）仍在源码里，下一刀再删 leftover-sdk。 |
+| 路由泄漏 | `handleAppServerMessage` 对 `app-server-live` 与 `app-server-control` 均 fail closed，不再落到 Kilo。产品砍掉的 leftover Host 方法（config write/memory/indexing/sandbox/revert/delete/provider OAuth/MCP mutation）已从 `CodeMProvider` 删除。 | leftover-sdk、Agent Manager、autocomplete 仍在。 |
 | 门禁 | 241 = 199 + 42 + 0 pending + 0 gaps；`ready: true`。 | mature UI 命令面已切。Agent Manager / leftover-sdk / JetBrains 仍在，不得宣称整个扩展生产可切。 |
 
 ### 已接 / 刻意未接（Host 控制面 Cycle）
@@ -452,7 +452,7 @@ Cycle 0–1 的共享 Host 与 Cycle 3 的主聊天控制器已经在本仓库�
 2. 停止激活路径创建 `kilo serve`；Autocomplete / Agent Manager / notebook 等未迁移面显式报“尚未迁移”。
 3. rewind / archive / cancelSideQuestion 已用 CodeM 原生消息接入。
 4. darwin-arm64 已重跑 Extension Host live turn、HITL 与 JSONL 重启历史（`pnpm --dir apps/vscode run test:extension-host`）。删除 leftover-sdk 前仍需非 darwin clean-host，以及现源生产 bundle（过期 `dist` 会误 spawn `kilo serve`）。
-5. 下一刀：删 leftover-sdk 生产消费者、Agent Manager 的 Kilo 依赖，以及 `package.json` 中的 `@kilocode/sdk`。
+5. 产品砍掉的 leftover Host 方法已从 `CodeMProvider` 删除。下一刀：删 leftover-sdk 生产消费者、Agent Manager 的 Kilo 依赖，以及 `package.json` 中的 `@kilocode/sdk`。
 
 **Go 标准。**受信工作区一轮真实 turn、一次 HITL、一次 reload history（darwin-arm64 本轮已过）；Extension Host 只产生一个 App Server；`assertMatureUiProductionReady()` 通过。生产树无 `@kilocode/sdk` / `kilo serve` 仍未满足。
 

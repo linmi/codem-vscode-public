@@ -63,7 +63,10 @@ describe("AgentManagerProvider memory commands", () => {
     await ctx.item.showMemory()
     await ctx.item.toggleMemory()
 
-    expect(ctx.calls).toEqual(["ready", ["show", "ses_agent_manager"], "ready", ["toggle", "ses_agent_manager"]])
+    expect(ctx.calls).toEqual([
+      ["error", "尚未迁移到 CodeM App Server: memory"],
+      ["error", "尚未迁移到 CodeM App Server: memory"],
+    ])
   })
 
   it("does not fall back when Agent Manager has no active session", async () => {
@@ -72,7 +75,7 @@ describe("AgentManagerProvider memory commands", () => {
 
     await ctx.item.showMemory()
 
-    expect(ctx.calls).toEqual([["error", "No active Agent Manager session"]])
+    expect(ctx.calls).toEqual([["error", "尚未迁移到 CodeM App Server: memory"]])
   })
 
   it("does not hang when the panel is disposed before it is ready", async () => {
@@ -84,10 +87,10 @@ describe("AgentManagerProvider memory commands", () => {
     ctx.dispose()
     await pending
 
-    expect(ctx.calls).toEqual([])
+    expect(ctx.calls).toEqual([["error", "尚未迁移到 CodeM App Server: memory"]])
   })
 
-  it("does not target a stale session after readiness resolves", async () => {
+  it("does not target a leftover session after readiness resolves", async () => {
     const ctx = manager()
     const wait = deferred()
     ctx.item.panel!.waitForReady = mock(() => wait.promise)
@@ -97,6 +100,6 @@ describe("AgentManagerProvider memory commands", () => {
     wait.resolve()
     await pending
 
-    expect(ctx.calls).toEqual([])
+    expect(ctx.calls).toEqual([["error", "尚未迁移到 CodeM App Server: memory"]])
   })
 })

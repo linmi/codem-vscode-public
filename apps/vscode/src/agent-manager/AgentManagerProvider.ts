@@ -1675,35 +1675,11 @@ export class AgentManagerProvider implements Disposable {
   }
 
   public async showMemory(): Promise<void> {
-    const panel = this.panel
-    const sid = this.activeSessionId
-    if (!panel || !sid) {
-      this.host.showError("No active Agent Manager session")
-      return
-    }
-    if (!(await this.waitForPanelReady(panel))) return
-    if (this.activeSessionId !== sid) return
-    try {
-      await panel.sessions.showMemory(sid)
-    } catch (error) {
-      this.host.showError(getErrorMessage(error) || "Failed to show memory")
-    }
+    this.host.showError("尚未迁移到 CodeM App Server: memory")
   }
 
   public async toggleMemory(): Promise<void> {
-    const panel = this.panel
-    const sid = this.activeSessionId
-    if (!panel || !sid) {
-      this.host.showError("No active Agent Manager session")
-      return
-    }
-    if (!(await this.waitForPanelReady(panel))) return
-    if (this.activeSessionId !== sid) return
-    try {
-      await panel.sessions.toggleMemory(sid)
-    } catch (error) {
-      this.host.showError(getErrorMessage(error) || "Failed to toggle memory")
-    }
+    this.host.showError("尚未迁移到 CodeM App Server: memory")
   }
 
   /** Expose worktree session→directory mappings for host integrations. */

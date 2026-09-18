@@ -26,9 +26,7 @@ type Internals = {
   syncWebviewState: () => Promise<void>
   flushPendingSessionRefresh: () => Promise<void>
   fetchAndSendProviders: () => Promise<void>
-  fetchAndSendAgents: () => Promise<void>
   fetchAndSendSkills: () => Promise<void>
-  fetchAndSendConfig: () => Promise<void>
   fetchAndSendNotifications: () => Promise<void>
   seedSessionStatusMap: () => Promise<void>
   sendNotificationSettings: () => void
@@ -135,9 +133,7 @@ describe("CodeMProvider follow-up sessions", () => {
     internal.syncWebviewState = async () => {}
     internal.flushPendingSessionRefresh = async () => {}
     internal.fetchAndSendProviders = async () => {}
-    internal.fetchAndSendAgents = async () => {}
     internal.fetchAndSendSkills = async () => {}
-    internal.fetchAndSendConfig = async () => {}
     internal.fetchAndSendNotifications = async () => {}
     internal.seedSessionStatusMap = async () => {}
     internal.sendNotificationSettings = () => {}
@@ -361,9 +357,7 @@ describe("CodeMProvider follow-up sessions", () => {
     internal.syncWebviewState = async () => {}
     internal.flushPendingSessionRefresh = async () => {}
     internal.fetchAndSendProviders = async () => {}
-    internal.fetchAndSendAgents = async () => {}
     internal.fetchAndSendSkills = async () => {}
-    internal.fetchAndSendConfig = async () => {}
     internal.fetchAndSendNotifications = async () => {}
     internal.seedSessionStatusMap = async () => {}
     internal.sendNotificationSettings = () => {}
@@ -420,9 +414,7 @@ describe("CodeMProvider follow-up sessions", () => {
     internal.syncWebviewState = async () => {}
     internal.flushPendingSessionRefresh = async () => {}
     internal.fetchAndSendProviders = async () => {}
-    internal.fetchAndSendAgents = async () => {}
     internal.fetchAndSendSkills = async () => {}
-    internal.fetchAndSendConfig = async () => {}
     internal.fetchAndSendNotifications = async () => {}
     internal.seedSessionStatusMap = async () => {}
     internal.sendNotificationSettings = () => {}

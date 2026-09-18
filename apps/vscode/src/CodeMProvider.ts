@@ -1,14 +1,12 @@
 import { DEFAULT_PROMPT_SETTINGS, type PromptDefaults } from "./shared/prompt-defaults"
 import * as path from "path"
-import { existsSync } from "fs"
 import * as vscode from "vscode"
-import { TRANSIENT as MEMORY_TRANSIENT } from "@kilocode/kilo-memory/schema"
 import type { Session, SessionStatus } from "@codem/ui/types/session"
-import type { KiloClient, ProviderUsage, Event, TextPartInput, FilePartInput, Config } from "./services/cli-backend/leftover-sdk"
+import type { KiloClient, ProviderUsage, Event, TextPartInput, FilePartInput } from "./services/cli-backend/leftover-sdk"
 import { MaxCostNudge, type MaxCostChoice } from "@opencode-ai/core/kilocode/cost/max-cost-nudge"
 import { type KiloConnectionService, ServerStartupError } from "./services/cli-backend"
 import { previewSound, testOSNotification } from "./services/attention"
-import type { EditorContext, IndexingStatus } from "./services/cli-backend/types"
+import type { EditorContext } from "./services/cli-backend/types"
 import { FileIgnoreController } from "./services/autocomplete/shims/FileIgnoreController"
 import { ChatTextAreaAutocomplete } from "./services/autocomplete/chat-autocomplete/ChatTextAreaAutocomplete"
 import { notebookUri } from "./services/autocomplete/continuedev/core/autocomplete/notebook"
@@ -19,10 +17,8 @@ import { exportTranscript } from "./kilo-provider/export-transcript"
 import {
   sessionToWebview,
   indexProvidersById,
-  filterVisibleAgents,
   mapSSEEventToWebviewMessage,
   getErrorMessage,
-  getConfigErrorDetails,
   isEventFromForeignProject,
   MessageConfirmation,
   runWithMessageConfirmation,
@@ -38,13 +34,11 @@ import {
 } from "./kilo-provider-utils"
 import { GitOps } from "./agent-manager/GitOps"
 import { GitStatsPoller, type LocalStats } from "./agent-manager/GitStatsPoller"
-import { removeMcp } from "./kilo-provider/remove-config-item"
 import type { RemoteStatusService } from "./services/RemoteStatusService"
 import { resolveProjectDirectory } from "./project-directory"
 import { seedSessionStatuses } from "./session-status"
 import { normalizeEnhancePromptErrorMessage } from "./enhance-prompt-error"
 import { retry } from "./services/cli-backend/retry"
-import { removeAgent } from "./services/agent-removal"
 import { normalize, type SSEPayload, type SyncPayload, type WirePayload } from "./services/cli-backend/sdk-sse-adapter"
 import { slimInfo, slimPart, slimParts } from "./kilo-provider/slim-metadata"
 import { handleSidebarWorktreeMessage } from "./kilo-provider/sidebar-worktree"
@@ -88,7 +82,6 @@ import {
   isWorkStyleSetting,
   watchWorkStyleConfig,
 } from "./kilo-provider/work-style"
-import * as McpOAuth from "./kilo-provider/mcp-oauth"
 import { retryable, backoff, MAX_RETRIES } from "./util/retry"
 import { hasGit } from "./kilo-provider/git-status"
 import {
@@ -129,45 +122,18 @@ import { isActivity, type Activity } from "../webview-ui/src/utils/session-activ
 import type { PRReviewCommentData, ReviewMessageData } from "./shared/review-comments"
 import { feedbackMetadata, parseFeedback, type BrowserFeedbackData } from "./shared/browser-feedback"
 import { completesWithoutStatus, goalControl } from "./kilo-provider/command-completion"
-import { KiloProviderMemory } from "./kilo-provider/memory"
-
 import {
-  buildActionContext,
   computeDefaultSelection,
   fetchProviderData,
   validateRecents,
   validateFavorites,
-  connectProvider as connectProviderAction,
-  authorizeProviderOAuth as authorizeOAuthAction,
-  completeProviderOAuth as completeOAuthAction,
-  disconnectProvider as disconnectProviderAction,
-  saveCustomProvider as saveCustomProviderAction,
-  resolveStoredKey,
 } from "./provider-actions"
-import type { StoredProviderKey } from "./provider-actions"
 import { AnacondaDesktopBridge } from "./anaconda-desktop/bridge"
-import { fetchOpenAIModels, FetchModelsError } from "./shared/fetch-models"
-import type { Agent } from "@codem/ui/types/session"
-import { configFeatures, serverFeatures } from "./features"
-import { fetchSnapshot } from "./kilo-provider/config-snapshot"
 import type { CodeMProviderOptions } from "./kilo-provider/options"
 import type { ProjectRef, SessionRef, WorktreeRef } from "./agent-manager/project/route"
-import { indexingConsentStore, registeredProjects } from "./indexing-consent"
-import { fetchKiloEmbeddingModelCatalog } from "@kilocode/kilo-gateway"
-import { fetchImageModels } from "./image-generation/models"
 import { stopSessionProcesses } from "./kilo-provider/background-process"
-import { sandboxDefault, sandboxSessionMetadata } from "./shared/sandbox-session"
-import {
-  buildIndexingSettingsMessage,
-  validIndexingSetting,
-} from "./kilo-provider/indexing-settings"
-import {
-  ConfigBindings,
-  type ConfigBinding,
-  type ConfigProject,
-  type ConfigTarget,
-} from "./kilo-provider/config-bindings"
-import { canonicalizePath, projectIdFor, samePath } from "./agent-manager/project/paths"
+import { sandboxSessionMetadata } from "./shared/sandbox-session"
+import { canonicalizePath } from "./agent-manager/project/paths"
 import { buildTimelineSettingMessage, validChatSetting, watchChatConfig } from "./kilo-provider/chat-settings"
 import { buildThroughputSettingMessage, watchThroughputConfig } from "./kilo-provider/throughput-settings"
 import {
@@ -209,37 +175,6 @@ type SendWebviewMessage = {
   agentManagerContext?: unknown
   contextDirectory?: unknown
 }
-type SandboxSupportClient = {
-  support: (
-    parameters: { directory?: string },
-    options: { throwOnError: true },
-  ) => Promise<{ data: { available: boolean; reason?: string } }>
-}
-type ConfigSnapshot = {
-  effective: Config
-  targets: { global: ConfigTarget; project: ConfigTarget }
-}
-
-function sandboxClient(client: KiloClient | null) {
-  const sandbox = client?.sandbox
-  return sandbox as (typeof sandbox & SandboxSupportClient) | undefined
-}
-
-// Helper to map agent data to the subset of fields sent to the webview
-const mapAgent = (a: Agent) => ({
-  name: a.name,
-  displayName: a.displayName,
-  source: a.source,
-  description: a.description,
-  mode: a.mode,
-  native: a.native,
-  hidden: a.hidden,
-  color: a.color,
-  deprecated: a.deprecated,
-  permission: a.permission,
-  model: a.model,
-})
-
 // message.part.* events are always session-scoped; drop them when the session is unknown.
 const SESSION_SCOPED_PART_EVENTS = new Set(["message.part.updated", "message.part.delta", "message.part.removed"])
 const isSessionScopedPartEvent = (type: string) => SESSION_SCOPED_PART_EVENTS.has(type)
@@ -343,35 +278,13 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   private isWebviewReady = false
   private readonly extensionVersion = vscode.extensions.getExtension("codem.codem")?.packageJSON?.version ?? "unknown"
   private cachedProvidersMessage: unknown = null
-  /**
-   * Provider API keys retained extension-side for authenticated model
-   * fetches (#10139). Keys are stripped before provider data reaches the
-   * webview, so fetch requests for an existing provider carry a providerID
-   * and the key is resolved here. Refreshed on every provider fetch.
-   */
-  private storedProviderKeys: Record<string, StoredProviderKey> = {}
   /** Coalesce provider refreshes — at most one follow-up rerun when a request lands mid-flight. */
   private providersRefresh: Promise<void> | null = null
   private providersQueued = false
   private providersGeneration = 0
   private sandboxRevision = 0
-  private cachedAgentsMessage: unknown = null
   /** Cached skillsLoaded payload so requestSkills can be served before client is ready */
   private cachedSkillsMessage: unknown = null
-  /** Cached configLoaded payload so requestConfig can be served before client is ready */
-  private cachedConfigMessage: unknown = null
-  private readonly configBindings = new ConfigBindings()
-  private cachedGlobalConfig: Config | null = null
-  /** Cached indexingStatusLoaded payload so requestIndexingStatus can be served before client is ready */
-  private cachedIndexingStatusMessage: unknown = null
-  /** Cached kiloEmbeddingModelsLoaded payload so requestKiloEmbeddingModels is resilient offline. */
-  private cachedKiloEmbeddingModelsMessage: unknown = null
-  /** Cached imageModelsLoaded payload so requestImageModels is resilient offline. */
-  private cachedImageModelsMessage: unknown = null
-  /** Cached mcpStatusLoaded payload so requestMcpStatus can be served before client is ready */
-  private cachedMcpStatusMessage: unknown = null
-  /** Ref-count of in-flight handleUpdateConfig calls; prevents fetchAndSendConfig from sending stale data */
-  private pending = 0
   private configWarningsShown = false
   /** Cached notificationsLoaded payload */
   private cachedNotificationsMessage: NotificationsMessage | null = null
@@ -393,7 +306,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   private readonly checkpoints = new Map<string, Promise<void>>()
   private readonly sessionCreations = new Map<string, Promise<{ sid: string; dir: string } | undefined>>()
   private readonly draftSessions = new Map<string, { sid: string; dir: string; expires: number }>()
-  private readonly sandboxTransitions = new Map<string, Promise<void>>()
   private readonly revisions = new Map<string, { id: string; seq: number }>()
   private readonly refreshes = new Map<string, number>()
   private readonly anacondaDesktop = new AnacondaDesktopBridge()
@@ -418,14 +330,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   private readonly confirmations = new MessageConfirmation()
   private readonly costs = new MaxCostNudge()
   private readonly activeAlerts = new Map<string, number>() // sid -> limit currently shown in UI
-  private readonly memory = new KiloProviderMemory({
-    client: () => this.client ?? undefined,
-    session: () => this.currentSession ?? undefined,
-    // Honor disabled project scope (null in a multi-root panel): no workspace fallback,
-    // so memory operations never silently target an arbitrary folder.
-    dir: (sessionID) => this.getProjectDirectory(sessionID),
-    post: (message) => this.postMessage(message),
-  })
   private unsubscribeEvent: (() => void) | null = null
   private unsubscribeState: (() => void) | null = null
   private migrationCache: MigrationContext["migrationCache"] = new Map()
@@ -438,11 +342,9 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   private unsubscribeFavoritesChange: (() => void) | null = null
   private unsubscribeClearPendingPrompts: (() => void) | null = null
   private unsubscribeDirectoryProvider: (() => void) | null = null
-  private unsubscribeSandboxPreference: (() => void) | null = null
   private initConnectionPromise: Promise<void> | null = null
   private webviewMessageDisposable: vscode.Disposable | null = null
   private autocompleteConfigDisposable: vscode.Disposable | null = null
-  private indexingConfigDisposable: vscode.Disposable | null = null
   private chatConfigDisposable: vscode.Disposable | null = null
   private throughputConfigDisposable: vscode.Disposable | null = null
   private autoApprovalReasonConfigDisposable: vscode.Disposable | null = null
@@ -455,10 +357,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   private chatAutocomplete: ChatTextAreaAutocomplete | null = null
   private projectDirectory: string | null | undefined
   private settingsGeneration = 0
-  private indexingProjectId: string | undefined
-  private indexingSettingsRequest = 0
-  private indexingStatusRequest = 0
-  private indexingTarget?: { source: string; directory: string; projectId?: string }
   private slimEditMetadata = true
 
   private pendingFollowup: Followup | null = null
@@ -494,7 +392,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
   ) {
     this.projectDirectory = opts.projectDirectory
     this.slimEditMetadata = opts.slimEditMetadata ?? true
-    this.unsubscribeSandboxPreference = this.connectionService.sandboxPreference?.onChange(() => undefined)
     this.appServerController = this.opts.appServer
       ? new MatureUiAppServerController({
           service: this.opts.appServer,
@@ -604,8 +501,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     this.projectDirectory = directory
     this.providerUsageGeneration++
     this.cachedProviderUsageMessage = null
-    this.configBindings.clear()
-    this.cachedConfigMessage = null
     this.postMessage({ type: "workspaceDirectoryChanged", directory: directory ?? "" })
     this.postMessage({ type: "configBindingExpired", reason: "project-changed" })
   }
@@ -674,19 +569,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
         this.postMessage({ type: "sessionForked", sessionID: session.id, forkedFromID: sourceID }),
       status: (sessionID: string) => this.sessionStatusMap.get(sessionID),
       directory: (sessionID: string) => this.getWorkspaceDirectory(sessionID),
-    }
-  }
-
-  private get removeConfigItemCtx() {
-    return {
-      connection: this.connectionService,
-      project: () => this.getProjectDirectory(this.currentSession?.id),
-      directory: () => this.getWorkspaceDirectory(),
-      refresh: async () => {
-        this.cachedAgentsMessage = null
-        this.cachedConfigMessage = null
-      },
-      storage: this.extensionContext?.globalStorageUri,
     }
   }
 
@@ -1059,8 +941,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     this.setFocusTarget("other")
     this.autocompleteConfigDisposable?.dispose()
     this.autocompleteConfigDisposable = watchAutocompleteConfig((msg) => this.postMessage(msg))
-    this.indexingConfigDisposable?.dispose()
-    this.indexingConfigDisposable = null
     this.chatConfigDisposable?.dispose()
     this.chatConfigDisposable = watchChatConfig((msg) => this.postMessage(msg))
     this.throughputConfigDisposable?.dispose()
@@ -1301,9 +1181,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           await this.handleCostAlertResponse(message.sessionID, message.limit, message.response)
           break
         case "openSettingsTab":
-          if (message.tab === "indexing") {
-            await vscode.commands.executeCommand("codem.openIndexingSettings")
-          }
           break
         case "setLanguage":
           await vscode.workspace
@@ -1719,7 +1596,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
 
     this.connectionState = "connecting"
     this.connectionGeneration++
-    this.configBindings.clear()
     this.postMessage({ type: "connectionState", state: "connecting" })
 
     // Clean up any existing subscriptions (e.g., sidebar re-shown)
@@ -1793,7 +1669,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       this.unsubscribeState = this.connectionService.onStateChange(async (state, error) => {
         if (this.connectionState !== state) {
           this.connectionGeneration++
-          this.configBindings.clear()
         }
         this.connectionState = state
         this.postConnectionState(error)
@@ -2388,36 +2263,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async handleDeleteMessage(sessionID: string, messageID: string, requestID?: string): Promise<void> {
-    const result = {
-      type: "deleteMessageResult" as const,
-      sessionID,
-      messageID,
-      ...(requestID !== undefined ? { requestID } : {}),
-    }
-    const client = this.client
-    if (!client) {
-      this.postMessage({ type: "error", message: "Not connected to CLI backend", sessionID })
-      this.postMessage({ ...result, success: false })
-      return
-    }
-
-    try {
-      const response = await client.session.deleteMessage(
-        { sessionID, messageID, directory: this.getWorkspaceDirectory(sessionID), queued: true },
-        { throwOnError: true },
-      )
-      this.postMessage({ ...result, success: response.data === true })
-    } catch (error) {
-      console.error("[CodeM] CodeMProvider: Failed to delete message:", error)
-      this.postMessage({
-        type: "error",
-        message: getErrorMessage(error) || "Failed to delete message",
-        sessionID,
-      })
-      this.postMessage({ ...result, success: false })
-    }
-  }
 
   /**
    * Handle renaming a session.
@@ -2530,7 +2375,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
           return
         }
         try {
-          const { response, authMethods, authStates, storedKeys, organizationId, ready } = await fetchProviderData(
+          const { response, authMethods, authStates, organizationId, ready } = await fetchProviderData(
             client,
             this.getWorkspaceDirectory(),
           )
@@ -2539,7 +2384,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
             generation = this.providersGeneration
             continue
           }
-          this.storedProviderKeys = storedKeys
           const settings = vscode.workspace.getConfiguration("codem.model")
           const message = {
             type: "providersLoaded",
@@ -2549,7 +2393,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
             organizationId,
             ready,
             defaultSelection: computeDefaultSelection(
-              this.cachedConfigMessage as { config?: { model?: string } } | null,
+              null,
               settings.get<string>("providerID", ""),
               settings.get<string>("modelID", ""),
             ),
@@ -2575,103 +2419,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     })
     this.providersRefresh = done
     await done
-  }
-
-  private async handleProviderAction(msg: Record<string, unknown>): Promise<void> {
-    const rid = typeof msg.requestId === "string" ? msg.requestId : ""
-    const pid = typeof msg.providerID === "string" ? msg.providerID : ""
-    if (!rid || !pid) return
-    if (!this.client) {
-      const action =
-        msg.type === "disconnectProvider"
-          ? "disconnect"
-          : msg.type === "authorizeProviderOAuth"
-            ? "authorize"
-            : "connect"
-      this.postMessage({
-        type: "providerActionError",
-        requestId: rid,
-        providerID: pid,
-        action,
-        message: "Not connected to CLI backend",
-      })
-      return
-    }
-    const ctx = buildActionContext(
-      this.client,
-      (m) => this.postMessage(m),
-      getErrorMessage,
-      this.getWorkspaceDirectory(),
-      () => this.fetchAndSendProviders(),
-    )
-    const set = (m: unknown) => {
-      this.cachedConfigMessage = m
-      if (m && typeof m === "object" && "globalConfig" in m)
-        this.cachedGlobalConfig = (m as { globalConfig?: Config }).globalConfig ?? null
-    }
-    const method = typeof msg.method === "number" ? msg.method : 0
-    const key = typeof msg.apiKey === "string" ? msg.apiKey : undefined
-    const keyChanged = msg.apiKeyChanged === true
-    const code = typeof msg.code === "string" ? msg.code : undefined
-    const config = msg.config && typeof msg.config === "object" ? (msg.config as Record<string, unknown>) : undefined
-    const metadata =
-      msg.metadata && typeof msg.metadata === "object" ? (msg.metadata as Record<string, unknown>) : undefined
-    if (msg.type === "connectProvider" && key) return connectProviderAction(ctx, rid, pid, key, metadata)
-    if (msg.type === "authorizeProviderOAuth") return authorizeOAuthAction(ctx, rid, pid, method)
-    if (msg.type === "completeProviderOAuth") return completeOAuthAction(ctx, rid, pid, method, code)
-    if (msg.type === "disconnectProvider") return disconnectProviderAction(ctx, rid, pid, this.cachedConfigMessage, set)
-    if (msg.type === "saveCustomProvider" && config)
-      return saveCustomProviderAction(ctx, rid, pid, config, key, keyChanged, this.cachedConfigMessage, set)
-  }
-
-  private async handleFetchCustomProviderModels(msg: Record<string, unknown>): Promise<void> {
-    const rid = typeof msg.requestId === "string" ? msg.requestId : ""
-    const url = typeof msg.baseURL === "string" ? msg.baseURL : ""
-    if (!rid || !url) return
-    const key =
-      typeof msg.apiKey === "string" ? msg.apiKey : resolveStoredKey(this.storedProviderKeys, msg.providerID, url)
-    const headers = msg.headers && typeof msg.headers === "object" ? (msg.headers as Record<string, string>) : undefined
-    try {
-      const models = await fetchOpenAIModels({ baseURL: url, apiKey: key, headers })
-      this.postMessage({ type: "customProviderModelsFetched", requestId: rid, models })
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to fetch models"
-      const auth = err instanceof FetchModelsError && err.auth
-      this.postMessage({ type: "customProviderModelsFetched", requestId: rid, error: message, auth })
-    }
-  }
-
-  /**
-   * Fetch agents (modes) from the backend and send to webview.
-   */
-  private async fetchAndSendAgents(): Promise<void> {
-    if (this.appServerController) return
-    if (!this.client) {
-      if (this.cachedAgentsMessage) {
-        this.postMessage(this.cachedAgentsMessage)
-      }
-      return
-    }
-
-    try {
-      const workspaceDir = this.getWorkspaceDirectory()
-      const { data: agents } = await retry(() =>
-        this.client!.app.agents({ directory: workspaceDir }, { throwOnError: true }),
-      )
-
-      const { visible, defaultAgent } = filterVisibleAgents(agents)
-
-      const message = {
-        type: "agentsLoaded",
-        agents: visible.map(mapAgent),
-        allAgents: agents.map(mapAgent),
-        defaultAgent,
-      }
-      this.cachedAgentsMessage = message
-      this.postMessage(message)
-    } catch (error) {
-      console.error("[CodeM] CodeMProvider: Failed to fetch agents:", error)
-    }
   }
 
   private async fetchAndSendSkills(): Promise<void> {
@@ -2713,185 +2460,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       return
     }
     await Promise.all([this.fetchAndSendProviders(), this.fetchAndSendSkills()])
-  }
-
-  /**
-   * Remove a skill via the CLI backend (deletes from disk + clears cache), then refresh.
-   * Returns true on success, false on failure.
-   * On failure, re-fetches skills so the webview reverts to the authoritative state.
-   */
-  private async removeSkillViaCli(location: string): Promise<boolean> {
-    if (!this.client) return false
-    try {
-      const dir = this.getWorkspaceDirectory()
-      const result = await this.client.kilocode.removeSkill({ location, directory: dir })
-      if (result.error) {
-        console.error("[CodeM] removeSkill returned error:", result.error)
-        this.cachedSkillsMessage = null
-        await this.refreshLiveCatalogs()
-        return false
-      }
-    } catch (error) {
-      console.error("[CodeM] Failed to remove skill:", error)
-      this.cachedSkillsMessage = null
-      await this.refreshLiveCatalogs()
-      return false
-    }
-    this.cachedSkillsMessage = null
-    await this.refreshLiveCatalogs()
-    return true
-  }
-
-  /** Remove an agent via the CLI backend, then refresh. */
-  private async handleRemoveAgent(name: string): Promise<void> {
-    const result = await removeAgent({
-      connection: this.connectionService,
-      directory: this.getWorkspaceDirectory(),
-      name,
-    })
-    if (!result.success) {
-      console.error("[CodeM] Failed to remove agent:", result.error)
-      void vscode.window.showErrorMessage(result.error ?? `Failed to remove agent "${name}".`)
-    }
-    this.cachedAgentsMessage = null
-    await this.fetchAndSendAgents()
-  }
-
-  private async handleRemoveMcp(name: string): Promise<void> {
-    const removed = await removeMcp(this.removeConfigItemCtx, name)
-    if (!removed) {
-      console.error("[CodeM] CodeMProvider: Failed to remove MCP server:", name)
-    }
-  }
-
-  private async refreshMcpStatus(): Promise<void> {
-    await this.fetchAndSendMcpStatus()
-  }
-
-  private async fetchAndSendMcpStatus(): Promise<void> {
-    if (!this.client) {
-      if (this.cachedMcpStatusMessage) {
-        this.postMessage(this.cachedMcpStatusMessage)
-      }
-      return
-    }
-
-    try {
-      const directory = this.getWorkspaceDirectory()
-      const { data } = await retry(() => this.client!.mcp.status({ directory }))
-      if (data) {
-        const message = { type: "mcpStatusLoaded", status: data }
-        this.cachedMcpStatusMessage = message
-        this.postMessage(message)
-      }
-    } catch (error) {
-      console.error("[CodeM] CodeMProvider: Failed to fetch MCP status:", error)
-    }
-  }
-
-  private async handleMemoryMessage(message: Record<string, unknown>): Promise<boolean> {
-    return this.memory.handle(message)
-  }
-
-  /**
-   * Fetch backend config and send to webview.
-   */
-  private async fetchAndSendConfig(): Promise<void> {
-    if (!this.client || this.connectionState !== "connected") {
-      if (this.cachedConfigMessage) {
-        this.postMessage(this.cachedConfigMessage)
-      }
-      return
-    }
-
-    // Skip if handleUpdateConfig is in flight — sending a configLoaded now
-    // would race with the write and potentially overwrite optimistic webview state.
-    if (this.pending > 0) {
-      return
-    }
-
-    try {
-      await this.refreshConfig("configLoaded")
-    } catch (error) {
-      console.error("[CodeM] CodeMProvider: Failed to fetch config:", error)
-    }
-  }
-
-  /** Fetch global-only config (no project/managed layers) for settings export. */
-  private async fetchAndSendGlobalConfig(): Promise<void> {
-    if (!this.client || this.connectionState !== "connected") return
-    try {
-      const { data: config } = await this.client.global.config.get({ throwOnError: true })
-      this.cachedGlobalConfig = config ?? null
-      this.postMessage({ type: "globalConfigLoaded", config })
-    } catch (error) {
-      console.error("[CodeM] CodeMProvider: Failed to fetch global config:", error)
-    }
-  }
-
-  private get indexingScope() {
-    const source = this.getWorkspaceDirectory(this.currentSession?.id)
-    const target = this.indexingTarget
-    if (target && (target.source === source || sameDirectory(target.source, source))) return target
-    return { source, directory: source, projectId: undefined }
-  }
-
-  private async fetchAndSendIndexingStatus(directory?: string, projectId?: string): Promise<void> {
-    if (!this.client || !this.extensionContext) {
-      if (this.cachedIndexingStatusMessage) {
-        this.postMessage(this.cachedIndexingStatusMessage)
-      }
-      return
-    }
-
-    const config = this.connectionService.getServerConfig()
-    if (!config) return
-    const source = this.getWorkspaceDirectory(this.currentSession?.id)
-    const dir = directory ?? source
-    if (!dir) return
-    const target = { source, directory: dir, projectId }
-    this.indexingTarget = target
-
-    try {
-      const store = indexingConsentStore(this.extensionContext)
-      const project = await store.project(dir)
-      if (target !== this.indexingScope) return
-      target.directory = project.root
-      const request = ++this.indexingStatusRequest
-      const status = await this.syncIndexingConsent(project.root, store.enabled(project.id), config)
-      if (request !== this.indexingStatusRequest || target !== this.indexingScope) return
-      const message = {
-        type: "indexingStatusLoaded",
-        status,
-        projectId,
-      }
-      this.cachedIndexingStatusMessage = message
-      this.postMessage(message)
-    } catch (error) {
-      console.error("[CodeM] CodeMProvider: Failed to fetch indexing status:", error)
-    }
-  }
-
-  private async fetchAndSendKiloEmbeddingModels(): Promise<void> {
-    const catalog = await fetchKiloEmbeddingModelCatalog()
-    const message = { type: "kiloEmbeddingModelsLoaded", catalog }
-    this.cachedKiloEmbeddingModelsMessage = message
-    this.postMessage(message)
-  }
-
-  private async fetchAndSendImageModels(): Promise<void> {
-    if (this.appServerController) return
-    const dir = this.getWorkspaceDirectory()
-    const result = await fetchImageModels(this.connectionService, dir)
-    if (!result.ok) {
-      if (this.cachedImageModelsMessage) {
-        this.postMessage(this.cachedImageModelsMessage)
-      }
-      return
-    }
-    const message = { type: "imageModelsLoaded" as const, models: result.models }
-    this.cachedImageModelsMessage = message
-    this.postMessage(message)
   }
 
   private handleBoardMessage(message: Record<string, unknown>): Promise<boolean> {
@@ -2953,18 +2521,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async promoteBackgroundJob(jobID: string, sessionID: string): Promise<void> {
-    const client = this.client
-    if (!client || this.connectionState !== "connected") return
-    try {
-      await client.kilocode.backgroundJob.promote(
-        { jobID, directory: this.getWorkspaceDirectory(sessionID) },
-        { throwOnError: true },
-      )
-    } catch (error) {
-      console.error("[CodeM] CodeMProvider: Failed to promote background job:", error)
-    }
-  }
 
   private begin(dir: string): number {
     const key = [...this.requests.keys()].find((entry) => sameDirectory(entry, dir)) ?? dir
@@ -3031,18 +2587,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     )
   }
 
-  /**
-   * Fetch the latest merged config and push it as configUpdated.
-   * Called when global.config.updated SSE fires (config changed without a full dispose).
-   */
-  private async fetchAndSendConfigUpdated(): Promise<void> {
-    if (!this.client || this.connectionState !== "connected") return
-    try {
-      await this.refreshConfig("configUpdated")
-    } catch (error) {
-      console.error("[CodeM] CodeMProvider: Failed to fetch config after update:", error)
-    }
-  }
 
   /**
    * Fetch config warnings from the server and display a single consolidated
@@ -3138,408 +2682,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     this.postMessage(getWorkStylePayload())
   }
 
-  private async fetchAndSendSandboxDefault(directory = this.getContextDirectory(), requestID?: string): Promise<void> {
-    const revision = ++this.sandboxRevision
-    const generation = this.connectionGeneration
-    const client = this.client
-    const sandbox = sandboxClient(client)
-    if (!client || !sandbox || this.connectionState !== "connected") return
-    try {
-      const [desired, result] = await Promise.all([
-        sandboxDefault(this.connectionService.sandboxPreference, client, directory),
-        sandbox.support({ directory }, { throwOnError: true }),
-      ])
-      if (this.connectionState !== "connected" || this.connectionGeneration !== generation || this.client !== client)
-        return
-      this.postMessage({
-        type: "sandboxDefaultStatus",
-        desired,
-        enabled: desired && result.data.available,
-        available: result.data.available,
-        reason: result.data.reason,
-        revision,
-        requestID,
-      })
-    } catch (error) {
-      if (this.connectionState !== "connected" || this.connectionGeneration !== generation || this.client !== client)
-        return
-      this.postMessage({
-        type: "sandboxDefaultStatus",
-        desired: false,
-        enabled: false,
-        available: false,
-        reason: getErrorMessage(error) || "Failed to load sandbox default",
-        revision,
-        requestID,
-      })
-    }
-  }
-
-  private async handleSetSandboxDefault(
-    enabled: boolean,
-    requestID: string,
-    directory = this.getContextDirectory(),
-  ): Promise<void> {
-    const client = this.client
-    const sandbox = sandboxClient(client)
-    if (!client || !sandbox || this.connectionState !== "connected") {
-      await this.fetchAndSendSandboxDefault(directory, requestID)
-      return
-    }
-    try {
-      await this.connectionService.sandboxPreference.set(enabled, async () => {
-        const { data } = await sandbox.support({ directory }, { throwOnError: true })
-        if (!data.available) throw new Error(data.reason ?? "Sandbox backend is unavailable")
-      })
-      await this.fetchAndSendSandboxDefault(directory, requestID)
-      vscode.window.showInformationMessage(
-        enabled ? "Sandbox enabled for new sessions" : "Sandbox disabled for new sessions",
-      )
-    } catch (error) {
-      this.postMessage({
-        type: "sandboxDefaultStatus",
-        desired: this.connectionService.sandboxPreference.resolve(false),
-        enabled: false,
-        available: false,
-        reason: getErrorMessage(error) || "Failed to update sandbox default",
-        revision: ++this.sandboxRevision,
-        requestID,
-      })
-    }
-  }
-
-  private postSandboxError(sessionID: string, error: unknown, revision: number, requestID?: string): void {
-    this.postMessage({
-      type: "sandboxStatusError",
-      sessionID,
-      directory: this.getWorkspaceDirectory(sessionID),
-      message: getErrorMessage(error) || "Failed to update sandbox",
-      requestID,
-      revision,
-    })
-  }
-
-  private async fetchAndSendSandboxStatus(sessionID: string, requestID?: string): Promise<void> {
-    const revision = ++this.sandboxRevision
-    const generation = this.connectionGeneration
-    const client = this.client
-    const sandbox = client?.sandbox
-    if (!sandbox?.status) return
-    if (this.connectionState !== "connected") {
-      this.postSandboxError(sessionID, "Not connected to CLI backend", revision, requestID)
-      return
-    }
-    try {
-      const directory = this.getWorkspaceDirectory(sessionID)
-      const { data } = await sandbox.status({ sessionID, directory }, { throwOnError: true })
-      if (this.connectionState !== "connected" || this.connectionGeneration !== generation || this.client !== client)
-        return
-      if (!sameDirectory(data.directory, this.getWorkspaceDirectory(sessionID))) {
-        if (requestID) void this.fetchAndSendSandboxStatus(sessionID, requestID)
-        return
-      }
-      this.postMessage({ type: "sandboxStatus", sessionID, revision, ...data, requestID })
-    } catch (error) {
-      if (this.connectionState !== "connected" || this.connectionGeneration !== generation || this.client !== client)
-        return
-      this.postSandboxError(sessionID, error, revision, requestID)
-    }
-  }
-
-  private sandboxKey(input: {
-    sessionID?: string
-    draftID?: string
-    agentManagerContext?: string
-    contextDirectory?: string
-  }): string {
-    if (input.sessionID) return `session:${input.sessionID}`
-    if (input.draftID) return `draft:${input.draftID}`
-    return `context:${input.agentManagerContext ?? ""}:${input.contextDirectory ?? this.getRootDirectory()}`
-  }
-
-  private handleToggleSandbox(input: {
-    sessionID?: string
-    draftID?: string
-    requestID: string
-    agentManagerContext?: string
-    contextDirectory?: string
-  }): Promise<void> {
-    const key = this.sandboxKey(input)
-    const pending = this.sandboxTransitions.get(key)
-    if (pending) return pending.catch(() => undefined)
-    const operation = this.runToggleSandbox(input, key)
-    this.sandboxTransitions.set(key, operation)
-    return operation
-      .catch(() => undefined)
-      .finally(() => {
-        for (const [id, active] of this.sandboxTransitions) {
-          if (active === operation) this.sandboxTransitions.delete(id)
-        }
-      })
-  }
-
-  private async runToggleSandbox(
-    input: {
-      sessionID?: string
-      draftID?: string
-      requestID: string
-      agentManagerContext?: string
-      contextDirectory?: string
-    },
-    key: string,
-  ): Promise<void> {
-    const revision = ++this.sandboxRevision
-    if (!input.sessionID) {
-      const error = new Error("Sandbox session is required")
-      this.postSandboxError("", error, revision, input.requestID)
-      throw error
-    }
-    const generation = this.connectionGeneration
-    const client = this.client
-    const sandbox = client?.sandbox
-    if (!sandbox?.toggle || this.connectionState !== "connected") {
-      const error = new Error("Not connected to CLI backend")
-      this.postSandboxError(input.sessionID ?? "", error, revision, input.requestID)
-      throw error
-    }
-    const resolved = await this.resolveSession(
-      input.sessionID,
-      input.draftID,
-      input.agentManagerContext,
-      input.contextDirectory,
-    ).catch((error) => {
-      this.postSandboxError(input.sessionID ?? "", error, revision, input.requestID)
-      throw error
-    })
-    if (!resolved) {
-      const error = new Error("Failed to resolve sandbox session")
-      this.postSandboxError(input.sessionID ?? "", error, revision, input.requestID)
-      throw error
-    }
-    const operation = this.sandboxTransitions.get(key)
-    if (operation) this.sandboxTransitions.set(`session:${resolved.sid}`, operation)
-    if (this.connectionGeneration !== generation || this.client !== client) {
-      throw new Error("Sandbox connection changed")
-    }
-    try {
-      const { data } = await sandbox.toggle(
-        { sessionID: resolved.sid, directory: resolved.dir },
-        { throwOnError: true },
-      )
-      if (this.connectionState !== "connected" || this.connectionGeneration !== generation || this.client !== client) {
-        throw new Error("Sandbox connection changed")
-      }
-      if (!data.available) throw new Error(data.reason ?? "Sandbox backend is unavailable")
-      if (!sameDirectory(data.directory, this.getWorkspaceDirectory(resolved.sid))) {
-        throw new Error("Session directory changed during sandbox toggle")
-      }
-      const remembered = await this.connectionService.sandboxPreference
-        .set(data.enabled)
-        .then(() => true)
-        .catch((error) => {
-          console.error("[CodeM] Failed to persist sandbox default:", error)
-          return false
-        })
-      this.postMessage({
-        type: "sandboxStatus",
-        sessionID: resolved.sid,
-        revision,
-        ...data,
-        requestID: input.requestID,
-      })
-      if (!remembered) {
-        vscode.window.showWarningMessage(
-          `Sandbox ${data.enabled ? "enabled" : "disabled"} for this session, but the new-session default could not be saved`,
-        )
-        return
-      }
-      vscode.window.showInformationMessage(data.enabled ? "Sandbox enabled" : "Sandbox disabled")
-    } catch (error) {
-      if (this.connectionState === "connected" && this.connectionGeneration === generation && this.client === client) {
-        this.postSandboxError(resolved.sid, error, revision, input.requestID)
-        void this.fetchAndSendSandboxStatus(resolved.sid)
-      }
-      throw error
-    }
-  }
-
-  private async handleUpdateConfig(
-    partial: Partial<Config>,
-    project: Partial<Config> = {},
-    globalUnset: string[][] = [],
-    projectUnset: string[][] = [],
-    globalBindingId?: string,
-    projectBindingId?: string,
-  ): Promise<void> {
-    if (!this.client || this.connectionState !== "connected") {
-      this.postMessage({ type: "configUpdateFailed", message: "Not connected to CLI backend" })
-      return
-    }
-
-    const refreshProviders =
-      partial.provider !== undefined ||
-      partial.disabled_providers !== undefined ||
-      partial.enabled_providers !== undefined ||
-      partial.hide_prompt_training_models !== undefined
-    const refreshAgents =
-      partial.default_agent !== undefined ||
-      partial.agent !== undefined ||
-      project.default_agent !== undefined ||
-      project.agent !== undefined
-    const hasGlobal = Object.keys(partial).length > 0 || globalUnset.length > 0
-    const hasProject = Object.keys(project).length > 0 || projectUnset.length > 0
-    if (!hasGlobal && !hasProject) return
-
-    const globalBinding = hasGlobal
-      ? this.configBindings.get(globalBindingId, this.connectionGeneration, (project) =>
-          this.validConfigProject(project),
-        )
-      : undefined
-    const projectBinding = hasProject
-      ? this.configBindings.get(projectBindingId, this.connectionGeneration, (project) =>
-          this.validConfigProject(project),
-        )
-      : undefined
-    if ((hasGlobal && !globalBinding) || (hasProject && !projectBinding)) {
-      this.postMessage({ type: "configUpdateFailed", message: "Settings changed or expired. Reload before saving." })
-      return
-    }
-
-    this.pending++
-    const dir = projectBinding?.directory ?? globalBinding?.directory ?? this.settingsDirectory()
-    const completed: Array<"global" | "project"> = []
-    let snapshot: ConfigSnapshot | undefined
-
-    try {
-      await this.connectionService.drainPendingPrompts()
-      if (hasGlobal) {
-        const result = await this.client.config.overlayUpdate(
-          {
-            scope: "global",
-            set: partial,
-            unset: globalUnset,
-            directory: globalBinding!.directory,
-            expected: {
-              path: globalBinding!.target.path,
-              revision: globalBinding!.target.revision,
-            },
-          },
-          { throwOnError: true },
-        )
-        snapshot = result.data as ConfigSnapshot
-        completed.push("global")
-      }
-      if (hasProject) {
-        const result = await this.client.config.overlayUpdate(
-          {
-            scope: "project",
-            set: project,
-            unset: projectUnset,
-            directory: projectBinding!.directory,
-            expected: {
-              path: projectBinding!.target.path,
-              revision: projectBinding!.target.revision,
-            },
-          },
-          { throwOnError: true },
-        )
-        snapshot = result.data as ConfigSnapshot
-        completed.push("project")
-      }
-    } catch (error) {
-      if (completed.length > 0) {
-        if (globalBinding) this.configBindings.consume(globalBinding.id)
-        if (projectBinding) this.configBindings.consume(projectBinding.id)
-      }
-      this.postConfigFailure(error, completed, snapshot, dir)
-      this.pending--
-      return
-    }
-    if (globalBinding) this.configBindings.consume(globalBinding.id)
-    if (projectBinding) this.configBindings.consume(projectBinding.id)
-
-    try {
-      if (!snapshot) throw new Error("Config update returned no authoritative snapshot")
-      const bindings = this.bindingsFor(dir, snapshot.targets)
-      const global = snapshot.targets.global.raw as Config
-      const projectConfig = bindings.project ? (snapshot.targets.project.raw as Config) : undefined
-      this.cachedGlobalConfig = global
-      const features = configFeatures(snapshot.effective, await serverFeatures(this.client, dir))
-      this.cachedConfigMessage = {
-        type: "configLoaded",
-        config: snapshot.effective,
-        globalConfig: global,
-        projectConfig,
-        bindings,
-        settings: this.configSettings(),
-        features,
-      }
-      this.postMessage({
-        type: "configUpdated",
-        config: snapshot.effective,
-        globalConfig: global,
-        projectConfig,
-        bindings,
-        settings: this.configSettings(),
-        features,
-      })
-      await Promise.all([
-        refreshProviders ? this.fetchAndSendProviders() : Promise.resolve(),
-        refreshAgents ? this.fetchAndSendAgents() : Promise.resolve(),
-      ]).catch((error) => console.error("[CodeM] CodeMProvider: Post-config refresh failed:", error))
-    } catch (error) {
-      this.postConfigFailure(error, completed, snapshot, dir)
-    } finally {
-      this.pending--
-    }
-  }
-  private async refreshConfig(type: "configLoaded" | "configUpdated", dir = this.settingsDirectory()) {
-    const snapshot = await fetchSnapshot(this.client!, dir, () => this.configSettings())
-    const bindings = this.bindingsFor(dir, snapshot.targets)
-    const globalConfig = (snapshot.targets?.global.raw ?? snapshot.globalConfig) as Config
-    const projectConfig = bindings.project ? (snapshot.targets?.project.raw as Config) : undefined
-    this.cachedGlobalConfig = globalConfig ?? null
-    this.cachedConfigMessage = {
-      type: "configLoaded",
-      config: snapshot.config,
-      globalConfig,
-      projectConfig,
-      bindings,
-      collections: snapshot.collections,
-      settings: snapshot.settings,
-      features: snapshot.features,
-    }
-    this.postMessage({
-      type,
-      config: snapshot.config,
-      globalConfig,
-      projectConfig,
-      bindings,
-      collections: snapshot.collections,
-      settings: snapshot.settings,
-      features: snapshot.features,
-    })
-  }
-
-  private postConfigFailure(
-    error: unknown,
-    completed: Array<"global" | "project"> = [],
-    snapshot?: ConfigSnapshot,
-    directory?: string,
-  ): void {
-    console.error("[CodeM] CodeMProvider: Failed to update config:", error)
-    const bindings = snapshot && directory ? this.bindingsFor(directory, snapshot.targets) : undefined
-    this.postMessage({
-      type: "configUpdateFailed",
-      message: getErrorMessage(error) || "Failed to update config",
-      details: getConfigErrorDetails(error),
-      completedScopes: completed,
-      config: snapshot?.effective,
-      globalConfig: snapshot?.targets.global.raw,
-      projectConfig: bindings?.project ? snapshot?.targets.project.raw : undefined,
-      bindings,
-    })
-  }
   private async resolveSession(sessionID?: string, draftID?: string, context?: string, contextDirectory?: string) {
     if (!this.client) return undefined
 
@@ -3725,77 +2867,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     return vscode.workspace.getConfiguration("codem.experimental").get<boolean>("browserAutomation", false)
   }
 
-  private async sendIndexingSettings(projectId?: string) {
-    if (!this.extensionContext) {
-      this.postMessage(buildIndexingSettingsMessage())
-      return undefined
-    }
-    const request = ++this.indexingSettingsRequest
-    const store = indexingConsentStore(this.extensionContext)
-    const projects = await store.list(this.getRootDirectory(), registeredProjects(this.extensionContext))
-    if (request !== this.indexingSettingsRequest) return undefined
-    const id = projects.some((project) => project.id === projectId)
-      ? projectId
-      : projects.some((project) => project.id === this.indexingProjectId)
-        ? this.indexingProjectId
-        : projects[0]?.id
-    this.indexingProjectId = id
-    this.postMessage(buildIndexingSettingsMessage(id ? store.enabled(id) : false, projects, id))
-    return projects.find((project) => project.id === id)
-  }
-
-  private async setIndexingConsent(projectId: string, enabled: boolean): Promise<void> {
-    if (!this.extensionContext) return
-    const store = indexingConsentStore(this.extensionContext)
-    const projects = await store.list(this.getRootDirectory(), registeredProjects(this.extensionContext))
-    const project = projects.find((item) => item.id === projectId)
-    if (!project) return
-    await store.set(project.id, enabled)
-    this.indexingProjectId = project.id
-    await this.sendIndexingSettings(project.id)
-    const config = this.connectionService.getServerConfig()
-    if (!config) return
-    if (this.indexingProjectId !== project.id) {
-      await this.syncIndexingConsent(project.root, enabled, config)
-      return
-    }
-    const target = {
-      source: this.getWorkspaceDirectory(this.currentSession?.id),
-      directory: project.root,
-      projectId: project.id,
-    }
-    this.indexingTarget = target
-    const request = ++this.indexingStatusRequest
-    const status = await this.syncIndexingConsent(project.root, enabled, config)
-    if (
-      (enabled && request !== this.indexingStatusRequest) ||
-      target !== this.indexingScope ||
-      this.indexingProjectId !== project.id
-    )
-      return
-    const message = { type: "indexingStatusLoaded", status, projectId: project.id }
-    this.cachedIndexingStatusMessage = message
-    this.postMessage(message)
-  }
-
-  private async syncIndexingConsent(
-    dir: string,
-    enabled: boolean,
-    config: { baseUrl: string; password: string },
-  ): Promise<IndexingStatus> {
-    const auth = Buffer.from(`kilo:${config.password}`).toString("base64")
-    const res = await fetch(`${config.baseUrl}/indexing/consent`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/json",
-        "x-kilo-directory": encodeURIComponent(dir),
-      },
-      body: JSON.stringify({ enabled }),
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return (await res.json()) as IndexingStatus
-  }
 
   private postPromptDefaults(): void {
     const configuration = vscode.workspace.getConfiguration("codem")
@@ -3806,23 +2877,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     this.postMessage({ type: "promptDefaults", defaults })
   }
 
-  private configSettings() {
-    const naming = vscode.workspace.getConfiguration("codem.agentManager")
-    return {
-      maxCost: this.maxCostSetting(),
-      languageCommitMessage: this.commitMessageLanguageSetting(),
-      multiProject: this.multiProjectSetting(),
-      claudeMigration: this.claudeMigrationSetting(),
-      browserAutomation: this.browserAutomationSetting(),
-      "agentManager.autoBranchNaming": naming.get<boolean>("autoBranchNaming", true),
-      "agentManager.branchPrefix": naming.get<string>("branchPrefix", ""),
-      "agentManager.pushFixes": pushFixes(),
-    }
-  }
-
-  private settingsDirectory(): string {
-    return this.projectDirectory ?? this.getRootDirectory()
-  }
 
   private async handleAgentManagerSettingsMessage(
     message: TypedWebviewMessage & { projectId?: string; branch?: string; requestId?: string },
@@ -3912,60 +2966,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     )
   }
 
-  private bindingsFor(
-    directory: string,
-    targets:
-      | {
-          global: ConfigTarget
-          project: ConfigTarget
-        }
-      | undefined,
-  ): { global?: ConfigBinding; project?: ConfigBinding } {
-    if (!targets) return {}
-    const project = this.configProject(directory)
-    return {
-      global: this.configBindings.create({
-        connection: this.connectionGeneration,
-        scope: "global",
-        directory,
-        target: this.configTarget(targets.global),
-      }),
-      project: project
-        ? this.configBindings.create({
-            connection: this.connectionGeneration,
-            scope: "project",
-            directory: project.root,
-            target: this.configTarget(targets.project),
-            project,
-          })
-        : undefined,
-    }
-  }
-
-  private configTarget(target: ConfigTarget): ConfigTarget {
-    return { ...target, raw: { ...target.raw } }
-  }
-
-  private configProject(directory: string): ConfigProject | undefined {
-    const root = canonicalizePath(directory)
-    const pinned = canonicalizePath(this.getRootDirectory())
-    if (samePath(root, pinned)) {
-      return { id: projectIdFor(root), root, generation: 0, pinned: true }
-    }
-    if (!this.extensionContext) return undefined
-    const project = registeredProjects(this.extensionContext).find((item) => samePath(item.root, root))
-    if (!project || !existsSync(project.root)) return undefined
-    return { id: project.id, root: project.root, generation: 0, pinned: false }
-  }
-
-  private validConfigProject(project: ConfigProject): boolean {
-    if (project.pinned) {
-      return samePath(project.root, canonicalizePath(this.getRootDirectory())) && existsSync(project.root)
-    }
-    if (!this.extensionContext) return false
-    const current = registeredProjects(this.extensionContext).find((item) => item.id === project.id)
-    return !!current && samePath(current.root, project.root) && existsSync(current.root)
-  }
 
   private setMaxCost(value: unknown): number {
     maxCost = MaxCostNudge.normalizeLimit(typeof value === "number" ? value : Number(value)) ?? 0
@@ -4056,12 +3056,8 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
 
     let resolved: { sid: string; dir: string } | undefined
     try {
-      const sandbox = this.sandboxTransitions.get(
-        this.sandboxKey({ sessionID, draftID, agentManagerContext: context, contextDirectory }),
-      )
       resolved = await this.resolveSession(sessionID, draftID, context, contextDirectory)
       if (!resolved) return
-      if (sandbox) await sandbox
       const sid = resolved.sid
       const dir = resolved.dir
 
@@ -4147,14 +3143,9 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
 
     let resolved: { sid: string; dir: string } | undefined
     try {
-      const sandbox = this.sandboxTransitions.get(
-        this.sandboxKey({ sessionID, draftID, agentManagerContext: context, contextDirectory }),
-      )
       resolved = await this.resolveSession(sessionID, draftID, context, contextDirectory)
       if (!resolved) return
       const control = goalControl(command, args)
-      const stopping = control && args.trim() !== ""
-      if (sandbox && !stopping) await sandbox
       const sid = resolved.sid
       const dir = resolved.dir
 
@@ -4255,26 +3246,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     )
   }
 
-  private async handleResumeSession(sessionID: string, messageID: string, requestID: string): Promise<void> {
-    try {
-      if (!this.client) throw new Error("Not connected to CLI backend")
-      const directory = this.getWorkspaceDirectory(sessionID)
-      await this.checkpoints.get(sessionID)
-      await this.client.kilocode.resumeSession(
-        { sessionID, messageID, directory, snapshotInitialization: this.opts.snapshotInitialization },
-        { throwOnError: true },
-      )
-      this.postMessage({ type: "sessionResumeResult", sessionID, requestID })
-    } catch (error) {
-      console.error("[CodeM] Failed to resume session:", error)
-      this.postMessage({
-        type: "sessionResumeResult",
-        sessionID,
-        requestID,
-        error: getErrorMessage(error) || "Failed to resume session",
-      })
-    }
-  }
 
   private async handleAbort(sessionID?: string, scope?: "session" | "tree"): Promise<void> {
     const sid = sessionID || this.currentSession?.id
@@ -4283,35 +3254,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     this.publish(sid, { type: "idle" })
   }
 
-  private async handleRevertSession(sessionID: string, messageID: string, partID?: string): Promise<void> {
-    if (!this.client) return
-    const dir = this.getWorkspaceDirectory(sessionID)
-    const { data, error } = await this.client.session.revert({ sessionID, messageID, partID, directory: dir })
-    if (error) {
-      console.error("[CodeM] CodeMProvider: Failed to revert session:", error)
-      this.postMessage({ type: "error", message: "Failed to revert session", sessionID })
-      throw error
-    }
-    if (!data) throw new Error("Revert returned no session")
-    this.refreshes.set(sessionID, (this.refreshes.get(sessionID) ?? 0) + 1)
-    if (this.currentSession?.id === sessionID) this.setCurrentSession(data)
-    this.postMessage({ type: "sessionUpdated", session: sessionToWebview(data) })
-  }
-
-  private async handleUnrevertSession(sessionID: string): Promise<void> {
-    if (!this.client) return
-    const dir = this.getWorkspaceDirectory(sessionID)
-    const { data, error } = await this.client.session.unrevert({ sessionID, directory: dir })
-    if (error) {
-      console.error("[CodeM] CodeMProvider: Failed to unrevert session:", error)
-      this.postMessage({ type: "error", message: "Failed to redo session", sessionID })
-      throw error
-    }
-    if (!data) throw new Error("Redo returned no session")
-    this.refreshes.set(sessionID, (this.refreshes.get(sessionID) ?? 0) + 1)
-    if (this.currentSession?.id === sessionID) this.setCurrentSession(data)
-    this.postMessage({ type: "sessionUpdated", session: sessionToWebview(data) })
-  }
 
   /**
    * Handle compact (context summarization) request from the webview.
@@ -4431,7 +3373,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       invalidateProviderUsage: () => this.invalidateProviderUsage(),
       invalidateProviders: () => this.invalidateProviders(),
       fetchAndSendProviders: () => this.fetchAndSendProviders(),
-      fetchAndSendAgents: () => this.fetchAndSendAgents(),
     }
   }
 
@@ -4483,7 +3424,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     }
     const { section, leaf } = buildSettingPath(key)
     if (section === "autocomplete" && !validAutocompleteSetting(leaf, value)) return
-    if (section === "indexing" && !validIndexingSetting(leaf, value)) return
+    if (section === "indexing") return
     if (section === "chat" && !validChatSetting(leaf, value)) return
     const config = vscode.workspace.getConfiguration(`codem${section ? `.${section}` : ""}`)
     // Normalize a webview-side clear to `undefined` so VS Code removes the
@@ -4531,7 +3472,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
 
     // Re-send all settings to the webview so the UI reflects the reset
     this.postMessage(buildAutocompleteSettingsMessage())
-    await this.sendIndexingSettings()
     this.sendBrowserSettings()
     this.sendNotificationSettings()
     this.sendTimelineSetting()
@@ -4727,68 +3667,12 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
    * Filters events by project ID and tracked session IDs so each webview only sees its own sessions.
    */
   private handleEvent(event: ProviderEvent, directory?: string): void {
-    if (event.type === "indexing.status") {
-      const target = this.indexingScope
-      if (directory && !sameDirectory(directory, target.directory)) return
-      this.indexingStatusRequest++
-      const message = {
-        type: "indexingStatusLoaded",
-        status: event.properties.status,
-        projectId: target.projectId,
-      }
-      this.cachedIndexingStatusMessage = message
-      this.postMessage(message)
-      return
-    }
 
     if (event.type === "kilo-sessions.remote-status-changed") {
       this.remoteService?.updateFromEvent({ enabled: event.properties.enabled, connected: event.properties.connected })
       return
     }
 
-    if (event.type === "memory.status" || event.type === "memory.updated" || event.type === "memory.error") {
-      const props = event.properties as { sessionID?: unknown; detail?: unknown; reason?: unknown }
-      const eventSessionID = typeof props.sessionID === "string" ? props.sessionID : undefined
-      const active = this.currentSession?.id
-      const local =
-        !directory || sameDirectory(directory, this.getProjectDirectory(active) ?? this.getWorkspaceDirectory(active))
-      const trackedById = Boolean(eventSessionID && this.trackedSessionIds.has(eventSessionID))
-      // Directory-scoped events (enable/disable/rebuild/configure/purge) carry no
-      // sessionID, so also match any tracked session sharing the event directory —
-      // e.g. a non-active Agent Manager tab on the same worktree.
-      const trackedByDir = directory
-        ? [...this.sessionDirectories.entries()]
-            .filter(([sid, dir]) => this.trackedSessionIds.has(sid) && sameDirectory(directory, dir))
-            .map(([sid]) => sid)
-        : []
-      const tracked = trackedById || trackedByDir.length > 0
-      if (!local && !tracked) return
-      if (trackedById && eventSessionID && directory) this.trackDirectory(eventSessionID, directory)
-      const targets = new Set<string | undefined>()
-      if (trackedById && eventSessionID) targets.add(eventSessionID)
-      for (const sid of trackedByDir) targets.add(sid)
-      if (local && active) targets.add(active)
-      if (targets.size === 0 && local) targets.add(undefined)
-      const transient = event.type === "memory.error" && props.reason === MEMORY_TRANSIENT
-      const detail = transient
-        ? undefined
-        : props.detail && typeof props.detail === "object"
-          ? props.detail
-          : event.type === "memory.error" && typeof props.reason === "string"
-            ? { type: "error", message: props.reason, reason: props.reason }
-            : undefined
-      for (const sessionID of targets) {
-        if (detail) {
-          this.postMessage({
-            type: "memoryEvent",
-            sessionID,
-            detail,
-          })
-        }
-        void this.memory.fetch(sessionID)
-      }
-      return
-    }
 
     // Drop session events from other projects before any tracking logic.
     // This must come first: the trackedSessionIds guard below would otherwise
@@ -4811,10 +3695,7 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
       return
     }
 
-    if (event.type === "mcp.browser.open.failed") {
-      McpOAuth.openMcpOAuthUrlOnce(event.properties.url)
-      return
-    }
+    if (event.type === "mcp.browser.open.failed") return
 
     if (event.type === "message.updated") {
       this.confirmations.confirm(event.properties.info.id)
@@ -5035,21 +3916,6 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     this.flushPendingReviewComments()
   }
 
-  public async showMemory(sessionID?: string): Promise<void> {
-    await this.memory.show(sessionID ?? this.currentSession?.id)
-  }
-
-  public async toggleMemory(sessionID?: string): Promise<void> {
-    try {
-      const operation = await this.memory.toggle(sessionID ?? this.currentSession?.id)
-      if (operation) {
-        void vscode.window.showInformationMessage(`Project memory ${operation === "enable" ? "enabled" : "disabled"}.`)
-      }
-    } catch (error) {
-      console.error("[CodeM] CodeMProvider: Failed to toggle memory:", error)
-      void vscode.window.showErrorMessage(getErrorMessage(error) || "Failed to toggle memory")
-    }
-  }
 
   private flushPendingReviewComments(): void {
     if (!this.webview || !this.isWebviewReady || this.pendingReviewComments.length === 0) return
@@ -5519,13 +4385,11 @@ export class CodeMProvider implements vscode.WebviewViewProvider {
     this.unsubscribeFavoritesChange?.()
     this.unsubscribeClearPendingPrompts?.()
     this.unsubscribeDirectoryProvider?.()
-    this.unsubscribeSandboxPreference?.()
     this.unsubscribeAcknowledged?.()
     this.viewStateDisposable?.dispose()
     this.visibilityDisposable?.dispose()
     this.webviewMessageDisposable?.dispose()
     this.autocompleteConfigDisposable?.dispose()
-    this.indexingConfigDisposable?.dispose()
     this.chatConfigDisposable?.dispose()
     this.throughputConfigDisposable?.dispose()
     this.autoApprovalReasonConfigDisposable?.dispose()

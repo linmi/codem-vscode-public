@@ -175,8 +175,12 @@ export class VscodeHost implements Host {
       onFollowupAdopted: (cb) => provider.onFollowupAdopted(cb),
       acknowledgeDraft: (draftID, sessionID) => provider.acknowledgeDraft(draftID, sessionID),
       abortSessions: (ids) => provider.abortSessions(ids),
-      showMemory: (id) => provider.showMemory(id),
-      toggleMemory: (id) => provider.toggleMemory(id),
+      showMemory: async () => {
+        void vscode.window.showWarningMessage("尚未迁移到 CodeM App Server: memory")
+      },
+      toggleMemory: async () => {
+        void vscode.window.showWarningMessage("尚未迁移到 CodeM App Server: memory")
+      },
       registerProjectRoute: (ref, root, generation) => provider.registerProjectRoute(ref, root, generation),
       unregisterProjectRoute: (projectId) => provider.unregisterProjectRoute(projectId),
       registerWorktreeRoute: (ref, directory, generation) => provider.registerWorktreeRoute(ref, directory, generation),

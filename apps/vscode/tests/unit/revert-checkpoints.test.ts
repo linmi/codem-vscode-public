@@ -15,14 +15,6 @@ const banner = fs.readFileSync(BANNER_FILE, "utf-8")
 const session = fs.readFileSync(SESSION_FILE, "utf-8")
 const sdk = fs.readFileSync(SDK_FILE, "utf-8")
 
-function method(name: string, next: string) {
-  const start = provider.indexOf(`  private async ${name}`)
-  const end = provider.indexOf(`  private async ${next}`, start)
-  expect(start).toBeGreaterThan(-1)
-  expect(end).toBeGreaterThan(start)
-  return provider.slice(start, end)
-}
-
 function exported(name: string) {
   const start = sdk.indexOf(`export type ${name} = {`)
   const end = sdk.indexOf("\nexport type ", start + 1)
@@ -43,14 +35,11 @@ describe("message revert checkpoints", () => {
 })
 
 describe("revert session synchronization", () => {
-  it("keeps REST responses as the mutation result", () => {
-    const revert = method("handleRevertSession", "handleUnrevertSession")
-    const unrevert = method("handleUnrevertSession", "handleCompact")
-
-    expect(revert).toContain("await this.client.session.revert")
-    expect(unrevert).toContain("await this.client.session.unrevert")
-    expect(revert).toContain('type: "sessionUpdated"')
-    expect(unrevert).toContain('type: "sessionUpdated"')
+  it("does not keep leftover message-scoped revert handlers", () => {
+    expect(provider).not.toContain("private async handleRevertSession")
+    expect(provider).not.toContain("private async handleUnrevertSession")
+    expect(provider).not.toContain("this.client.session.revert")
+    expect(provider).not.toContain("this.client.session.unrevert")
   })
 
   it("uses ordered sync snapshots instead of duplicate bus snapshots", () => {

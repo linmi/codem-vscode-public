@@ -16,7 +16,6 @@ export interface AuthContext {
   invalidateProviderUsage(): void
   invalidateProviders(): void
   fetchAndSendProviders(): Promise<void>
-  fetchAndSendAgents(): Promise<void>
 }
 
 /**
@@ -139,11 +138,6 @@ export async function handleSetOrganization(ctx: AuthContext, organizationId: st
     await ctx.fetchAndSendProviders()
   } catch (error) {
     console.error("[CodeM] CodeMProvider: Failed to refresh providers after org switch:", error)
-  }
-  try {
-    await ctx.fetchAndSendAgents()
-  } catch (error) {
-    console.error("[CodeM] CodeMProvider: Failed to refresh agents after org switch:", error)
   }
 }
 

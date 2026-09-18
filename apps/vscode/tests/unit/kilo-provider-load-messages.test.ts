@@ -1,4 +1,6 @@
 import { describe, it, expect, spyOn } from "bun:test"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import type { SessionStatus } from "@kilocode/sdk/v2/client"
 import * as vscode from "vscode"
 import type { PartUpdate } from "../../src/shared/stream-messages"
@@ -262,12 +264,8 @@ type ProviderInternals = {
   resolveSession: (sid?: string, draft?: string, context?: string, dir?: string) => Promise<unknown>
   handleCostAlertResponse: (sid: string, limit: number, response: "continue" | "stop") => Promise<void>
   setMaxCost: (value: unknown) => void
-  handleRevertSession: (sid: string, messageID: string) => Promise<void>
   handleSendMessage: (text: string, messageID?: string, sessionID?: string, draftID?: string) => Promise<void>
   trackOpenSessions: (ids: string[]) => void
-  fetchAndSendSandboxDefault: (directory?: string, requestID?: string) => Promise<void>
-  handleSetSandboxDefault: (enabled: boolean, requestID: string, directory?: string) => Promise<void>
-  handleToggleSandbox: (input: { sessionID: string; requestID: string }) => Promise<void>
   refreshGitStatus: (directory?: string, sessionID?: string) => Promise<void>
   handleLoadMessages: (
     sid: string,
@@ -276,7 +274,6 @@ type ProviderInternals = {
   handleSyncSession: (sid: string, parent?: string) => Promise<void>
   releaseChildSession: (sid: string) => void
   handleDeleteSession: (sid: string) => Promise<void>
-  handleDeleteMessage: (sid: string, mid: string, rid?: string) => Promise<void>
 }
 
 function makeProvider(
@@ -651,109 +648,12 @@ describe("CodeMProvider sandbox status", () => {
   })
 })
 
-describe("CodeMProvider sandbox toggle", () => {
-  it("remembers a blank composer toggle without creating a session", async () => {
-    const notice = spyOn(vscode.window, "showInformationMessage").mockResolvedValue(undefined)
-    const client = createClient()
-    const { internal, sent } = makeProvider(client)
-
-    await internal.handleSetSandboxDefault(true, "sandbox-1")
-
-    expect(client.created).toHaveLength(0)
-    expect(client.sandboxed).toHaveLength(0)
-    expect(sent).toContainEqual(
-      expect.objectContaining({
-        type: "sandboxDefaultStatus",
-        requestID: "sandbox-1",
-        desired: true,
-        enabled: true,
-      }),
-    )
-    expect(notice).toHaveBeenCalledWith("Sandbox enabled for new sessions")
-    notice.mockRestore()
-  })
-
-  it("resolves a blank worktree default against the routed directory", async () => {
-    const client = createClient()
-    const { internal } = makeProvider(client)
-
-    await internal.fetchAndSendSandboxDefault("/repo/.kilo/worktrees/wt-1")
-
-    expect(client.configReads).toEqual([{ directory: "/repo/.kilo/worktrees/wt-1" }])
-    expect(client.sandboxSupport).toEqual([{ directory: "/repo/.kilo/worktrees/wt-1" }])
-  })
-
-  it("waits for a blank toggle before creating the first prompt session", async () => {
-    const support = defer<{ data: { available: boolean } }>()
-    const client = createClient({ supportDeferred: support })
-    const { internal } = makeProvider(client)
-    internal.gatherEditorContext = async () => ({})
-
-    const toggle = internal.handleSetSandboxDefault(true, "sandbox-1")
-    const send = internal.handleSendMessage("hello", "message-1", undefined, "draft-1")
-    await Promise.resolve()
-    expect(client.created).toHaveLength(0)
-
-    support.resolve({ data: { available: true } })
-    await Promise.all([toggle, send])
-    expect(client.created).toEqual([
-      expect.objectContaining({ metadata: { "codem.sandbox": { enabled: true, version: 0 } } }),
-    ])
-    expect(client.prompted).toHaveLength(1)
-  })
-
-  it("does not create a first prompt session when the blank toggle fails", async () => {
-    const log = spyOn(console, "error").mockImplementation(() => {})
-    const support = defer<{ data: { available: boolean; reason?: string } }>()
-    const client = createClient({ supportDeferred: support })
-    const { internal, sent } = makeProvider(client)
-    internal.gatherEditorContext = async () => ({})
-
-    const toggle = internal.handleSetSandboxDefault(true, "sandbox-1")
-    const send = internal.handleSendMessage("hello", "message-1", undefined, "draft-1")
-    await Promise.resolve()
-    expect(client.created).toHaveLength(0)
-    support.resolve({ data: { available: false, reason: "unsupported" } })
-    await Promise.all([toggle, send])
-
-    expect(client.created).toHaveLength(0)
-    expect(client.prompted).toHaveLength(0)
-    expect(sent).toContainEqual(expect.objectContaining({ type: "sendMessageFailed", messageID: "message-1" }))
-    log.mockRestore()
-  })
-
-  it("reports the disabled state in a native notification", async () => {
-    const notice = spyOn(vscode.window, "showInformationMessage").mockResolvedValue(undefined)
-    const sandbox = defer<{ data: unknown }>()
-    const client = createClient({ sandboxDeferred: sandbox })
-    const { internal } = makeProvider(client)
-    internal.currentSession = mkSession()
-
-    const toggle = internal.handleToggleSandbox({ sessionID: "s1", requestID: "sandbox-1" })
-    sandbox.resolve({ data: { directory: "/repo", enabled: false, available: true, version: 2 } })
-    await toggle
-
-    expect(notice).toHaveBeenCalledTimes(1)
-    expect(notice).toHaveBeenCalledWith("Sandbox disabled")
-    notice.mockRestore()
-  })
-
-  it("snapshots the remembered default before sending the first prompt", async () => {
-    const client = createClient()
-    const { internal } = makeProvider(client)
-    internal.gatherEditorContext = async () => ({})
-
-    await internal.handleSetSandboxDefault(true, "sandbox-1")
-    await internal.handleSendMessage("hello", "message-1", undefined, "draft-1")
-
-    expect(client.created).toEqual([
-      expect.objectContaining({
-        directory: "/repo",
-        metadata: { "codem.sandbox": { enabled: true, version: 0 } },
-      }),
-    ])
-    expect(client.sandboxed).toHaveLength(0)
-    expect(client.prompted).toHaveLength(1)
+describe("CodeMProvider leftover sandbox toggle", () => {
+  it("does not keep leftover Kilo sandbox mutation handlers", () => {
+    const src = readFileSync(join(import.meta.dir, "../../src/CodeMProvider.ts"), "utf8")
+    expect(src).not.toContain("private async handleSetSandboxDefault")
+    expect(src).not.toContain("private handleToggleSandbox")
+    expect(src).not.toContain("private async fetchAndSendSandboxDefault")
   })
 })
 
@@ -811,68 +711,10 @@ describe("CodeMProvider revert ordering", () => {
     })
   })
 
-  it("waits for an in-flight revert before submitting the replacement prompt", async () => {
-    const revert = defer<{ data?: unknown; error?: unknown }>()
-    const client = createClient({ revertDeferred: revert })
-    const { internal } = makeProvider(client)
-    internal.currentSession = mkSession()
-    internal.gatherEditorContext = async () => ({})
-
-    internal.checkpoint("s1", () => internal.handleRevertSession("s1", "m1"))
-    const send = internal.handleSendMessage("replacement", "m2", "s1")
-    await Promise.resolve()
-    await Promise.resolve()
-
-    expect(client.reverted).toHaveLength(1)
-    expect(client.prompted).toHaveLength(0)
-
-    revert.resolve({ data: mkSession({ messageID: "m1" }) })
-    await send
-
-    expect(client.prompted).toHaveLength(1)
-    expect(client.prompted[0]?.sessionID).toBe("s1")
-  })
-
-  it("waits for a revert queued while the replacement prompt gathers context", async () => {
-    const context = defer<Record<string, never>>()
-    const revert = defer<{ data?: unknown; error?: unknown }>()
-    const client = createClient({ revertDeferred: revert })
-    const { internal } = makeProvider(client)
-    internal.currentSession = mkSession()
-    internal.gatherEditorContext = () => context.promise
-
-    const send = internal.handleSendMessage("replacement", "m2", "s1")
-    await Promise.resolve()
-    internal.checkpoint("s1", () => internal.handleRevertSession("s1", "m1"))
-    context.resolve({})
-    await Promise.resolve()
-    await Promise.resolve()
-
-    expect(client.prompted).toHaveLength(0)
-
-    revert.resolve({ data: mkSession({ messageID: "m1" }) })
-    await send
-
-    expect(client.prompted).toHaveLength(1)
-  })
-
-  it("does not submit the replacement prompt when the revert fails", async () => {
-    const error = spyOn(console, "error").mockImplementation(() => {})
-    const revert = defer<{ data?: unknown; error?: unknown }>()
-    const client = createClient({ revertDeferred: revert })
-    const { internal, sent } = makeProvider(client)
-    internal.currentSession = mkSession()
-    internal.gatherEditorContext = async () => ({})
-
-    internal.checkpoint("s1", () => internal.handleRevertSession("s1", "m1"))
-    const send = internal.handleSendMessage("replacement", "m2", "s1")
-    await Promise.resolve()
-    revert.resolve({ error: new Error("revert failed") })
-    await send
-
-    expect(client.prompted).toHaveLength(0)
-    expect(sent).toContainEqual(expect.objectContaining({ type: "sendMessageFailed", messageID: "m2" }))
-    error.mockRestore()
+  it("does not keep leftover message-scoped revert handlers", () => {
+    const src = readFileSync(join(import.meta.dir, "../../src/CodeMProvider.ts"), "utf8")
+    expect(src).not.toContain("private async handleRevertSession")
+    expect(src).not.toContain("this.client.session.revert")
   })
 
   it("clears a stale revert boundary from a full snapshot that omits revert", () => {
@@ -1015,20 +857,6 @@ describe("CodeMProvider revert ordering", () => {
     expect(sent.filter((msg) => (msg as { type?: string }).type === "sessionUpdated")).toHaveLength(1)
   })
 
-  it("ignores a session refresh superseded by a revert response", async () => {
-    const session = defer<{ data: unknown }>()
-    const client = createClient({ sessionGet: async () => session.promise })
-    const { internal } = makeProvider(client)
-    internal.currentSession = mkSession()
-    internal.contextSessionID = "s1"
-
-    internal.refreshSessionDetails("s1", "/repo")
-    await internal.handleRevertSession("s1", "m1")
-    session.resolve({ data: mkSession() })
-    await Bun.sleep(0)
-
-    expect(internal.currentSession?.revert).toEqual({ messageID: "m1" })
-  })
 })
 
 describe("CodeMProvider.handleLoadMessages / focus mode freshness", () => {
@@ -1252,28 +1080,11 @@ describe("CodeMProvider.handleDeleteSession / background processes", () => {
   })
 })
 
-describe("CodeMProvider.handleDeleteMessage", () => {
-  const ids = { sessionID: "s1", messageID: "m1", requestID: "r1" }
-
-  it.each([true, false, undefined, "true"])("confirms only a true queued deletion result: %p", async (result) => {
-    const client = createClient({ deleteResult: result })
-    const { internal, sent } = makeProvider(client)
-    await internal.handleDeleteMessage(ids.sessionID, ids.messageID, ids.requestID)
-    expect(client.deletedMessages).toEqual([{ sessionID: "s1", messageID: "m1", directory: "/repo", queued: true }])
-    expect(sent).toContainEqual({ type: "deleteMessageResult", ...ids, success: result === true })
-  })
-
-  it.each([true, false])("confirms removal failures when connected=%p", async (connected) => {
-    const error = spyOn(console, "error").mockImplementation(() => {})
-    const { internal, sent } = makeProvider(connected ? createClient({ deleteError: true }) : null)
-    await internal.handleDeleteMessage(ids.sessionID, ids.messageID, ids.requestID)
-    expect(sent).toContainEqual({
-      type: "error",
-      message: connected ? "delete failed" : "Not connected to CLI backend",
-      sessionID: ids.sessionID,
-    })
-    expect(sent).toContainEqual({ type: "deleteMessageResult", ...ids, success: false })
-    error.mockRestore()
+describe("CodeMProvider leftover deleteMessage", () => {
+  it("does not keep leftover queued-message deletion handlers", () => {
+    const src = readFileSync(join(import.meta.dir, "../../src/CodeMProvider.ts"), "utf8")
+    expect(src).not.toContain("private async handleDeleteMessage")
+    expect(src).not.toContain("client.session.deleteMessage")
   })
 })
 

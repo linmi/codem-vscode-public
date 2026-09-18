@@ -489,27 +489,13 @@ export async function activate(context: vscode.ExtensionContext) {
       settingsEditorProvider.openPanel("settings", tab, projectId)
     }),
     vscode.commands.registerCommand("codem.openIndexingSettings", () => {
-      settingsEditorProvider.openPanel("settings", "indexing")
+      void vscode.window.showWarningMessage("尚未迁移到 CodeM App Server: indexing")
     }),
     vscode.commands.registerCommand("codem.showMemory", async () => {
-      if (agentManagerProvider.isActive()) {
-        await agentManagerProvider.showMemory()
-        return
-      }
-      const target = activeTabProvider() ?? provider
-      if (target === provider) await vscode.commands.executeCommand("codem.SidebarProvider.focus")
-      await target.waitForReady()
-      await target.showMemory()
+      void vscode.window.showWarningMessage("尚未迁移到 CodeM App Server: memory")
     }),
     vscode.commands.registerCommand("codem.toggleMemory", async () => {
-      if (agentManagerProvider.isActive()) {
-        await agentManagerProvider.toggleMemory()
-        return
-      }
-      const target = activeTabProvider() ?? provider
-      if (target === provider) await vscode.commands.executeCommand("codem.SidebarProvider.focus")
-      await target.waitForReady()
-      await target.toggleMemory()
+      void vscode.window.showWarningMessage("尚未迁移到 CodeM App Server: memory")
     }),
     vscode.commands.registerCommand("codem.toggleCaffeination", (enabled?: boolean) => {
       const state = awake.getState()
