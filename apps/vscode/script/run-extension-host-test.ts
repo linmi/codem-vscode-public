@@ -1,16 +1,16 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * 打包并在隔离 VS Code 里跑 tests/extension-host/*.ts。
  * 不隔离 ~/.codem：credential broker 必须沿用本机已有登录。
  * 成功看工作区 EXTENSION_HOST_RESULT.txt / 控制台 PASS 标记，不编造成功。
  */
-import { $ } from "bun"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import { spawn } from "node:child_process"
+import { extensionRoot, run } from "./node-run.ts"
 
-const root = resolve(import.meta.dir, "..")
+const root = extensionRoot()
 const allowed = ["hitl-reload", "live-send", "history", "permission-mode", "spaces"] as const
 const argv = process.argv.slice(2).filter((item) => item !== "--")
 const name = (argv.find((item) => !item.startsWith("--")) ?? "hitl-reload") as (typeof allowed)[number]
@@ -20,8 +20,7 @@ if (!allowed.includes(name)) {
 }
 
 const skipBuild = argv.includes("--skip-build")
-const codeExecutable =
-  process.env.VSCODE_EXEC_PATH ?? "/Applications/Visual Studio Code.app/Contents/MacOS/Code"
+const codeExecutable = process.env.VSCODE_EXEC_PATH ?? "/Applications/Visual Studio Code.app/Contents/MacOS/Code"
 if (!existsSync(codeExecutable)) {
   console.error(`VS Code executable not found: ${codeExecutable}`)
   process.exit(2)
@@ -64,13 +63,24 @@ writeFileSync(
 
 if (!skipBuild || !existsSync(join(root, "dist", "extension.js"))) {
   console.log("[extension-host] bundle:production")
-  await $`pnpm run bundle:production`.cwd(root)
+  run("pnpm", ["run", "bundle:production"], { cwd: root })
 }
 
 mkdirSync(join(root, "dist", "tests"), { recursive: true })
 console.log(`[extension-host] esbuild ${name}.ts`)
-await $`pnpm exec esbuild ${join("tests", "extension-host", `${name}.ts`)} --bundle --platform=node --format=cjs --external:vscode --outfile=${outfile}`.cwd(
-  root,
+run(
+  "pnpm",
+  [
+    "exec",
+    "esbuild",
+    join("tests", "extension-host", `${name}.ts`),
+    "--bundle",
+    "--platform=node",
+    "--format=cjs",
+    "--external:vscode",
+    `--outfile=${outfile}`,
+  ],
+  { cwd: root },
 )
 
 const args = [

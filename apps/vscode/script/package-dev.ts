@@ -1,18 +1,18 @@
-#!/usr/bin/env bun
-import { $ } from "bun"
-import { mkdirSync } from "node:fs"
+#!/usr/bin/env node
+import { mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { appServerRuntimeTarget } from "@codem/app-server"
-import manifest from "../package.json"
+import { extensionRoot, run } from "./node-run.ts"
 
-const extensionRoot = join(import.meta.dir, "..")
-const repositoryRoot = join(extensionRoot, "..", "..")
+const root = extensionRoot()
+const repositoryRoot = join(root, "..", "..")
 const outputDirectory = join(repositoryRoot, "out")
+const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { version: string }
 const target = appServerRuntimeTarget(process.platform, process.arch)
 const outputPath = join(outputDirectory, `codem-vscode-${manifest.version}-dev-${target}.vsix`)
 
 mkdirSync(outputDirectory, { recursive: true })
-
-await $`pnpm exec vsce package --no-dependencies --skip-license --target ${target} -o ${outputPath}`.cwd(extensionRoot)
-
+run("pnpm", ["exec", "vsce", "package", "--no-dependencies", "--skip-license", "--target", target, "-o", outputPath], {
+  cwd: root,
+})
 console.log(`Created ${outputPath}`)

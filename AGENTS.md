@@ -52,8 +52,8 @@ This repository builds CodeM editor clients as a pnpm monorepo. The frozen Kilo 
 
 - pnpm 12.4.1 is the sole workspace package manager. Do not add npm, Yarn, or Bun lockfiles.
 - Use `workspace:*` for internal packages and keep versions in the pnpm catalog when they are intentionally shared.
-- Some imported build, launch, packaging, and leftover unit scripts still execute TypeScript with Bun. Bun is a temporary legacy runtime dependency, not a second package manager. Do not use `bun install`, `bun add`, or regenerate `bun.lock`.
-- The default VS Code gate (`pnpm test:vscode`, `pnpm typecheck:vscode`, Host/Webview bundle) runs through Node and pnpm. Do not add new Bun tests on that path. Replace a leftover Bun script when its owning production path is migrated; do not rewrite unrelated leftover CLI/JetBrains tooling in advance.
+- Some leftover CLI, JetBrains, and imported unit scripts still execute TypeScript with Bun. Bun is a temporary legacy runtime dependency, not a second package manager. Do not use `bun install`, `bun add`, or regenerate `bun.lock`.
+- VS Code prepare, package, launch, watch, Extension Host, and the default gate run through Node and pnpm. Do not add new Bun scripts on that path. `prepare:cli-binary` / `watch:cli` remain leftover Kilo CLI staging. Replace a leftover Bun script when its owning production path is migrated; do not rewrite unrelated leftover CLI/JetBrains tooling in advance.
 
 ## Superseded Kilo Paths
 

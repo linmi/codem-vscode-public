@@ -1,9 +1,9 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * Build the CodeM VS Code extension and launch it in a development host.
  *
  * Usage:
- *   bun script/launch.ts [options] [workspace]
+ *   node --experimental-strip-types script/launch.ts [options] [workspace]
  *
  * Options:
  *   --no-build        Skip the build step (reuse last build)
@@ -27,15 +27,15 @@
  * The script uses a stable directory per repo checkout under the OS temp dir
  * so nothing accumulates — the same dirs are reused on every launch.
  */
-import { $ } from "bun"
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
 import { delimiter, join, resolve } from "node:path"
-import { spawn } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
+import { extensionRoot, run, windows } from "./node-run.ts"
 
-const win = process.platform === "win32"
-const root = join(import.meta.dir, "..")
+const win = windows
+const root = extensionRoot()
 const repo = resolve(root, "..", "..")
 const temp = tmpdir().trimEnd()
 
@@ -244,7 +244,7 @@ async function compile() {
   if (!shouldBuild) console.log("[launch] dist/extension.js is missing in this worktree, building first...")
   await ensureDependencies()
   console.log("[launch] Building extension...")
-  await $`bun run build:launch`.cwd(root).env(cleanEnv(process.env))
+  run("pnpm", ["run", "build:launch"], { cwd: root, env: cleanEnv(process.env) })
   console.log("[launch] Build complete")
 }
 
@@ -259,22 +259,14 @@ function cleanEnv(input: NodeJS.ProcessEnv) {
 
 async function ensureDependencies() {
   const required = [
-    { name: "esbuild", dir: root },
-    { name: "@opencode-ai/core/npm", dir: join(repo, "packages", "opencode") },
-    { name: "@hey-api/openapi-ts", dir: join(repo, "packages", "sdk", "js") },
+    join(root, "node_modules", "esbuild"),
+    join(root, "node_modules", "@codem", "app-server"),
+    join(repo, "packages", "sdk", "js", "node_modules", "@hey-api", "openapi-ts"),
   ]
-  const ready = required.every((item) => {
-    try {
-      Bun.resolveSync(item.name, item.dir)
-      return true
-    } catch {
-      return false
-    }
-  })
-  if (ready) return
+  if (required.every((path) => existsSync(path))) return
 
   console.log("[launch] Worktree dependencies are missing, installing...")
-  await $`pnpm install --frozen-lockfile`.cwd(repo).env(cleanEnv(process.env))
+  run("pnpm", ["install", "--frozen-lockfile"], { cwd: repo, env: cleanEnv(process.env) })
 }
 
 // ---------------------------------------------------------------------------
@@ -282,7 +274,7 @@ async function ensureDependencies() {
 // ---------------------------------------------------------------------------
 
 async function packageVsix(out: string): Promise<string> {
-  await $`pnpm exec vsce package --no-dependencies --skip-license -o ${out}/`.cwd(root)
+  run("pnpm", ["exec", "vsce", "package", "--no-dependencies", "--skip-license", "-o", `${out}/`], { cwd: root })
   const files = newest(
     readdirSync(out)
       .filter((f) => f.endsWith(".vsix"))
@@ -298,7 +290,7 @@ async function packageVsix(out: string): Promise<string> {
 
 async function installVsix(path: string, app: string) {
   const cmd = codeCli(app)
-  await $`${cmd} --extensions-dir ${extDir} --user-data-dir ${userDir} --install-extension ${path} --force`.cwd(root)
+  run(cmd, ["--extensions-dir", extDir, "--user-data-dir", userDir, "--install-extension", path, "--force"], { cwd: root })
 }
 
 // ---------------------------------------------------------------------------
@@ -407,12 +399,13 @@ async function launch() {
   console.log(`[launch] Accessibility support: ${accessible ? "on" : "off"}`)
 
   if (blocking) {
-    const result = Bun.spawnSync([app, ...args], {
+    const result = spawnSync(app, args, {
       cwd: workspace,
       env,
       stdio: ["ignore", "inherit", "inherit"],
+      shell: win,
     })
-    console.log(`[launch] VS Code exited (code ${result.exitCode})`)
+    console.log(`[launch] VS Code exited (code ${result.status})`)
     return
   }
 

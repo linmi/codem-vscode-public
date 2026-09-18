@@ -16,7 +16,7 @@ pnpm lint:vscode
 pnpm build:vscode
 ```
 
-`pnpm test:vscode` runs the current App Server UI adapter tests and the Webview leftover-SDK gate on Node (`node --test --experimental-strip-types`). The retained imported interaction suite is available explicitly as `pnpm test:vscode:legacy` (still Bun); it is intentionally excluded from the default path because it contains hundreds of host-sensitive tests.
+`pnpm test:vscode` runs the current App Server UI adapter tests, Webview leftover-SDK gate, and production-script checks on Node (`node --test --experimental-strip-types`). `pnpm package:vscode:dev` and `pnpm dev:vscode` also stay on Node. The retained imported interaction suite is available explicitly as `pnpm test:vscode:legacy` (still Bun); leftover Kilo CLI staging (`prepare:cli-binary`) is not part of the production package path.
 
 The packaged extension identity is `codem.codem`. Commands, views, context keys, and settings use the `codem.*` namespace.
 

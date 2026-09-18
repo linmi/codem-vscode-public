@@ -51,7 +51,7 @@ pnpm lint:vscode
 pnpm build:vscode
 ```
 
-The default VS Code gate uses Node: `pnpm test:vscode` is `node --test --experimental-strip-types`, and typecheck/bundle are `tsc` / `node esbuild.js`. Leftover launch, packaging, SDK prepare, and `test:vscode:legacy` scripts may still invoke the pinned Bun binary as a TypeScript runtime. They may not install dependencies or create a Bun lockfile. Worktree setup uses `pnpm install --frozen-lockfile`.
+The default VS Code gate uses Node: `pnpm test:vscode` is `node --test --experimental-strip-types`, and typecheck/bundle are `tsc` / `node esbuild.js`. Prepare, package, launch, watch, and Extension Host also run through Node (`node --experimental-strip-types script/*.ts`). Leftover Kilo CLI staging (`prepare:cli-binary`, `watch:cli`) and `test:vscode:legacy` may still invoke the pinned Bun binary. They may not install dependencies or create a Bun lockfile. Worktree setup uses `pnpm install --frozen-lockfile`.
 
 Do not run the full imported unit suite by default. When tests are in scope, choose the smallest relevant test files and report host-sensitive failures without weakening or deleting assertions.
 

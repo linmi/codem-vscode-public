@@ -13,7 +13,7 @@ afterEach(() => {
 async function fixture() {
   const repo = realpathSync(mkdtempSync(join(tmpdir(), "kilo-launch-")))
   dirs.push(repo)
-  for (const path of ["", "apps/vscode", "packages/opencode", "packages/sdk/js"]) {
+  for (const path of ["", "apps/vscode", "packages/app-server", "packages/sdk/js"]) {
     const dir = join(repo, path)
     mkdirSync(dir, { recursive: true })
     symlinkSync(join(source, path, "node_modules"), join(dir, "node_modules"), "junction")
@@ -21,8 +21,16 @@ async function fixture() {
   const root = join(repo, "apps/vscode")
   mkdirSync(join(root, "script"))
   cpSync(join(source, "apps/vscode/script/launch.ts"), join(root, "script/launch.ts"))
-  await Bun.write(join(root, "package.json"), JSON.stringify({ scripts: { "build:launch": "bun build.ts" } }))
-  await Bun.write(join(root, "build.ts"), 'await Bun.write("dist/extension.js", "built")')
+  cpSync(join(source, "apps/vscode/script/node-run.ts"), join(root, "script/node-run.ts"))
+  await Bun.write(
+    join(root, "package.json"),
+    JSON.stringify({
+      scripts: {
+        "build:launch":
+          "node -e \"require('fs').mkdirSync('dist',{recursive:true});require('fs').writeFileSync('dist/extension.js','built')\"",
+      },
+    }),
+  )
   const workspace = join(repo, "workspace")
   await Bun.write(join(workspace, "package.json"), JSON.stringify({ main: "index.ts" }))
   await Bun.write(join(workspace, "index.ts"), 'await Bun.write("opened.json", JSON.stringify(process.argv.slice(2)))')
@@ -80,7 +88,10 @@ describe("extension launch build", () => {
 
   test("does not launch when the required build fails", async () => {
     const item = await fixture()
-    await Bun.write(join(item.root, "build.ts"), "process.exit(1)")
+    await Bun.write(
+      join(item.root, "package.json"),
+      JSON.stringify({ scripts: { "build:launch": "node -e \"process.exit(1)\"" } }),
+    )
     expect(item.run().exitCode).toBe(1)
     expect(await Bun.file(join(item.workspace, "opened.json")).exists()).toBe(false)
   })
