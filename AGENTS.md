@@ -2,10 +2,13 @@
 
 ## 当前边界
 
-- `rewrite/` 是新项目唯一的开发目录。目标是围绕 CodeM App Server 实现 VS Code 客户端，界面与交互参考 VS Code 原生 Chat。
+- `apps/` 放各类应用及平台适配；`packages/` 放通用服务与共享协议。当前先建立 App Server 基础包，首个客户端计划参考 VS Code 原生 Chat 的界面与交互。
 - `history/` 是完整旧项目的参考快照，不是活跃应用或 workspace 成员。不要继续修复、重构、安装、构建或启动历史项目，除非用户明确要求。
 - 历史目录中的 AGENTS.md、README、迁移计划及构建命令仅记录旧项目规则，不支配新实现，不自动继承其迁移目标或功能范围。
-- 当前尚未初始化新项目。具体实现、依赖和目录结构按用户接下来的需求确定，不为了归档预建框架。
+- 当前活跃包为 `@codem/app-server`、`@codem/protocol`、`@codem/session-history`。应用尚未实现，不预建其他框架。
+- `app-server` 与 `session-history` 保持 Node-only，不引入编辑器、Electron 或 DOM API；`protocol` 保持无运行时依赖且可用于 Host 和界面。
+- 实时通信只通过 Core App Server stdio；Core 拥有 threadId，`turn/completed` 是实时终态依据，Core JSONL schema 13 是唯一持久历史来源。
+- 应用负责平台权限、工作区信任、凭据保护和界面适配；不得向界面暴露原始协议帧、密钥或任意文件路径。
 
 ## 复用规则
 
@@ -18,6 +21,7 @@
 
 - 修改前检查工作树，保留用户已有变更。回答、评审和规划请求不自动实施修改。
 - 一次完成一个可独立验证的变更，不混入无关重构。
-- 使用 pnpm；不要把历史依赖目录或锁文件直接当作新项目依赖。
+- 使用 Node >=22.23.2 和 pnpm 12.4.1；根目录 `pnpm-lock.yaml` 是活跃工作区唯一锁文件，不使用历史依赖目录或锁文件。
+- 内部依赖使用 `workspace:*`，共享依赖版本放入 pnpm catalog。测试放在各包根目录的 `tests/` 中。
 - 按风险运行必要验证，如实说明未完成或受阻的检查。
 - 每个完成并验证的独立变更创建只包含本次工作的 commit；只有用户明确授权才 push。

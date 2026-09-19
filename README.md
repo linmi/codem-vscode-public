@@ -1,16 +1,31 @@
-# CodeM VS Code 重写工作区
+# CodeM
 
-旧项目已完整归档，新实现从独立目录重新开始。
+面向各类客户端的 pnpm monorepo。当前先建立 App Server 基础能力，应用和界面尚未实现；后续 VS Code 客户端的界面与交互参考 VS Code 原生 Chat。
 
-| 目录 | 用途 |
-| --- | --- |
-| [`rewrite/`](rewrite/README.md) | 新项目的唯一开发目录，目前尚未创建应用代码或安装依赖。 |
-| [`history/`](history/README.md) | 旧项目完整源码、测试、配置、依赖锁文件、许可证和迁移文档，仅作参考。 |
+```text
+apps/                       各类应用与平台适配（目前为空骨架）
+packages/
+  app-server/               Core 运行时、认证代理、stdio RPC 与会话管理
+  protocol/                 Host 与界面共享的类型、常量和校验
+  session-history/          Core JSONL 历史只读解析
+history/                    完整旧项目归档，仅作参考
+```
 
-归档来源：`c389c6304f0108cd50fd31ad3b79bd5402f28ad2`，归档日期：2026-09-19。旧项目文件内容原样保留；已安装的本地依赖及生成文件也随目录移动，但仍不纳入版本控制。Git 历史保留在本仓库。
+`app-server` 是连接已发布 Core 的 Node 客户端包，不是 Core 服务端源码。当前固定 CLI `0.1.208` / Core `0.8.37`，历史格式为 JSONL schema 13。应用通过包公开导出复用服务，不直接引用其他包的内部源码。共享服务不依赖具体应用或界面框架。
 
-根目录不再提供旧项目的 package、workspace、构建或启动配置。`history/` 通过 `.ignore` 和 VS Code 工作区设置排除在默认搜索、文件监听及任务自动发现之外。不要把它加入新项目的 workspace、TypeScript include 或构建入口。需要查阅时可显式使用 `rg --no-ignore history/...`，或在 VS Code 搜索中关闭排除设置。
+## 开发
 
-新界面参考 VS Code 原生 Chat 的布局和交互，后端围绕 CodeM App Server。历史实现只在有明确需求时按文件复制；复制时整理依赖、类型和必要测试，保留版权及许可证，并记录来源。新实现不得直接 import、链接或通过路径别名依赖 `history/`。
+使用 Node `>=22.23.2`、pnpm `12.4.1`：
 
-历史目录中的 README、AGENTS、计划和命令描述归档时的旧项目，不是新项目的开发指令。本次只完成归档与隔离，没有开始重写。
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+```
+
+`pnpm check` 运行活跃包的类型检查与测试，也可分别执行 `pnpm typecheck`、`pnpm test`。尚无应用启动或界面构建命令。
+
+## 历史与复用
+
+旧项目在提交 `904dddd` 中归档，原始来源为 `c389c6304f0108cd50fd31ad3b79bd5402f28ad2`。`history/` 不参加 workspace、编译、测试或默认搜索。需要查阅时显式指定历史文件；历史开发规则不支配新实现。
+
+本次仅迁入上述三个包的源码、配置和测试，独立安装依赖并生成新的根锁文件。复制来源、许可证与原始修改记录见 [UPSTREAM.md](UPSTREAM.md)。旧插件、UI、SDK 和旧工作区依赖均留在归档中。

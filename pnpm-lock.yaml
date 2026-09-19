@@ -1,0 +1,576 @@
+---
+lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    configDependencies: {}
+    packageManagerDependencies:
+      pnpm:
+        specifier: 12.4.1
+        version: 12.4.1
+
+packages:
+
+  '@pnpm/exe.android-arm64@12.4.1':
+    resolution: {integrity: sha512-/HwsqXMSmlOfgtV9+O0ratzjV6Vd/8n1hh4rGHpCGmDURvt52MwZxdbhyxP4K03ZfvgSDvotFPr8O+RzE5Eu8A==}
+    cpu: [arm64]
+    os: [android]
+
+  '@pnpm/exe.android-x64@12.4.1':
+    resolution: {integrity: sha512-+l74Qb4c2YjOzNKHXJLg+1wr8xHM1ckkUhnU5KRUK9TJqiiczt6yeTZqqzHIlJ8i6pAoj5V0OJevDRwnQKLgrQ==}
+    cpu: [x64]
+    os: [android]
+
+  '@pnpm/exe.darwin-arm64@12.4.1':
+    resolution: {integrity: sha512-6rkZkT3iGfaxknUdGHraqSWFvTa6N0ajAHluv9Ax0GRWs0sIcGNiFhDopv6xSZCsJZmG483aNS/b6UEDy3blfw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@pnpm/exe.darwin-x64@12.4.1':
+    resolution: {integrity: sha512-Vb1CHlR88HghC1qUxjxjs82zQSXnXacPD+btG2CmG8Q/hBU7Q0/b2YWJKSQqZXicunV5khFtfTlAwJddV9RkYA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@pnpm/exe.freebsd-x64@12.4.1':
+    resolution: {integrity: sha512-iT3iHz3Nl0Sxxj7UPOtZ/aQ81AFsQhjoeWMAlPkSRO04gsgDGAXv3UYxOFaesMWsfNxaGn0A+CITbuCHFF66FA==}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@pnpm/exe.linux-arm64-musl@12.4.1':
+    resolution: {integrity: sha512-aBooZfNXM5f+OGUgCAMFWpE/kAhsWfvmqIyMtHy6zl3aNxyInWrcY/Saln/UElzo7lZWMC0Yktroxd/2J26lNQ==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@pnpm/exe.linux-arm64@12.4.1':
+    resolution: {integrity: sha512-TlOdacTTP09BgcMvwWBFRsu8VAjfwqwnslBj+XSq1JFM3ck4f3k+1O/747EuctxZxs3/o785b6Q3s7Pd92Ptsg==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-ppc64@12.4.1':
+    resolution: {integrity: sha512-r/ab/MlIBo75oizUP5ITiziCCrnXz4SJwfErLQ+603AshB+Yq7xTMCoMtzTSCAMu6aaymIKkAFtZvd2J75Wq0w==}
+    cpu: [ppc64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-riscv64@12.4.1':
+    resolution: {integrity: sha512-C/D1QWdKMiB8+wv/spl1rGITFUuqC+aI/fb6h8NB5sqxsOaGXeYc/g891oCuzggHn6SODk9p+I09hI76x/cMNw==}
+    cpu: [riscv64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-s390x@12.4.1':
+    resolution: {integrity: sha512-nxz5zD4yXt94uzbStDk0QTPKW+aE92hH1b5tFXK9ctB1HE9Xcq1vjTiA2LsZMFC6p4gdu5OwQeFqYNAVGa6QlA==}
+    cpu: [s390x]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-x64-musl@12.4.1':
+    resolution: {integrity: sha512-5AwgFdGhVUg2kIweYGfxzSLEHiIG77PQhZAkXC3TwofQHsu1Wr+TrV5/rNX2PopFnHRzuE581zoB8F6Wle32yg==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@pnpm/exe.linux-x64@12.4.1':
+    resolution: {integrity: sha512-FJOZuuuQMhp0oLzBtcKkLXknBI92hfkmSnlKc47vfin4HrmfID5khY2lGekL9tCzk1cpR+HShEw/meFl+nHtzQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.win32-arm64@12.4.1':
+    resolution: {integrity: sha512-OO7eKBL9S+xk5hRy+JUUZSNJknGuGe3GEUffsrlC2LbqKF02g+VX1anGIzSbJDvkkdnpJhSlxF5AUz2JzJu2Jw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@pnpm/exe.win32-x64@12.4.1':
+    resolution: {integrity: sha512-x7gJHZgHo6hp354xCYA2NvoFzYJkHwovt2kVsUBK5EmXULLcP51JGMq09CX+5FRFJUZFKoXjLu3mZWmfP7o6PQ==}
+    cpu: [x64]
+    os: [win32]
+
+  pnpm@12.4.1:
+    resolution: {integrity: sha512-LoHjmdc/6DkNqyXgaqeIq3pZCCSNL1o3D4K0gRR6ano2e/gEj5pv22Rg8hpm8FQt7bi5TKLIcjWWdBkgsWVtTA==}
+    engines: {node: '>=18.*'}
+    hasBin: true
+
+snapshots:
+
+  '@pnpm/exe.android-arm64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.android-x64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.darwin-arm64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.darwin-x64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.freebsd-x64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.linux-arm64-musl@12.4.1':
+    optional: true
+
+  '@pnpm/exe.linux-arm64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.linux-ppc64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.linux-riscv64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.linux-s390x@12.4.1':
+    optional: true
+
+  '@pnpm/exe.linux-x64-musl@12.4.1':
+    optional: true
+
+  '@pnpm/exe.linux-x64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.win32-arm64@12.4.1':
+    optional: true
+
+  '@pnpm/exe.win32-x64@12.4.1':
+    optional: true
+
+  pnpm@12.4.1:
+    optionalDependencies:
+      '@pnpm/exe.android-arm64': 12.4.1
+      '@pnpm/exe.android-x64': 12.4.1
+      '@pnpm/exe.darwin-arm64': 12.4.1
+      '@pnpm/exe.darwin-x64': 12.4.1
+      '@pnpm/exe.freebsd-x64': 12.4.1
+      '@pnpm/exe.linux-arm64': 12.4.1
+      '@pnpm/exe.linux-arm64-musl': 12.4.1
+      '@pnpm/exe.linux-ppc64': 12.4.1
+      '@pnpm/exe.linux-riscv64': 12.4.1
+      '@pnpm/exe.linux-s390x': 12.4.1
+      '@pnpm/exe.linux-x64': 12.4.1
+      '@pnpm/exe.linux-x64-musl': 12.4.1
+      '@pnpm/exe.win32-arm64': 12.4.1
+      '@pnpm/exe.win32-x64': 12.4.1
+
+---
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+catalogs:
+  default:
+    '@types/node':
+      specifier: 24.12.4
+      version: 24.12.4
+    typescript:
+      specifier: 7.0.2
+      version: 7.0.2
+    zod:
+      specifier: 4.1.8
+      version: 4.1.8
+
+importers:
+
+  .: {}
+
+  packages/app-server:
+    dependencies:
+      '@codem/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@lark-codem/codem-cli':
+        specifier: 0.1.208
+        version: 0.1.208
+      '@lark-codem/codem-core':
+        specifier: 0.8.37
+        version: 0.8.37
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.12.4
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+
+  packages/protocol:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+
+  packages/session-history:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.1.8
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.12.4
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+
+packages:
+
+  '@lark-codem/codem-cli-darwin-arm64@0.1.208':
+    resolution: {integrity: sha512-IHEjR2bfZmssjGh1darGoQ1b771UdOMQPeX1vLf5A6p+S0po+KvzXJCmM1p9BISdNb9oExUI5hq6HQWTkyRJqA==, tarball: https://registry.npmmirror.com/@lark-codem/codem-cli-darwin-arm64/-/codem-cli-darwin-arm64-0.1.208.tgz}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@lark-codem/codem-cli-darwin-x64@0.1.208':
+    resolution: {integrity: sha512-/j/JYfGlilrbq5a4qgPwnngPvL9gr5FX8kOG+UVAKqvVzzkCh6sfyxXuNtiww8G7taUxiN5cGdEtyFRLdK8XNw==, tarball: https://registry.npmmirror.com/@lark-codem/codem-cli-darwin-x64/-/codem-cli-darwin-x64-0.1.208.tgz}
+    cpu: [x64]
+    os: [darwin]
+
+  '@lark-codem/codem-cli-linux-arm64@0.1.208':
+    resolution: {integrity: sha512-CJq4ejiOhmGlRT7dx2Npj2pvy+l9UUDSSyzM2kJBsm2sxudgfFFm15fUGetgxYz9xuxPkQwYJKisq5kVxo9Yvw==, tarball: https://registry.npmmirror.com/@lark-codem/codem-cli-linux-arm64/-/codem-cli-linux-arm64-0.1.208.tgz}
+    cpu: [arm64]
+    os: [linux]
+
+  '@lark-codem/codem-cli-linux-x64@0.1.208':
+    resolution: {integrity: sha512-GwqCYr55s8lTzlM0cQ1tNeThiG25u882eDIZ9syb6c72MkFp1inDXufU0y+IG8M5ibLIbaRPdpux4I/8DpWyow==, tarball: https://registry.npmmirror.com/@lark-codem/codem-cli-linux-x64/-/codem-cli-linux-x64-0.1.208.tgz}
+    cpu: [x64]
+    os: [linux]
+
+  '@lark-codem/codem-cli-win32-arm64@0.1.208':
+    resolution: {integrity: sha512-BjAq4QJ3kufMBgR6vjp6WJ/++PMCcNqX7mLYMDTWJ4ryRWtcolOdI9tIo5tVBrEqFee/0AKGfs7I9zVENsrmAA==, tarball: https://registry.npmmirror.com/@lark-codem/codem-cli-win32-arm64/-/codem-cli-win32-arm64-0.1.208.tgz}
+    cpu: [arm64]
+    os: [win32]
+
+  '@lark-codem/codem-cli-win32-x64@0.1.208':
+    resolution: {integrity: sha512-hVlLN/wbak7B+XuhWO9M17Jdakd+2xq9ykhPpK2GZ7dgprKIrfa1PBVxzsLdqQT2LXroqpK3+fEi8u7HT5Afkw==, tarball: https://registry.npmmirror.com/@lark-codem/codem-cli-win32-x64/-/codem-cli-win32-x64-0.1.208.tgz}
+    cpu: [x64]
+    os: [win32]
+
+  '@lark-codem/codem-cli@0.1.208':
+    resolution: {integrity: sha512-Sj3IyJf5BYJiWS/Zy+QpF+dijgs/WRIRqgnEra0e2KMXsOMg54R7wIrr8lWawHi7zjhYzzq7PqPKXn5gpGa6VQ==, tarball: https://registry.npmmirror.com/@lark-codem/codem-cli/-/codem-cli-0.1.208.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm64, x64]
+    os: [darwin, linux, win32]
+    hasBin: true
+
+  '@lark-codem/codem-core-darwin-arm64@0.8.37':
+    resolution: {integrity: sha512-JooXa/rxsjadTqSQ4dQYih06Eq9mE5gPQFr4uQqFWCBMV6oFzMY+tV0EsLqqdduyGP79SW1EsYICO6mhBKNDkA==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-darwin-arm64/-/codem-core-darwin-arm64-0.8.37.tgz}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@lark-codem/codem-core-darwin-x64@0.8.37':
+    resolution: {integrity: sha512-GjWWEZlMyfi14zJSYa0+I7v24Jhjqzhyms3yCg7wdiWBDqTg51RcSxIs0Z7Xr5Q28nf8LEZsIlB8dW8TfK3TTA==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-darwin-x64/-/codem-core-darwin-x64-0.8.37.tgz}
+    cpu: [x64]
+    os: [darwin]
+
+  '@lark-codem/codem-core-linux-arm64-gnu@0.8.37':
+    resolution: {integrity: sha512-U5e4i7rRW+LvBwwvo/VijeDv6w3NIPD0FUy/ol8L96PIOz5+/zXLP/EdkAfiIrZP7uCZjOd1ymGuNjMltbPDNA==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-linux-arm64-gnu/-/codem-core-linux-arm64-gnu-0.8.37.tgz}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@lark-codem/codem-core-linux-x64-gnu@0.8.37':
+    resolution: {integrity: sha512-EQijC0nbKX9gbhV4BhffoxlDx6f8mYLmSxNue5ZDZDjV0dLCqODo7S5ivD17LywmutcHsmUVUzM17wL0KRAmjA==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-linux-x64-gnu/-/codem-core-linux-x64-gnu-0.8.37.tgz}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@lark-codem/codem-core-win32-arm64-gnu@0.8.37':
+    resolution: {integrity: sha512-N2VTgvsXnhusWm/3TyVDhW4Lq1c5fXUGUaWgGl6+I3vPLcttyAsE3extBxyuYV9e+O3l+q4TBXlfzJ71pnsxxQ==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-win32-arm64-gnu/-/codem-core-win32-arm64-gnu-0.8.37.tgz}
+    cpu: [arm64]
+    os: [win32]
+
+  '@lark-codem/codem-core-win32-x64-msvc@0.8.37':
+    resolution: {integrity: sha512-sCIIC2mr7Rrut/UHOczcu97ybAC4axJM9kKhmlmGScbJxTwFbhwnns0GVfahYytveB+5D8EHgnHkTIJmezOAWQ==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-win32-x64-msvc/-/codem-core-win32-x64-msvc-0.8.37.tgz}
+    cpu: [x64]
+    os: [win32]
+
+  '@lark-codem/codem-core@0.8.37':
+    resolution: {integrity: sha512-kfGJjQ8pbEzr5T75VN2IJV153OrSeF5pAg//d3wTIMbIisuBmNmSsL12y/Zq82G3rhmi2/O8mD12Uvk9TIqkJg==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core/-/codem-core-0.8.37.tgz}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  '@types/node@24.12.4':
+    resolution: {integrity: sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA==}
+
+  '@typescript/typescript-aix-ppc64@7.0.2':
+    resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [ppc64]
+    os: [aix]
+
+  '@typescript/typescript-darwin-arm64@7.0.2':
+    resolution: {integrity: sha512-gowzar9MwS/aRWp6f3a4KUqzRjAZjOsmGNCM6LcTgXum+dBfgsBVMN+AgvOCCbguXyick6LJhpBszxMebJ8syA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@typescript/typescript-darwin-x64@7.0.2':
+    resolution: {integrity: sha512-SZ9xZInqApNlNGc9s0W1VSsktYSOe9cFqNOIqmN1Gs8SmkjKZYFt017G4VwPxASInODuAdbTW7sXiFUf893RgA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@typescript/typescript-freebsd-arm64@7.0.2':
+    resolution: {integrity: sha512-W5NH4y/J0plIIS5b2xvTEkU7JFxyqdMAOgf+Ilhl0vHQXKO5dZoxd+C/jEtq56c4F3wk71RB4BMRQ2XdI+bwYQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [freebsd]
+
+  '@typescript/typescript-freebsd-x64@7.0.2':
+    resolution: {integrity: sha512-UMGDx5sTpzNw3WiPebH7l90IWfJggEd+egHt/q6p7/Cm3zqoV7VxkGXt+3DxPIw8CcmvAB0j3sVVfbhX+M4Tpw==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@typescript/typescript-linux-arm64@7.0.2':
+    resolution: {integrity: sha512-Qh4eU4/y3yDjnfjjyPYihMj5/ODIlmt+Bzu17OI+fiSRDW57QmU5SiN63exPRNJPKUzcc1INa1NXdrJ+MqHjUQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@typescript/typescript-linux-arm@7.0.2':
+    resolution: {integrity: sha512-gffT3xPz9sR7j/YJExkyPntrI0P2EP9XbOyWzth2/Gs0RstK+90RBcO0ncXoXy/beYll1SXw846Nf2zdnEz0QQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm]
+    os: [linux]
+
+  '@typescript/typescript-linux-loong64@7.0.2':
+    resolution: {integrity: sha512-uEHck9i8hoAzXPiYRib1O7miOnz23SxIeVl6F4LXox+qov1K35jHcEW6VHKvZI+pyvl7fZEP4MCU5LYvIq1GuQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [loong64]
+    os: [linux]
+
+  '@typescript/typescript-linux-mips64el@7.0.2':
+    resolution: {integrity: sha512-R4KvAMnE43W5Qeqb0Ly56O3mWMWIAgsMyz36DCaycd5nbg/9kzm0liw3JocfRqyJY0KPmzFjbswozXyW0DnIYA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [mips64el]
+    os: [linux]
+
+  '@typescript/typescript-linux-ppc64@7.0.2':
+    resolution: {integrity: sha512-DORx5b3sd/4S7eayxm4FQv+A7CrkUIGRaHiwI8oiHTAI1fAPWhF4J0vAlkC8biAlHSVVwxMQ3tjZ2/DVbnQiiA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [ppc64]
+    os: [linux]
+
+  '@typescript/typescript-linux-riscv64@7.0.2':
+    resolution: {integrity: sha512-wf0jqEDOjrPRnKwYRyyJDRo11KMbvMFrU+q4zqKyChODBzvlkbhNQfKvLxQCcwTpdDaXSHZTVuh0JoCrKCUMHQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [riscv64]
+    os: [linux]
+
+  '@typescript/typescript-linux-s390x@7.0.2':
+    resolution: {integrity: sha512-IkwJc3L7yhytWd/ewjyxNDfOmswCm9GWMJT/ue/dU4aZNbwZeYAetq42VyLmsmSjvoX7z74X6ZaYCtzAr0EuGw==}
+    engines: {node: '>=16.20.0'}
+    cpu: [s390x]
+    os: [linux]
+
+  '@typescript/typescript-linux-x64@7.0.2':
+    resolution: {integrity: sha512-EYdf2cNg7rgCWJnxCdJ+F3V39O8ihb37eHAu1LK8oAFizgTQbPOK7zHHXbPt8rX24COqODXeI3sIf0fCXG7H/A==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [linux]
+
+  '@typescript/typescript-netbsd-arm64@7.0.2':
+    resolution: {integrity: sha512-+polYF4MF04aPpO5FTkHran9yUQDSXqy5GiSDKpsll5jy3l3+g9QLhpf39T+ePtefhXLOGrLl0QIjkQP6VnelA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [netbsd]
+
+  '@typescript/typescript-netbsd-x64@7.0.2':
+    resolution: {integrity: sha512-8YIT0EHM/3dq10ZOVF/A7pc/YSMtbcecct4rWtexrnSCHOPcpC2KTLXfTCR6vDpnSiY12heNb1GiN/wu+T/FyA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [netbsd]
+
+  '@typescript/typescript-openbsd-arm64@7.0.2':
+    resolution: {integrity: sha512-APT8+ClYnuYm1u9+kgGXoMj2VzWzcymwh2gNSQVySHfkRDGOTVkoWLjCmOQSaO+PoqQ57B0flRp9SA+7GnnkzQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [openbsd]
+
+  '@typescript/typescript-openbsd-x64@7.0.2':
+    resolution: {integrity: sha512-yX7s+Q0Dln0Dt9tEzZsAjXXR/+ytBM7AlglaqyeMPxQszJ1JhlJdZ6jLA+IzldHtflX81em7lDao1xXu+aRRkg==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [openbsd]
+
+  '@typescript/typescript-sunos-x64@7.0.2':
+    resolution: {integrity: sha512-dLJDGaLZ1D4HPQn62u1n8mBDkJREwMsAkCdkwd4Ieqw+x3TUyTsqY0YiBCtE6H6OzzgGk3iuZ3vFWRS+E8/d1g==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [sunos]
+
+  '@typescript/typescript-win32-arm64@7.0.2':
+    resolution: {integrity: sha512-Gyl1Vy6OsWesLzmq+EP0Fb7b4Nid5232AvcA2SFcdYreldpNtYFFofPjnt62y9hQy7VTaZp65ICJjuAQRaVcIQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@typescript/typescript-win32-x64@7.0.2':
+    resolution: {integrity: sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [win32]
+
+  typescript@7.0.2:
+    resolution: {integrity: sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==}
+    engines: {node: '>=16.20.0'}
+    hasBin: true
+
+  undici-types@7.16.0:
+    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
+
+  zod@4.1.8:
+    resolution: {integrity: sha512-5R1P+WwQqmmMIEACyzSvo4JXHY5WiAFHRMg+zBZKgKS+Q1viRa0C1hmUKtHltoIFKtIdki3pRxkmpP74jnNYHQ==}
+
+snapshots:
+
+  '@lark-codem/codem-cli-darwin-arm64@0.1.208':
+    optional: true
+
+  '@lark-codem/codem-cli-darwin-x64@0.1.208':
+    optional: true
+
+  '@lark-codem/codem-cli-linux-arm64@0.1.208':
+    optional: true
+
+  '@lark-codem/codem-cli-linux-x64@0.1.208':
+    optional: true
+
+  '@lark-codem/codem-cli-win32-arm64@0.1.208':
+    optional: true
+
+  '@lark-codem/codem-cli-win32-x64@0.1.208':
+    optional: true
+
+  '@lark-codem/codem-cli@0.1.208':
+    dependencies:
+      '@lark-codem/codem-core': 0.8.37
+    optionalDependencies:
+      '@lark-codem/codem-cli-darwin-arm64': 0.1.208
+      '@lark-codem/codem-cli-darwin-x64': 0.1.208
+      '@lark-codem/codem-cli-linux-arm64': 0.1.208
+      '@lark-codem/codem-cli-linux-x64': 0.1.208
+      '@lark-codem/codem-cli-win32-arm64': 0.1.208
+      '@lark-codem/codem-cli-win32-x64': 0.1.208
+
+  '@lark-codem/codem-core-darwin-arm64@0.8.37':
+    optional: true
+
+  '@lark-codem/codem-core-darwin-x64@0.8.37':
+    optional: true
+
+  '@lark-codem/codem-core-linux-arm64-gnu@0.8.37':
+    optional: true
+
+  '@lark-codem/codem-core-linux-x64-gnu@0.8.37':
+    optional: true
+
+  '@lark-codem/codem-core-win32-arm64-gnu@0.8.37':
+    optional: true
+
+  '@lark-codem/codem-core-win32-x64-msvc@0.8.37':
+    optional: true
+
+  '@lark-codem/codem-core@0.8.37':
+    optionalDependencies:
+      '@lark-codem/codem-core-darwin-arm64': 0.8.37
+      '@lark-codem/codem-core-darwin-x64': 0.8.37
+      '@lark-codem/codem-core-linux-arm64-gnu': 0.8.37
+      '@lark-codem/codem-core-linux-x64-gnu': 0.8.37
+      '@lark-codem/codem-core-win32-arm64-gnu': 0.8.37
+      '@lark-codem/codem-core-win32-x64-msvc': 0.8.37
+
+  '@types/node@24.12.4':
+    dependencies:
+      undici-types: 7.16.0
+
+  '@typescript/typescript-aix-ppc64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-darwin-arm64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-darwin-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-freebsd-arm64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-freebsd-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-arm64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-arm@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-loong64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-mips64el@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-ppc64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-riscv64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-s390x@7.0.2':
+    optional: true
+
+  '@typescript/typescript-linux-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-netbsd-arm64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-netbsd-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-openbsd-arm64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-openbsd-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-sunos-x64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-win32-arm64@7.0.2':
+    optional: true
+
+  '@typescript/typescript-win32-x64@7.0.2':
+    optional: true
+
+  typescript@7.0.2:
+    optionalDependencies:
+      '@typescript/typescript-aix-ppc64': 7.0.2
+      '@typescript/typescript-darwin-arm64': 7.0.2
+      '@typescript/typescript-darwin-x64': 7.0.2
+      '@typescript/typescript-freebsd-arm64': 7.0.2
+      '@typescript/typescript-freebsd-x64': 7.0.2
+      '@typescript/typescript-linux-arm': 7.0.2
+      '@typescript/typescript-linux-arm64': 7.0.2
+      '@typescript/typescript-linux-loong64': 7.0.2
+      '@typescript/typescript-linux-mips64el': 7.0.2
+      '@typescript/typescript-linux-ppc64': 7.0.2
+      '@typescript/typescript-linux-riscv64': 7.0.2
+      '@typescript/typescript-linux-s390x': 7.0.2
+      '@typescript/typescript-linux-x64': 7.0.2
+      '@typescript/typescript-netbsd-arm64': 7.0.2
+      '@typescript/typescript-netbsd-x64': 7.0.2
+      '@typescript/typescript-openbsd-arm64': 7.0.2
+      '@typescript/typescript-openbsd-x64': 7.0.2
+      '@typescript/typescript-sunos-x64': 7.0.2
+      '@typescript/typescript-win32-arm64': 7.0.2
+      '@typescript/typescript-win32-x64': 7.0.2
+
+  undici-types@7.16.0: {}
+
+  zod@4.1.8: {}

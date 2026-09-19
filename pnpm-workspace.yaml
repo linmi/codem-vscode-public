@@ -1,0 +1,17 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+catalog:
+  "@types/node": 24.12.4
+  typescript: 7.0.2
+  zod: 4.1.8
+
+# Published Core scripts set executable permissions and remove macOS quarantine.
+allowBuilds:
+  "@lark-codem/codem-core-darwin-arm64": true
+  "@lark-codem/codem-core-darwin-x64": true
+  "@lark-codem/codem-core-linux-arm64-gnu": true
+  "@lark-codem/codem-core-linux-x64-gnu": true
+  "@lark-codem/codem-core-win32-arm64-gnu": true
+  "@lark-codem/codem-core-win32-x64-msvc": true
