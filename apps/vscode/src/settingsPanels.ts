@@ -5,7 +5,7 @@ import type { PanelBroker } from "./panelBroker.ts"
 export async function selectSettings(kind: "selectModel" | "selectPermission" | "selectWorkMode", settings: AppServerThreadSettings, session: Pick<ChatSession, "models">, panels: PanelBroker, signal: AbortSignal): Promise<AppServerThreadSettings | null> {
   if (kind === "selectModel") {
     const answer = await panels.request<{ kind: "model"; id: string } | { kind: "effort" }>({ kind: "model", title: "模型与思考强度", choices: [
-      ...session.models.map(model => ({ value: { kind: "model" as const, id: model.id }, label: model.id, description: `${model.supportsVision ? "支持图片 · " : ""}${model.contextWindowTokens.toLocaleString()} tokens`, selected: settings.model === model.id })),
+      ...session.models.map(model => ({ value: { kind: "model" as const, id: model.id }, label: model.id.endsWith("/auto") ? "Auto" : model.id, description: `${model.id} · ${model.supportsVision ? "支持图片 · " : ""}${model.contextWindowTokens.toLocaleString()} tokens`, selected: settings.model === model.id })),
       { value: { kind: "effort" }, label: "思考强度", description: settings.intelligence },
     ] }, signal)
     if (!answer) return null

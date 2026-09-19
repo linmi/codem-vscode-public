@@ -107,7 +107,17 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
       })
       root.append(search, empty)
     }
-    root.append(list)
+    if (panel.kind === "effort" && panel.choices.length > 0) {
+      const card = document.createElement("div"); card.className = "effortCard"
+      const status = document.createElement("output")
+      const slider = document.createElement("input"); slider.type = "range"; slider.min = "0"; slider.max = String(panel.choices.length - 1); slider.step = "1"
+      slider.value = String(Math.max(0, panel.choices.findIndex(choice => choice.selected)))
+      slider.setAttribute("aria-label", "思考强度")
+      const update = () => { status.textContent = panel.choices[Number(slider.value)]!.label; slider.setAttribute("aria-valuetext", status.textContent) }
+      update(); slider.addEventListener("input", update)
+      slider.addEventListener("change", () => submit([panel.choices[Number(slider.value)]!.id]))
+      card.append(status, slider); list.classList.add("effortStops"); card.append(list); root.append(card)
+    } else root.append(list)
     if (panel.allowText) { root.append(input); input.addEventListener("input", syncSelection) }
     if (panel.confirmLabel) { root.append(confirm); confirm.disabled = true; confirm.addEventListener("click", () => submit([...selected])) }
     root.onkeydown = event => {
