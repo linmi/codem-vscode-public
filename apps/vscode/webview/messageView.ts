@@ -1,6 +1,7 @@
+import { artifactCard } from "./artifactView.ts"
 import { attachmentCard } from "./attachmentView.ts"
 import { toolPresentation } from "./toolPresentation.ts"
-import type { ActivityStatus, ChatMessage } from "../src/messages.ts"
+import type { ActivityStatus, ChatMessage, ViewAction } from "../src/messages.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 import { renderMarkdown } from "./markdownView.ts"
 
@@ -9,7 +10,7 @@ const statusLabels: Record<ActivityStatus, string> = {
 }
 
 /** Keep the native details node across deltas so the reader owns its open state. */
-export function createMessageView(initial: ChatMessage): { root: HTMLElement; update(message: ChatMessage): void } {
+export function createMessageView(initial: ChatMessage, post: (action: ViewAction) => void): { root: HTMLElement; update(message: ChatMessage): void } {
   const root = document.createElement("article")
   root.className = "message"; root.dataset.role = initial.role
   const body = document.createElement("div"); body.className = "messageBody"
@@ -19,6 +20,8 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
   const preview = document.createElement("span"); preview.className = "activityPreview"
   const note = document.createElement("div"); note.className = "activityNote"
   const toolMeta = document.createElement("div"); toolMeta.className = "toolMeta"
+  const inputDetails = document.createElement("div"); inputDetails.className = "toolInputCard"
+  let inputKey = ""
   let activityIcon: HTMLElement | null = null
   let details: HTMLDetailsElement | null = null
   let userToggled = false
@@ -35,7 +38,7 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
     const chevron = document.createElement("span"); chevron.className = "activityChevron"; chevron.innerHTML = uiIcon("chevron")
     summary.append(icon, label, chevron, badge, preview)
     summary.addEventListener("click", (event) => { event.preventDefault(); userToggled = true; details!.open = !details!.open })
-    details.append(summary, note, toolMeta, body); root.append(details)
+    details.append(summary, note, inputDetails, toolMeta, body); root.append(details)
   } else {
     const heading = document.createElement("h2"); heading.className = "messageLabel"
     heading.append(label); root.append(heading, body)
@@ -54,8 +57,13 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
     actions.append(copy, feedback); root.append(actions)
   }
   const attachmentLabels = document.createElement("div"); attachmentLabels.className = "messageAttachments"; root.append(attachmentLabels)
+  const artifacts = document.createElement("div"); artifacts.className = "messageArtifacts"; root.append(artifacts)
+  let artifactKey = ""
   let previousText: string | null = null
   function update(message: ChatMessage): void {
+    const nextArtifacts = JSON.stringify(message.artifacts ?? [])
+    if (nextArtifacts !== artifactKey) { artifacts.replaceChildren(...(message.artifacts ?? []).map(item => artifactCard(item, post))); artifactKey = nextArtifacts }
+    artifacts.hidden = !message.artifacts?.length
     const attachments = "attachments" in message ? message.attachments : undefined
     copyText = message.text
     if (attachmentLabels.dataset.ids !== attachments?.map(item => item.id).join(",")) {
@@ -67,6 +75,21 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
     let text = message.text
     if ("status" in message) {
       root.dataset.status = message.status
+      const nextInput = JSON.stringify(message.details ?? null)
+      if (inputKey !== nextInput) {
+        inputKey = nextInput; inputDetails.replaceChildren()
+        inputDetails.hidden = !message.details
+        if (message.details) {
+          inputDetails.dataset.kind = message.details.kind
+          if (message.details.code) { const command = document.createElement("pre"); command.className = "toolCommand"; command.textContent = message.details.code; inputDetails.append(command) }
+          for (const field of message.details.fields.filter(field => field.value)) {
+            const row = document.createElement("div"); row.className = "toolInputField"
+            const label = document.createElement("span"); label.textContent = field.label
+            const value = document.createElement("span"); value.textContent = field.value
+            row.append(label, value); inputDetails.append(row)
+          }
+        }
+      }
       if (message.role === "tool") {
         const presentation = toolPresentation(message.label)
         root.dataset.tool = presentation.kind

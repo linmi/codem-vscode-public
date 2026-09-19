@@ -3,7 +3,7 @@ import { emptyHistoryList, type HistoryAction, type HistoryList } from "./histor
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
 const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
-const handleActions = ["loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
+const handleActions = ["openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
 export type ViewAction =
   | PanelReply
   | HistoryAction
@@ -40,12 +40,15 @@ export interface DiffView { id: string; label: string; added: number; removed: n
 export interface BackgroundView { id: string; label: string; inProgress: boolean }
 export interface BackgroundTaskView { id: string; label: string; phase: "queued" | "started" | "skipped" | "cancelled" | "notFound" | "noop" }
 export type ActivityStatus = "running" | "completed" | "failed" | "declined" | "interrupted" | "incomplete"
+export interface ToolDetails { kind: "command" | "file" | "search" | "web" | "mcp" | "subagent"; fields: readonly { label: string; value: string }[]; code: string | null }
+export interface ArtifactView { id: string; kind: "file" | "image" | "chart" | "url" | "diff"; title: string; detail: string; available: boolean }
 interface MessageContent {
+  artifacts?: readonly ArtifactView[]
   id: string
   label: string
   text: string
 }
-export type ActivityMessage = MessageContent & { role: "reasoning" | "tool"; status: ActivityStatus; summary: string }
+export type ActivityMessage = MessageContent & { role: "reasoning" | "tool"; status: ActivityStatus; summary: string; details?: ToolDetails }
 export type ChatMessage = (MessageContent & { role: "user" | "assistant"; attachments?: readonly AttachmentView[] }) | ActivityMessage
 export interface ChatSnapshot {
   type: "state"

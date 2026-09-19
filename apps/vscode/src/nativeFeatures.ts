@@ -1,3 +1,4 @@
+import type { ArtifactSource } from "./artifacts.ts"
 import * as vscode from "vscode"
 import { randomUUID } from "node:crypto"
 import { open } from "node:fs/promises"
@@ -85,6 +86,13 @@ export class NativeFeatures implements vscode.Disposable {
     if (!kind) return []
     const selected = await vscode.window.showOpenDialog({ title: "选择要发送给 CodeM 的附件", canSelectFiles: !kind.folder, canSelectFolders: kind.folder, canSelectMany: true })
     return (selected ?? []).filter((uri) => uri.scheme === "file").map((uri) => ({ kind: kind.folder ? "directory" : [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(extname(uri.fsPath).toLowerCase()) ? "image" : "file", path: uri.fsPath }))
+  }
+
+  async showArtifact(source: ArtifactSource): Promise<void> {
+    assertTrusted()
+    if (source.kind === "chart") await this.preview(source.text, "json", "图表定义")
+    else if (source.kind === "url") await vscode.env.openExternal(vscode.Uri.parse(source.url))
+    else await vscode.commands.executeCommand("vscode.open", vscode.Uri.file(source.path), { preview: true })
   }
 
   async showDiff(diff: AppServerFileDiff, cwd: string): Promise<void> {

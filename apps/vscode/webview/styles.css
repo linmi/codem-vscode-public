@@ -207,3 +207,16 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .imagePreview.originalSize .previewImage { max-width: none; max-height: none; }
 .imagePreviewActions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 8px; }
 .imagePreviewActions button { margin: 0; padding: 6px 10px; }
+
+.toolInputCard { margin: 6px 0 8px 22px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--codeSurface); }
+.toolInputCard:empty { display: none; }
+.toolCommand { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.6 var(--codeFont); }
+.toolInputField { display: flex; gap: 10px; padding: 3px 0; font-size: 11px; }
+.toolInputField > span:first-child { color: var(--muted); flex-shrink: 0; }
+.toolInputField > span:last-child { overflow-wrap: anywhere; min-width: 0; }
+.messageArtifacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 8px; margin: 8px 0 12px; }
+.artifactCard { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; text-align: left; background: var(--surface); min-width: 0; }
+.artifactIcon { display: flex; color: var(--muted); }
+.artifactCard > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.artifactCard strong { font-size: 12px; font-weight: 500; }
+.artifactDetail { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }

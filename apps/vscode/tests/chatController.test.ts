@@ -375,10 +375,10 @@ it("correlates tool calls and results, preserves tool names and separates summar
   try {
     await f.controller.connect(); await f.controller.send("hello")
     const emitItem = (type: "item-started" | "item-completed", value: unknown) => f.emit({ type, threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem(value, "fixture") })
-    emitItem("item-started", { id: "exec", type: "commandExecution", status: "inProgress", tool: "run_bash", arguments: { command: "host-only-input" } })
+    emitItem("item-started", { id: "exec", type: "commandExecution", status: "inProgress", tool: "run_bash", arguments: { command: "echo card", env: { SECRET: "host-only-input" } } })
     for (const delta of [" line one\n", "line two "]) f.emit({ type: "item-output-delta", threadId: "thread-1", turnId: "turn-1", itemId: "exec", toolCallId: "call-1", delta })
     emitItem("item-completed", { id: "result", type: "toolResult", callId: "call-1", status: "completed", summary: "exit 0" })
-    assert.deepEqual(f.controller.snapshot().messages.slice(1), [{ id: "turn-1:tool:exec", role: "tool", label: "run_bash", status: "completed", text: " line one\nline two ", summary: "exit 0" }])
+    assert.deepEqual(f.controller.snapshot().messages.slice(1), [{ id: "turn-1:tool:exec", role: "tool", label: "run_bash", status: "completed", text: " line one\nline two ", summary: "exit 0", details: { kind: "command", fields: [], code: "echo card" } }])
     emitItem("item-completed", { id: "result", type: "toolResult", callId: "call-1", status: "completed", output: "full output" })
     assert.equal(f.controller.snapshot().messages.at(-1)?.text, "full output")
     f.emit({ type: "item-output-delta", threadId: "thread-1", turnId: "turn-1", itemId: "exec", toolCallId: "call-1", delta: "\nlate progress" })

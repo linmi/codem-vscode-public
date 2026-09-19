@@ -183,7 +183,7 @@ function render(next: ChatSnapshot): void {
   for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.root.remove(); nodes.delete(id) } }
   for (const message of state.messages) {
     let view = nodes.get(message.id)
-    if (!view) { view = createMessageView(message); nodes.set(message.id, view); if (state.phase === "running" || state.phase === "sending") view.root.classList.add("messageEnter") }
+    if (!view) { view = createMessageView(message, post); nodes.set(message.id, view); if (state.phase === "running" || state.phase === "sending") view.root.classList.add("messageEnter") }
     else view.update(message)
   }
   const timelineNodes = renderWorkGroups(state.messages, id => nodes.get(id)!.root)

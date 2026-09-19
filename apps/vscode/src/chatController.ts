@@ -1,3 +1,5 @@
+import { projectToolDetails } from "./toolDetails.ts"
+import { Artifacts, type ArtifactSource } from "./artifacts.ts"
 import { FileReferences } from "./fileReferences.ts"
 import { readSessionImage, resolveSessionsRoot, type ConversationAttachment, type SessionHistoryPage } from "@codem/session-history"
 import { changedFilePath } from "./filePresentation.ts"
@@ -5,7 +7,7 @@ import { attachmentPreview, rasterPreview } from "./attachmentPreview.ts"
 import { terminalReplyLast } from "./timelineOrder.ts"
 import { randomUUID } from "node:crypto"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerFileDiff, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
-import { initialSnapshot, isBusy, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatSnapshot } from "./messages.ts"
+import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatSnapshot } from "./messages.ts"
 
 import { HistoryListController } from "./historyList.ts"
 import { historyMessages } from "./historyMessages.ts"
@@ -55,6 +57,7 @@ export class ChatController {
   private readonly lifetime = new AbortController()
   private state: ChatSnapshot = initialSnapshot()
   private settings: AppServerThreadSettings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" }
+  private readonly artifacts = new Artifacts()
   private readonly images = new Map<string, () => Promise<AttachmentView["preview"]>>()
   private readonly references = new FileReferences()
   private readonly attachments = new Map<string, AppServerPromptAttachment>()
@@ -400,6 +403,9 @@ export class ChatController {
     if (event.type === "file-diff") {
       const id = randomUUID()
       this.diffs.set(id, event.diff)
+      const messageId = this.toolMessageId(event.turnId, event.diff.source.toolCallId, event.diff.source.toolCallId)
+      if (!this.state.messages.some(message => message.id === messageId)) this.upsertActivity(messageId, "tool", "修改文件", "running", "", "", false)
+      this.update({ messages: this.state.messages.map(message => message.id === messageId ? { ...message, artifacts: [...message.artifacts ?? [], { id, kind: "diff" as const, title: displayPath(this.session!.cwd, event.diff.path), detail: `+${event.diff.stats.linesAdded} −${event.diff.stats.linesRemoved} · ${event.diff.preview.kind}`, available: true }] } : message) })
       this.update({ diffs: [...this.state.diffs, { id, label: displayPath(this.session!.cwd, event.diff.path), added: event.diff.stats.linesAdded, removed: event.diff.stats.linesRemoved, preview: event.diff.preview.kind }] })
     } else if (event.type === "item-output-delta") {
       if (active.finalAnswerCalls.has(event.toolCallId)) return
@@ -421,6 +427,13 @@ export class ChatController {
           const answer = [...this.state.messages].reverse().find((message) => message.role === "assistant" && message.id.startsWith(`${event.turnId}:`))
           active.finalReplyId = answer?.id ?? `${event.turnId}:finalAnswer`
           this.upsert(active.finalReplyId, "assistant", "CodeM", item.finalAnswer.summary, false)
+          if (item.finalAnswer.artifacts.length) {
+            const previous = this.state.messages.find(message => message.id === active.finalReplyId)
+            if (!previous?.artifacts?.length) {
+              const artifacts = this.artifacts.project(item.finalAnswer.artifacts, this.session!.cwd)
+              this.update({ messages: this.state.messages.map(message => message.id === active.finalReplyId ? { ...message, artifacts } : message) })
+            }
+          }
         }
         return
       }
@@ -430,7 +443,7 @@ export class ChatController {
         const reasoning = item.type === "reasoning"
         const id = reasoning ? `${event.turnId}:${item.id}` : this.toolMessageId(event.turnId, item.id, item.callId)
         const status: ActivityStatus = item.isError ? "failed" : ({ inProgress: "running", completed: "completed", failed: "failed", declined: "declined", interrupted: "interrupted" } as const)[item.status]
-        this.upsertActivity(id, reasoning ? "reasoning" : "tool", reasoning ? "思考过程" : this.toolLabel(item, id), status, item.output || item.text, item.summary, false)
+        this.upsertActivity(id, reasoning ? "reasoning" : "tool", reasoning ? "思考过程" : this.toolLabel(item, id), status, item.output || item.text, item.summary, false, reasoning ? undefined : projectToolDetails(this.toolLabel(item, id), item.input, this.session!.cwd) ?? undefined)
       }
     } else if (event.type === "turn-completed") {
       this.finishActivities(event.outcome === "completed" ? "completed" : event.outcome === "stopped" ? "interrupted" : "failed")
@@ -513,7 +526,17 @@ export class ChatController {
         return attachmentPreview({ kind: "image", path: await changedFilePath(session.cwd, item.path) })
       })
       return { id, label: item.kind === "session-image" ? item.displayName : displayPath(session.cwd, item.path), kind, preview: kind === "image" ? { kind: "deferred" } : { kind: "none" } }
-    })
+    }, items => this.artifacts.project(items, session.cwd), session.cwd)
+  }
+
+  async openArtifact(id: string, open: (source: ArtifactSource) => Promise<void>): Promise<void> {
+    const session = this.session
+    if (!session || this.disposed || !this.state.messages.some(message => message.artifacts?.some(artifact => artifact.id === id))) return
+    this.options.assertTrusted()
+    const source = await this.artifacts.resolve(session.cwd, id)
+    this.options.assertTrusted()
+    if (this.session !== session || !this.state.messages.some(message => message.artifacts?.some(artifact => artifact.id === id))) return
+    await open(source)
   }
 
   async loadImage(id: string): Promise<AttachmentView["preview"]> {
@@ -658,7 +681,7 @@ export class ChatController {
   }
 
   private resetResources(): void {
-    this.references.clear(); this.attachments.clear(); this.diffs.clear(); this.terminals.clear(); this.tasks.clear()
+    this.artifacts.clear(); this.references.clear(); this.attachments.clear(); this.diffs.clear(); this.terminals.clear(); this.tasks.clear()
   }
 
   private async respond(request: AppServerInteraction, active: ActiveTurn, abort: AbortController): Promise<void> {
@@ -698,10 +721,11 @@ export class ChatController {
     return { commandExecution: "执行命令", fileChange: "修改文件", mcpToolCall: "调用工具", webSearch: "搜索", contextCompaction: "整理上下文", toolCall: "调用工具", toolResult: "工具结果", subagent: "子任务", reasoning: "思考过程", agentMessage: "回复", userMessage: "消息" }[item.type]
   }
 
-  private upsertActivity(id: string, role: ActivityMessage["role"], label: string | null, status: ActivityStatus, text: string, summary: string, append: boolean): void {
+  private upsertActivity(id: string, role: ActivityMessage["role"], label: string | null, status: ActivityStatus, text: string, summary: string, append: boolean, details?: ToolDetails): void {
     const existing = this.state.messages.find((message) => message.id === id)
     const previous = existing && "status" in existing ? existing : undefined
     const message: ActivityMessage = {
+      ...previous, ...(details ? { details } : {}),
       id, role, label: label ?? previous?.label ?? "工具输出",
       // Late progress cannot revert a terminal item to running.
       status: status === "running" && previous && previous.status !== "running" ? previous.status : status,
@@ -723,7 +747,7 @@ export class ChatController {
 
   private upsert(id: string, role: "user" | "assistant", label: string, text: string, append: boolean): void {
     const previous = this.state.messages.find((message) => message.id === id)
-    const message = { id, role, label, text: append ? (previous?.text ?? "") + text : text || previous?.text || "" }
+    const message = { ...previous, id, role, label, text: append ? (previous?.text ?? "") + text : text || previous?.text || "" }
     this.update({ messages: terminalReplyLast(previous ? this.state.messages.map((item) => item.id === id ? message : item) : [...this.state.messages, message], this.active?.finalReplyId ?? null) })
   }
 

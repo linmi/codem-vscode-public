@@ -82,6 +82,7 @@ export function activate(context: vscode.ExtensionContext): void {
         break
       }
       case "addAttachment": await chat.addAttachments(() => features.pickAttachments()); break
+      case "openArtifact": await chat.openArtifact(action.id, source => features.showArtifact(source)); break
       case "loadImage": reply({ type: "imageResult", id: action.id, preview: await chat.loadImage(action.id) }); break
       case "removeAttachment": chat.removeAttachment(action.id); break
       case "openDiff": await chat.showDiff(action.id, (diff, cwd) => features.showDiff(diff, cwd)); break
