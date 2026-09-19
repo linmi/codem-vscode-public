@@ -1,5 +1,9 @@
 /** Static, shared Webview icons. Never interpolate model or workspace content here. */
 const paths = {
+  search: '<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c6 5 6 13 0 18-6-5-6-13 0-18"/>',
+  plug: '<path d="M8 3v5m8-5v5M6 8h12v3a6 6 0 0 1-12 0zm6 9v4"/>',
+  tool: '<path d="m14 5 5 5m-7-7a6 6 0 0 0-7 8l-3 7 4 4 7-7a6 6 0 0 0 8-7l-5 4-4-4z"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   arrowUp: '<path d="M12 19V5m-6 6 6-6 6 6"/>',
   chevron: '<path d="m9 5 7 7-7 7"/>',

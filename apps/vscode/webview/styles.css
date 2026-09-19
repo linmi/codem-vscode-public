@@ -140,3 +140,8 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .workGroupContent .message { margin: 0; }
 .workGroup[data-state="failed"] > summary { color: var(--vscode-errorForeground, #e02e2a); }
 @media (prefers-reduced-motion: reduce) { .workGroup > summary svg { transition: none; } }
+
+.toolMeta { margin: 6px 0 4px 22px; font: 10px/1.5 var(--codeFont); color: var(--muted); overflow-wrap: anywhere; }
+.activityMessage[data-tool="command"] .messageBody { border-radius: 6px; background: var(--codeSurface); font: 11px/1.625 var(--codeFont); }
+.activityMessage[data-tool="write"] .activityIcon { color: var(--vscode-gitDecoration-modifiedResourceForeground, #b08432); }
+.activityMessage[data-tool="mcp"] .activityIcon { color: var(--vscode-symbolIcon-interfaceForeground, #9670d7); }

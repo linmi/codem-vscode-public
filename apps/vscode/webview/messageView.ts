@@ -1,3 +1,4 @@
+import { toolPresentation } from "./toolPresentation.ts"
 import type { ActivityStatus, ChatMessage } from "../src/messages.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 import { renderMarkdown } from "./markdownView.ts"
@@ -16,6 +17,8 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
   const badge = document.createElement("span"); badge.className = "activityStatus"
   const preview = document.createElement("span"); preview.className = "activityPreview"
   const note = document.createElement("div"); note.className = "activityNote"
+  const toolMeta = document.createElement("div"); toolMeta.className = "toolMeta"
+  let activityIcon: HTMLElement | null = null
   let details: HTMLDetailsElement | null = null
   let userToggled = false
   let copyText = initial.text
@@ -26,11 +29,12 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
     const summary = document.createElement("summary")
     label.className = "activityTitle"
     const icon = document.createElement("span"); icon.className = "activityIcon"
+    activityIcon = icon
     icon.innerHTML = uiIcon(initial.role === "reasoning" ? "thought" : "terminal")
     const chevron = document.createElement("span"); chevron.className = "activityChevron"; chevron.innerHTML = uiIcon("chevron")
     summary.append(icon, label, chevron, badge, preview)
     summary.addEventListener("click", (event) => { event.preventDefault(); userToggled = true; details!.open = !details!.open })
-    details.append(summary, note, body); root.append(details)
+    details.append(summary, note, toolMeta, body); root.append(details)
   } else {
     const heading = document.createElement("h2"); heading.className = "messageLabel"
     heading.append(label); root.append(heading, body)
@@ -59,6 +63,14 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
     let text = message.text
     if ("status" in message) {
       root.dataset.status = message.status
+      if (message.role === "tool") {
+        const presentation = toolPresentation(message.label)
+        root.dataset.tool = presentation.kind
+        label.textContent = presentation.title
+        activityIcon!.innerHTML = presentation.icon
+        toolMeta.textContent = `${message.label} · ${statusLabels[message.status]}`
+        body.setAttribute("aria-label", `${presentation.title}输出`)
+      } else toolMeta.hidden = true
       if (!userToggled && details) details.open = message.status === "failed"
       badge.textContent = message.role === "reasoning" && message.status === "running" ? "思考中" : statusLabels[message.status]
       note.textContent = message.summary
