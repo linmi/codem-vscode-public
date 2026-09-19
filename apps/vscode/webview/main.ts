@@ -172,7 +172,11 @@ function render(next: ChatSnapshot): void {
   }
   while (position) { const next = position.nextSibling; position.remove(); position = next }
   renderHistory(state)
-  element("welcome").hidden = state.messages.length > 0
+  const initializing = state.phase === "connecting"
+  element("transcriptLoading").hidden = !initializing || state.messages.length > 0
+  element("loadingLabel").textContent = "正在连接并加载模型…"
+  element("selectModel").setAttribute("aria-busy", String(initializing))
+  element("welcome").hidden = initializing || state.messages.length > 0
   element("connection").hidden = state.phase !== "disconnected" && state.phase !== "connecting"
   connect.disabled = signIn.disabled = state.phase === "connecting"
   connect.textContent = state.phase === "connecting" ? "正在连接…" : "连接工作区"

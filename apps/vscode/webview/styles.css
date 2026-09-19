@@ -151,3 +151,17 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .activityMessage[data-role="reasoning"][data-status="running"] .activityTitle { animation: thinkingFade 1.6s ease-in-out infinite; }
 @keyframes thinkingFade { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .activityMessage[data-role="reasoning"] .activityTitle { animation: none; } }
+
+.transcriptLoading { width: 100%; max-width: var(--chatWidth); margin: auto; padding: 40px 16px; color: var(--muted); font-size: 12px; text-align: center; }
+.loadingSpinner { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--line); border-top-color: var(--muted); border-radius: 50%; animation: loadingSpin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+.loadingLines { display: flex; flex-direction: column; gap: 12px; margin: 28px auto 0; max-width: 420px; }
+.loadingLines i { display: block; height: 10px; border-radius: 6px; background: var(--soft); animation: thinkingFade 1.6s ease-in-out infinite; }
+.loadingLines i:nth-child(2) { width: 85%; }
+.loadingLines i:nth-child(3) { width: 55%; }
+.modelLoading { display: none; }
+#selectModel { position: relative; }
+.app[data-phase="connecting"] #selectModel > :not(.modelLoading), .app[data-phase="initializing"] #selectModel > :not(.modelLoading) { visibility: hidden; }
+.app[data-phase="connecting"] .modelLoading, .app[data-phase="initializing"] .modelLoading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+.app[data-phase="initializing"] #welcome { display: none; }
+@keyframes loadingSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .loadingSpinner, .loadingLines i { animation: none; } }

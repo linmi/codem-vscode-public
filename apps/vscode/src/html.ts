@@ -13,7 +13,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${source}; style-src ${source}; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'">
 <link rel="stylesheet" href="${escapeHtml(resources.style)}"><title>CodeM</title></head>
 <body>
-<div class="app">
+<div class="app" data-phase="initializing">
   <header class="sessionHeader"><span class="sessionTitle"><span class="projectIcon">${uiIcon("folder")}</span><span id="sessionTitle">新会话</span><span class="statusDot" id="statusDot" title="连接状态"></span></span><div class="headerActions">
     <button class="iconButton" id="toggleResources" title="文件与工具" aria-label="文件与工具" aria-controls="activityPanel" aria-expanded="false">${uiIcon("panel")}</button>
     <button class="iconButton" id="newChat" title="新建会话" aria-label="新建会话">${uiIcon("plus")}</button>
@@ -21,6 +21,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
   </div></header>
   <div class="timelineArea">
   <main id="scrollArea">
+    <section class="transcriptLoading" id="transcriptLoading" role="status" aria-live="polite"><span class="loadingSpinner" aria-hidden="true"></span><span id="loadingLabel">正在初始化 CodeM…</span><div class="loadingLines" aria-hidden="true"><i></i><i></i><i></i></div></section>
     <section class="welcome" id="welcome" aria-labelledby="welcomeTitle">
       <img class="brandMark" src="${escapeHtml(resources.logo)}" alt="CodeM" width="40" height="40">
       <h1 id="welcomeTitle">我们一起做点什么？</h1>
@@ -43,7 +44,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
       <textarea id="prompt" rows="2" maxlength="32000" placeholder="提出问题，或描述你想实现的功能…" spellcheck="false"></textarea>
       <div class="composerToolbar">
         <div class="composerLeading"><button type="button" id="addAttachment" class="iconButton" title="添加文件、图片或文件夹" aria-label="添加附件">${uiIcon("plus")}</button><button type="button" id="selectPermission" class="iconButton permission" title="默认权限" aria-label="权限模式：默认权限">${uiIcon("shield")}</button></div>
-        <div class="composerTrailing"><button type="button" id="selectWorkMode" class="optionButton" title="切换工作模式">Agent</button><button type="button" id="selectModel" class="optionButton" title="模型与思考强度" aria-label="模型与思考强度"><img src="${escapeHtml(resources.logo)}" alt="" width="14" height="14"><span id="model">Auto</span><span id="effortLabel">medium</span>${uiIcon("chevronDown")}</button>
+        <div class="composerTrailing"><button type="button" id="selectWorkMode" class="optionButton" title="切换工作模式">Agent</button><button type="button" id="selectModel" class="optionButton" title="模型与思考强度" aria-label="模型与思考强度"><img src="${escapeHtml(resources.logo)}" alt="" width="14" height="14"><span id="model">Auto</span><span id="effortLabel">medium</span>${uiIcon("chevronDown")}<span class="modelLoading" aria-hidden="true"><span class="loadingSpinner"></span>加载模型…</span></button>
           <button class="sendButton" id="send" type="submit" title="发送消息 · Enter" aria-label="发送消息" disabled>${uiIcon("arrowUp")}</button>
           <button class="stopButton" id="stop" type="button" title="停止生成" aria-label="停止生成" hidden>${uiIcon("stop")}</button>
         </div>
