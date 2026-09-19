@@ -27,6 +27,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
       <h1 id="welcomeTitle">我们一起做点什么？</h1>
     </section>
     <section id="messages" class="messages" role="log" aria-label="对话记录" aria-live="off"></section>
+    <div id="workingRow" class="workingRow" role="status" aria-live="polite" hidden><span class="loadingSpinner" aria-hidden="true"></span><span id="workingLabel"></span></div>
   </main>
   <button class="jumpLatest" id="jumpLatest" hidden aria-label="回到最新消息">${uiIcon("arrowUp")}</button>
   </div>

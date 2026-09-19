@@ -59,6 +59,8 @@ new ResizeObserver(fitPrompt).observe(prompt)
 
 function post(action: ViewAction): void { vscode.postMessage(action) }
 function saveDraft(): void {
+  element("workingRow").hidden = !["sending", "running", "stopping"].includes(state.phase)
+  element("workingLabel").textContent = panels.locked() ? "等待你的回复…" : state.phase === "sending" ? "正在发送…" : state.phase === "stopping" ? "正在停止…" : "正在思考与处理…"
   vscode.setState({ draft: prompt.value })
   fitPrompt()
   prompt.disabled = panels.locked()
