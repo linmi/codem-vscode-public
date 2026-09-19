@@ -1,7 +1,8 @@
 import * as fs from "fs"
 import * as path from "path"
-import type { TuiAttentionSoundName } from "@kilocode/plugin/tui"
 import { exec } from "../../util/process"
+
+export type TuiAttentionSoundName = "default" | "question" | "permission" | "error" | "done" | "subagent_done"
 
 export const CustomSoundIDs = [
   "alert-01",

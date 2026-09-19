@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as vscode from "vscode"
-import type { TuiAttentionSoundName } from "@kilocode/plugin/tui"
+import type { TuiAttentionSoundName } from "../../src/services/attention/sound"
 import { AttentionService, type AttentionNotice } from "../../src/services/attention/service"
 import type { KiloConnectionService } from "../../src/services/cli-backend/connection-service"
 import type { SSEPayload } from "../../src/services/cli-backend/sdk-sse-adapter"

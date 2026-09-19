@@ -14,16 +14,53 @@ import type { Worktree, ManagedSession, Section } from "./WorktreeStateManager"
 import type { WorktreeStats, LocalStats } from "./GitStatsPoller"
 import type { ApplyConflict } from "./GitOps"
 import type { BranchListItem, WorktreeSetupErrorCode } from "./git-import"
-import type { RunStatus } from "./run/manager"
-import type { TerminalFont } from "./terminal-font"
-import type { ProjectSnapshot } from "./project/contexts"
 import type { SidebarTarget } from "./project/route"
-import type { TerminalDestination } from "./terminal-destination"
-import type { ScriptTerminalView } from "./ScriptTerminalManager"
 import type { BrowserFeedbackData } from "../shared/browser-feedback"
 
-export type { TerminalFont }
-export type { ProjectSnapshot }
+export type RunState = "idle" | "running" | "stopping"
+
+export interface RunStatus {
+  worktreeId: string
+  state: RunState
+  exitCode?: number
+  stopped?: boolean
+  signal?: string
+  startedAt?: string
+  finishedAt?: string
+  error?: string
+}
+
+export interface TerminalFont {
+  fontFamily: string
+  fontSize: number
+}
+
+export type TerminalDestination = "vscode" | "agentManager"
+
+export type ScriptTerminalKind = "run" | "setup"
+
+export interface ScriptTerminalView {
+  terminalId: string
+  projectId?: string
+  worktreeId: string | null
+  kind: ScriptTerminalKind
+  title: "Run" | "Setup"
+  wsUrl: string
+  state: "running" | "stopping" | "exited" | "failed"
+  exitCode?: number
+  font: TerminalFont
+}
+
+export interface ProjectSnapshot {
+  id: string
+  root: string
+  label: string
+  pinned: boolean
+  active: boolean
+  expanded: boolean
+  initialized: boolean
+  missing: boolean
+}
 
 /** Where a terminal lives: main tab strip or right-side inspector panel. */
 export type TerminalPlacement = "tab" | "side"

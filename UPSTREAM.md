@@ -79,6 +79,18 @@ Post-restructure checks on 2026-09-15: `pnpm install --frozen-lockfile`, CodeM U
 
 The retained Kilo/OpenCode source tree is now the explicitly approved interaction-compatibility baseline. The VS Code production entry temporarily consumes the mature Solid Webview, Agent Manager, diff/review, editor integrations and Kilo REST/SSE agent transport while the App Server adapter reaches full parity. This exception exists because the earlier reduced React surface dropped user-visible behavior. It ends only when every registered mature interaction has an App Server, editor-Host, or dedicated-service owner and the App Server path passes the parity checks; the final cutover removes the Kilo agent transport rather than keeping a fallback.
 
+## Leftover Kilo/OpenCode tree prune (2026-09-18)
+
+After VS Code production stopped spawning `kilo serve`, the leftover Kilo CLI closure and JetBrains app were deleted from this tree:
+
+| Path | Treatment |
+| --- | --- |
+| `apps/jetbrains/` | Deleted. Not a CodeM App Server consumer. |
+| `packages/opencode/`, `packages/core/`, `packages/llm/`, `packages/tui/`, `packages/server/`, `packages/schema/`, `packages/script/`, `packages/codemode/`, `packages/http-recorder/`, `packages/effect-*`, `packages/kilo-*`, `packages/plugin/`, `packages/plugin-atomic-chat/`, `packages/legacy/` | Deleted. VS Code no longer builds or embeds the leftover CLI. |
+| `packages/sdk/js/` | Kept as frozen leftover `@kilocode/sdk` types for `leftover-sdk.ts`. OpenAPI regeneration from deleted OpenCode sources is disabled. |
+
+Small helpers previously imported from those packages (`zeroID`, path/encode/binary utils, caffeination driver, max-cost nudge, autocomplete model table, indexing-plugin detect) were copied into `apps/vscode/src/shared/` or `packages/ui/src/util-*.ts`. Recoverable from git history or the frozen upstream commit.
+
 ## CodeM VS Code identity migration
 
 On 2026-09-15 the VS Code application shell was rebranded without disguising the still-imported runtime boundary:

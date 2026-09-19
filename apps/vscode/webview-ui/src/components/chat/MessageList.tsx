@@ -59,7 +59,7 @@ import { childID } from "../../context/session-utils"
 import { taskResult } from "./task-tool-state"
 import { activeQuestionTab, tr } from "./question-dock-utils"
 import { useData } from "@codem/ui/context/data"
-import { getDirectory as getRawDirectory, getFilename } from "@opencode-ai/core/util/path"
+import { getDirectory as getRawDirectory, getFilename } from "@codem/ui/util/path"
 import {
   partitionRows,
   retainTurn,

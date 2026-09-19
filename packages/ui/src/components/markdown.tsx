@@ -3,7 +3,7 @@ import { deferredHighlight, fnv1a } from "../context/marked" // kilocode_change
 import { useI18n } from "../context/i18n"
 import DOMPurify from "dompurify"
 import morphdom from "morphdom"
-import { checksum } from "@opencode-ai/core/util/encode"
+import { checksum } from "../util-encode"
 import {
   ComponentProps,
   createEffect,

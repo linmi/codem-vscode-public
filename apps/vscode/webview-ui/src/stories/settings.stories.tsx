@@ -1,24 +1,19 @@
 /** @jsxImportSource solid-js */
 /**
- * Stories for Settings and ProvidersTab components.
+ * Stories for Settings components.
  */
 
-import { onMount, createSignal } from "solid-js"
+import { onMount } from "solid-js"
 import type { Meta, StoryObj } from "storybook-solidjs-vite"
 import { StoryProviders, mockSessionValue } from "./StoryProviders"
 import { SessionContext } from "../context/session"
-import { KiloEmbeddingModelsContext } from "../context/kilo-embedding-models"
 import Settings from "../components/settings/Settings"
-import ProvidersTab from "../components/settings/ProvidersTab"
 import ModelsTab from "../components/settings/ModelsTab"
 import AgentBehaviourTab from "../components/settings/AgentBehaviourTab"
 import AutoApproveTab from "../components/settings/AutoApproveTab"
 import ModeEditView from "../components/settings/ModeEditView"
 import McpEditView from "../components/settings/McpEditView"
 import type { AgentConfig, CommandConfig, Config } from "../types/messages"
-import IndexingTab from "../components/settings/IndexingTab"
-import CustomProviderDialog from "../components/settings/CustomProviderDialog"
-import { useDialog } from "@codem/ui/context/dialog"
 import { SidebarEmptyState } from "../components/chat/SidebarEmptyState"
 import { WorkStyleContext, type WorkStyleContextValue } from "../context/work-style"
 
@@ -65,72 +60,9 @@ export const AutoApproveBashOnly: Story = {
   ),
 }
 
-export const SandboxingPanel: Story = {
-  name: "Settings — sandboxing controls",
-  render: () => (
-    <StoryProviders config={{ sandbox: { network: "deny" } }} features={{ sandboxControls: true }}>
-      <div style={{ height: "700px", display: "flex", "flex-direction": "column" }}>
-        <Settings tab="sandboxing" />
-      </div>
-    </StoryProviders>
-  ),
-}
 
-export const SandboxingAllowlist: Story = {
-  name: "Settings — sandboxing with network destinations",
-  render: () => (
-    <StoryProviders
-      config={{
-        sandbox: {
-          enabled: true,
-          network: "deny",
-          allowed_hosts: ["github.com:443", "api.github.com:443"],
-          writable_paths: ["~/shared-output"],
-        },
-      }}
-      features={{ sandboxControls: true }}
-    >
-      <div style={{ height: "700px", display: "flex", "flex-direction": "column" }}>
-        <Settings tab="sandboxing" />
-      </div>
-    </StoryProviders>
-  ),
-}
 
-export const ProvidersConfigure: Story = {
-  name: "ProvidersTab — no providers configured",
-  render: () => (
-    <StoryProviders>
-      <div style={{ "max-height": "700px", overflow: "auto" }}>
-        <ProvidersTab />
-      </div>
-    </StoryProviders>
-  ),
-}
 
-/** Opens the Disabled Providers collapsible on mount so the expanded list has coverage. */
-function OpenDisabledProviders() {
-  let ref: HTMLDivElement | undefined
-  onMount(() => {
-    requestAnimationFrame(() => {
-      ref?.querySelector<HTMLButtonElement>('[data-slot="collapsible-trigger"]')?.click()
-    })
-  })
-  return (
-    <div ref={ref} style={{ "max-height": "700px", overflow: "auto" }}>
-      <ProvidersTab />
-    </div>
-  )
-}
-
-export const ProvidersDisabledExpanded: Story = {
-  name: "ProvidersTab — disabled providers expanded",
-  render: () => (
-    <StoryProviders config={{ disabled_providers: ["openai", "anthropic"] } as any}>
-      <OpenDisabledProviders />
-    </StoryProviders>
-  ),
-}
 
 export const ModelsAutocompleteOpen: Story = {
   name: "ModelsTab — autocomplete model picker open",
@@ -561,169 +493,8 @@ export const ModeEditPermissions: Story = {
   },
 }
 
-export const IndexingProviderBlurRace: Story = {
-  name: "IndexingTab",
-  render: () => {
-    const [saved, setSaved] = createSignal<Record<string, unknown>>({})
-    const cfg: Config = {
-      indexing: {
-        provider: "openai",
-        model: "text-embedding-3-large",
-        dimension: 3072,
-        openai: { apiKey: "" },
-        gemini: { apiKey: "" },
-      },
-    }
-    return (
-      <>
-        <StoryProviders
-          config={cfg}
-          onConfigChange={(next: Config) => setSaved((next.indexing ?? {}) as Record<string, unknown>)}
-        >
-          <div style={{ width: "420px", "max-height": "700px", overflow: "auto" }}>
-            <IndexingTab />
-          </div>
-        </StoryProviders>
-        <pre data-testid="indexing-provider-save">{JSON.stringify(saved(), null, 2)}</pre>
-      </>
-    )
-  },
-}
 
-export const IndexingScopeSwitch: Story = {
-  name: "IndexingTab - global and local scopes",
-  render: () => {
-    const [global, setGlobal] = createSignal<Record<string, unknown>>({})
-    const [project, setProject] = createSignal<Record<string, unknown>>({})
-    const globalConfig: Config = {
-      indexing: {
-        enabled: true,
-        provider: "openai",
-        model: "text-embedding-3-large",
-        dimension: 3072,
-        vectorStore: "qdrant",
-        openai: { apiKey: "global-secret" },
-        qdrant: { url: "http://global:6333", apiKey: "global-qdrant" },
-        searchMinScore: 0.4,
-      },
-    }
-    const projectConfig: Config = {
-      indexing: {
-        model: null,
-        qdrant: { apiKey: "project-qdrant" },
-      },
-    }
-    return (
-      <>
-        <StoryProviders
-          config={globalConfig}
-          globalConfig={globalConfig}
-          projectConfig={projectConfig}
-          onGlobalConfigChange={(next) => setGlobal((next.indexing ?? {}) as Record<string, unknown>)}
-          onProjectConfigChange={(next) => setProject((next.indexing ?? {}) as Record<string, unknown>)}
-        >
-          <div style={{ width: "420px", "max-height": "700px", overflow: "auto" }}>
-            <IndexingTab />
-          </div>
-        </StoryProviders>
-        <pre data-testid="indexing-global-save">{JSON.stringify(global(), null, 2)}</pre>
-        <pre data-testid="indexing-project-save">{JSON.stringify(project(), null, 2)}</pre>
-      </>
-    )
-  },
-}
 
-export const IndexingKiloModelPreset: Story = {
-  name: "IndexingTab - CodeM stale custom model fallback",
-  render: () => {
-    const cfg: Config = {
-      indexing: {
-        provider: "kilo",
-        model: "custom/model",
-        dimension: 2048,
-      },
-    }
-    const catalog = {
-      defaultModel: "provider/model",
-      models: [
-        { id: "provider/model", name: "Provider Model", dimension: 1024, scoreThreshold: 0.4 },
-        { id: "provider/compact", name: "Provider Compact", dimension: 512, scoreThreshold: 0.35 },
-      ],
-      aliases: {},
-    }
-    return (
-      <StoryProviders config={cfg}>
-        <KiloEmbeddingModelsContext.Provider value={{ catalog: () => catalog }}>
-          <div style={{ "max-height": "700px", overflow: "auto" }}>
-            <IndexingTab />
-          </div>
-        </KiloEmbeddingModelsContext.Provider>
-      </StoryProviders>
-    )
-  },
-}
 
-export const IndexingKiloCatalogLoading: Story = {
-  name: "IndexingTab - CodeM catalog loading",
-  render: () => {
-    const [saved, setSaved] = createSignal<Record<string, unknown>>({})
-    const cfg: Config = {
-      indexing: {},
-    }
-    return (
-      <>
-        <StoryProviders
-          config={cfg}
-          kiloAuth
-          onConfigChange={(next: Config) => setSaved((next.indexing ?? {}) as Record<string, unknown>)}
-        >
-          <div style={{ "max-height": "700px", overflow: "auto" }}>
-            <IndexingTab />
-          </div>
-        </StoryProviders>
-        <pre data-testid="indexing-kilo-loading-save">{JSON.stringify(saved(), null, 2)}</pre>
-      </>
-    )
-  },
-}
 
-function CustomProviderDialogMount(props: { existing?: Parameters<typeof CustomProviderDialog>[0]["existing"] }) {
-  const dialog = useDialog()
-  onMount(() => dialog.show(() => <CustomProviderDialog existing={props.existing} />))
-  return null
-}
 
-export const CustomProviderCreateDialog: Story = {
-  name: "Custom Provider — create dialog",
-  render: () => (
-    <StoryProviders>
-      <CustomProviderDialogMount />
-    </StoryProviders>
-  ),
-}
-
-export const CustomProviderEditDialog: Story = {
-  name: "Custom Provider — edit dialog",
-  render: () => (
-    <StoryProviders>
-      <CustomProviderDialogMount
-        existing={{
-          providerID: "custom-ollama",
-          name: "Local Ollama",
-          config: {
-            npm: "@ai-sdk/openai-compatible",
-            options: { baseURL: "http://localhost:11434/v1" },
-            models: {
-              "qwen2.5-coder:32b": {
-                name: "Qwen 2.5 Coder 32B",
-                reasoning: true,
-                modalities: { input: ["text", "image"] },
-              },
-              "llama3.3:70b": { name: "Llama 3.3 70B", reasoning: false },
-            },
-          },
-        }}
-      />
-    </StoryProviders>
-  ),
-}

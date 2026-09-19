@@ -6,7 +6,7 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 
 - This directory is the imported Kilo 7.6.2 VS Code baseline with a CodeM-branded shell and public `codem.*` identifiers. Source version is `0.1.14`. It is not a finished CodeM extension.
 - Controller-ready chat (42 Webview commands) goes through `@codem/app-server`. The catalog/mode path is UI-adapts-to-App-Server: Host posts `codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*` and CodeM control-plane result DTOs, not Kilo `providersLoaded` / `commandsLoaded` / `agentsLoaded`. Activation still constructs `KiloConnectionService` for leftover Host coordination, but `connect()` / `getServer()` fail closed and never spawn `kilo serve`. Unknown App Server-owned commands report `尚未迁移到 CodeM App Server` instead of falling through to Kilo.
-- The executable parity inventory is 239 commands: 197 host/service, 42 App Server controllers, 0 Core v1 gaps. `assertMatureUiProductionReady()` is green. The 36 former Core v1 gaps plus Roo/Kilo session-import commands were product-cut from `WebviewMessage` and the ownership table. Product-cut leftover Host methods were deleted from `CodeMProvider`; memory/indexing VS Code commands fail closed. Host helpers live in `src/host/` (not `kilo-provider`). Agent Manager Host is a fail-closed panel shell; leftover worktree/Kilo session orchestration was deleted. Leftover-sdk, autocomplete, and JetBrains remain outside this gate.
+- The executable parity inventory is 239 commands: 197 host/service, 42 App Server controllers, 0 Core v1 gaps. `assertMatureUiProductionReady()` is green. The 36 former Core v1 gaps plus Roo/Kilo session-import commands were product-cut from `WebviewMessage` and the ownership table. Product-cut leftover Host methods were deleted from `CodeMProvider`; memory/indexing VS Code commands fail closed. Host helpers live in `src/host/` (not `kilo-provider`). Agent Manager Host is a fail-closed panel shell; leftover worktree/Kilo session orchestration was deleted. Autocomplete remains a leftover VS Code service. Frozen leftover-sdk types stay in `packages/sdk/js`. JetBrains and leftover Kilo CLI packages were deleted from this tree.
 - Preserve useful VS Code surfaces while migrating the runtime and product model to CodeM App Server.
 - Do not extend Kilo REST/SSE, `kilo serve`, Kilo Session/provider stores, Gateway behavior, Kilo branding, or old command/view IDs for new CodeM work.
 - Keep each migration Cycle independently verifiable. When a boundary is migrated, update all production callers, contracts, tests, paths, and imports, then delete the superseded path.
@@ -27,7 +27,7 @@ Read the repository-root [`AGENTS.md`](../../AGENTS.md), [`vscode-plugin-plan.md
 ## UI boundary
 
 - New CodeM web UI belongs in the Solid package at `packages/ui` and is imported through `@codem/ui` exports such as `@codem/ui/components/button` and `@codem/ui/types/session`. Webview and Host production source must not import `@kilocode/sdk`. Transcript Session/Message/Part types come from `@codem/ui/types/session`. Leftover `KiloClient`, Event, Config, and session-import DTOs live in `src/services/cli-backend/leftover-sdk.ts`; `createKiloClient` fail-closes.
-- Packages under `packages/legacy` are CLI Console build inputs. Do not add new product UI to them.
+- Do not add leftover Kilo CLI, JetBrains, or Console packages back into this tree.
 - Do not introduce shadcn or a second React webview stack.
 - Keep VS Code-specific theme adapters, CSP, editor messaging, and lifecycle code in this app. Keep reusable tokens and components in `packages/ui`.
 - Preserve keyboard access, focus visibility, reduced motion, high contrast, and strict Webview CSP.
@@ -51,7 +51,7 @@ pnpm lint:vscode
 pnpm build:vscode
 ```
 
-The default VS Code gate uses Node: `pnpm test:vscode` is `node --test --experimental-strip-types`, and typecheck/bundle are `tsc` / `node esbuild.js`. Prepare, package, launch, watch, and Extension Host also run through Node (`node --experimental-strip-types script/*.ts`). Leftover Kilo CLI staging (`prepare:cli-binary`, `watch:cli`) and `test:vscode:legacy` may still invoke the pinned Bun binary. They may not install dependencies or create a Bun lockfile. Worktree setup uses `pnpm install --frozen-lockfile`.
+The default VS Code gate uses Node: `pnpm test:vscode` is `node --test --experimental-strip-types`, and typecheck/bundle are `tsc` / `node esbuild.js`. Prepare, package, launch, watch, and Extension Host also run through Node (`node --experimental-strip-types script/*.ts`). `test:vscode:legacy` may still invoke the pinned Bun binary for leftover unit files. They may not install dependencies or create a Bun lockfile. Worktree setup uses `pnpm install --frozen-lockfile`.
 
 Do not run the full imported unit suite by default. When tests are in scope, choose the smallest relevant test files and report host-sensitive failures without weakening or deleting assertions.
 

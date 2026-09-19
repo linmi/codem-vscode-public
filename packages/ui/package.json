@@ -8,6 +8,7 @@
     "**/*.css"
   ],
   "exports": {
+    "./util/path": "./src/util-path.ts",
     "./audio/*": "./src/assets/audio/*",
     "./components/accordion": "./src/components/accordion.tsx",
     "./components/agent-avatar": "./src/components/agent-avatar.tsx",
@@ -145,7 +146,6 @@
   },
   "dependencies": {
     "@kobalte/core": "catalog:",
-    "@opencode-ai/core": "workspace:*",
     "@pierre/diffs": "catalog:",
     "@shikijs/stream": "catalog:",
     "@shikijs/transformers": "3.9.2",

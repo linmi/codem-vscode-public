@@ -1,4 +1,4 @@
-import { hasIndexingPlugin } from "@kilocode/kilo-indexing/detect"
+import { hasIndexingPlugin } from "./shared/indexing-detect"
 import type { KiloClient } from "./services/cli-backend/leftover-sdk"
 type PluginSpec = string | [string, Record<string, unknown>]
 

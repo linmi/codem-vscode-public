@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For, onMount } from "solid-js"
 import type { ToolPart } from "../types/session"
-import { getFilename } from "@opencode-ai/core/util/path"
+import { getFilename } from "../util-path"
 import { useReducedMotion } from "../hooks/use-reduced-motion"
 import { useI18n } from "../context/i18n"
 import { BasicTool } from "./basic-tool"

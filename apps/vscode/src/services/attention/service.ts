@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import type { TuiAttentionSoundName } from "@kilocode/plugin/tui"
+import type { TuiAttentionSoundName } from "./sound"
 import type { SSEPayload } from "../cli-backend/sdk-sse-adapter"
 import type { KiloConnectionService } from "../cli-backend/connection-service"
 import { playSound, resolveSoundID } from "./sound"

@@ -1,5 +1,5 @@
 import { createContext, useContext, Show, type Accessor, type ParentProps } from "solid-js"
-import { getFilename } from "@opencode-ai/core/util/path"
+import { getFilename } from "../util-path"
 import { Icon } from "./icon"
 
 /**

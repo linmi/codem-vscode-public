@@ -8,7 +8,7 @@
  */
 
 import { createSignal, type Accessor } from "solid-js"
-import { zeroID } from "@opencode-ai/core/kilocode/zero-id"
+import { zeroID } from "../../src/shared/zero-id"
 import { mergeWorktreeDiffs, resolveDiffFile } from "../diff-viewer/diff-state"
 import { parseDiffId } from "./diff-scope-state"
 import type { useVSCode } from "../src/context/vscode"

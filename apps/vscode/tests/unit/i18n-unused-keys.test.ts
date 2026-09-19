@@ -51,8 +51,6 @@ const VSCODE = path.join(REPO, "apps/vscode")
 const WEBVIEW_ROOTS = [
   VSCODE,
   path.join(REPO, "packages/ui"),
-  path.join(REPO, "packages/opencode"),
-  path.join(REPO, "packages/kilo-gateway"),
 ]
 
 const pools = [

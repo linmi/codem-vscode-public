@@ -16,7 +16,7 @@ v1.1 仍是 2026-09-15 的契约来源说明：CodeM `main@d7763f0a`、共享 Ho
 | 持久化历史 | `@codem/session-history` 读 Core JSONL schema 13；无第二套 transcript store。`thread/turns/list` 与 `thread/items/list` 只作为 live snapshot，不是公开历史源。 | 无持久 SQLite 索引；每次全量流式 replay。 |
 | VS Code 主聊天 | `CodeMAppServerService` + `MatureUiAppServerController` 承接 42 个控制器命令。模式是 **UI 适配 App Server**：Host 直接 post `codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*` 与 CodeM 控制面结果。`requestCommands` 与 `requestSkills` 写同一份 Skills DTO，斜杠不再读 `commandsLoaded`。rewind / archive / unarchive / clearThread / hooks / plugins / tools / env 白名单 / config 去密钥快照 / permission profiles / modelProvider capabilities / backgroundTerminals / runShell（校验归属）/ cancelSideQuestion / Core space 快照 / live turns·items / last-known live usage 已接。 | 未发明 Settings/MCP/sandbox 页。刻意不接：用 `space/list` 替换 broker 写路径、用 `turns/items/list` 当 JSONL 历史、`clearSession` 当 `thread/clear`、把 `backgroundTerminals.processId` 混进 `requestBackgroundJobs.taskId`。Kilo-only 命令（MCP 写入、provider OAuth、memory、indexing、sandbox、message-scoped revert/delete、suggestions、Kilo config write）已从 `WebviewMessage` 产品砍掉。 |
 | 认证与 space | 登录/注册/退出/刷新走 CLI credential broker。`codem.selectSpace` 走 broker `project_list` / `space_prepare` / `space_commit`。Workspace Trust 在启动 Core 前检查。 | `setOrganization` 仍走 Kilo handler。 |
-| Kilo transport | 激活仍创建 `KiloConnectionService`，但 `connect()` / `ServerManager.getServer()` fail closed，不再 spawn `kilo serve`。Autocomplete / commit message / Agent Manager 等未迁移表面报 `尚未迁移到 CodeM App Server`。Webview 与 Host 生产源码不再 import `@kilocode/sdk`；时间线类型走 `@codem/ui/types/session`。Leftover `KiloClient` 类型与 fail-closed `createKiloClient` 住在 `leftover-sdk.ts`。 | leftover 单测与 `package.json` 仍声明 `@kilocode/sdk`；`packages/opencode` 尚未删除。 |
+| Kilo transport | 激活仍创建 `KiloConnectionService`，但 `connect()` / `ServerManager.getServer()` fail closed，不再 spawn `kilo serve`。Autocomplete / commit message / Agent Manager 等未迁移表面报 `尚未迁移到 CodeM App Server`。Webview 与 Host 生产源码不再 import `@kilocode/sdk`；时间线类型走 `@codem/ui/types/session`。Leftover `KiloClient` 类型与 fail-closed `createKiloClient` 住在 `leftover-sdk.ts`。 | leftover 单测与 `package.json` 仍声明 `@kilocode/sdk` 类型包；JetBrains / `packages/opencode` / leftover kilo-* 已从本树删除。 |
 | 路由泄漏 | `handleAppServerMessage` 对 `app-server-live` 与 `app-server-control` 均 fail closed，不再落到 Kilo。产品砍掉的 leftover Host 方法（config write/memory/indexing/sandbox/revert/delete/provider OAuth/MCP mutation）已从 `CodeMProvider` 删除。 | leftover-sdk、Agent Manager、autocomplete 仍在。 |
 | 门禁 | 239 = 197 + 42 + 0 pending + 0 gaps；`ready: true`。 | mature UI 命令面已切。Agent Manager 面板仍在，Host 编排已 fail-closed。leftover-sdk / JetBrains 仍在，不得宣称整个扩展生产可切。 |
 
@@ -252,7 +252,6 @@ codem/
       tests/host/             # 默认 App Server host 单测
       tests/extension-host/   # 真机验收（需已登录）
       package.json
-    jetbrains/                # 原生 IntelliJ UI；尚未引用 @codem/app-server
   packages/
     ui/                       # Solid 组件源码与 tokens（@codem/ui）
     app-server/               # Core runtime、staging、integrity、RPC、Host lifecycle
