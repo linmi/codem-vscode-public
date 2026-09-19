@@ -1,9 +1,11 @@
 import { FileReferences } from "./fileReferences.ts"
-import { attachmentPreview } from "./attachmentPreview.ts"
+import { readSessionImage, resolveSessionsRoot, type ConversationAttachment, type SessionHistoryPage } from "@codem/session-history"
+import { changedFilePath } from "./filePresentation.ts"
+import { attachmentPreview, rasterPreview } from "./attachmentPreview.ts"
 import { terminalReplyLast } from "./timelineOrder.ts"
 import { randomUUID } from "node:crypto"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerFileDiff, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
-import { initialSnapshot, isBusy, type ActivityMessage, type ActivityStatus, type ChatSnapshot } from "./messages.ts"
+import { initialSnapshot, isBusy, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatSnapshot } from "./messages.ts"
 
 import { HistoryListController } from "./historyList.ts"
 import { historyMessages } from "./historyMessages.ts"
@@ -53,6 +55,7 @@ export class ChatController {
   private readonly lifetime = new AbortController()
   private state: ChatSnapshot = initialSnapshot()
   private settings: AppServerThreadSettings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" }
+  private readonly images = new Map<string, () => Promise<AttachmentView["preview"]>>()
   private readonly references = new FileReferences()
   private readonly attachments = new Map<string, AppServerPromptAttachment>()
   private readonly diffs = new Map<string, AppServerFileDiff>()
@@ -243,7 +246,6 @@ export class ChatController {
       this.assertHistoryContext(session, abort)
       const page = await session.readHistory(threadId, undefined, abort.signal)
       this.assertHistoryContext(session, abort)
-      const messages = historyMessages(threadId, page)
       if (previousThreadId) {
         releasingPrevious = true
         await session.host.unsubscribeThread(session.cwd, previousThreadId)
@@ -252,6 +254,7 @@ export class ChatController {
       this.threadId = threadId
       this.historyCursor = page.nextCursor
       this.resetResources()
+      const messages = this.projectHistory(threadId, page, session)
       this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }
       this.update({ phase: "ready", messages, permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
       this.historyList.close()
@@ -292,7 +295,7 @@ export class ChatController {
       this.options.assertTrusted()
       const page = await session.readHistory(threadId, cursor, abort.signal)
       this.assertHistoryContext(session, abort)
-      const messages = historyMessages(threadId, page)
+      const messages = this.projectHistory(threadId, page, session)
       if (append && (page.nextCursor === cursor || messages.some((message) => this.state.messages.some((old) => old.id === message.id)))) throw new Error("History page overlaps the current snapshot")
       this.historyCursor = page.nextCursor
       this.update({ messages: append ? [...messages, ...this.state.messages] : messages, hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
@@ -496,6 +499,38 @@ export class ChatController {
     }
   }
 
+  private projectHistory(threadId: string, page: SessionHistoryPage, session: ChatSession) {
+    return historyMessages(threadId, page, (item: ConversationAttachment): AttachmentView => {
+      const id = randomUUID()
+      const kind = item.kind === "session-image" ? "image" : item.kind
+      if (kind === "image") this.images.set(id, async () => {
+        if (item.kind === "session-image") {
+          const bytes = await readSessionImage({ sessionsRoot: resolveSessionsRoot(process.env), cwd: session.cwd, threadId, attachment: item })
+          const preview = rasterPreview(bytes)
+          if (preview.kind !== "image" || !preview.dataUrl.startsWith(`data:${item.mediaType};`)) throw new Error("Image media type mismatch")
+          return preview
+        }
+        return attachmentPreview({ kind: "image", path: await changedFilePath(session.cwd, item.path) })
+      })
+      return { id, label: item.kind === "session-image" ? item.displayName : displayPath(session.cwd, item.path), kind, preview: kind === "image" ? { kind: "deferred" } : { kind: "none" } }
+    })
+  }
+
+  async loadImage(id: string): Promise<AttachmentView["preview"]> {
+    const session = this.session
+    const visible = () => this.state.attachments.some(item => item.id === id) || this.state.messages.some(message => "attachments" in message && message.attachments?.some(item => item.id === id))
+    if (!session || this.disposed || !visible()) return { kind: "unavailable", reason: "图片引用已过期。" }
+    this.options.assertTrusted()
+    try {
+      const load = this.images.get(id)
+      if (!load) throw new Error("Unknown image")
+      const preview = await load()
+      this.options.assertTrusted()
+      if (session !== this.session || !visible() || this.disposed) throw new Error("Image no longer belongs to current view")
+      return preview
+    } catch { return { kind: "unavailable", reason: "图片无法读取，可能已移除、发生变化或超过 20 MiB。" } }
+  }
+
   async searchFiles(query: string, find: (cwd: string, query: string) => Promise<readonly string[]>) {
     const session = this.session
     if (!session || this.disposed || this.state.phase !== "ready") return []
@@ -528,10 +563,10 @@ export class ChatController {
       if (this.attachments.size + unique.length > 20) throw new UserVisibleError("每条消息最多添加 20 个附件。")
       for (const item of unique) await validateAttachment(item)
       if (this.session !== session || this.disposed) return
-      const additions = await Promise.all(unique.map(async item => ({ id: randomUUID(), item, preview: await attachmentPreview(item) })))
+      const additions = await Promise.all(unique.map(async item => ({ id: randomUUID(), item, preview: item.kind === "image" ? { kind: "deferred" as const } : { kind: "none" as const } })))
       if (this.session !== session || this.disposed) return
       this.options.assertTrusted()
-      for (const { id, item } of additions) this.attachments.set(id, item)
+      for (const { id, item } of additions) { this.attachments.set(id, item); if (item.kind === "image") this.images.set(id, () => attachmentPreview(item)) }
       this.update({ attachments: [...this.state.attachments, ...additions.map(({ id, item, preview }) => ({ id, label: displayPath(session.cwd, item.path), kind: item.kind, preview }))] })
     } catch (error) {
       this.options.report("attachment", error)
@@ -695,6 +730,8 @@ export class ChatController {
   private update(patch: Partial<ChatSnapshot>): void {
     if (this.disposed) return
     this.state = { ...this.state, ...patch }
+    const imageIds = new Set([...this.state.attachments, ...this.state.messages.flatMap(message => "attachments" in message ? message.attachments ?? [] : [])].map(item => item.id))
+    for (const id of this.images.keys()) if (!imageIds.has(id)) this.images.delete(id)
     this.publish()
   }
 }

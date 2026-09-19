@@ -1,3 +1,5 @@
+export type { ConversationAttachment } from "./shared/session/attachment.ts"
+export { readSessionImage } from "./sessionImage.ts"
 import { createHash } from "node:crypto"
 import { realpath, stat, readFile } from "node:fs/promises"
 import { homedir } from "node:os"

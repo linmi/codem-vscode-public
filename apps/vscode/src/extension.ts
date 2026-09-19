@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { ChatController, UserVisibleError } from "./chatController.ts"
 import { assertTrusted, connectRuntime } from "./runtimeSession.ts"
 import { showInteraction } from "./interactions.ts"
-import { parseViewAction, type FileSearchResult, type FileSelected, type SendResult, type ViewAction } from "./messages.ts"
+import { parseViewAction, type ImageResult, type FileSearchResult, type FileSelected, type SendResult, type ViewAction } from "./messages.ts"
 import { chatHtml } from "./html.ts"
 
 import { PanelBroker } from "./panelBroker.ts"
@@ -46,7 +46,7 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   })
   const chat = controller
-  const dispatch = async (action: ViewAction, reply: (result: SendResult | FileSearchResult | FileSelected) => void): Promise<void> => {
+  const dispatch = async (action: ViewAction, reply: (result: SendResult | FileSearchResult | FileSelected | ImageResult) => void): Promise<void> => {
     switch (action.type) {
       case "ready": chat.publish(); panels.replay(); break
       case "panelReply": break
@@ -82,6 +82,7 @@ export function activate(context: vscode.ExtensionContext): void {
         break
       }
       case "addAttachment": await chat.addAttachments(() => features.pickAttachments()); break
+      case "loadImage": reply({ type: "imageResult", id: action.id, preview: await chat.loadImage(action.id) }); break
       case "removeAttachment": chat.removeAttachment(action.id); break
       case "openDiff": await chat.showDiff(action.id, (diff, cwd) => features.showDiff(diff, cwd)); break
       case "openChangedFile": await chat.showDiff(action.id, (diff, cwd) => features.showChangedFile(diff, cwd)); break

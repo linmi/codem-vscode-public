@@ -460,3 +460,21 @@ it("keeps late reasoning and tool completion before the terminal reply without r
     assert.equal(f.controller.snapshot().messages.at(-1)?.text, "final reply")
   } finally { await f.controller.dispose() }
 })
+
+it("loads large image bytes only on demand and expires removed image handles", async () => {
+  const root = await mkdtemp(join(tmpdir(), "codemLazyImage"))
+  const f = setup()
+  try {
+    const path = join(root, "large.png")
+    const bytes = Buffer.alloc(1024 * 1024); Buffer.from([137,80,78,71,13,10,26,10]).copy(bytes)
+    await writeFile(path, bytes)
+    await f.controller.connect()
+    await f.controller.addAttachments(async () => [{ kind: "image", path }])
+    const item = f.controller.snapshot().attachments[0]!
+    assert.deepEqual(item.preview, { kind: "deferred" })
+    assert.equal((await f.controller.loadImage(item.id)).kind, "image")
+    assert.equal((await f.controller.loadImage("forged")).kind, "unavailable")
+    f.controller.removeAttachment(item.id)
+    assert.equal((await f.controller.loadImage(item.id)).kind, "unavailable")
+  } finally { await f.controller.dispose(); await rm(root, { recursive: true, force: true }) }
+})

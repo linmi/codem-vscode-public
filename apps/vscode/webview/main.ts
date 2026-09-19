@@ -1,10 +1,10 @@
 import { installFileMentions } from "./fileMentions.ts"
 import { installComposerCommands } from "./composerCommands.ts"
-import { attachmentCard } from "./attachmentView.ts"
+import { attachmentCard, configureImageLoader } from "./attachmentView.ts"
 import { createWorkGroups } from "./workGroups.ts"
 import { createPanelView } from "./panelView.ts"
 import type { PanelMessage } from "../src/panelTypes.ts"
-import { initialSnapshot, isBusy, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
+import { initialSnapshot, isBusy, type ImageResult, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
 import { ComposerSubmission } from "./composerSubmission.ts"
 
 import { createMessageView } from "./messageView.ts"
@@ -56,6 +56,13 @@ const renderHistory = createHistoryView(headerActions, scroller, post)
 const renderWorkGroups = createWorkGroups()
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
+const imageRequests = new Map<string, (preview: import("../src/messages.ts").AttachmentView["preview"]) => void>()
+configureImageLoader(id => new Promise(resolve => {
+  const timer = setTimeout(() => { imageRequests.delete(id); resolve({ kind: "unavailable", reason: "图片加载超时，请重试。" }) }, 30000)
+  const existing = imageRequests.get(id)
+  imageRequests.set(id, preview => { clearTimeout(timer); existing?.(preview); resolve(preview) })
+  if (!existing) post({ type: "loadImage", id })
+}))
 const submission = new ComposerSubmission()
 const panels = createPanelView(post, () => saveDraft())
 prompt.value = vscode.getState()?.draft ?? ""
@@ -217,8 +224,9 @@ function render(next: ChatSnapshot): void {
   updateJump()
 }
 
-window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected>) => {
-  if (event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected") fileMentions.receive(event.data)
+window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected | ImageResult>) => {
+  if (event.data?.type === "imageResult") { imageRequests.get(event.data.id)?.(event.data.preview); imageRequests.delete(event.data.id) }
+  else if (event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected") fileMentions.receive(event.data)
   else if (event.data?.type === "panel") panels.render(event.data.panel)
   else if (event.data?.type === "state") render(event.data)
   else if (event.data?.type === "sendResult") {

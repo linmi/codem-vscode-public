@@ -3,7 +3,7 @@ import { emptyHistoryList, type HistoryAction, type HistoryList } from "./histor
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
 const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
-const handleActions = ["removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
+const handleActions = ["loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
 export type ViewAction =
   | PanelReply
   | HistoryAction
@@ -13,6 +13,7 @@ export type ViewAction =
   | { type: "selectFile"; id: string; requestId: string }
   | { type: "send"; text: string; requestId: string }
 
+export interface ImageResult { type: "imageResult"; id: string; preview: AttachmentView["preview"] }
 export interface FileSearchResult { type: "fileSearchResult"; requestId: string; files: readonly { id: string; label: string }[]; error: string | null }
 export interface FileSelected { type: "fileSelected"; requestId: string; accepted: boolean }
 export interface SendResult { type: "sendResult"; requestId: string; accepted: boolean }
@@ -34,7 +35,7 @@ export function parseViewAction(value: unknown): ViewAction {
 }
 
 export type ChatPhase = "loadingHistory" | "disconnected" | "connecting" | "configuring" | "ready" | "sending" | "running" | "stopping"
-export interface AttachmentView { id: string; label: string; kind: "image" | "file" | "directory"; preview: { kind: "none" } | { kind: "image"; dataUrl: string } | { kind: "unavailable"; reason: string } }
+export interface AttachmentView { id: string; label: string; kind: "image" | "file" | "directory"; preview: { kind: "deferred" } | { kind: "none" } | { kind: "image"; dataUrl: string } | { kind: "unavailable"; reason: string } }
 export interface DiffView { id: string; label: string; added: number; removed: number; preview: string }
 export interface BackgroundView { id: string; label: string; inProgress: boolean }
 export interface BackgroundTaskView { id: string; label: string; phase: "queued" | "started" | "skipped" | "cancelled" | "notFound" | "noop" }

@@ -200,3 +200,10 @@ body.vscode-high-contrast-light { color-scheme: light; }
 
 .fileMentions { max-height: 240px; overflow-y: auto; }
 .fileSearchStatus { padding: 8px; font-size: 12px; color: var(--muted); }
+
+.attachmentLoad { font-size: 11px; padding: 4px; border-radius: 4px; }
+.imageViewport { overflow: auto; max-height: 75vh; max-width: 85vw; }
+.imagePreview .previewImage { display: block; width: auto; max-width: 85vw; max-height: 75vh; object-fit: contain; }
+.imagePreview.originalSize .previewImage { max-width: none; max-height: none; }
+.imagePreviewActions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 8px; }
+.imagePreviewActions button { margin: 0; padding: 6px 10px; }

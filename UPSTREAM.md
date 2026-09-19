@@ -76,3 +76,7 @@
 
 - Same pinned Synara reference. Added native TypeScript work-group disclosures, loading states, effort slider, question navigation, safe attachment cards, local composer commands and message motion.
 - Added Highlight.js 11.12.0 (BSD-3-Clause) for eight explicitly registered grammars; existing Marked and DOMPurify do not provide syntax highlighting. Highlighted output is sanitized separately and never grants model HTML new attributes. API verified against https://github.com/highlightjs/highlight.js/blob/11.12.0/docs/api.rst.
+
+## 2026-09-20：历史图片读取边界
+
+查阅本机 `codem-app/src/main/session/source/codem/attachment.ts` 确认 Core 图片位于 `<sessionsRoot>/<projectHash>/<threadId>/attachments/`，并按当前包边界独立实现 `sessionImage.ts`；沿用 schema 13 的会话图片描述与 sha256 校验，不引入桌面文件预览服务或第二份历史存储。较大图片通过按需 Webview 消息读取，单图上限与发送限制一致（20 MiB）。
