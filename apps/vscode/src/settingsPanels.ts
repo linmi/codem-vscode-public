@@ -2,14 +2,17 @@ import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerThreadSettings } f
 import type { ChatSession } from "./chatController.ts"
 import type { PanelBroker } from "./panelBroker.ts"
 
-export async function selectSettings(kind: "selectModel" | "selectEffort" | "selectPermission" | "selectWorkMode", settings: AppServerThreadSettings, session: ChatSession, panels: PanelBroker, signal: AbortSignal): Promise<AppServerThreadSettings | null> {
+export async function selectSettings(kind: "selectModel" | "selectPermission" | "selectWorkMode", settings: AppServerThreadSettings, session: Pick<ChatSession, "models">, panels: PanelBroker, signal: AbortSignal): Promise<AppServerThreadSettings | null> {
   if (kind === "selectModel") {
-    const answer = await panels.request({ kind: "model", title: "模型", description: "下一轮生效", choices: session.models.map(model => ({ value: model.id, label: model.id, description: `${model.supportsVision ? "支持图片 · " : ""}${model.contextWindowTokens.toLocaleString()} tokens`, selected: settings.model === model.id })) }, signal)
-    return answer ? { ...settings, model: answer.values[0]! } : null
-  }
-  if (kind === "selectEffort") {
-    const answer = await panels.request({ kind: "effort", title: "思考强度", description: "下一轮生效", choices: APP_SERVER_BUILTIN_INTELLIGENCE_TIERS.map(value => ({ value, label: value, selected: settings.intelligence === value })) }, signal)
-    return answer ? { ...settings, intelligence: answer.values[0]! } : null
+    const answer = await panels.request<{ kind: "model"; id: string } | { kind: "effort" }>({ kind: "model", title: "模型与思考强度", choices: [
+      ...session.models.map(model => ({ value: { kind: "model" as const, id: model.id }, label: model.id, description: `${model.supportsVision ? "支持图片 · " : ""}${model.contextWindowTokens.toLocaleString()} tokens`, selected: settings.model === model.id })),
+      { value: { kind: "effort" }, label: "思考强度", description: settings.intelligence },
+    ] }, signal)
+    if (!answer) return null
+    const choice = answer.values[0]!
+    if (choice.kind === "model") return { ...settings, model: choice.id }
+    const effort = await panels.request({ kind: "effort", title: "思考强度", choices: APP_SERVER_BUILTIN_INTELLIGENCE_TIERS.map(value => ({ value, label: value, selected: settings.intelligence === value })) }, signal)
+    return effort ? { ...settings, intelligence: effort.values[0]! } : null
   }
   if (kind === "selectWorkMode") {
     const answer = await panels.request({ kind: "workMode", title: "工作模式", choices: [{ value: "default" as const, label: "Agent", description: "执行任务", selected: settings.workMode === "default" }, { value: "plan" as const, label: "Plan", description: "先制定计划", selected: settings.workMode === "plan" }] }, signal)

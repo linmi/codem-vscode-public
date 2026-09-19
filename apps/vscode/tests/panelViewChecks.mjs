@@ -7,7 +7,7 @@ export default async function panelViewChecks(page) {
   await page.getByRole('dialog').waitFor({state:'hidden'});
   const model = await page.evaluate(() => window.panelReplies);
   if(model.length!==1||model[0].choiceIds[0]!=='model-one') throw new Error('Model selection failed');
-  await page.getByRole('button',{name:'Auto',exact:true}).click();
+  await page.getByRole('button',{name:'模型与思考强度',exact:true}).click();
   await page.getByRole('searchbox',{name:'搜索模型'}).press('Escape');
   await page.getByRole('dialog').waitFor({state:'hidden'});
   if(!(await page.locator('#selectModel').evaluate(node=>node===document.activeElement))) throw new Error('Picker focus not restored');

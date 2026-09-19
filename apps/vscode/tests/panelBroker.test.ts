@@ -3,6 +3,7 @@ import { it } from "node:test"
 import { PanelBroker } from "../src/panelBroker.ts"
 import type { PanelMessage, PanelView } from "../src/panelTypes.ts"
 import { parseViewAction } from "../src/messages.ts"
+import { selectSettings } from "../src/settingsPanels.ts"
 import { showInteraction } from "../src/interactions.ts"
 
 function fixture() {
@@ -77,4 +78,25 @@ it("serializes question cards and cancels later questions when the turn ends", a
   await Promise.resolve(); assert.equal(f.view().title, "Question · 2/2")
   abort.abort(); assert.deepEqual(await result, { kind: "question", cancelled: true })
   assert.equal(f.messages.at(-1)?.panel, null)
+})
+
+
+it("opens reasoning from the single model entry and cancels without changing settings", async () => {
+  const f = fixture()
+  const settings = { model: "auto", intelligence: "medium" as const, permissionMode: "default" as const, workMode: "default" as const, mcpServers: [], additionalDirectories: [] }
+  const session = { models: [{ id: "auto", source: "fixture", contextWindowTokens: 10000, supportsVision: false }] }
+  const abort = new AbortController()
+  const result = selectSettings("selectModel", settings, session, f.broker, abort.signal)
+  f.broker.answer(f.owner, f.reply([f.view().choices.find(c => c.label === "思考强度")!.id]))
+  await Promise.resolve()
+  assert.equal(f.view().kind, "effort")
+  f.broker.answer(f.owner, f.reply([f.view().choices.find(c => c.label === "high")!.id]))
+  assert.deepEqual(await result, { ...settings, intelligence: "high" })
+  const cancelled = selectSettings("selectModel", settings, session, f.broker, abort.signal)
+  f.broker.answer(f.owner, f.reply([f.view().choices.find(c => c.label === "思考强度")!.id]))
+  await Promise.resolve()
+  abort.abort()
+  assert.equal(await cancelled, null)
+  assert.equal(settings.intelligence, "medium")
+  assert.throws(() => parseViewAction({ type: "selectEffort" }))
 })

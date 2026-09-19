@@ -26,7 +26,7 @@ it("uses a fresh CSP nonce, escapes resources and prohibits inline handlers and 
 })
 
 it("accepts feature intents and opaque handles without accepting executable inputs", () => {
-  for (const type of ["selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"]) assert.deepEqual(parseViewAction({ type }), { type })
+  for (const type of ["selectModel", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"]) assert.deepEqual(parseViewAction({ type }), { type })
   for (const type of ["removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"]) {
     assert.deepEqual(parseViewAction({ type, id: "opaque-id" }), { type, id: "opaque-id" })
     for (const id of ["../secret", "/path", "", 42, "x".repeat(101)]) assert.throws(() => parseViewAction({ type, id }))

@@ -58,3 +58,7 @@ Host 的 `PanelBroker` 使用一次性不透明标识，Core 请求和选项标�
 真实 VS Code 已连接 Core 并打开 Webview 模型菜单，实际目录返回 `codem-router/auto`（256,000 tokens）。审批和问答的界面检查使用隔离 fixture，不能当作真实模型触发证据。
 
 本轮复验：`pnpm check`（163 测试）、`pnpm build:vscode`、`test:live` 均通过。真实 Core 返回 1 个流式增量并完成；四类卡片在 320px / 430px 下无横向溢出，`PANEL_UI_OK` 与 `NARROW_PANELS_OK` 均通过。
+
+## 模型入口结构修正
+
+按 `ComposerModelMenuTrigger.tsx` 将模型名、次级强度标签和箭头放入单一按钮，移除嵌套胶囊与独立强度按钮。模型菜单内提供思考强度入口，Host 保持同一设置事务；取消不改变设置。移除旧 `selectEffort` 生产消息，仅负向测试保留其名称。`pnpm check`（164 测试）、构建、菜单交互回归和 430px 悬停布局检查通过。

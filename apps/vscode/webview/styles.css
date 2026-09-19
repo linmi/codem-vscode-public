@@ -72,17 +72,15 @@ footer { width: 100%; max-width: calc(var(--chatWidth) + 24px); align-self: cent
 textarea { width: 100%; display: block; border: 0; outline: 0; resize: none; padding: 12px 14px 8px 12px; min-height: 59px; max-height: 220px; background: transparent; font-size: var(--chatFont); line-height: var(--chatLeading); scrollbar-width: thin; }
 textarea::placeholder { color: color-mix(in srgb, var(--muted) 40%, transparent); }
 .composerToolbar { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 8px 6px 6px; }
-.composerLeading, .composerTrailing, .modelControls { display: flex; align-items: center; min-width: 0; }
+.composerLeading, .composerTrailing { display: flex; align-items: center; min-width: 0; }
 .composerLeading { gap: 4px; flex-shrink: 0; }
 .composerTrailing { gap: 8px; }
-.modelControls { gap: 0; border-radius: 999px; }
-.modelControls:hover { background: var(--hover); }
 .optionButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; font-weight: 400; border-radius: 999px; padding: 5px 8px; line-height: 18px; color: var(--muted); white-space: nowrap; }
-#selectModel { min-width: 0; padding-right: 3px; color: var(--ink); }
+#selectModel { min-width: 0; color: var(--ink); }
 #selectModel img { flex-shrink: 0; object-fit: contain; }
 #model { max-width: 155px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
-#selectEffort { padding-left: 3px; }
-#selectEffort svg { width: 12px; height: 12px; opacity: .6; }
+#effortLabel { color: var(--muted); }
+#selectModel svg { width: 12px; height: 12px; opacity: .6; }
 #addAttachment, .permission { border-radius: 999px; }
 .permission[data-mode="yolo"] { color: #e47140; }
 .sendButton, .stopButton { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; padding: 4px; background: var(--primary); color: var(--onPrimary); }

@@ -83,7 +83,7 @@ newChat.addEventListener("click", () => post({ type: "newChat" }))
 stop.addEventListener("click", () => post({ type: "stop" }))
 element("showOutput").addEventListener("click", () => post({ type: "showOutput" }))
 
-const configurationActions = ["selectModel", "selectEffort", "selectPermission", "selectWorkMode", "manageMcp", "refreshTools", "addAttachment"] as const
+const configurationActions = ["selectModel", "selectPermission", "selectWorkMode", "manageMcp", "refreshTools", "addAttachment"] as const
 for (const type of configurationActions) element(type).addEventListener("click", () => post({ type }))
 for (const type of ["refreshBackground", "cleanBackground"] as const) element(type).addEventListener("click", () => post({ type }))
 function button(label: string, action: ViewAction, disabled = false): HTMLButtonElement {
