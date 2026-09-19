@@ -5,6 +5,9 @@ import { showInteraction } from "./interactions.ts"
 import { parseViewAction, type SendResult, type ViewAction } from "./messages.ts"
 import { chatHtml } from "./html.ts"
 
+import { PanelBroker } from "./panelBroker.ts"
+import { selectSettings } from "./settingsPanels.ts"
+
 import { NativeFeatures } from "./nativeFeatures.ts"
 
 let controller: ChatController | undefined
@@ -13,6 +16,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("CodeM")
   const features = new NativeFeatures(context.secrets)
   context.subscriptions.push(features)
+  const panels = new PanelBroker()
+  let settingsAbort: AbortController | null = null
   let view: vscode.WebviewView | undefined
   let previousPhase: string | null = null
   controller = new ChatController({
@@ -25,8 +30,13 @@ export function activate(context: vscode.ExtensionContext): void {
       return session
     },
     assertTrusted,
-    interact: showInteraction,
+    interact: async (request, signal, cwd) => {
+      await vscode.commands.executeCommand("codem.chat.focus")
+      return showInteraction(request, signal, panels, cwd)
+    },
     publish: (state) => {
+      if (state.phase !== "configuring") settingsAbort?.abort()
+      if (state.phase === "disconnected") panels.cancel()
       if (state.phase !== previousPhase) { output.appendLine(`UI phase: ${state.phase}`); previousPhase = state.phase }
       void view?.webview.postMessage(state)
     },
@@ -38,7 +48,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const chat = controller
   const dispatch = async (action: ViewAction, reply: (result: SendResult) => void): Promise<void> => {
     switch (action.type) {
-      case "ready": chat.publish(); break
+      case "ready": chat.publish(); panels.replay(); break
+      case "panelReply": break
       case "connect": await chat.connect(); break
       case "signIn": await chat.connect(true); break
       case "showHistory": await chat.showHistory(); break
@@ -51,10 +62,15 @@ export function activate(context: vscode.ExtensionContext): void {
       case "newChat": await chat.newChat(); break
       case "send": reply({ type: "sendResult", requestId: action.requestId, accepted: await chat.send(action.text) }); break
       case "stop": await chat.stop(); break
-      case "selectModel": case "selectEffort": case "selectPermission": case "selectWorkMode": case "manageMcp": {
+      case "selectModel": case "selectEffort": case "selectPermission": case "selectWorkMode": {
         const kind = action.type
-        await chat.configure((settings, session) => features.select(kind, settings, session)); break
+        await chat.configure(async (settings, session) => {
+          const abort = new AbortController(); settingsAbort = abort
+          try { return await selectSettings(kind, settings, session, panels, abort.signal) }
+          finally { if (settingsAbort === abort) settingsAbort = null }
+        }); break
       }
+      case "manageMcp": await chat.configure(settings => features.selectMcp(settings)); break
       case "addAttachment": await chat.addAttachments(() => features.pickAttachments()); break
       case "removeAttachment": chat.removeAttachment(action.id); break
       case "openDiff": await chat.showDiff(action.id, (diff, cwd) => features.showDiff(diff, cwd)); break
@@ -71,6 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(output, vscode.window.registerWebviewViewProvider("codem.chat", {
     resolveWebviewView(resolved) {
       view = resolved
+      panels.bind(resolved, message => { void resolved.webview.postMessage(message) })
       resolved.webview.options = {
         enableScripts: true,
         localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "dist"), vscode.Uri.joinPath(context.extensionUri, "assets")],
@@ -78,10 +95,14 @@ export function activate(context: vscode.ExtensionContext): void {
       const resource = (path: string) => resolved.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, path)).toString()
       resolved.webview.html = chatHtml({ script: resource("dist/webview.js"), style: resource("dist/webview.css"), logo: resource("assets/codemMark.svg"), cspSource: resolved.webview.cspSource })
       const listener = resolved.webview.onDidReceiveMessage((message: unknown) => {
-        try { void dispatch(parseViewAction(message), (result) => { void resolved.webview.postMessage(result) }).catch(() => { output.appendLine("CodeM 操作未完成，请重试。"); void vscode.window.showErrorMessage("CodeM 操作未完成，文件可能已移除或不在当前工作区。") }) }
+        if (view !== resolved) return
+        try {
+          const action = parseViewAction(message)
+          if (action.type === "panelReply") { assertTrusted(); panels.answer(resolved, action); return }
+          void dispatch(action, (result) => { void resolved.webview.postMessage(result) }).catch(() => { output.appendLine("CodeM 操作未完成，请重试。"); void vscode.window.showErrorMessage("CodeM 操作未完成，文件可能已移除或不在当前工作区。") }) }
         catch { output.appendLine("拒绝了不受支持的界面请求。") }
       })
-      resolved.onDidDispose(() => { listener.dispose(); if (view === resolved) view = undefined })
+      resolved.onDidDispose(() => { listener.dispose(); panels.unbind(resolved); if (view === resolved) view = undefined })
     },
   }))
   const commands: Record<string, () => unknown> = {
@@ -93,7 +114,7 @@ export function activate(context: vscode.ExtensionContext): void {
     "codem.showOutput": () => output.show(),
   }
   for (const [name, run] of Object.entries(commands)) context.subscriptions.push(vscode.commands.registerCommand(name, run))
-  context.subscriptions.push({ dispose: () => { void chat.dispose().catch(() => undefined) } })
+  context.subscriptions.push({ dispose: () => { panels.cancel(); void chat.dispose().catch(() => undefined) } })
 }
 
 export async function deactivate(): Promise<void> { await controller?.dispose(); controller = undefined }

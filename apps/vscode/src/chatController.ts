@@ -33,7 +33,7 @@ export interface ChatControllerOptions {
   connect: (signIn: boolean, signal: AbortSignal) => Promise<ChatSession>
   assertTrusted: () => void
   publish: (state: ChatSnapshot) => void
-  interact: (request: AppServerInteraction, signal: AbortSignal) => Promise<AppServerInteractionResponse | null>
+  interact: (request: AppServerInteraction, signal: AbortSignal, cwd: string) => Promise<AppServerInteractionResponse | null>
   report: (operation: string, error: unknown) => void
 }
 
@@ -431,7 +431,7 @@ export class ChatController {
     }
   }
 
-  /** Native UI owns the picker. Holding this phase prevents sends racing a selection. */
+  /** Host owns the settings transaction. Holding this phase prevents sends racing a selection. */
   async configure(pick: (settings: AppServerThreadSettings, session: ChatSession) => Promise<AppServerThreadSettings | null>): Promise<void> {
     const session = this.session
     if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy) return
@@ -604,7 +604,7 @@ export class ChatController {
     const cancel = () => abort.abort()
     active.abort.signal.addEventListener("abort", cancel, { once: true })
     try {
-      const response = await this.options.interact(request, abort.signal)
+      const response = await this.options.interact(request, abort.signal, session.cwd)
       if (this.active !== active || this.session !== session || abort.signal.aborted) return
       this.options.assertTrusted()
       if (response) await session.host.respondToInteraction(request.requestId, response)

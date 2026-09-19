@@ -1,3 +1,5 @@
+import { createPanelView } from "./panelView.ts"
+import type { PanelMessage } from "../src/panelTypes.ts"
 import { initialSnapshot, isBusy, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
 import { ComposerSubmission } from "./composerSubmission.ts"
 
@@ -40,6 +42,7 @@ const renderHistory = createHistoryView(headerActions, scroller, post)
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
 const submission = new ComposerSubmission()
+const panels = createPanelView(post, () => saveDraft())
 prompt.value = vscode.getState()?.draft ?? ""
 let measuredPrompt = ""
 let measuredWidth = -1
@@ -56,7 +59,8 @@ function post(action: ViewAction): void { vscode.postMessage(action) }
 function saveDraft(): void {
   vscode.setState({ draft: prompt.value })
   fitPrompt()
-  send.disabled = state.phase !== "ready" || !prompt.value.trim() || submission.busy
+  prompt.disabled = panels.locked()
+  send.disabled = state.phase !== "ready" || !prompt.value.trim() || submission.busy || panels.locked()
 }
 function submit(): void {
   if (send.disabled) return
@@ -176,16 +180,18 @@ function render(next: ChatSnapshot): void {
   element("model").title = state.model ?? "连接后使用 Core 当前模型"
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
-  element("status").textContent = state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "configuring" ? "正在设置…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : "Enter 发送 · Shift + Enter 换行"
+  element("status").textContent = state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : "Enter 发送 · Shift + Enter 换行"
   renderResources()
   saveDraft()
+  panels.restoreFocus()
   if (prepended && anchor) scroller.scrollTop = oldTop + anchor.getBoundingClientRect().top - anchorTop
   else if (switched || follow) scroller.scrollTop = scroller.scrollHeight
   updateJump()
 }
 
-window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResult>) => {
-  if (event.data?.type === "state") render(event.data)
+window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResult | PanelMessage>) => {
+  if (event.data?.type === "panel") panels.render(event.data.panel)
+  else if (event.data?.type === "state") render(event.data)
   else if (event.data?.type === "sendResult") {
     if (submission.settle(event.data)) prompt.value = ""
     saveDraft()

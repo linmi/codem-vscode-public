@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url"
 import { chatHtml } from "../src/html.ts"
 import { initialSnapshot, type ChatSnapshot } from "../src/messages.ts"
 
+import { panelFixtures } from "./panelFixtures.ts"
+
 const fixture: ChatSnapshot = {
   ...initialSnapshot(), phase: "ready", workspace: "codem-plugin", model: "Auto", threadId: "preview",
   messages: [
@@ -31,10 +33,17 @@ createServer((request, response) => {
     const nonce = html.match(/nonce="([^"]+)"/)![1]
     html = html.replace("<body>", `<body class="${theme}">`).replace('<script nonce=', `<script nonce="${nonce}">
       const demo = ${JSON.stringify(state).replaceAll("<", "\\u003c")};
+      const panels = ${JSON.stringify(panelFixtures).replaceAll("<", "\\u003c")};
+      let activePanel = panels[${JSON.stringify(url.searchParams.get("panel"))}] ?? null;
+      window.panelReplies = [];
       window.acquireVsCodeApi = () => ({getState: () => null, setState: () => {}, postMessage: action => {
+        if (action.type === 'selectModel') activePanel = panels.model;
+        if (action.type === 'panelReply') { window.panelReplies.push(action); activePanel = null; }
         if (action.type === 'showHistory') demo.history = {...demo.history, open: true, entries: [{id: 'preview', title: '整理登录页面', startedAt: '2026-09-19T12:00:00Z', turnCount: 1, archived: false}]};
         if (action.type === 'closeHistory') demo.history.open = false;
+        demo.phase = activePanel ? (activePanel.kind === 'model' ? 'configuring' : 'running') : 'ready';
         window.postMessage(demo, '*');
+        window.postMessage({type:'panel',panel:activePanel}, '*');
       }});
       </script><script nonce=`)
     response.setHeader("Content-Type", "text/html; charset=utf-8"); response.end(html); return

@@ -1,9 +1,11 @@
+import { parsePanelReply, type PanelReply } from "./panelTypes.ts"
 import { emptyHistoryList, type HistoryAction, type HistoryList } from "./historyTypes.ts"
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
 const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
 const handleActions = ["removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
 export type ViewAction =
+  | PanelReply
   | HistoryAction
   | { type: typeof simpleActions[number] }
   | { type: typeof handleActions[number]; id: string }
@@ -14,6 +16,7 @@ export interface SendResult { type: "sendResult"; requestId: string; accepted: b
 export function parseViewAction(value: unknown): ViewAction {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid CodeM action")
   const record = value as Record<string, unknown>
+  if (record.type === "panelReply") return parsePanelReply(record)
   const keys = Object.keys(record)
   if (record.type === "send" && keys.length === 3 && typeof record.requestId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.requestId) && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return { type: "send", text: record.text, requestId: record.requestId }
   if (record.type === "resumeThread" && keys.length === 2 && typeof record.threadId === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(record.threadId)) return { type: "resumeThread", threadId: record.threadId }

@@ -1,6 +1,7 @@
 @import "./synaraTokens.css";
 @import "./history.css";
 @import "./markdown.css";
+@import "./panels.css";
 * { box-sizing: border-box; }
 html { font-size: 16px; }
 body { margin: 0; background: var(--surface); color: var(--ink); font: 12px/1.5 var(--uiFont); -webkit-font-smoothing: antialiased; }

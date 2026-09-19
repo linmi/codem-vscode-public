@@ -66,3 +66,8 @@
 - Upstream MIT copyright notices for T3 Tools Inc. and Emanuele Di Pietro are retained in `apps/vscode/licenses/synara.txt`.
 - Added exact production dependencies Marked 18.0.13 and DOMPurify 3.4.15 because the prior text/code-fence renderer could not render the reference's headings, lists, inline code and tables. Parsed model output is sanitized with an explicit tag/attribute allowlist before it enters the DOM. No React, Synara backend, provider state, lockfile or build system was imported.
 - This is a source-based style adaptation for existing chat surfaces; native Host menus and the surrounding VS Code shell are outside visual parity. No claim of full-product pixel identity.
+
+## Synara composer interaction intake — 2026-09-19
+
+- Same pinned Synara commit as above. Referenced composer picker styles, pending approval/user-input panels and numbered choice rows; retained existing MIT notice.
+- Replaced native model/mode pickers and approval/question/plan prompts with native-TypeScript Webview panels. No React or upstream backend imported. Host owns opaque one-shot choices, cancellation and session/turn correlation. Native credential and file dialogs remain platform-owned.

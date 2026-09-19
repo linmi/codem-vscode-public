@@ -21,13 +21,13 @@
 ## 仍存在的视觉差异
 
 - VS Code 外壳、CodeM 标志、中文文案、工作模式入口与连接提示保留产品自身含义。
-- 模型选择、审批、问答和计划确认仍是原生 VS Code 控件；没有移植 Synara 的全部弹出菜单和审批面板。
+- 模型、强度、权限及工作模式菜单，以及审批、问答和计划确认已迁入 Webview；MCP 凭据和文件选择仍使用原生控件。
 - 没有添加 Synara 的桌面项目侧栏、Git/终端/浏览器分屏或产品中尚无真实后端能力的按钮。
 - 上游部分图标库、语法着色器、复杂消息卡片和交互动效未整体引入。当前验证的是已有聊天表面的源码参数及运行效果，**不是完整产品的像素差分零误差证明**。
 
 ## 验证结果（2026-09-19）
 
-- `pnpm check`：Oxlint、TS 7 检查通过；157 个现有测试通过。
+- `pnpm check`：Oxlint、TS 7 检查通过；163 个测试通过。
 - `pnpm build:vscode`：Host、Webview、样式与 Extension Host 测试包构建通过。
 - `pnpm --filter codem test:live`：真实 VS Code Extension Host 激活、原生功能和 App Server 流式消息通过；2 个 delta，Core 完成后回到 ready。
 - 真实 VS Code 手工操作：连接、新会话、发送、停止；真实模型输出 H2、列表及 TypeScript 代码块；点击代码复制后可访问名称变为“已复制代码”。非浏览器 fixture。
@@ -48,3 +48,13 @@ node --experimental-strip-types apps/vscode/tests/webviewPreview.ts
 打开 `http://127.0.0.1:4318/`；`?theme=dark` 切换深色，`?empty=1` 显示空白页。服务器只监听 loopback，使用固定测试 DTO，不连接 Core，不读取用户历史或凭据。
 
 用 Playwright CLI 打开上述地址后，将 `apps/vscode/tests/webviewChecks.mjs` 默认导出的函数传给 CLI `run-code` 即可执行交互和内容安全断言。成功返回 `WEBVIEW_CHECKS_OK`。测试不依赖已登录状态；真实模型验证仍单独运行 `test:live`。
+
+## 输入区菜单与请求卡片（2026-09-19）
+
+参考 `composerPickerStyles.ts`、`ComposerPendingApprovalPanel.tsx`、`ComposerChoiceRow.tsx` 和 `ComposerPendingUserInputPanel.tsx`，实现于 `panelView.ts` / `panels.css`：14px 菜单圆角、8px 内边距、输入区材质、编号选项、请求预览、逐题问答和安全 Markdown 计划。模型支持搜索、方向键选择、Escape 关闭及焦点恢复。选择期间不显示多余的“正在设置”状态文案。
+
+Host 的 `PanelBroker` 使用一次性不透明标识，Core 请求和选项标识不进入 Webview；停止、断线、视图销毁与请求结束均撤销待答卡片。默认检查覆盖旧窗口、过期请求、伪造选项、重复提交和取消。浏览器 `panelViewChecks.mjs` 覆盖模型搜索、焦点恢复、多选加自由回答、审批快捷键和计划拒绝。使用 `?panel=model|approval|question|plan` 复现隔离 fixture。
+
+真实 VS Code 已连接 Core 并打开 Webview 模型菜单，实际目录返回 `codem-router/auto`（256,000 tokens）。审批和问答的界面检查使用隔离 fixture，不能当作真实模型触发证据。
+
+本轮复验：`pnpm check`（163 测试）、`pnpm build:vscode`、`test:live` 均通过。真实 Core 返回 1 个流式增量并完成；四类卡片在 320px / 430px 下无横向溢出，`PANEL_UI_OK` 与 `NARROW_PANELS_OK` 均通过。

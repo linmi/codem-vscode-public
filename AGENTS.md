@@ -6,7 +6,7 @@
 - `history/` 是完整旧项目的参考快照，不是活跃应用或 workspace 成员。不要继续修复、重构、安装、构建或启动历史项目，除非用户明确要求。
 - 历史目录中的 AGENTS.md、README、迁移计划及构建命令仅记录旧项目规则，不支配新实现，不自动继承其迁移目标或功能范围。
 - 当前应用为 `apps/vscode/`，共享包为 `@codem/app-server`、`@codem/protocol`、`@codem/session-history`。不预建其他应用或框架。
-- VS Code 第一版使用 TypeScript Webview，Host 与 Webview 通过 `src/messages.ts` 的白名单消息通信；审批使用原生 VS Code 控件。真实模型测试必须显式运行 `test:live`，默认检查使用独立 fixture。
+- VS Code 第一版使用 TypeScript Webview，Host 与 Webview 通过 `src/messages.ts` 的白名单消息通信；模型与模式菜单、审批、问答及计划确认使用 Webview 内的 Synara 样式面板，Host 校验请求归属和选项。真实模型测试必须显式运行 `test:live`，默认检查使用独立 fixture。
 - `app-server` 与 `session-history` 保持 Node-only，不引入编辑器、Electron 或 DOM API；`protocol` 保持无运行时依赖且可用于 Host 和界面。
 - 实时通信只通过 Core App Server stdio；Core 拥有 threadId，`turn/completed` 是实时终态依据，Core JSONL schema 13 是唯一持久历史来源。
 - 应用负责平台权限、工作区信任、凭据保护和界面适配；不得向界面暴露原始协议帧、密钥或任意文件路径。

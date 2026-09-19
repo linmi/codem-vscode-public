@@ -2,8 +2,7 @@ import * as vscode from "vscode"
 import { randomUUID } from "node:crypto"
 import { open } from "node:fs/promises"
 import { extname, isAbsolute } from "node:path"
-import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerMcpServer, type AppServerThreadSettings, type AppServerPromptAttachment, type AppServerFileDiff } from "@codem/app-server"
-import type { ChatSession } from "./chatController.ts"
+import { type AppServerMcpServer, type AppServerThreadSettings, type AppServerPromptAttachment, type AppServerFileDiff } from "@codem/app-server"
 import { assertTrusted } from "./runtimeSession.ts"
 import { changedFilePath, diffText, displayPath } from "./filePresentation.ts"
 import { parseMcpConfiguration, type McpConfiguration } from "./mcpConfiguration.ts"
@@ -31,30 +30,8 @@ export class NativeFeatures implements vscode.Disposable {
     return stored === undefined ? { servers: [], enabled: [] } : parseMcpConfiguration(JSON.parse(stored))
   }
 
-  async select(kind: "selectModel" | "selectEffort" | "selectPermission" | "selectWorkMode" | "manageMcp", settings: AppServerThreadSettings, session: ChatSession): Promise<AppServerThreadSettings | null> {
+  async selectMcp(settings: AppServerThreadSettings): Promise<AppServerThreadSettings | null> {
     assertTrusted()
-    if (kind === "selectModel") {
-      const model = await vscode.window.showQuickPick(session.models.map((model) => ({ label: model.id, description: `${model.id === settings.model ? "当前 · " : ""}${model.supportsVision ? "支持图片 · " : ""}${model.contextWindowTokens.toLocaleString()} tokens`, id: model.id })), { title: "选择模型 · 下一轮生效" })
-      return model ? { ...settings, model: model.id } : null
-    }
-    if (kind === "selectEffort") {
-      const effort = await vscode.window.showQuickPick(APP_SERVER_BUILTIN_INTELLIGENCE_TIERS.map((id) => ({ label: id, description: id === settings.intelligence ? "当前" : "", id })), { title: "思考强度 · 下一轮生效" })
-      return effort ? { ...settings, intelligence: effort.id } : null
-    }
-    if (kind === "selectPermission") {
-      const permission = await vscode.window.showQuickPick([
-        { label: "默认权限", description: "遵循 Core 默认审批策略", id: "default" as const },
-        { label: "自动审批", description: "由 Core 自动评估工具权限", id: "auto" as const },
-        { label: "完全访问", description: "跳过工具权限审批，仅对可信任务使用", id: "yolo" as const },
-      ], { title: "权限模式" })
-      if (!permission) return null
-      if (permission.id === "yolo" && settings.permissionMode !== "yolo" && await vscode.window.showWarningMessage("完全访问允许任务跳过工具审批执行操作。", { modal: true }, "启用完全访问") !== "启用完全访问") return null
-      return { ...settings, permissionMode: permission.id }
-    }
-    if (kind === "selectWorkMode") {
-      const mode = await vscode.window.showQuickPick([{ label: "Agent", description: "执行任务", id: "default" as const }, { label: "Plan", description: "先制定计划", id: "plan" as const }], { title: "工作模式" })
-      return mode ? { ...settings, workMode: mode.id } : null
-    }
     const mcpServers = await this.manageMcp(settings.mcpServers)
     return mcpServers ? { ...settings, mcpServers } : null
   }
