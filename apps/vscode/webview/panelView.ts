@@ -13,6 +13,20 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
   let pending = false
   let cancel = () => {}
   const locked = () => current !== null && ["approval", "question", "plan"].includes(current.kind)
+  function positionPicker(): void {
+    if (!current || locked()) return
+    const anchor = document.getElementById(anchorIds[current.kind])!.getBoundingClientRect()
+    const bounds = footer.getBoundingClientRect()
+    const margin = 12
+    const left = Math.max(bounds.left + margin, Math.min(anchor.right - root.getBoundingClientRect().width, bounds.right - margin - root.getBoundingClientRect().width))
+    root.style.setProperty("--pickerLeft", `${left}px`)
+    root.style.setProperty("--pickerBottom", `${window.innerHeight - anchor.top + 8}px`)
+    root.style.setProperty("--pickerMaxHeight", `${Math.max(0, anchor.top - 16)}px`)
+  }
+  const resize = new ResizeObserver(positionPicker)
+  resize.observe(footer)
+  for (const id of new Set(Object.values(anchorIds))) resize.observe(document.getElementById(id)!)
+  window.addEventListener("resize", positionPicker)
   function restoreFocus(): void {
     if (restore && !(restore as HTMLButtonElement).disabled) { restore.focus(); restore = null }
   }
@@ -111,6 +125,7 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
     }
     root.removeAttribute("aria-busy")
     changed()
+    positionPicker()
     if (search) search.focus(); else root.focus()
   }
   document.addEventListener("pointerdown", event => {

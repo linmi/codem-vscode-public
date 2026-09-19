@@ -22,7 +22,7 @@
 .decisionAnswer:focus { border-color: var(--vscode-focusBorder, #0169cc); }
 .decisionSubmit { display: block; margin: 10px 0 0 auto; padding: 6px 14px; border-radius: 999px; background: var(--primary); color: var(--onPrimary); font-size: 12px; }
 .decisionSubmit:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 85%, var(--surface)); color: var(--onPrimary); }
-.pickerPanel { position: absolute; z-index: 6; bottom: calc(100% - 30px); right: 12px; width: min(330px, calc(100% - 24px)); margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--popover) 70%, transparent); backdrop-filter: blur(40px) saturate(150%); }
+.pickerPanel { position: fixed; z-index: 6; bottom: var(--pickerBottom); left: var(--pickerLeft); max-height: min(420px, var(--pickerMaxHeight)); width: min(330px, calc(100% - 24px)); margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--popover) 70%, transparent); backdrop-filter: blur(40px) saturate(150%); }
 .pickerPanel .decisionHeading { padding: 3px 6px; }
 .pickerPanel .decisionHeading h2 { font-size: 11px; color: var(--muted); font-weight: 400; }
 .pickerPanel .decisionDescription { margin: 3px 6px 6px; font-size: 10px; }
