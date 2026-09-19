@@ -2,7 +2,8 @@
 import { createServer } from "node:http"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
-import { chatHtml } from "../src/html.ts"
+import { applyPreviewScenario, previewScenarios } from "./previewScenarios.ts"
+import { chatHtml, escapeHtml } from "../src/html.ts"
 import { initialSnapshot, type ChatSnapshot } from "../src/messages.ts"
 
 import { panelFixtures } from "./panelFixtures.ts"
@@ -18,6 +19,7 @@ const fixture: ChatSnapshot = {
 }
 const port = 4318
 const routes: Record<string, { path: string; type: string }> = {
+  "/preview.css": { path: "./preview.css", type: "text/css" },
   "/webview.js": { path: "../dist/webview.js", type: "text/javascript" },
   "/webview.css": { path: "../dist/webview.css", type: "text/css" },
   "/logo.svg": { path: "../assets/codemMark.svg", type: "image/svg+xml" },
@@ -28,25 +30,47 @@ createServer((request, response) => {
   if (url.pathname === "/") {
     const state = structuredClone(fixture)
     if (url.searchParams.has("empty")) { state.messages = []; state.threadId = null }
+    const scenario = url.searchParams.get("scenario") ?? "conversation"
+    const panelName = applyPreviewScenario(state, scenario) ?? url.searchParams.get("panel")
+    const groups = [...new Set(previewScenarios.map(item => item[1]))]
+    const options = groups.map(group => `<optgroup label="${group}">${previewScenarios.filter(item => item[1] === group).map(([id, , label]) => `<option value="${id}"${id === scenario ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</optgroup>`).join("")
     const theme = url.searchParams.get("theme") === "dark" ? "vscode-dark" : "vscode-light"
     let html = chatHtml({ script: "/webview.js", style: "/webview.css", logo: "/logo.svg", cspSource: `http://127.0.0.1:${port}` })
     const nonce = html.match(/nonce="([^"]+)"/)![1]
-    html = html.replace("<body>", `<body class="${theme}">`).replace('<script nonce=', `<script nonce="${nonce}">
+    html = html.replace("</head>", '<link rel="stylesheet" href="/preview.css"></head>').replace("<body>", `<body class="${theme}"><nav class="previewToolbar" aria-label="模拟场景"><strong>CodeM · 模拟预览</strong><label><span>场景</span><select id="previewScenario" aria-label="预览场景">${options}</select></label><label><span>主题</span><select id="previewTheme" aria-label="预览主题"><option value="light">浅色</option><option value="dark"${theme === "vscode-dark" ? " selected" : ""}>深色</option></select></label><button id="resetPreview" type="button">重置</button></nav>`).replace('<script nonce=', `<script nonce="${nonce}">
       const demo = ${JSON.stringify(state).replaceAll("<", "\\u003c")};
       const panels = ${JSON.stringify(panelFixtures).replaceAll("<", "\\u003c")};
-      let activePanel = panels[${JSON.stringify(url.searchParams.get("panel"))}] ?? null;
+      let activePanel = panels[${JSON.stringify(panelName)}] ?? null;
+      if (activePanel?.kind === 'permissionMode') activePanel.choices.forEach(choice => choice.selected = choice.id === demo.permission);
+      const navigatePreview = () => { const url = new URL(location.href); url.search = ''; url.searchParams.set('scenario', document.querySelector('#previewScenario').value); url.searchParams.set('theme', document.querySelector('#previewTheme').value); location.href = url.href; };
+      document.querySelector('#previewScenario').addEventListener('change', navigatePreview);
+      document.querySelector('#previewTheme').addEventListener('change', navigatePreview);
+      document.querySelector('#resetPreview').addEventListener('click', navigatePreview);
       window.panelReplies = []; window.viewActions = [];
       window.acquireVsCodeApi = () => ({getState: () => null, setState: () => {}, postMessage: action => {
         window.viewActions.push(action);
         if (action.type === 'searchFiles') { window.postMessage({type:'fileSearchResult',requestId:action.requestId,files:action.query==='missing'?[]:[{id:'fileFixture',label:'src/main.ts'}],error:null},'*'); return; }
         if (action.type === 'selectFile') { demo.attachments=[{id:'fileFixture',label:'src/main.ts',kind:'file',preview:{kind:'none'}}]; window.postMessage(demo,'*'); window.postMessage({type:'fileSelected',requestId:action.requestId,accepted:true},'*'); return; }
+        if (action.type === 'selectPermission') { activePanel = panels.permissionMode; activePanel.choices.forEach(choice => choice.selected = choice.id === demo.permission); }
+        if (action.type === 'selectWorkMode') activePanel = panels.workMode;
         if (action.type === 'selectSpace') activePanel = panels.space;
         if (action.type === 'selectEffort') activePanel = panels.effort;
         if (action.type === 'selectModel') activePanel = panels.model;
-        if (action.type === 'panelReply') { window.panelReplies.push(action); activePanel = null; }
+        if (action.type === 'panelReply') {
+          window.panelReplies.push(action);
+          if (!action.cancelled && activePanel) {
+            const choice = activePanel.choices.find(choice => choice.id === action.choiceIds[0]);
+            if (choice && activePanel.kind === 'permissionMode') demo.permission = choice.id;
+            if (choice && activePanel.kind === 'workMode') demo.workMode = choice.id;
+            if (choice && activePanel.kind === 'effort') demo.effort = choice.id;
+            if (choice && activePanel.kind === 'space') demo.space = choice.label;
+            if (choice && activePanel.kind === 'model') demo.model = choice.label;
+          }
+          activePanel = null;
+        }
         if (action.type === 'showHistory') demo.history = {...demo.history, open: true, entries: [{id: 'preview', title: '整理登录页面', startedAt: '2026-09-19T12:00:00Z', turnCount: 1, archived: false}]};
         if (action.type === 'closeHistory') demo.history.open = false;
-        demo.phase = activePanel ? (['space', 'model', 'effort'].includes(activePanel.kind) ? 'configuring' : 'running') : 'ready';
+        if (action.type !== 'ready') demo.phase = activePanel ? (['space', 'model', 'effort', 'permissionMode', 'workMode'].includes(activePanel.kind) ? 'configuring' : 'running') : 'ready';
         window.postMessage(demo, '*');
         window.postMessage({type:'panel',panel:activePanel}, '*');
       }});
