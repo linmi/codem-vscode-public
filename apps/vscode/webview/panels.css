@@ -35,11 +35,9 @@
 .modelSearch:focus-visible { border-color: var(--vscode-focusBorder, #0169cc); }
 .decisionEmpty { margin: 10px 8px; font-size: 11px; color: var(--muted); }
 
-.effortCard { padding: 4px 8px 8px; }
-.effortCard output { display: block; text-align: center; color: var(--ink); font-size: 12px; font-weight: 500; padding: 4px; }
-.effortCard input[type="range"] { display: block; width: 100%; margin: 12px 0 4px; accent-color: var(--ink); }
-.pickerPanel .effortStops { flex-direction: row; justify-content: space-between; overflow: visible; gap: 0; }
-.pickerPanel .effortStops .decisionChoice { width: auto; padding: 4px; }
-.pickerPanel .effortStops .decisionLabel { font-size: 10px; }
-.effortStops .decisionCheck { display: none !important; }
+.pickerPanel[data-kind="effort"] { width: min(220px, calc(100% - 24px)); }
+.pickerPanel[data-kind="effort"] .decisionChoice { padding: 8px; }
+.pickerPanel[data-kind="effort"] .decisionChoice[data-selected="true"] { background: transparent; }
+.pickerPanel[data-kind="effort"] .decisionChoice:hover { background: var(--soft); }
+.pickerPanel[data-kind="effort"] .decisionChoiceDescription { display: inline-block; margin: 0 0 0 6px; padding: 1px 5px; border-radius: 4px; background: var(--soft); font-weight: 500; }
 .decisionPrevious { margin-top: 8px; padding: 6px 8px; font-size: 12px; color: var(--muted); border-radius: 6px; }

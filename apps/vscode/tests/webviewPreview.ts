@@ -37,11 +37,12 @@ createServer((request, response) => {
       let activePanel = panels[${JSON.stringify(url.searchParams.get("panel"))}] ?? null;
       window.panelReplies = [];
       window.acquireVsCodeApi = () => ({getState: () => null, setState: () => {}, postMessage: action => {
+        if (action.type === 'selectEffort') activePanel = panels.effort;
         if (action.type === 'selectModel') activePanel = panels.model;
         if (action.type === 'panelReply') { window.panelReplies.push(action); activePanel = null; }
         if (action.type === 'showHistory') demo.history = {...demo.history, open: true, entries: [{id: 'preview', title: '整理登录页面', startedAt: '2026-09-19T12:00:00Z', turnCount: 1, archived: false}]};
         if (action.type === 'closeHistory') demo.history.open = false;
-        demo.phase = activePanel ? (activePanel.kind === 'model' ? 'configuring' : 'running') : 'ready';
+        demo.phase = activePanel ? (['model', 'effort'].includes(activePanel.kind) ? 'configuring' : 'running') : 'ready';
         window.postMessage(demo, '*');
         window.postMessage({type:'panel',panel:activePanel}, '*');
       }});

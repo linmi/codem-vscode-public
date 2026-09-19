@@ -72,3 +72,9 @@ Host 的 `PanelBroker` 使用一次性不透明标识，Core 请求和选项标�
 模型、强度、权限及工作模式菜单按对应按钮的实际矩形定位，菜单底部距按钮顶部 8px，优先右对齐，受输入区左右边界约束。窗口及输入区尺寸变化时重新计算；高度受可用上方空间限制。审批、追问和计划卡片保留原有文档流布局。删除相对整个 footer 的固定偏移。
 
 `pickerPositionChecks.mjs` 覆盖 320/430/1000px 宽度、480/800px 高度、多行输入和空搜索结果，间距均为 8px，无横向溢出。`pnpm check`（164 测试）及构建通过。
+
+## 独立思考强度入口（2026-09-20）
+
+按用户最新截图覆盖此前合并入口和滑杆方案：信号条图标在模型按钮左侧，点击打开四档列表，默认档显示 Default，当前档显示勾选。模型菜单只负责模型选择。Max 显式映射 App Server 的 xhigh，没有新增协议档位。菜单继续使用原有 Host 归属校验与取消机制，距各自按钮 8px，不参与输入框布局。
+
+验证：pnpm check、build:vscode；浏览器 fixture 的 effortPickerChecks、footerLayoutChecks、pickerPositionChecks 在 320/430/1000px 通过。此次未新增真实 VS Code Extension Host 或在线模型验证。

@@ -79,8 +79,7 @@ textarea::placeholder { color: color-mix(in srgb, var(--muted) 40%, transparent)
 #selectModel { min-width: 0; color: var(--ink); }
 #selectModel img { flex-shrink: 0; object-fit: contain; }
 #model { max-width: 155px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
-#effortLabel { color: var(--muted); }
-#selectModel svg { width: 12px; height: 12px; opacity: .6; }
+#selectEffort { flex-shrink: 0; border-radius: 50%; }
 #addAttachment, .permission { border-radius: 999px; }
 .permission[data-mode="yolo"] { color: #e47140; }
 .sendButton, .stopButton { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; padding: 4px; background: var(--primary); color: var(--onPrimary); }
@@ -121,7 +120,7 @@ textarea::placeholder { color: color-mix(in srgb, var(--muted) 40%, transparent)
 @supports (corner-shape: squircle) { .composer, .message[data-role="user"] .messageBody { corner-shape: squircle; } }
 @media (min-width: 640px) { main { padding-inline: 20px; } footer { max-width: calc(var(--chatWidth) + 40px); padding: 0 20px 16px; } h1 { font-size: 30px; } }
 @media (max-width: 420px) { .sessionHeader { padding-inline: 8px; } .composerTrailing { gap: 3px; } #model { max-width: 95px; } .composerLeading { gap: 0; } #selectWorkMode { padding-inline: 5px; } }
-@media (max-width: 340px) { #model { max-width: 62px; } .composerTrailing { gap: 1px; } .optionButton { padding-inline: 4px; } .composerLeading .iconButton { width: 24px; padding: 4px; } #effortLabel { max-width: 42px; overflow: hidden; text-overflow: ellipsis; } }
+@media (max-width: 340px) { #model { max-width: 62px; } .composerTrailing { gap: 1px; } .optionButton { padding-inline: 4px; } .composerLeading .iconButton { width: 24px; padding: 4px; } }
 @keyframes workingPulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
 body.vscode-high-contrast, body.vscode-high-contrast-light { --surface: var(--vscode-editor-background); --ink: var(--vscode-foreground); --muted: var(--vscode-foreground); --tertiary: var(--vscode-foreground); --line: var(--vscode-contrastBorder, currentColor); --surfaceBorder: var(--line); --popover: var(--surface); --soft: var(--vscode-textCodeBlock-background); --primary: var(--vscode-button-background); --onPrimary: var(--vscode-button-foreground); }

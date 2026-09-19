@@ -3,7 +3,7 @@ export default async function pickerPositionChecks(page) {
   for (const width of [320, 430, 1000]) {
     await page.setViewportSize({width,height:800});
     await page.goto('http://127.0.0.1:4318/?empty=1');
-    await page.getByRole('button',{name:'模型与思考强度',exact:true}).click();
+    await page.getByRole('button',{name:'选择模型',exact:true}).click();
     await page.getByRole('dialog').waitFor();
     for (const height of [800, 480]) {
       await page.setViewportSize({width,height});

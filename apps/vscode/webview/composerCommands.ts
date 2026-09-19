@@ -4,7 +4,7 @@ import type { ViewAction } from "../src/messages.ts"
 export function installComposerCommands(prompt: HTMLTextAreaElement, ready: () => boolean, run: (action: ViewAction) => void) {
   const commands = [
     { name: "/files", label: "引用文件、图片或目录", action: "addAttachment" },
-    { name: "/model", label: "选择模型与思考强度", action: "selectModel" },
+    { name: "/model", label: "选择模型", action: "selectModel" },
     { name: "/mode", label: "切换 Agent / Plan", action: "selectWorkMode" },
     { name: "/history", label: "打开历史会话", action: "showHistory" },
   ] as const

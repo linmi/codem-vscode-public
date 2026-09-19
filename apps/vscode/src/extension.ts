@@ -62,7 +62,7 @@ export function activate(context: vscode.ExtensionContext): void {
       case "newChat": await chat.newChat(); break
       case "send": reply({ type: "sendResult", requestId: action.requestId, accepted: await chat.send(action.text) }); break
       case "stop": await chat.stop(); break
-      case "selectModel": case "selectPermission": case "selectWorkMode": {
+      case "selectModel": case "selectEffort": case "selectPermission": case "selectWorkMode": {
         const kind = action.type
         await chat.configure(async (settings, session) => {
           const abort = new AbortController(); settingsAbort = abort

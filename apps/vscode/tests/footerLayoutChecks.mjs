@@ -3,7 +3,7 @@ export default async function footerLayoutChecks(page) {
   for (const width of [320, 430, 1000]) {
     await page.setViewportSize({width, height: 800});
     await page.goto('http://127.0.0.1:4318/?empty=1');
-    const trigger = page.getByRole('button', {name: '模型与思考强度', exact: true});
+    const trigger = page.getByRole('button', {name: '选择模型', exact: true});
     await trigger.waitFor();
     const measure = () => page.evaluate(() => {
       const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return {top:r.top,height:r.height,right:r.right}; };
