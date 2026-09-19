@@ -411,7 +411,8 @@ function backgroundTerminal(value: unknown, label: string): AppServerBackgroundT
   return {
     processId: processIdValue(terminal.processId, `${label}.processId`),
     logPath: nonBlankString(terminal.logPath, `${label}.logPath`),
-    inProgress: booleanValue(terminal.inProgress, `${label}.inProgress`),
+    // Core 0.8.37 reports process liveness as alive; inProgress is our host DTO.
+    inProgress: booleanValue(terminal.alive, `${label}.alive`),
   }
 }
 

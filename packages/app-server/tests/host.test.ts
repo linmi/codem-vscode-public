@@ -754,7 +754,7 @@ lines.on("line", (line) => {
   if (frame.method === "modelProvider/capabilities/read") return send({ id: frame.id, result: { version: "0.8.37+1.gfixture", ask_user: { image_attachments_v1: true }, custom: { auth_mode: true } } })
   if (frame.method === "tools/list") return send({ id: frame.id, result: { threadId: frame.params.threadId, model: "codem-router/auto", tools: ["read_files", "run_bash"] } })
   if (frame.method === "thread/loaded/list") return send({ id: frame.id, result: { threadIds: ["thread-1"] } })
-  if (frame.method === "thread/backgroundTerminals/list") return send({ id: frame.id, result: { cwd: require("node:path").dirname(process.env.CAPTURE_PATH), terminals: process.env.HAS_TERMINAL ? [{ processId: 4242, logPath: "/tmp/codem-term.log", inProgress: true }] : [] } })
+  if (frame.method === "thread/backgroundTerminals/list") return send({ id: frame.id, result: { cwd: require("node:path").dirname(process.env.CAPTURE_PATH), terminals: process.env.HAS_TERMINAL ? [{ processId: 4242, logPath: "/tmp/codem-term.log", alive: true }] : [] } })
   if (frame.method === "thread/backgroundTerminals/terminate") return send({ id: frame.id, result: {} })
   if (frame.method === "thread/backgroundTerminals/clean") return send({ id: frame.id, result: { cwd: require("node:path").dirname(process.env.CAPTURE_PATH), results: [] } })
   if (frame.method === "thread/shellCommand") return send({ id: frame.id, result: {} })

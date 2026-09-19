@@ -76,3 +76,5 @@ History failures are explicit; there is no RPC fallback or second transcript sto
 Run `pnpm --filter @codem/app-server test` and `pnpm --filter @codem/app-server typecheck` from the workspace root. Tests use fixtures and fake processes; they do not sign in or execute live agent turns.
 
 Background wake events remain observable while the originating turn is idle. A `turn/started` notification on a subscribed thread can begin a Core-owned background turn with `submissionId: null`; its streamed items, approvals and terminal event follow the normal lifecycle. Completed turn IDs are remembered for that subscription so a duplicate start cannot revive a finished turn. Notifications for unsubscribed threads remain ignored.
+
+Pinned Core 0.8.37 reports each `thread/backgroundTerminals/list` row with `alive`, `processId`, `logPath` and process metadata. The host maps `alive` to its normalized `inProgress` boolean and excludes metadata from that DTO. The old assumed wire field `inProgress` is rejected, not used as a fallback. This mapping and process termination/cleanup are covered by the VS Code opt-in resource integration test.

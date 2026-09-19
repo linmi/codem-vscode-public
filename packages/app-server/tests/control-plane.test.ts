@@ -12,7 +12,15 @@ import {
   redactAppServerSecrets,
 } from "../src/index.ts"
 
+import { parseAppServerBackgroundTerminalList } from "../src/control-plane.ts"
+
 describe("App Server control-plane projection", () => {
+  it("projects Core alive into terminal state and rejects the obsolete wire inProgress field", () => {
+    const terminal = { processId: 42, logPath: "/core/bg/log", alive: true, meta: { command: "sleep 60" } }
+    assert.deepEqual(parseAppServerBackgroundTerminalList({ cwd: "/workspace", terminals: [terminal] }, "fixture"), { cwd: "/workspace", terminals: [{ processId: 42, logPath: "/core/bg/log", inProgress: true }] })
+    assert.equal(parseAppServerBackgroundTerminalList({ cwd: "/workspace", terminals: [{ ...terminal, alive: false }] }, "fixture").terminals[0]?.inProgress, false)
+    for (const invalid of [{ processId: 42, logPath: "/core/bg/log", inProgress: true }, { ...terminal, alive: "true" }, { ...terminal, alive: null }]) assert.throws(() => parseAppServerBackgroundTerminalList({ cwd: "/workspace", terminals: [invalid] }, "fixture"), /alive/)
+  })
   it("redacts secret config keys and keeps neighboring fields", () => {
     assert.deepEqual(
       redactAppServerSecrets(
