@@ -75,6 +75,6 @@ Host 的 `PanelBroker` 使用一次性不透明标识，Core 请求和选项标�
 
 ## 独立思考强度入口（2026-09-20）
 
-按用户最新截图覆盖此前合并入口和滑杆方案：信号条图标在模型按钮左侧，点击打开四档列表，默认档显示 Default，当前档显示勾选。模型菜单只负责模型选择。Max 显式映射 App Server 的 xhigh，没有新增协议档位。菜单继续使用原有 Host 归属校验与取消机制，距各自按钮 8px，不参与输入框布局。
+按用户最新截图覆盖此前合并入口和滑杆方案：信号条图标在模型按钮左侧，点击打开四档列表，默认档显示“默认”，当前档显示勾选。模型菜单只负责模型选择。档位直接显示 App Server 的 low / medium / high / xhigh，不采用参考图的 Max 命名。菜单继续使用原有 Host 归属校验与取消机制，距各自按钮 8px，不参与输入框布局。
 
 验证：pnpm check、build:vscode；浏览器 fixture 的 effortPickerChecks、footerLayoutChecks、pickerPositionChecks 在 320/430/1000px 通过。此次未新增真实 VS Code Extension Host 或在线模型验证。

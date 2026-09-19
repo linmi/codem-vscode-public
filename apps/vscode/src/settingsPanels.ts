@@ -8,8 +8,7 @@ export async function selectSettings(kind: "selectModel" | "selectEffort" | "sel
     return answer ? { ...settings, model: answer.values[0]! } : null
   }
   if (kind === "selectEffort") {
-    const labels = { low: "Low", medium: "Medium", high: "High", xhigh: "Max" } as const
-    const answer = await panels.request({ kind: "effort", title: "思考强度", choices: APP_SERVER_BUILTIN_INTELLIGENCE_TIERS.map(value => ({ value, label: labels[value], description: value === DEFAULT_APP_SERVER_THREAD_SETTINGS.intelligence ? "Default" : "", selected: settings.intelligence === value })) }, signal)
+    const answer = await panels.request({ kind: "effort", title: "思考强度", choices: APP_SERVER_BUILTIN_INTELLIGENCE_TIERS.map(value => ({ value, label: value, description: value === DEFAULT_APP_SERVER_THREAD_SETTINGS.intelligence ? "默认" : "", selected: settings.intelligence === value })) }, signal)
     return answer ? { ...settings, intelligence: answer.values[0]! } : null
   }
   if (kind === "selectWorkMode") {

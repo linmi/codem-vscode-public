@@ -112,9 +112,8 @@ let resourcesKey = ""
 function renderResources(): void {
   const ready = state.phase === "ready" && !state.backgroundBusy
   for (const type of configurationActions) element<HTMLButtonElement>(type).disabled = !ready
-  const effortLabel = { low: "Low", medium: "Medium", high: "High", xhigh: "Max" }[state.effort] ?? state.effort
-  element("selectEffort").setAttribute("aria-label", `思考强度：${effortLabel}`)
-  element("selectEffort").title = `思考强度：${effortLabel}`
+  element("selectEffort").setAttribute("aria-label", `思考强度：${state.effort}`)
+  element("selectEffort").title = `思考强度：${state.effort}`
   element("selectWorkMode").textContent = state.workMode === "plan" ? "Plan" : "Agent"
   const permission = element("selectPermission")
   permission.title = { default: "默认权限", auto: "自动审批", yolo: "完全访问" }[state.permission]
