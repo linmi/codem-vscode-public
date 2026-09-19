@@ -1,3 +1,4 @@
+import type { SettingsPersistence } from "./connectionPreferences.ts"
 import { projectToolDetails } from "./toolDetails.ts"
 import { Artifacts, type ArtifactSource } from "./artifacts.ts"
 import { FileReferences } from "./fileReferences.ts"
@@ -39,6 +40,9 @@ interface ActiveTurn {
 }
 export class UserVisibleError extends Error {}
 export interface ChatControllerOptions {
+  preferences?: SettingsPersistence
+  connected?: (session: ChatSession) => Promise<void>
+
   connect: (signIn: boolean, signal: AbortSignal) => Promise<ChatSession>
   assertTrusted: () => void
   publish: (state: ChatSnapshot) => void
@@ -94,7 +98,11 @@ export class ChatController {
       acquired = session
       if (this.disposed || generation !== this.generation) { await session.host.close(); return }
       this.options.assertTrusted()
-      this.bindSession(session, generation)
+      const restored = await this.restoreSettings(session)
+      if (this.disposed || generation !== this.generation) { await session.host.close(); return }
+      this.options.assertTrusted()
+      this.bindSession(session, generation, restored)
+      await this.rememberConnection(session)
     } catch (error) {
       if (acquired && this.session !== acquired) await acquired.host.close()
       if (!this.disposed && generation === this.generation) {
@@ -104,19 +112,36 @@ export class ChatController {
     }
   }
 
-  private bindSession(session: ChatSession, generation: number): void {
+  private bindSession(session: ChatSession, generation: number, restored: { settings: AppServerThreadSettings; notice: string | null }): void {
     this.session = session
     this.historyList.bind({ host: session.host, cwd: session.cwd, authorize: async () => { this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted() } })
     this.historyCursor = null
     this.threadId = null
     this.resetResources()
-    this.settings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default", model: session.model, mcpServers: session.mcpServers }
+    this.settings = restored.settings
     this.unsubscribe = session.host.onEvent((event) => {
       if (this.session === session && generation === this.generation) this.onEvent(event)
     })
-    this.update({ ...initialSnapshot(), phase: "ready", workspace: session.workspace, space: session.space.name, model: session.model, mcpNames: session.mcpServers.map((server) => server.name) })
+    this.update({ ...initialSnapshot(), phase: "ready", workspace: session.workspace, space: session.space.name, model: this.settings.model, effort: this.settings.intelligence, permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name), notice: restored.notice })
     this.poll = setInterval(() => { void this.refreshBackground() }, 3000)
     this.poll.unref()
+  }
+
+  private async rememberConnection(session: ChatSession): Promise<void> {
+    try { await this.options.connected?.(session) }
+    catch (error) {
+      this.options.report("saveConnection", error)
+      if (!this.disposed && this.session === session) this.update({ notice: "已连接，但工作区和空间选择保存失败；重载后需要重新选择。" })
+    }
+  }
+
+  private async restoreSettings(session: ChatSession): Promise<{ settings: AppServerThreadSettings; notice: string | null }> {
+    const saved = await this.options.preferences?.load(session)
+    const available = !saved || session.models.some(model => model.id === saved.model)
+    return {
+      settings: { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default", ...saved, model: available && saved ? saved.model : session.model, mcpServers: session.mcpServers },
+      notice: available ? null : "已保存的模型当前不可用，暂用 Core 当前模型；原选择仍保留，可重新选择模型。",
+    }
   }
 
   async selectSpace(pick: (session: ChatSession, signal: AbortSignal) => Promise<ChatSession | null>): Promise<void> {
@@ -133,10 +158,15 @@ export class ChatController {
       if (!next) return
       this.options.assertTrusted()
       if (this.disposed || this.session !== previous || this.active) { await next.host.close(); next = null; return }
+      const restored = await this.restoreSettings(next)
+      if (this.disposed || this.session !== previous || this.active) { await next.host.close(); next = null; return }
+      this.options.assertTrusted()
       await this.retire()
       if (this.disposed) { await next.host.close(); next = null; return }
-      this.bindSession(next, this.generation)
+      this.bindSession(next, this.generation, restored)
+      const connected = next
       next = null
+      await this.rememberConnection(connected)
     } catch (error) {
       if (next) await next.host.close()
       this.options.report("selectSpace", error)
@@ -521,6 +551,11 @@ export class ChatController {
       this.settings = confirmedModes ? { ...next, permissionMode: confirmedModes.permissionMode, workMode: confirmedModes.workMode === "plan" ? "plan" : "default" } : next
       this.updateSettings()
       this.update({ tools: [] })
+      try { await this.options.preferences?.save(session, this.settings) }
+      catch (error) {
+        this.options.report("saveSettings", error)
+        if (this.session === session && !this.disposed) this.update({ notice: "配置已应用，但保存失败；重载后可能无法恢复，请重新选择后重试。" })
+      }
     } catch (error) {
       if (this.session !== session || this.disposed) return
       this.options.report("configure", error)

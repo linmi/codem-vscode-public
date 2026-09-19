@@ -1,3 +1,4 @@
+import { ConnectionPreferences } from "../src/connectionPreferences.ts"
 import { createHash } from "node:crypto"
 import { createSessionHistoryReader } from "../src/sessionHistory.ts"
 import assert from "node:assert/strict"
@@ -591,4 +592,49 @@ it("closes a prepared space when the view is disposed during selection", async (
   assert.equal(previous.counts().closed, 1)
   assert.equal(next.counts().closed, 1)
   await next.controller.dispose()
+})
+
+
+it("restores selected settings after controller restart and retains them for new chats", async () => {
+  const data = new Map<string, unknown>()
+  const preferences = new ConnectionPreferences({ get: <T>(key: string) => data.get(key) as T | undefined, update: async (key, value) => { data.set(key, value) } })
+  const fixture = setup()
+  const make = () => new ChatController({ preferences, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const first = make()
+  await first.connect()
+  await first.configure(async settings => ({ ...settings, model: "other-model", intelligence: "high", permissionMode: "auto", workMode: "plan" }))
+  await first.dispose()
+  const reopened = make()
+  await reopened.connect()
+  for (const check of [async () => {}, () => reopened.newChat()]) {
+    await check()
+    const state = reopened.snapshot()
+    assert.equal(state.model, "other-model"); assert.equal(state.effort, "high")
+    assert.equal(state.permission, "auto"); assert.equal(state.workMode, "plan")
+  }
+  await reopened.configure(async () => null)
+  assert.equal((await preferences.load(fixture.session))?.model, "other-model")
+  await reopened.dispose(); await fixture.controller.dispose()
+})
+
+it("reports unavailable saved models without overwriting the preference", async () => {
+  const fixture = setup()
+  let writes = 0
+  const controller = new ChatController({ preferences: { load: async () => ({ model: "removed-model", intelligence: "high", permissionMode: "default", workMode: "plan" }), save: async () => { writes++ } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  await controller.connect()
+  assert.equal(controller.snapshot().model, "model-from-core")
+  assert.equal(controller.snapshot().effort, "high")
+  assert.match(controller.snapshot().notice!, /已保存的模型当前不可用/)
+  assert.equal(writes, 0)
+  await controller.dispose(); await fixture.controller.dispose()
+})
+
+it("a settings persistence failure leaves the applied selection visible with a warning", async () => {
+  const fixture = setup()
+  const controller = new ChatController({ preferences: { load: async () => null, save: async () => { throw new Error("disk full") } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  await controller.connect()
+  await controller.configure(async settings => ({ ...settings, intelligence: "high" }))
+  assert.equal(controller.snapshot().effort, "high")
+  assert.match(controller.snapshot().notice!, /配置已应用，但保存失败/)
+  await controller.dispose(); await fixture.controller.dispose()
 })

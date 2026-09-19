@@ -1,3 +1,4 @@
+import { ConnectionPreferences } from "./connectionPreferences.ts"
 import * as vscode from "vscode"
 import { listAppServerSpaces, resolveBundledAppServerRuntime } from "@codem/app-server"
 import { ChatController, UserVisibleError } from "./chatController.ts"
@@ -15,15 +16,25 @@ let controller: ChatController | undefined
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("CodeM")
+  const preferences = new ConnectionPreferences(context.workspaceState)
   const features = new NativeFeatures(context.secrets)
   context.subscriptions.push(features)
   const panels = new PanelBroker()
   let settingsAbort: AbortController | null = null
   let view: vscode.WebviewView | undefined
   let previousPhase: string | null = null
+  const openSession = async (signIn: boolean, signal: AbortSignal, target = preferences.lastConnection()) => {
+    const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signIn, signal, target)
+    try {
+      session.mcpServers = await features.loadMcp()
+      return session
+    } catch (error) { await session.host.close(); throw error }
+  }
   controller = new ChatController({
+    preferences,
+    connected: session => preferences.remember({ cwd: session.cwd, workspace: session.workspace, key: session.space.key }),
     connect: async (signIn, signal) => {
-      const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signIn, signal)
+      const session = await openSession(signIn, signal)
       session.host.onEvent((event) => {
         if (event.type === "turn-started") output.appendLine(JSON.stringify({ event: event.type, turnId: event.turnId, submissionId: event.submissionId }))
         if (event.type === "turn-completed") output.appendLine(JSON.stringify({ event: event.type, turnId: event.turnId, outcome: event.outcome, stopReason: event.stopReason }))
@@ -47,9 +58,16 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   })
   const chat = controller
+  let autoConnectAttempted = false
+  const autoConnect = async () => {
+    if (autoConnectAttempted || !view || !vscode.workspace.isTrusted || !vscode.workspace.workspaceFolders?.length) return
+    autoConnectAttempted = true
+    await chat.connect()
+  }
+  context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => { void autoConnect() }))
   const dispatch = async (action: ViewAction, reply: (result: SendResult | FileSearchResult | FileSelected | ImageResult) => void): Promise<void> => {
     switch (action.type) {
-      case "ready": chat.publish(); panels.replay(); break
+      case "ready": chat.publish(); panels.replay(); await autoConnect(); break
       case "panelReply": break
       case "connect": await chat.connect(); break
       case "signIn": await chat.connect(true); break
@@ -76,7 +94,7 @@ export function activate(context: vscode.ExtensionContext): void {
             const key = selection?.values[0]
             if (!key || key === session.space.key) return null
             assertTrusted()
-            return await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, false, signal, { cwd: session.cwd, workspace: session.workspace, key })
+            return await openSession(false, signal, { cwd: session.cwd, workspace: session.workspace, key })
           } finally {
             signal.removeEventListener("abort", cancel)
             if (settingsAbort === abort) settingsAbort = null
