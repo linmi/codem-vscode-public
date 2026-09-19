@@ -1,78 +1,23 @@
-# AGENTS.md
+# 重写工作区规则
 
-## Mission
+## 当前边界
 
-This repository builds the CodeM VS Code editor client as a pnpm monorepo. The frozen Kilo snapshot in [`UPSTREAM.md`](UPSTREAM.md) is migration input, not the target product. [`vscode-plugin-plan.md`](vscode-plugin-plan.md) is the product and protocol contract.
+- `rewrite/` 是新项目唯一的开发目录。目标是围绕 CodeM App Server 实现 VS Code 客户端，界面与交互参考 VS Code 原生 Chat。
+- `history/` 是完整旧项目的参考快照，不是活跃应用或 workspace 成员。不要继续修复、重构、安装、构建或启动历史项目，除非用户明确要求。
+- 历史目录中的 AGENTS.md、README、迁移计划及构建命令仅记录旧项目规则，不支配新实现，不自动继承其迁移目标或功能范围。
+- 当前尚未初始化新项目。具体实现、依赖和目录结构按用户接下来的需求确定，不为了归档预建框架。
 
-## Current Phase
+## 复用规则
 
-- The only editor application is `apps/vscode/`.
-- Shared CodeM packages live under `packages/`: `app-server`, `protocol`, `session-history`, `ui`, and frozen leftover `@kilocode/sdk` types in `packages/sdk/js`.
-- The VS Code shell, manifest, public commands, views, settings, task type, visible product copy, and distributable filename use the CodeM brand and `codem.*` namespace. Legacy Kilo names may remain only where they truthfully identify leftover types or retained licensed source.
-- The VS Code webview is SolidJS and imports shared components from `@codem/ui`. Timeline Message/Part/Session types come from `@codem/ui/types/session` for both Host and Webview; leftover Webview surfaces use handwritten DTOs in `apps/vscode/webview-ui`. Do not describe the current checkout as a finished CodeM extension: the controller-ready chat path uses App Server; activation no longer starts `kilo serve`; unmigrated leftover surfaces fail closed with `尚未迁移到 CodeM App Server`. Host and Webview import catalog/mode DTOs from `@codem/protocol` (`codemModelsLoaded` / `codemSkillsLoaded` / `threadModes*`); the UI adapts to App Server and must not project Core catalogs into Kilo `providersLoaded` / `commandsLoaded` / `agentsLoaded`. `assertMatureUiProductionReady()` is green (239 commands / 197 host-service / 42 App Server controllers / 0 protocol gaps). The 36 Core v1 gaps plus Roo/Kilo session-import commands were product-cut from `WebviewMessage` and the ownership table; do not reintroduce them without a real Core RPC. Host helpers live in `apps/vscode/src/host/`. Agent Manager Host is a fail-closed panel shell. JetBrains, `packages/opencode`, leftover Kilo CLI, and leftover kilo-* packages were deleted from this tree. Webview and Host production source must not import `@kilocode/sdk` except `leftover-sdk.ts`. Leftover `KiloClient` types and the fail-closed `createKiloClient` live in `apps/vscode/src/services/cli-backend/leftover-sdk.ts`. Product-cut leftover Host methods (Kilo config write, memory, indexing, sandbox toggle, message-scoped revert/delete, provider OAuth, MCP mutation) were deleted from `CodeMProvider`; `codem.showMemory` / `codem.toggleMemory` / `codem.openIndexingSettings` fail closed. Autocomplete remains a leftover VS Code service, not App Server.
-- Online CLI 0.1.208 binds Core 0.8.37. `packages/app-server` owns that exact runtime pin, distributable artifact contract, and host protocol boundary. Connection pooling is keyed by canonical `cwd`; permission mode is per-thread. App Server responses currently omit the `jsonrpc` member; the package may accept only omission or the exact value `"2.0"`, must expose which shape was observed, and must reject every other value. Delete the omission exception when the pinned online runtime emits the field.
-- Durable history is `packages/session-history` reading Core JSONL schema 13. Do not add a second transcript store or restore `thread/turns/list` as a history source.
-- Work in one independently verifiable Cycle at a time. Do not combine unrelated dependency upgrades or speculative abstractions with a migration Cycle.
+- 有明确需求后才查阅历史文件，按需复制有用实现；不整包搬入旧框架或旧状态管理。
+- 新项目不得直接 import、符号链接、workspace 引用或通过路径别名依赖 `history/`。
+- 复制代码时同步整理依赖、类型、调用方与必要测试，保留许可证及版权，记录来源路径和提交。
+- 历史文件不参加新项目的编译、测试发现、默认搜索或启动流程。
 
-## Product Invariants
+## 工作方式
 
-- CodeM has one agent live transport: `codem app-server` over newline-delimited JSON-RPC 2.0 on stdio.
-- CodeM Core assigns and owns `threadId`. Core JSONL is the only durable conversation-history authority.
-- Editor hosts own child-process lifecycle, authentication, filesystem access, editor APIs, path validation, subscriptions, and pending RPC state.
-- Webviews consume strict CodeM DTOs only. They must not receive raw App Server frames, secrets, environment dumps, unrestricted filesystem paths, or child-process handles.
-- Notifications and client requests are correlated by connection identity, `threadId`, `turnId`, and the applicable `requestId` or `submissionId`. Unknown, stale, duplicated, or cross-thread messages have no authority.
-- `turn/completed` is the live terminal authority. Durable projection may settle later but cannot keep a completed UI run active or reverse its terminal result.
-- Workspace Trust is required before starting Core, reading workspace content, executing tools, or running setup scripts.
-- Protocol, capability, runtime, or required-platform mismatches fail closed with actionable diagnostics.
-- Secrets belong in the editor's approved secret store or the CodeM credential broker, never in webview state, workspace configuration, logs, telemetry, fixtures, or transcripts.
-
-## Monorepo Layout
-
-- `apps/vscode/`: VS Code application and primary product surface.
-- `packages/app-server/`: reusable Node-only CodeM Core version, platform resolution, extension staging, license, bundle-integrity, protocol, and lifecycle boundary. It may not depend on editor APIs, Electron, VS Code, or DOM APIs.
-- `packages/protocol/`: isomorphic CodeM catalog/mode DTOs (`@codem/protocol`) shared by Host and Webview.
-- `packages/session-history/`: Node-only JSONL schema 13 history reader.
-- `packages/ui/`: CodeM Solid design-system source. VS Code webviews import it as `@codem/ui/components/*`.
-- `packages/sdk/js/`: frozen leftover `@kilocode/sdk` types used only by `leftover-sdk.ts`. Do not regenerate OpenAPI from deleted OpenCode sources.
-- `pnpm-workspace.yaml`: workspace and catalog authority.
-- `pnpm-lock.yaml`: the only JavaScript dependency lockfile.
-
-## UI Rules
-
-- New CodeM web UI uses SolidJS and components owned under `packages/ui/`.
-- Import shared UI through explicit exports such as `@codem/ui/components/button`; do not reach into another package's `src/` tree.
-- Do not introduce shadcn, React webview, or a second design-system package.
-- Keep editor-specific adapters and VS Code theme integration in `apps/vscode`; keep reusable tokens and components in `packages/ui`.
-- Preserve keyboard access, focus visibility, reduced motion, high contrast, and VS Code Webview CSP.
-
-## Package Manager and Runtime
-
-- pnpm 12.4.1 is the sole workspace package manager. Do not add npm, Yarn, or Bun lockfiles.
-- Use `workspace:*` for internal packages and keep versions in the pnpm catalog when they are intentionally shared.
-- VS Code prepare, package, launch, watch, Extension Host, and the default gate run through Node and pnpm. Do not add new Bun scripts on that path.
-
-## Superseded Kilo Paths
-
-The following are reproducibility facts, not accepted target architecture: `KiloConnectionService`, `ServerManager`, `kilo serve`, `@kilocode/sdk`, REST/SSE transport, Kilo Session stores, Gateway authentication, provider routing, Cloud Agent, Cloud Review, and Kilo branding.
-
-When a migration Cycle touches one of these boundaries, update all production callers, types, tests, documentation, paths, and imports, then delete the old entry. Do not retain optional aliases, dual transports, dual reads/writes, or silent App Server fallbacks.
-
-## Working Rules
-
-1. Before editing, inspect `git status`, relevant production paths, types, callers, tests, package instructions, and actual runtime versions.
-2. Distinguish current imported behavior, CodeM invariants, migration-only state, and unresolved product decisions.
-3. Preserve user changes in a dirty worktree. Do not discard or overwrite unrelated edits.
-4. Keep generated output and dependency directories out of source control.
-5. Preserve Kilo, OpenCode, and third-party license notices for retained code.
-6. Record material upstream intake and pruning in `UPSTREAM.md`.
-7. After each independently verifiable Cycle, create a commit for that Cycle. Do not leave finished Cycle work uncommitted. Push only with explicit authorization.
-
-## Validation
-
-Keep tests, test-only helpers, fixtures, and snapshots under each workspace package's root `tests/` directory. Preserve domain subdirectories. VS Code host tests live in `apps/vscode/tests/host/`.
-
-Install from the repository root:
-
-```bash
-pnpm install --frozen-lockfile
-```
+- 修改前检查工作树，保留用户已有变更。回答、评审和规划请求不自动实施修改。
+- 一次完成一个可独立验证的变更，不混入无关重构。
+- 使用 pnpm；不要把历史依赖目录或锁文件直接当作新项目依赖。
+- 按风险运行必要验证，如实说明未完成或受阻的检查。
+- 每个完成并验证的独立变更创建只包含本次工作的 commit；只有用户明确授权才 push。

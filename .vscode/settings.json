@@ -1,15 +1,10 @@
 {
-  "[mdx]": {
-    "editor.formatOnSave": false,
-    "editor.defaultFormatter": null
-  },
-  "files.exclude": {
-    "apps/vscode/out": false,
-    "apps/vscode/dist": false
-  },
   "search.exclude": {
-    "apps/vscode/out": true,
-    "apps/vscode/dist": true
+    "**/history/**": true
   },
+  "files.watcherExclude": {
+    "**/history/**": true
+  },
+  "npm.autoDetect": "off",
   "typescript.tsc.autoDetect": "off"
 }
