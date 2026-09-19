@@ -1,6 +1,6 @@
 import { artifactCard } from "./artifactView.ts"
 import { attachmentCard } from "./attachmentView.ts"
-import { toolPresentation } from "./toolPresentation.ts"
+import { activityTitle, toolPresentation } from "./toolPresentation.ts"
 import type { ActivityStatus, ChatMessage, ViewAction } from "../src/messages.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 import { renderMarkdown } from "./markdownView.ts"
@@ -93,11 +93,12 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
       if (message.role === "tool") {
         const presentation = toolPresentation(message.label)
         root.dataset.tool = presentation.kind
-        label.textContent = presentation.title
+        label.textContent = activityTitle(message)
         activityIcon!.innerHTML = presentation.icon
         toolMeta.textContent = `${message.label} · ${statusLabels[message.status]}`
         body.setAttribute("aria-label", `${presentation.title}输出`)
-      } else toolMeta.hidden = true
+      } else { toolMeta.hidden = true; label.textContent = activityTitle(message) }
+      label.title = label.textContent ?? ""
       if (!userToggled && details) details.open = message.status === "failed"
       badge.textContent = message.role === "reasoning" ? ({ running: "思考中", completed: "思考完成", interrupted: "思考已停止", incomplete: "思考未完成", failed: "思考失败", declined: "已拒绝" } as const)[message.status] : statusLabels[message.status]
       note.textContent = message.summary

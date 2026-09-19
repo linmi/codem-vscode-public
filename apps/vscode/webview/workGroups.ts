@@ -1,13 +1,15 @@
-import type { ChatMessage } from "../src/messages.ts"
+import type { ChatMessage, ChatPhase } from "../src/messages.ts"
 import { timelineGroups } from "../src/timelineGroups.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 
 /** Keep a response’s execution and progress updates in one disclosure. */
 export function createWorkGroups() {
   const groups = new Map<string, { root: HTMLDetailsElement; summary: HTMLElement; content: HTMLElement; touched: boolean }>()
-  return (messages: readonly ChatMessage[], node: (id: string) => HTMLElement): HTMLElement[] => {
+  return (messages: readonly ChatMessage[], node: (id: string) => HTMLElement, phase: ChatPhase): HTMLElement[] => {
     const result: HTMLElement[] = []
     const alive = new Set<string>()
+    let lastUserIndex = -1
+    messages.forEach((message, index) => { if (message.role === "user") lastUserIndex = index })
     for (const item of timelineGroups(messages)) {
       if (item.kind === "message") { result.push(node(item.message.id)); continue }
       const work = item.messages
@@ -24,16 +26,15 @@ export function createWorkGroups() {
         summary.addEventListener("click", event => { event.preventDefault(); current.touched = true; root.open = !root.open })
         groups.set(id, group)
       }
-      const running = work.some(m => "status" in m && (m.status === "running"))
+      const latestResponse = messages.slice(lastUserIndex + 1).some(m => m.id === id)
+      const running = (latestResponse && (phase === "running" || phase === "stopping")) || work.some(m => "status" in m && (m.status === "running"))
       const failed = work.some(m => "status" in m && (m.status === "failed" || m.status === "incomplete"))
       const interrupted = work.some(m => "status" in m && (m.status === "interrupted" || m.status === "declined"))
       group.root.dataset.state = running ? "running" : failed ? "failed" : interrupted ? "interrupted" : "completed"
       if (!group.touched) group.root.open = running || failed
-      const tools = work.filter(m => m.role === "tool").length
-      const thoughts = work.filter(m => m.role === "reasoning").length
       group.summary.innerHTML = uiIcon("chevron")
       const label = document.createElement("span")
-      label.textContent = `${running ? "正在执行" : failed ? "执行需要关注" : interrupted ? "执行已停止或拒绝" : "执行完成"} · ${[thoughts ? `${thoughts} 段思考` : "", tools ? `${tools} 次工具调用` : ""].filter(Boolean).join(" · ")}`
+      label.textContent = running ? (phase === "stopping" ? "正在停止" : "正在处理") : failed ? "处理需要关注" : interrupted ? "已停止或拒绝" : "已处理"
       group.summary.append(label)
       let position = group.content.firstChild
       for (const message of work) {

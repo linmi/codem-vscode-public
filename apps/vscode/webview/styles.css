@@ -53,7 +53,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .activityChevron svg { width: 12px; height: 12px; }
 .activityMessage summary:hover .activityChevron, .activityMessage summary:focus-visible .activityChevron, .activityMessage details[open] .activityChevron { opacity: 1; }
 .activityMessage details[open] .activityChevron { transform: rotate(90deg); }
-.activityTitle { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.activityTitle { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .activityStatus { margin-left: auto; font-size: 10px; flex-shrink: 0; }
 .activityMessage[data-status="completed"] .activityStatus { display: none; }
 .activityPreview { display: none; }
@@ -136,8 +136,12 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .workGroup > summary::-webkit-details-marker { display: none; }
 .workGroup > summary svg { width: 12px; height: 12px; transition: transform 150ms; }
 .workGroup[open] > summary svg { transform: rotate(90deg); }
-.workGroupContent { padding: 6px 0 2px; display: flex; flex-direction: column; gap: 4px; }
+.workGroupContent { padding: 8px 0 2px; display: flex; flex-direction: column; gap: 0; }
 .workGroupContent .message { margin: 0; }
+.workGroupContent .message[data-role="assistant"] { margin: 12px 0; color: var(--ink); }
+.workGroupContent .messageActions { display: none; }
+.workGroupContent .activityMessage summary { padding: 2px 0; }
+.workGroupContent .activityStatus { margin-left: 4px; }
 .workGroup[data-state="failed"] > summary { color: var(--vscode-errorForeground, #e02e2a); }
 @media (prefers-reduced-motion: reduce) { .workGroup > summary svg { transition: none; } }
 

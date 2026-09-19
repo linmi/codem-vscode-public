@@ -188,7 +188,7 @@ function render(next: ChatSnapshot): void {
     if (!view) { view = createMessageView(message, post); nodes.set(message.id, view); if (state.phase === "running" || state.phase === "sending") view.root.classList.add("messageEnter") }
     else view.update(message)
   }
-  const timelineNodes = renderWorkGroups(state.messages, id => nodes.get(id)!.root)
+  const timelineNodes = renderWorkGroups(state.messages, id => nodes.get(id)!.root, state.phase)
   let position = messages.firstChild
   for (const root of timelineNodes) {
     if (root !== position) messages.insertBefore(root, position)

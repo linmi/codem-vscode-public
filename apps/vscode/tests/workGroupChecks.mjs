@@ -28,5 +28,25 @@ export default async function workGroupChecks(page) {
   await combined.locator(':scope > summary').click();
   await combined.getByText('调整查询关键词',{exact:true}).waitFor();
   if(await combined.getByText('最终答复',{exact:true}).count()) throw new Error('Final answer was folded into execution');
+
+  await page.evaluate(() => {
+    demo.phase = 'running';
+    demo.messages[1] = {id:'tool1',role:'tool',label:'run_bash',status:'completed',summary:'',text:'Done',details:{kind:'command',code:'pnpm check',fields:[]}};
+    window.postMessage(demo,'*');
+  });
+  await page.getByText('正在处理',{exact:true}).waitFor();
+  await combined.getByText('已运行 pnpm check',{exact:true}).waitFor();
+  if (await combined.locator('.messageActions:visible').count()) throw new Error('Progress has separate reply actions');
+  await page.evaluate(() => { demo.phase='ready'; window.postMessage(demo,'*'); });
+  await page.getByText('已处理',{exact:true}).waitFor();
+  // A new user turn must not reopen or relabel the preceding response.
+  await combined.locator(':scope > summary').click();
+  await page.evaluate(() => {
+    demo.messages.push({id:'newUser',role:'user',label:'你',text:'下一轮'});
+    demo.phase='running'; window.postMessage(demo,'*');
+  });
+  await page.getByText('已处理',{exact:true}).waitFor();
+  if (await combined.getAttribute('open') !== null) throw new Error('Historical group reopened for a new turn');
   return 'WORK_GROUP_OK';
+
 }
