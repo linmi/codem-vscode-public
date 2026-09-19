@@ -8,6 +8,8 @@ export interface PanelView {
   description: string
   detail: string | null
   choices: readonly PanelChoice[]
+  backChoiceId: string | null
+  initialText: string
   multiple: boolean
   allowText: boolean
   confirmLabel: string | null

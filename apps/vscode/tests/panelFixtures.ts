@@ -1,5 +1,5 @@
 import type { PanelView } from "../src/panelTypes.ts"
-const base = { description: "", detail: null, multiple: false, allowText: false, confirmLabel: null }
+const base = { backChoiceId: null, initialText: "", description: "", detail: null, multiple: false, allowText: false, confirmLabel: null }
 export const panelFixtures: Record<string, PanelView> = {
   model: { ...base, id: "model-fixture", kind: "model", title: "模型", description: "下一轮生效", choices: [
     { id: "auto", label: "Auto", description: "自动选择合适的模型", selected: true },

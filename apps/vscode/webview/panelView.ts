@@ -58,15 +58,15 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
       root.append(detail)
     }
     const list = document.createElement("div"); list.className = "decisionChoices"
-    const selected = new Set<string>()
-    const input = document.createElement("textarea"); input.className = "decisionAnswer"; input.rows = 2; input.maxLength = 16000; input.placeholder = "输入自己的回答…"; input.setAttribute("aria-label", "补充回答")
+    const selected = new Set(panel.choices.filter(choice => choice.selected).map(choice => choice.id))
+    const input = document.createElement("textarea"); input.className = "decisionAnswer"; input.rows = 2; input.maxLength = 16000; input.placeholder = "输入自己的回答…"; input.setAttribute("aria-label", panel.kind === "plan" ? "修改意见" : "补充回答"); input.value = panel.initialText; input.placeholder = panel.kind === "plan" ? "需要调整的地方（可选）…" : "输入自己的回答…"
     const confirm = document.createElement("button"); confirm.type = "button"; confirm.className = "decisionSubmit"; confirm.textContent = panel.confirmLabel
     function submit(choiceIds: string[], cancelled = false): void {
       if (pending || current?.id !== panel!.id) return
       pending = true
       for (const element of root.querySelectorAll<HTMLButtonElement | HTMLTextAreaElement | HTMLInputElement>("button,textarea,input")) element.disabled = true
       root.setAttribute("aria-busy", "true")
-      post({ type: "panelReply", id: panel!.id, choiceIds, text: cancelled || !panel!.allowText ? "" : input.value, cancelled })
+      post({ type: "panelReply", id: panel!.id, choiceIds, text: cancelled || !panel!.allowText || choiceIds.includes(panel!.backChoiceId ?? "") ? "" : input.value, cancelled })
     }
     cancel = () => submit([], true)
     close.addEventListener("click", cancel)
@@ -133,6 +133,11 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
         event.preventDefault(); visible[Number(event.key) - 1]?.click()
       }
     }
+    if (panel.backChoiceId) {
+      const previous = document.createElement("button"); previous.type = "button"; previous.className = "decisionPrevious"; previous.textContent = "上一题"
+      previous.addEventListener("click", () => submit([panel.backChoiceId!])); root.append(previous)
+    }
+    if (panel.confirmLabel) syncSelection()
     root.removeAttribute("aria-busy")
     changed()
     positionPicker()

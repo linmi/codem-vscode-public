@@ -7,6 +7,8 @@ export interface PanelInput<T> {
   description?: string
   detail?: string | null
   choices: readonly { value: T; label: string; description?: string; selected?: boolean }[]
+  back?: { value: T }
+  initialText?: string
   multiple?: boolean
   allowText?: boolean
   confirmLabel?: string | null
@@ -36,6 +38,10 @@ export class PanelBroker {
     const pending = this.pending
     if (owner !== this.owner || !pending || reply.id !== pending.view.id) return
     const view = pending.view
+    if (view.backChoiceId && reply.choiceIds.includes(view.backChoiceId)) {
+      if (!reply.cancelled && reply.choiceIds.length === 1 && reply.text === "") pending.accept(reply)
+      return
+    }
     if (!reply.cancelled && (reply.choiceIds.some(id => !view.choices.some(choice => choice.id === id)) || (!view.multiple && reply.choiceIds.length > 1) || (!view.allowText && reply.text !== "") || (!reply.choiceIds.length && !reply.text.trim()) || (view.kind !== "question" && reply.choiceIds.length !== 1))) return
     pending.accept(reply)
   }
@@ -45,7 +51,8 @@ export class PanelBroker {
     if (!this.owner) return Promise.resolve(null)
     if (input.choices.length > 100) return Promise.reject(new Error("Panel option limit exceeded"))
     const choices = input.choices.map(choice => ({ ...choice, id: randomUUID() }))
-    const view: PanelView = { id: randomUUID(), kind: input.kind, title: input.title, description: input.description ?? "", detail: input.detail ?? null, choices: choices.map(({ id, label, description, selected }) => ({ id, label, description: description ?? "", selected: selected ?? false })), multiple: input.multiple ?? false, allowText: input.allowText ?? false, confirmLabel: input.confirmLabel ?? null }
+    const back = input.back ? { id: randomUUID(), value: input.back.value } : null
+    const view: PanelView = { id: randomUUID(), kind: input.kind, title: input.title, description: input.description ?? "", detail: input.detail ?? null, choices: choices.map(({ id, label, description, selected }) => ({ id, label, description: description ?? "", selected: selected ?? false })), backChoiceId: back?.id ?? null, initialText: input.initialText ?? "", multiple: input.multiple ?? false, allowText: input.allowText ?? false, confirmLabel: input.confirmLabel ?? null }
     return new Promise(resolve => {
       const finish = (result: { values: T[]; text: string } | null) => {
         if (this.pending !== pending) return
@@ -55,7 +62,7 @@ export class PanelBroker {
         resolve(result)
       }
       const abort = () => finish(null)
-      const pending: Pending = { view, cancel: abort, accept: reply => finish(reply.cancelled ? null : { values: reply.choiceIds.map(id => choices.find(choice => choice.id === id)!.value), text: reply.text.trim() }) }
+      const pending: Pending = { view, cancel: abort, accept: reply => finish(reply.cancelled ? null : { values: reply.choiceIds.map(id => id === back?.id ? back.value : choices.find(choice => choice.id === id)!.value), text: reply.text.trim() }) }
       this.pending = pending
       signal?.addEventListener("abort", abort, { once: true })
       this.replay()

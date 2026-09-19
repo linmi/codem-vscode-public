@@ -100,3 +100,23 @@ it("opens reasoning from the single model entry and cancels without changing set
   assert.equal(settings.intelligence, "medium")
   assert.throws(() => parseViewAction({ type: "selectEffort" }))
 })
+
+it("restores an earlier question answer and rejects a mixed back/answer submission", async () => {
+  const f = fixture(); const abort = new AbortController()
+  const result = showInteraction({ kind: "question", requestId: "r", threadId: "t", turnId: "u", questions: [1, 2].map(i => ({ id: String(i), header: "Question", question: `Question ${i}`, allowsMultipleSelection: false, options: [{ label: "A", description: "Option A", preview: null }] })) }, abort.signal, f.broker, "/workspace")
+  f.broker.answer(f.owner, f.reply([f.view().choices[0]!.id], "first note")); await Promise.resolve()
+  const second = f.view()
+  assert.ok(second.backChoiceId)
+  f.broker.answer(f.owner, f.reply([second.backChoiceId, second.choices[0]!.id])); assert.equal(f.view().id, second.id)
+  f.broker.answer(f.owner, f.reply([second.backChoiceId])); await Promise.resolve()
+  assert.equal(f.view().title, "Question · 1/2")
+  assert.equal(f.view().initialText, "first note"); assert.equal(f.view().choices[0]!.selected, true)
+  abort.abort(); assert.deepEqual(await result, { kind: "question", cancelled: true })
+})
+
+it("sends plan revision feedback only on an explicit rejection", async () => {
+  const f = fixture()
+  const result = showInteraction({ kind: "plan", requestId: "r", threadId: "t", turnId: "u", plan: "Plan" }, new AbortController().signal, f.broker, "/workspace")
+  f.broker.answer(f.owner, f.reply([f.view().choices[1]!.id], "Add validation"))
+  assert.deepEqual(await result, { kind: "plan", approved: false, feedback: "Add validation" })
+})
