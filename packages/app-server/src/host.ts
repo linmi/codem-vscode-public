@@ -2023,11 +2023,6 @@ function optionalNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
-function boundedText(value: unknown): string {
-  const text = typeof value === "string" ? value : value === undefined ? "" : JSON.stringify(value)
-  return text.length <= 4_000 ? text : `${text.slice(0, 3_999)}…`
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }

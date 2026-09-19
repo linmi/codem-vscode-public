@@ -8,8 +8,13 @@
     "node": ">=22.23.2"
   },
   "scripts": {
+    "lint": "oxlint --deny-warnings apps packages",
+    "lint:fix": "pnpm lint --fix",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "check": "pnpm typecheck && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "oxlint": "1.83.0"
   }
 }

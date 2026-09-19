@@ -22,7 +22,11 @@ pnpm install --frozen-lockfile
 pnpm check
 ```
 
-`pnpm check` 运行活跃包的类型检查与测试，也可分别执行 `pnpm typecheck`、`pnpm test`。尚无应用启动或界面构建命令。
+使用 TypeScript **7.0.2** 进行类型检查，Oxlint **1.83.0** 进行静态检查。
+
+`pnpm check` 依次运行活跃代码的 lint、类型检查与测试，也可分别执行 `pnpm lint`、`pnpm typecheck`、`pnpm test`。`pnpm lint:fix` 执行 Oxlint 自动修复。尚无应用启动或界面构建命令。
+
+Oxlint 配置在 `.oxlintrc.json`，启用 correctness 规则，warning 也会使检查失败；归档、依赖及生成目录不参与 lint。配置依据 [Oxlint 官方文档](https://oxc.rs/docs/guide/usage/linter/config)。类型检查仍由各包的 TypeScript 执行。
 
 ## 历史与复用
 

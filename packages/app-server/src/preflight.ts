@@ -202,7 +202,7 @@ function parseResponse(line: string): {
   const jsonrpc = "jsonrpc" in response ? response.jsonrpc : undefined
   if (jsonrpc !== undefined && jsonrpc !== "2.0") {
     const actual = JSON.stringify(jsonrpc)
-    throw new Error(`CodeM App Server initialize response jsonrpc must be \"2.0\"; received ${actual}`)
+    throw new Error(`CodeM App Server initialize response jsonrpc must be "2.0"; received ${actual}`)
   }
   if (response.id !== PREFLIGHT_REQUEST_ID) {
     throw new Error(`CodeM App Server initialize response id does not match ${PREFLIGHT_REQUEST_ID}`)

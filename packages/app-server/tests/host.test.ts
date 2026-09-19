@@ -288,8 +288,10 @@ describe("AppServerHost", () => {
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line) as Record<string, unknown>)
-    assert.deepEqual(captured[0]?.argv, ["--final-answer-tool", "app-server"])
-    assert.deepEqual((captured[0]?.environment as Record<string, unknown>).credentialHost, [
+    const launch = captured[0]
+    assert.ok(launch, "Core launch must be captured")
+    assert.deepEqual(launch.argv, ["--final-answer-tool", "app-server"])
+    assert.deepEqual((launch.environment as Record<string, unknown>).credentialHost, [
       "/bin/true",
       "__host-serve",
     ])

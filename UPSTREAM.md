@@ -29,3 +29,9 @@
 旧应用的集成验证属于历史记录。新工作区必须独立运行自身检查；应用接入后再增加对应集成验证。
 
 本次验证：独立安装及 frozen-lockfile 安装通过；三个包类型检查通过；测试共 99 项通过（App Server 81、protocol 6、session-history 12），无跳过。macOS arm64 的实际已安装 Core/CLI 解析、staging、许可证复制与哈希校验通过；未运行在线认证或真实 agent turn。84 个非 README 包文件与归档逐字节一致，归档无修改，新代码无归档路径依赖。
+
+## 2026-09-19：TypeScript 7 + Oxlint
+
+保留 TypeScript 7.0.2，引入 Oxlint 1.83.0 并加入根检查命令。处理首次 lint 发现的问题：删除 Host 中未使用的 `boundedText`，移除 preflight 文案中无效的引号转义，测试中显式断言启动记录存在。空间代理的控制字符拒绝规则保留原行为，并为该正则记录行级 lint 例外及原因。归档保持不变。
+
+验证：lint、三个包类型检查、99 项测试及 frozen-lockfile 安装通过；默认 lint 文件发现不包含归档，临时未使用变量样例能使检查失败。

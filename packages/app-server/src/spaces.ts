@@ -178,6 +178,7 @@ function object(value: unknown): JsonObject {
 }
 
 function textValue(value: unknown, label: string): string {
+  // oxlint-disable-next-line no-control-regex -- Broker text must reject ASCII control characters.
   if (typeof value !== "string" || !value.trim() || /[\x00-\x1f\x7f]/.test(value))
     throw new Error(`Invalid CodeM ${label}`)
   return value
