@@ -48,3 +48,21 @@
 | `history/apps/vscode/LICENSE` | `apps/vscode/LICENSE` |
 
 素材保留原品牌用途及许可证，活跃应用不引用归档路径。
+
+## T3 Code UI reference — 2026-09-19
+
+- Repository: https://github.com/pingdotgg/t3code
+- Inspected revision: `dfbb11bdd7c3f1a5575cb55d3e3abb12be025727`.
+- References: `apps/web/src/components/chat/MessagesTimeline.tsx`, `ComposerPendingApprovalPanel.tsx`, and `MessageCopyButton.tsx`.
+- Adapted interaction and presentation patterns into the existing TypeScript Webview: centered constrained timeline, right-aligned user messages, compact expandable activity rows, bottom composer, message copy feedback, and jump to latest. This is a reference-based implementation, not a vendored React application or T3 runtime. No T3 provider, transport, persistence or build stack was imported.
+- Upstream MIT notice is retained at `apps/vscode/licenses/t3Code.txt`. CodeM branding and App Server remain authoritative.
+- Approval UI is still native VS Code in this version; the reference approval panel was inspected but not ported.
+
+## Synara chat visual intake — 2026-09-19
+
+- Source: https://github.com/Emanuele-web04/synara/tree/33333439c4b9c74d0097bc01196cccc921f67cf3
+- Default theme tokens extracted by executing upstream `apps/web/src/theme/theme.logic.ts` with `DEFAULT_THEME_STATE` (both variants). Only the used resolved values are retained in `apps/vscode/webview/synaraTokens.css`; no theme engine or runtime dependency was imported.
+- Adapted `apps/web/src/components/chat/composerPickerStyles.ts`, `chatTypography.ts`, `ChatComposerFooter.tsx`, `ComposerModelMenuTrigger.tsx`, `MessagesTimeline.tsx`, `TimelineWorkEntryRow.tsx`, `MessageActionButton.tsx`, `apps/web/src/components/ChatView.tsx`, and `apps/web/src/index.css` into the existing Webview. Kept CodeM branding, Host DTOs, Core transport, and native approvals. The preceding T3-only appearance was superseded.
+- Upstream MIT copyright notices for T3 Tools Inc. and Emanuele Di Pietro are retained in `apps/vscode/licenses/synara.txt`.
+- Added exact production dependencies Marked 18.0.13 and DOMPurify 3.4.15 because the prior text/code-fence renderer could not render the reference's headings, lists, inline code and tables. Parsed model output is sanitized with an explicit tag/attribute allowlist before it enters the DOM. No React, Synara backend, provider state, lockfile or build system was imported.
+- This is a source-based style adaptation for existing chat surfaces; native Host menus and the surrounding VS Code shell are outside visual parity. No claim of full-product pixel identity.

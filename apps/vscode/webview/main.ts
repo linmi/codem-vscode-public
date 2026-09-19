@@ -19,6 +19,21 @@ const signIn = element<HTMLButtonElement>("signIn")
 const newChat = element<HTMLButtonElement>("newChat")
 const scroller = element("scrollArea")
 const messages = element("messages")
+const jumpLatest = element<HTMLButtonElement>("jumpLatest")
+const resources = element("activityPanel")
+const toggleResources = element<HTMLButtonElement>("toggleResources")
+function showResources(open: boolean): void {
+  resources.hidden = !open
+  toggleResources.setAttribute("aria-expanded", String(open))
+  if (open) element("closeResources").focus()
+  else toggleResources.focus()
+}
+toggleResources.addEventListener("click", () => showResources(resources.hasAttribute("hidden")))
+element("closeResources").addEventListener("click", () => showResources(false))
+resources.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.stopPropagation(); showResources(false) } })
+function updateJump(): void { jumpLatest.hidden = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 70 }
+scroller.addEventListener("scroll", updateJump, { passive: true })
+jumpLatest.addEventListener("click", () => { scroller.scrollTop = scroller.scrollHeight; updateJump() })
 const headerActions = document.querySelector<HTMLElement>(".headerActions")
 if (!headerActions) throw new Error("Missing CodeM header actions")
 const renderHistory = createHistoryView(headerActions, scroller, post)
@@ -26,11 +41,21 @@ const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
 const submission = new ComposerSubmission()
 prompt.value = vscode.getState()?.draft ?? ""
+let measuredPrompt = ""
+let measuredWidth = -1
+function fitPrompt(): void {
+  const width = prompt.clientWidth
+  if (prompt.value === measuredPrompt && width === measuredWidth) return
+  measuredPrompt = prompt.value; measuredWidth = width
+  prompt.style.height = "auto"
+  prompt.style.height = `${Math.min(220, Math.max(59, prompt.scrollHeight))}px`
+}
+new ResizeObserver(fitPrompt).observe(prompt)
 
 function post(action: ViewAction): void { vscode.postMessage(action) }
 function saveDraft(): void {
   vscode.setState({ draft: prompt.value })
-  prompt.rows = Math.min(8, Math.max(3, prompt.value.split("\n").length))
+  fitPrompt()
   send.disabled = state.phase !== "ready" || !prompt.value.trim() || submission.busy
 }
 function submit(): void {
@@ -67,9 +92,12 @@ let resourcesKey = ""
 function renderResources(): void {
   const ready = state.phase === "ready" && !state.backgroundBusy
   for (const type of configurationActions) element<HTMLButtonElement>(type).disabled = !ready
-  element("selectEffort").textContent = state.effort
+  element("effortLabel").textContent = state.effort
   element("selectWorkMode").textContent = state.workMode === "plan" ? "Plan" : "Agent"
-  element("selectPermission").textContent = `◈ ${{ default: "默认权限", auto: "自动审批", yolo: "完全访问" }[state.permission]}`
+  const permission = element("selectPermission")
+  permission.title = { default: "默认权限", auto: "自动审批", yolo: "完全访问" }[state.permission]
+  permission.setAttribute("aria-label", `权限模式：${permission.title}`)
+  permission.dataset.mode = state.permission
   const blocked = state.backgroundBusy || state.phase === "disconnected" || state.phase === "connecting" || state.phase === "configuring"
   const nextKey = JSON.stringify([state.attachments, state.diffs, state.background, state.backgroundTasks, state.mcpNames, state.tools])
   // Streaming deltas and refresh acknowledgements must not replace focused resource buttons.
@@ -122,6 +150,7 @@ function render(next: ChatSnapshot): void {
   const previousFirst = state.messages[0]?.id
   const prepended = !switched && previousFirst !== undefined && next.messages.findIndex((message) => message.id === previousFirst) > 0 && state.messages.at(-1)?.id === next.messages.at(-1)?.id
   state = next
+  document.querySelector<HTMLElement>(".app")!.dataset.phase = state.phase
   const liveIds = new Set(state.messages.map((message) => message.id))
   for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.root.remove(); nodes.delete(id) } }
   let position = messages.firstChild
@@ -152,6 +181,7 @@ function render(next: ChatSnapshot): void {
   saveDraft()
   if (prepended && anchor) scroller.scrollTop = oldTop + anchor.getBoundingClientRect().top - anchorTop
   else if (switched || follow) scroller.scrollTop = scroller.scrollHeight
+  updateJump()
 }
 
 window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResult>) => {

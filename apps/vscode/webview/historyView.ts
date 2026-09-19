@@ -1,5 +1,6 @@
 import { isBusy, type ChatPhase } from "../src/messages.ts"
 import type { HistoryAction, HistoryList } from "../src/historyTypes.ts"
+import { uiIcon } from "../src/uiIcons.ts"
 
 export interface HistoryViewState {
   phase: ChatPhase
@@ -18,6 +19,7 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
     return node
   }
   const open = button("历史", { type: "showHistory" })
+  open.className = "iconButton"; open.innerHTML = uiIcon("history"); open.setAttribute("aria-label", "历史会话")
   open.title = "浏览当前工作区的历史会话"; open.setAttribute("aria-controls", "historyPanel")
   header.prepend(open)
   const panel = document.createElement("section")
@@ -36,14 +38,20 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
   const older = button("加载更早消息", { type: "olderMessages" })
   const reload = button("重新加载记录", { type: "reloadHistory" })
   const hint = document.createElement("span")
-  paging.append(older, reload, hint); scroller.prepend(paging)
+  toolbar.append(reload)
+  paging.append(older, hint); scroller.prepend(paging)
   let previousEntries = ""
+  let wasOpen = false
+  panel.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.stopPropagation(); post({ type: "closeHistory" }) } })
 
   return (state) => {
     const disabled = isBusy(state.phase) || state.phase === "disconnected"
     open.disabled = disabled
     open.setAttribute("aria-expanded", String(state.history.open))
     panel.hidden = !state.history.open
+    if (state.history.open && !wasOpen) close.focus()
+    if (!state.history.open && wasOpen && panel.contains(document.activeElement)) open.focus()
+    wasOpen = state.history.open
     panel.setAttribute("aria-busy", String(state.history.loading))
     refresh.disabled = more.disabled = disabled || state.history.loading
     more.hidden = !state.history.hasMore
@@ -65,7 +73,8 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
         return row
       }))
     }
-    paging.hidden = !state.threadId
+    paging.hidden = !state.threadId || (!state.hasOlderMessages && !state.historyNeedsRefresh)
+    reload.hidden = !state.threadId
     older.hidden = !state.hasOlderMessages
     older.disabled = reload.disabled = switchingDisabled
     hint.textContent = state.historyNeedsRefresh ? "记录已变化，重新加载后可继续翻页。" : ""

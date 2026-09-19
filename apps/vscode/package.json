@@ -47,7 +47,7 @@
     "test:extension": "node --experimental-strip-types scripts/smoke.ts",
     "test:live": "node --experimental-strip-types scripts/smoke.ts --live"
   },
-  "dependencies": { "@codem/app-server": "workspace:*", "@codem/session-history": "workspace:*" },
+  "dependencies": { "@codem/app-server": "workspace:*", "@codem/session-history": "workspace:*", "marked": "18.0.13", "dompurify": "3.4.15" },
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/vscode": "1.105.0",
