@@ -12,7 +12,7 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
   const root = document.createElement("article")
   root.className = "message"; root.dataset.role = initial.role
   const body = document.createElement("div"); body.className = "messageBody"
-  if (initial.role === "assistant") body.classList.add("chatMarkdown")
+  if (initial.role === "assistant" || initial.role === "reasoning") body.classList.add("chatMarkdown")
   const label = document.createElement("span")
   const badge = document.createElement("span"); badge.className = "activityStatus"
   const preview = document.createElement("span"); preview.className = "activityPreview"
@@ -72,7 +72,7 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
         body.setAttribute("aria-label", `${presentation.title}输出`)
       } else toolMeta.hidden = true
       if (!userToggled && details) details.open = message.status === "failed"
-      badge.textContent = message.role === "reasoning" && message.status === "running" ? "思考中" : statusLabels[message.status]
+      badge.textContent = message.role === "reasoning" ? ({ running: "思考中", completed: "思考完成", interrupted: "思考已停止", incomplete: "思考未完成", failed: "思考失败", declined: "已拒绝" } as const)[message.status] : statusLabels[message.status]
       note.textContent = message.summary
       note.hidden = !message.summary || message.summary === message.text
       const empty = message.status === "running" ? (message.role === "reasoning" ? "正在思考…" : "等待工具输出…") : message.status === "incomplete" ? "未收到完成结果。" : message.role === "reasoning" ? "Core 未提供可显示的思考内容。" : "无文本输出。"
@@ -83,7 +83,7 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
     if (text !== previousText) {
       const top = body.scrollTop
       const follow = body.scrollHeight - top - body.clientHeight < 40
-      if (message.role === "assistant") renderMarkdown(body, text)
+      if (message.role === "assistant" || message.role === "reasoning") renderMarkdown(body, text)
       else body.textContent = text
       previousText = text
       body.scrollTop = follow ? body.scrollHeight : top
