@@ -422,3 +422,27 @@ for (const outcome of ["completed", "failed", "stopped", "disconnected"] as cons
     assert.deepEqual(messages.map((message) => message.text), ["thinking", "partial"])
   } finally { await f.controller.dispose() }
 })
+
+it("a rejected send preserves retry intent without a phantom sent message", async () => {
+  const fixture = setup()
+  fixture.host.startTurn = async () => { throw new Error("Rejected") }
+  await fixture.controller.connect()
+  assert.equal(await fixture.controller.send("keep my draft"), false)
+  assert.equal(fixture.controller.snapshot().phase, "ready")
+  assert.deepEqual(fixture.controller.snapshot().messages, [])
+  await fixture.controller.dispose()
+})
+
+it("a start notification proves acceptance when the RPC reply fails and keeps the run active", async () => {
+  const fixture = setup()
+  fixture.host.startTurn = async (input) => {
+    fixture.emit({ type: "turn-started", threadId: "thread-1", turnId: "accepted", submissionId: input.submissionId })
+    throw new Error("Reply lost")
+  }
+  await fixture.controller.connect()
+  assert.equal(await fixture.controller.send("accepted message"), true)
+  assert.equal(fixture.controller.snapshot().phase, "running")
+  fixture.emit({ type: "turn-completed", threadId: "thread-1", turnId: "accepted", outcome: "completed", stopReason: "end", error: null })
+  assert.equal(fixture.controller.snapshot().phase, "ready")
+  await fixture.controller.dispose()
+})

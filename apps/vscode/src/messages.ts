@@ -7,13 +7,15 @@ export type ViewAction =
   | HistoryAction
   | { type: typeof simpleActions[number] }
   | { type: typeof handleActions[number]; id: string }
-  | { type: "send"; text: string }
+  | { type: "send"; text: string; requestId: string }
+
+export interface SendResult { type: "sendResult"; requestId: string; accepted: boolean }
 
 export function parseViewAction(value: unknown): ViewAction {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid CodeM action")
   const record = value as Record<string, unknown>
   const keys = Object.keys(record)
-  if (record.type === "send" && keys.length === 2 && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return { type: "send", text: record.text }
+  if (record.type === "send" && keys.length === 3 && typeof record.requestId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.requestId) && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return { type: "send", text: record.text, requestId: record.requestId }
   if (record.type === "resumeThread" && keys.length === 2 && typeof record.threadId === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(record.threadId)) return { type: "resumeThread", threadId: record.threadId }
   if (keys.length === 1 && simpleActions.some((type) => type === record.type)) return record as ViewAction
   if (keys.length === 2 && handleActions.some((type) => type === record.type) && typeof record.id === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.id)) return record as ViewAction

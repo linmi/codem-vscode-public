@@ -103,11 +103,17 @@ export class ChatController {
     }
   }
 
-  async send(text: string): Promise<void> {
-    if (this.disposed || this.state.phase !== "ready" || !this.session) return
-    if (!text.trim() || text.length > 32_000) return
+  async send(text: string): Promise<boolean> {
+    if (this.disposed || this.state.phase !== "ready" || !this.session) return false
+    if (!text.trim() || text.length > 32_000) return false
     const session = this.session
     const active: ActiveTurn = { submissionId: randomUUID(), turnId: null, abort: new AbortController(), finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
+    const attachmentIds = [...this.attachments.keys()]
+    const consumeAttachments = () => {
+      if (this.session !== session || this.disposed) return
+      for (const id of attachmentIds) this.attachments.delete(id)
+      this.update({ attachments: this.state.attachments.filter((item) => !attachmentIds.includes(item.id)) })
+    }
     this.active = active
     this.invalidateHistory()
     this.update({ phase: "sending", notice: null })
@@ -117,31 +123,36 @@ export class ChatController {
       if ([...this.attachments.values()].some((attachment) => attachment.kind === "image") && !session.models.find((model) => model.id === this.settings.model)?.supportsVision) throw new UserVisibleError("当前模型不支持图片，请切换模型或移除图片。")
       if (!this.threadId) {
         const threadId = await session.host.startThread(session.cwd, this.settings)
-        if (this.session !== session || this.disposed) return
+        if (this.session !== session || this.disposed) return false
         this.threadId = threadId
       }
       this.options.assertTrusted()
-      const attachmentIds = [...this.attachments.keys()]
       const attachments = [...this.attachments.values()]
       this.update({ messages: [...this.state.messages, { id: active.submissionId, role: "user", label: "你", text, ...(this.state.attachments.length ? { attachments: this.state.attachments } : {}) }] })
       const turnId = await session.host.startTurn({ cwd: session.cwd, threadId: this.threadId, submissionId: active.submissionId, text, attachments })
-      if (this.session === session && !this.disposed) {
-        for (const id of attachmentIds) this.attachments.delete(id)
-        this.update({ attachments: this.state.attachments.filter((item) => !attachmentIds.includes(item.id)) })
-      }
+      consumeAttachments()
       // Core can complete the turn before turn/start returns. Never revive it.
       if (this.active === active && this.session === session && !this.disposed) {
         active.turnId = turnId
         this.update({ phase: "running" })
       }
+      return true
     } catch (error) {
+      if (active.turnId !== null) consumeAttachments()
+      if (this.active === active && active.turnId !== null) {
+        this.options.report("send", error)
+        this.update({ notice: "Core 已接收消息，但发送回执未能确认；请等待当前任务完成。" })
+        return true
+      }
       if (this.active === active) {
         this.finishActivities("incomplete")
         this.active = null
         active.abort.abort()
         this.options.report("send", error)
-        this.update({ phase: "ready", notice: error instanceof UserVisibleError ? error.message : "本次发送失败。消息未自动重发，附件保留，可以重试。" })
+        this.update({ phase: "ready", notice: error instanceof UserVisibleError ? error.message : "发送未能确认，请检查会话后再重试；未自动重发。", ...(active.turnId === null ? { messages: this.state.messages.filter((message) => message.id !== active.submissionId) } : {}) })
       }
+      // A correlated start event is acceptance even if the RPC reply is lost.
+      return active.turnId !== null
     }
   }
 

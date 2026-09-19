@@ -1,4 +1,5 @@
-import { initialSnapshot, isBusy, type ChatSnapshot, type ViewAction } from "../src/messages.ts"
+import { initialSnapshot, isBusy, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
+import { ComposerSubmission } from "./composerSubmission.ts"
 
 import { createMessageView } from "./messageView.ts"
 import { createHistoryView } from "./historyView.ts"
@@ -23,28 +24,29 @@ if (!headerActions) throw new Error("Missing CodeM header actions")
 const renderHistory = createHistoryView(headerActions, scroller, post)
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
-let pendingText: string | null = null
+const submission = new ComposerSubmission()
 prompt.value = vscode.getState()?.draft ?? ""
 
 function post(action: ViewAction): void { vscode.postMessage(action) }
 function saveDraft(): void {
   vscode.setState({ draft: prompt.value })
   prompt.rows = Math.min(8, Math.max(3, prompt.value.split("\n").length))
-  send.disabled = state.phase !== "ready" || !prompt.value.trim() || pendingText !== null
+  send.disabled = state.phase !== "ready" || !prompt.value.trim() || submission.busy
 }
 function submit(): void {
   if (send.disabled) return
-  pendingText = prompt.value
-  post({ type: "send", text: pendingText })
+  const requestId = crypto.randomUUID()
+  if (!submission.begin(requestId)) return
+  post({ type: "send", text: prompt.value, requestId })
   saveDraft()
 }
 element<HTMLFormElement>("composer").addEventListener("submit", (event) => { event.preventDefault(); submit() })
-prompt.addEventListener("input", saveDraft)
+prompt.addEventListener("input", () => { submission.edited(); saveDraft() })
 prompt.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); submit() }
 })
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-prompt]")) {
-  button.addEventListener("click", () => { prompt.value = button.dataset.prompt ?? ""; saveDraft(); prompt.focus() })
+  button.addEventListener("click", () => { prompt.value = button.dataset.prompt ?? ""; submission.edited(); saveDraft(); prompt.focus() })
 }
 connect.addEventListener("click", () => post({ type: "connect" }))
 signIn.addEventListener("click", () => post({ type: "signIn" }))
@@ -119,13 +121,7 @@ function render(next: ChatSnapshot): void {
   const switched = state.threadId !== next.threadId
   const previousFirst = state.messages[0]?.id
   const prepended = !switched && previousFirst !== undefined && next.messages.findIndex((message) => message.id === previousFirst) > 0 && state.messages.at(-1)?.id === next.messages.at(-1)?.id
-  const previousCount = state.messages.length
   state = next
-  if (pendingText !== null && state.messages.slice(previousCount).some((message) => message.role === "user" && message.text === pendingText)) {
-    if (prompt.value === pendingText) prompt.value = ""
-    pendingText = null
-  }
-  if (state.phase === "ready" || state.phase === "disconnected") pendingText = null
   const liveIds = new Set(state.messages.map((message) => message.id))
   for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.root.remove(); nodes.delete(id) } }
   let position = messages.firstChild
@@ -158,8 +154,12 @@ function render(next: ChatSnapshot): void {
   else if (switched || follow) scroller.scrollTop = scroller.scrollHeight
 }
 
-window.addEventListener("message", (event: MessageEvent<ChatSnapshot>) => {
+window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResult>) => {
   if (event.data?.type === "state") render(event.data)
+  else if (event.data?.type === "sendResult") {
+    if (submission.settle(event.data)) prompt.value = ""
+    saveDraft()
+  }
 })
 saveDraft()
 post({ type: "ready" })

@@ -29,7 +29,7 @@ export async function runLiveChat(extensionRoot: string): Promise<void> {
   try {
     await controller.connect()
     assert.equal(controller.snapshot().phase, "ready", controller.snapshot().notice ?? "Runtime connection failed")
-    await controller.send("这是客户端联调测试。只回复 CODEM_REAL_OK，不要调用工具，不要读取或修改任何文件。")
+    assert.equal(await controller.send("这是客户端联调测试。只回复 CODEM_REAL_OK，不要调用工具，不要读取或修改任何文件。"), true, "Core must acknowledge the submission")
     const state = await Promise.race([completed, new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error("Live chat exceeded 60 seconds")), 60_000) })])
     assert.equal(terminalOutcome, "completed")
     assert.equal(state.phase, "ready")

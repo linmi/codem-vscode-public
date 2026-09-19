@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { ChatController, UserVisibleError } from "./chatController.ts"
 import { assertTrusted, connectRuntime } from "./runtimeSession.ts"
 import { showInteraction } from "./interactions.ts"
-import { parseViewAction, type ViewAction } from "./messages.ts"
+import { parseViewAction, type SendResult, type ViewAction } from "./messages.ts"
 import { chatHtml } from "./html.ts"
 
 import { NativeFeatures } from "./nativeFeatures.ts"
@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   })
   const chat = controller
-  const dispatch = async (action: ViewAction): Promise<void> => {
+  const dispatch = async (action: ViewAction, reply: (result: SendResult) => void): Promise<void> => {
     switch (action.type) {
       case "ready": chat.publish(); break
       case "connect": await chat.connect(); break
@@ -49,7 +49,7 @@ export function activate(context: vscode.ExtensionContext): void {
       case "olderMessages": await chat.loadOlderMessages(); break
       case "reloadHistory": await chat.reloadHistory(); break
       case "newChat": await chat.newChat(); break
-      case "send": await chat.send(action.text); break
+      case "send": reply({ type: "sendResult", requestId: action.requestId, accepted: await chat.send(action.text) }); break
       case "stop": await chat.stop(); break
       case "selectModel": case "selectEffort": case "selectPermission": case "selectWorkMode": case "manageMcp": {
         const kind = action.type
@@ -78,7 +78,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const resource = (path: string) => resolved.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, path)).toString()
       resolved.webview.html = chatHtml({ script: resource("dist/webview.js"), style: resource("dist/webview.css"), logo: resource("assets/codemMark.svg"), cspSource: resolved.webview.cspSource })
       const listener = resolved.webview.onDidReceiveMessage((message: unknown) => {
-        try { void dispatch(parseViewAction(message)).catch(() => { output.appendLine("CodeM 操作未完成，请重试。"); void vscode.window.showErrorMessage("CodeM 操作未完成，文件可能已移除或不在当前工作区。") }) }
+        try { void dispatch(parseViewAction(message), (result) => { void resolved.webview.postMessage(result) }).catch(() => { output.appendLine("CodeM 操作未完成，请重试。"); void vscode.window.showErrorMessage("CodeM 操作未完成，文件可能已移除或不在当前工作区。") }) }
         catch { output.appendLine("拒绝了不受支持的界面请求。") }
       })
       resolved.onDidDispose(() => { listener.dispose(); if (view === resolved) view = undefined })

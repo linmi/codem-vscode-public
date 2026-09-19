@@ -4,7 +4,10 @@ import { parseViewAction } from "../src/messages.ts"
 import { chatHtml } from "../src/html.ts"
 
 it("accepts only supported actions and bounded text; refuses raw RPC, paths and extra fields", () => {
-  assert.deepEqual(parseViewAction({ type: "send", text: "hello" }), { type: "send", text: "hello" })
+  assert.deepEqual(parseViewAction({ type: "send", text: "hello", requestId: "request-1" }), { type: "send", text: "hello", requestId: "request-1" })
+  for (const requestId of ["", "../x", 1, "a".repeat(101)]) assert.throws(() => parseViewAction({ type: "send", text: "hello", requestId }))
+  assert.throws(() => parseViewAction({ type: "send", text: "hello" }))
+  for (const text of [" ", "x".repeat(32_001)]) assert.throws(() => parseViewAction({ type: "send", text, requestId: "valid" }))
   assert.deepEqual(parseViewAction({ type: "ready" }), { type: "ready" })
   for (const input of [null, [], { type: "send", text: " " }, { type: "send", text: "x".repeat(32_001) }, { type: "send", text: "hi", cwd: "/tmp" }, { type: "connect", environment: {} }, { type: "request", method: "turn/start" }]) {
     assert.throws(() => parseViewAction(input))
