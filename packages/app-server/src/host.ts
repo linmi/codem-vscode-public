@@ -392,6 +392,7 @@ interface ThreadState {
   readonly connection: ConnectionState
   settings: AppServerThreadSettings
   activeTurn: ActiveTurn | null
+  readonly completedTurnIds: Set<string>
   sideQuestion: ActiveSideQuestion | null
   modes: AppServerModeState | null
   modesValid: boolean
@@ -1126,6 +1127,7 @@ export class AppServerHost {
       connection,
       settings,
       activeTurn: null,
+      completedTurnIds: new Set(),
       sideQuestion: null,
       modes: null,
       modesValid: false,
@@ -1224,6 +1226,32 @@ export class AppServerHost {
       this.handleSideQuestion(thread, frame)
       return
     }
+    if (
+      frame.method === "backgroundTask/wakeQueued" ||
+      frame.method === "backgroundTask/wakeStarted" ||
+      frame.method === "backgroundTask/wakeSkipped"
+    ) {
+      this.emit({
+        type: "background-wake",
+        threadId: thread.id,
+        turnId: nonBlankString(frame.params.turnId, `${frame.method} turnId`),
+        phase:
+          frame.method === "backgroundTask/wakeQueued"
+            ? "queued"
+            : frame.method === "backgroundTask/wakeStarted"
+              ? "started"
+              : "skipped",
+        taskId: nonBlankString(frame.params.taskId, `${frame.method} taskId`),
+      })
+      return
+    }
+    // Background wake notifications belong to the originating turn and can arrive
+    // while idle. A subsequent Core-owned turn has no client submission id.
+    if (frame.method === "turn/started" && !thread.activeTurn) {
+      const turnId = nonBlankString(objectOrNull(frame.params.turn)?.id ?? frame.params.turnId, "turn/started turn id")
+      if (thread.completedTurnIds.has(turnId)) return
+      thread.activeTurn = createActiveTurn(null)
+    }
     const active = thread.activeTurn
     if (!active) return
     const turnId = notificationTurnId(frame.params, active)
@@ -1291,25 +1319,6 @@ export class AppServerHost {
         outcome: nonBlankString(run.outcome, "hook/completed run.outcome"),
         reason: run.reason === null ? null : stringValue(run.reason, "hook/completed run.reason"),
         elapsedMs: nonNegativeNumber(run.elapsedMs, "hook/completed run.elapsedMs"),
-      })
-      return
-    }
-    if (
-      frame.method === "backgroundTask/wakeQueued" ||
-      frame.method === "backgroundTask/wakeStarted" ||
-      frame.method === "backgroundTask/wakeSkipped"
-    ) {
-      this.emit({
-        type: "background-wake",
-        threadId: thread.id,
-        turnId,
-        phase:
-          frame.method === "backgroundTask/wakeQueued"
-            ? "queued"
-            : frame.method === "backgroundTask/wakeStarted"
-              ? "started"
-              : "skipped",
-        taskId: nonBlankString(frame.params.taskId, `${frame.method} taskId`),
       })
       return
     }
@@ -1458,6 +1467,7 @@ export class AppServerHost {
       })
     }
     if (thread.activeTurn === active) thread.activeTurn = null
+    thread.completedTurnIds.add(turnId)
     this.emit({ type: "turn-completed", threadId: thread.id, turnId, outcome, stopReason, error })
   }
 

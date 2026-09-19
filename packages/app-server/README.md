@@ -74,3 +74,5 @@ Realtime turns continue to use pinned online CLI 0.1.208 / Core 0.8.37. Durable 
 History failures are explicit; there is no RPC fallback or second transcript store. Live `turn/completed` remains terminal authority. In-flight JSONL snapshots cannot replace live parts; idle reopening replaces the viewport from the durable projection.
 
 Run `pnpm --filter @codem/app-server test` and `pnpm --filter @codem/app-server typecheck` from the workspace root. Tests use fixtures and fake processes; they do not sign in or execute live agent turns.
+
+Background wake events remain observable while the originating turn is idle. A `turn/started` notification on a subscribed thread can begin a Core-owned background turn with `submissionId: null`; its streamed items, approvals and terminal event follow the normal lifecycle. Completed turn IDs are remembered for that subscription so a duplicate start cannot revive a finished turn. Notifications for unsubscribed threads remain ignored.

@@ -21,6 +21,28 @@ afterEach(() => {
 })
 
 describe("AppServerHost", () => {
+  it("delivers idle background wakes and Core-owned turns without reviving completed turns", { timeout: 5000 }, async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "background-test", version: "1" }, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, BACKGROUND_AFTER_TURN: "1" }, assertAuthenticated: () => {} })
+    const events: AppServerHostEvent[] = []
+    const finished = new Promise<void>((resolve, reject) => host.onEvent((event) => {
+      events.push(event)
+      if (event.type === "turn-completed" && event.turnId === "wake-turn") resolve()
+      if (event.type === "protocol-error") reject(new Error(event.message))
+    }))
+    try {
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      await host.startTurn({ cwd: fixture.root, threadId, submissionId: "user-message", text: "Start background task" })
+      await finished
+      await host.readModes(fixture.root, threadId)
+      assert.equal(host.hasActiveWork, false)
+      assert.equal(events.filter((event) => event.type === "background-wake" && event.taskId === "idle-task").length, 2)
+      assert.deepEqual(events.filter((event) => event.type === "turn-started").map((event) => [event.turnId, event.submissionId]), [["turn-1", "user-message"], ["wake-turn", null]])
+      assert.equal(events.filter((event) => event.type === "turn-completed").length, 2)
+      assert.deepEqual(events.flatMap((event) => event.type === "text-delta" && event.turnId === "wake-turn" ? [event.delta] : []), ["Background finished"])
+    } finally { await host.close() }
+  })
+
   for (const method of ["item/agentMessage/delta", "item/reasoning/textDelta", "thread/sideQuestion/delta"] as const) {
     for (const field of ["delta", "deltaText"] as const) {
       it(`preserves whitespace in ${method} ${field} without closing the connection`, { timeout: 5000 }, async () => {
@@ -768,6 +790,16 @@ lines.on("line", (line) => {
     if (process.env.UNKNOWN_NOTIFICATION) send({ jsonrpc: "2.0", method: "future/unknown", params: { threadId: frame.params.threadId, turnId: "turn-1" } })
     for (const notification of ${JSON.stringify(textNotifications)}) send({ jsonrpc: "2.0", method: notification.method, params: { threadId: frame.params.threadId, turnId: "turn-1", itemId: "item-1", ...notification.params } })
     send({ jsonrpc: "2.0", method: "item/completed", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "item-1", type: "agentMessage", status: "completed", text: "Done" } } })
+    if (process.env.BACKGROUND_AFTER_TURN) setTimeout(() => {
+      send({ method: "backgroundTask/wakeQueued", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "idle-task" } })
+      send({ method: "backgroundTask/wakeStarted", params: { threadId: frame.params.threadId, turnId: "turn-1", taskId: "idle-task" } })
+      send({ method: "turn/started", params: { threadId: "foreign-thread", turn: { id: "foreign-turn" } } })
+      send({ method: "turn/started", params: { threadId: frame.params.threadId, turn: { id: "wake-turn" } } })
+      send({ method: "item/agentMessage/delta", params: { threadId: frame.params.threadId, turnId: "wake-turn", itemId: "wake-answer", delta: "Background finished" } })
+      send({ method: "turn/completed", params: { threadId: frame.params.threadId, turn: { id: "wake-turn", status: "completed", stopReason: "end_turn", error: null } } })
+      send({ method: "turn/started", params: { threadId: frame.params.threadId, turn: { id: "wake-turn" } } })
+      send({ method: "item/agentMessage/delta", params: { threadId: frame.params.threadId, turnId: "wake-turn", itemId: "wake-answer", delta: "stale" } })
+    }, 10)
     return send({ jsonrpc: "2.0", method: "turn/completed", params: { threadId: frame.params.threadId, turn: { id: "turn-1", status: "completed", stopReason: "end_turn", error: null, items: [{ id: "snapshot-only", type: "toolCall", status: "interrupted", tool: "read_file", callId: "call-snapshot", summary: "Turn ended" }, { id: "snapshot-result", type: "toolResult", status: "completed", callId: "call-snapshot", output: "Done" }] } } })
   }
   send({ jsonrpc: "2.0", id: frame.id, result: {} })
