@@ -1,18 +1,17 @@
 import type { ChatMessage } from "../src/messages.ts"
+import { timelineGroups } from "../src/timelineGroups.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 
-/** Consecutive work forms one disclosure; assistant commentary remains a boundary. */
+/** Keep a response’s execution and progress updates in one disclosure. */
 export function createWorkGroups() {
   const groups = new Map<string, { root: HTMLDetailsElement; summary: HTMLElement; content: HTMLElement; touched: boolean }>()
   return (messages: readonly ChatMessage[], node: (id: string) => HTMLElement): HTMLElement[] => {
     const result: HTMLElement[] = []
     const alive = new Set<string>()
-    for (let i = 0; i < messages.length;) {
-      const first = messages[i]!
-      if (!("status" in first)) { result.push(node(first.id)); i++; continue }
-      const work: typeof first[] = []
-      while (i < messages.length && "status" in messages[i]!) work.push(messages[i++] as typeof first)
-      const id = first.id
+    for (const item of timelineGroups(messages)) {
+      if (item.kind === "message") { result.push(node(item.message.id)); continue }
+      const work = item.messages
+      const id = item.id
       alive.add(id)
       let group = groups.get(id)
       if (!group) {
@@ -25,9 +24,9 @@ export function createWorkGroups() {
         summary.addEventListener("click", event => { event.preventDefault(); current.touched = true; root.open = !root.open })
         groups.set(id, group)
       }
-      const running = work.some(m => m.status === "running")
-      const failed = work.some(m => m.status === "failed" || m.status === "incomplete")
-      const interrupted = work.some(m => m.status === "interrupted" || m.status === "declined")
+      const running = work.some(m => "status" in m && (m.status === "running"))
+      const failed = work.some(m => "status" in m && (m.status === "failed" || m.status === "incomplete"))
+      const interrupted = work.some(m => "status" in m && (m.status === "interrupted" || m.status === "declined"))
       group.root.dataset.state = running ? "running" : failed ? "failed" : interrupted ? "interrupted" : "completed"
       if (!group.touched) group.root.open = running || failed
       const tools = work.filter(m => m.role === "tool").length

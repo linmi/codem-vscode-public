@@ -1,7 +1,7 @@
 import type { ChatSnapshot } from "../src/messages.ts"
 
 export const previewScenarios = [
-  ["conversation", "对话", "完成回复"], ["welcome", "对话", "新会话"],
+  ["conversation", "对话", "完成回复"], ["progressUpdates", "对话", "多次搜索与进度说明"], ["welcome", "对话", "新会话"],
   ["disconnected", "状态", "未连接"], ["connecting", "状态", "初始化加载"],
   ["thinking", "状态", "思考中"], ["tools", "状态", "工具执行中"],
   ["failed", "状态", "工具失败"], ["stopping", "状态", "正在停止"],
@@ -15,6 +15,16 @@ export const previewScenarios = [
 
 export function applyPreviewScenario(state: ChatSnapshot, scenario: string): string | null {
   const empty = () => { state.messages = []; state.threadId = null }
+  if (scenario === "progressUpdates") state.messages = [
+    { id: "u", role: "user", label: "你", text: "今天本地新闻" },
+    { id: "r1", role: "reasoning", label: "思考过程", text: "先确定查询范围。", summary: "分析查询范围", status: "completed" },
+    { id: "t1", role: "tool", label: "搜索新闻", text: "已返回第一轮结果。", summary: "", status: "completed" },
+    { id: "p1", role: "assistant", label: "CodeM", text: "暂未获取城市，先检索国内要闻。" },
+    { id: "t2", role: "tool", label: "搜索新闻", text: "已返回第二轮结果。", summary: "", status: "completed" },
+    { id: "p2", role: "assistant", label: "CodeM", text: "第一轮结果多为网站首页，正在调整关键词。" },
+    { id: "t3", role: "tool", label: "整理来源", text: "来源整理完成。", summary: "", status: "completed" },
+    { id: "a", role: "assistant", label: "CodeM", text: "已完成新闻检索。提供所在城市后，可以继续筛选本地消息。\n\n这是界面预览示例，不是真实新闻。" },
+  ]
   if (scenario === "welcome") empty()
   if (scenario === "disconnected" || scenario === "connecting") { empty(); state.phase = scenario; state.space = null; state.workspace = null; state.model = null }
   if (scenario === "historyLoading") state.phase = "loadingHistory"

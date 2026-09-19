@@ -92,4 +92,4 @@ tests/            协议、状态、生命周期及真实联调验证
 
 ## 样式场景预览
 
-构建后运行 `node --experimental-strip-types apps/vscode/tests/webviewPreview.ts`（仓库根目录），打开 http://127.0.0.1:4318/。顶部选择器提供 23 个状态、菜单和内容场景，支持浅色/深色及重置。场景与主题保存在 URL，可直接分享具体预览链接。所有数据与操作均为独立模拟，不连接 Core；该工具栏只存在于预览服务中，不进入插件。
+构建后运行 `node --experimental-strip-types apps/vscode/tests/webviewPreview.ts`（仓库根目录），打开 http://127.0.0.1:4318/。顶部选择器提供 24 个状态、菜单和内容场景，支持浅色/深色及重置。场景与主题保存在 URL，可直接分享具体预览链接。所有数据与操作均为独立模拟，不连接 Core；该工具栏只存在于预览服务中，不进入插件。
