@@ -41,3 +41,16 @@
 .pickerPanel[data-kind="effort"] .decisionChoice:hover { background: var(--soft); }
 .pickerPanel[data-kind="effort"] .decisionChoiceDescription { display: inline-block; margin: 0 0 0 6px; padding: 1px 5px; border-radius: 4px; background: var(--soft); font-weight: 500; }
 .decisionPrevious { margin-top: 8px; padding: 6px 8px; font-size: 12px; color: var(--muted); border-radius: 6px; }
+
+/* Pending interactions use one spacing rhythm instead of stacked child margins. */
+.decisionPanel:not(.pickerPanel) { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; }
+.decisionPanel:not(.pickerPanel) .decisionHeading { align-items: center; }
+.decisionPanel:not(.pickerPanel) .decisionHeading h2 { margin: 0; }
+.decisionPanel:not(.pickerPanel) .decisionHeading .iconButton { margin: 0; }
+.decisionPanel:not(.pickerPanel) .decisionDescription,
+.decisionPanel:not(.pickerPanel) .decisionChoices,
+.decisionPanel:not(.pickerPanel) .decisionAnswer,
+.decisionPanel:not(.pickerPanel) .decisionPrevious { margin: 0; }
+.decisionPanel:not(.pickerPanel) .decisionChoice { align-items: center; min-height: 30px; padding: 5px 8px; }
+.decisionPanel:not(.pickerPanel) .decisionAnswer { flex-shrink: 0; min-height: 52px; padding: 8px 10px; }
+.decisionPanel:not(.pickerPanel) .decisionSubmit { flex-shrink: 0; align-self: flex-end; margin: 0; }
