@@ -1,9 +1,10 @@
+import { terminalReplyLast } from "./timelineOrder.ts"
 import { toolPayloadText, type SessionHistoryPage } from "@codem/session-history"
 import type { ActivityStatus, ChatMessage } from "./messages.ts"
 
 /** Project durable history into display text. Raw records and host handles never cross this boundary. */
 export function historyMessages(threadId: string, page: SessionHistoryPage): ChatMessage[] {
-  return page.turns.flatMap(({ turn }) => turn.items.flatMap((item): ChatMessage[] => {
+  return page.turns.flatMap(({ turn }) => terminalReplyLast(turn.items, [...turn.items].reverse().find(item => item.kind === "message" && item.role === "assistant" && item.delivery?.synthetic)?.id ?? null).flatMap((item): ChatMessage[] => {
     const id = `history:${threadId}:${turn.index}:${item.id}`
     if (item.kind === "message") {
       const text = item.role === "user" && item.attachments.length ? `${item.text}${item.text ? "\n" : ""}[${item.attachments.length} 个历史附件]` : item.text

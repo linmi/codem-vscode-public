@@ -93,3 +93,16 @@ it("keeps history tool outcomes explicit, including missing results and redacted
   assert.ok(messages.slice(1).every((message) => message.text === ""))
   assert.doesNotMatch(JSON.stringify(messages), /private input|Reasoning content is redacted/)
 })
+
+
+it("places persisted late reasoning before a structured final reply within its own turn", () => {
+  const page: SessionHistoryPage = { nextCursor: null, turns: [{ submissionId: "s", turn: {
+    id: "t", index: 0, engineTurnIndexes: [0], model: "fixture", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null,
+    items: [
+      { id: "comment", at, kind: "message", role: "assistant", text: "Checking", delivery: null },
+      { id: "final", at, kind: "message", role: "assistant", text: "Done", delivery: { synthetic: true, structured: { status: "complete", kind: "chat", summary: "Done", artifacts: [] } } },
+      { id: "late", at, kind: "activity", activityType: "reasoning", redacted: false, text: "Thought" },
+    ],
+  } }] }
+  assert.deepEqual(historyMessages("thread", page).map(m => m.text), ["Checking", "Thought", "Done"])
+})

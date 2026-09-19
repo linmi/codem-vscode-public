@@ -1,3 +1,4 @@
+import { terminalReplyLast } from "./timelineOrder.ts"
 import { randomUUID } from "node:crypto"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerFileDiff, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
 import { initialSnapshot, isBusy, type ActivityMessage, type ActivityStatus, type ChatSnapshot } from "./messages.ts"
@@ -20,6 +21,7 @@ export interface ChatSession {
   readHistory: SessionHistoryReader
 }
 interface ActiveTurn {
+  finalReplyId: string | null
   finalAnswerCalls: Set<string>
   toolMessageIds: Map<string, string>
   submissionId: string
@@ -107,7 +109,7 @@ export class ChatController {
     if (this.disposed || this.state.phase !== "ready" || !this.session) return false
     if (!text.trim() || text.length > 32_000) return false
     const session = this.session
-    const active: ActiveTurn = { submissionId: randomUUID(), turnId: null, abort: new AbortController(), finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
+    const active: ActiveTurn = { submissionId: randomUUID(), turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
     const attachmentIds = [...this.attachments.keys()]
     const consumeAttachments = () => {
       if (this.session !== session || this.disposed) return
@@ -366,7 +368,7 @@ export class ChatController {
       }
       if (event.type === "turn-started" && event.submissionId === null && !this.active) {
         this.invalidateHistory()
-        this.active = { submissionId: randomUUID(), turnId: event.turnId, abort: new AbortController(), finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
+        this.active = { submissionId: randomUUID(), turnId: event.turnId, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
         this.update({ phase: "running" })
       }
     }
@@ -411,7 +413,8 @@ export class ChatController {
         if (item.callId) active.finalAnswerCalls.add(item.callId)
         if (item.finalAnswer?.summary) {
           const answer = [...this.state.messages].reverse().find((message) => message.role === "assistant" && message.id.startsWith(`${event.turnId}:`))
-          this.upsert(answer?.id ?? `${event.turnId}:finalAnswer`, "assistant", "CodeM", item.finalAnswer.summary, false)
+          active.finalReplyId = answer?.id ?? `${event.turnId}:finalAnswer`
+          this.upsert(active.finalReplyId, "assistant", "CodeM", item.finalAnswer.summary, false)
         }
         return
       }
@@ -645,7 +648,7 @@ export class ChatController {
       text: append ? (previous?.text ?? "") + text : text || previous?.text || "",
       summary: summary || previous?.summary || "",
     }
-    this.update({ messages: previous ? this.state.messages.map((item) => item.id === id ? message : item) : [...this.state.messages, message] })
+    this.update({ messages: terminalReplyLast(previous ? this.state.messages.map((item) => item.id === id ? message : item) : [...this.state.messages, message], this.active?.finalReplyId ?? null) })
   }
 
   private finishActivities(status: "completed" | "failed" | "interrupted" | "incomplete"): void {
@@ -661,7 +664,7 @@ export class ChatController {
   private upsert(id: string, role: "user" | "assistant", label: string, text: string, append: boolean): void {
     const previous = this.state.messages.find((message) => message.id === id)
     const message = { id, role, label, text: append ? (previous?.text ?? "") + text : text || previous?.text || "" }
-    this.update({ messages: previous ? this.state.messages.map((item) => item.id === id ? message : item) : [...this.state.messages, message] })
+    this.update({ messages: terminalReplyLast(previous ? this.state.messages.map((item) => item.id === id ? message : item) : [...this.state.messages, message], this.active?.finalReplyId ?? null) })
   }
 
   private update(patch: Partial<ChatSnapshot>): void {

@@ -446,3 +446,17 @@ it("a start notification proves acceptance when the RPC reply fails and keeps th
   assert.equal(fixture.controller.snapshot().phase, "ready")
   await fixture.controller.dispose()
 })
+
+
+it("keeps late reasoning and tool completion before the terminal reply without reversing work order", async () => {
+  const f = setup()
+  try {
+    await f.controller.connect(); await f.controller.send("test ordering")
+    f.emit({ type: "text-delta", threadId: "thread-1", turnId: "turn-1", itemId: "answer", delta: "reply" })
+    f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "final", type: "toolCall", tool: "final_answer", status: "completed", arguments: { status: "complete", kind: "chat", summary: "final reply", artifacts: [] } }, "fixture") })
+    f.emit({ type: "reasoning-delta", threadId: "thread-1", turnId: "turn-1", itemId: "lateThought", delta: "thought" })
+    f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "lateTool", type: "toolCall", tool: "read_files", status: "completed" }, "fixture") })
+    assert.deepEqual(f.controller.snapshot().messages.map(m => m.role), ["user", "reasoning", "tool", "assistant"])
+    assert.equal(f.controller.snapshot().messages.at(-1)?.text, "final reply")
+  } finally { await f.controller.dispose() }
+})
