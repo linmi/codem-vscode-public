@@ -1,3 +1,5 @@
+import { installComposerCommands } from "./composerCommands.ts"
+import { attachmentCard } from "./attachmentView.ts"
 import { createWorkGroups } from "./workGroups.ts"
 import { createPanelView } from "./panelView.ts"
 import type { PanelMessage } from "../src/panelTypes.ts"
@@ -112,11 +114,7 @@ function renderResources(): void {
   if (nextKey !== resourcesKey) {
     resourcesKey = nextKey
   const attachments = element("attachments")
-  attachments.replaceChildren(...state.attachments.map((item) => {
-    const remove = button(`${item.kind === "image" ? "图片" : item.kind === "directory" ? "目录" : "文件"} · ${item.label} ×`, { type: "removeAttachment", id: item.id }, !ready)
-    remove.title = `移除附件 ${item.label}`
-    return remove
-  }))
+  attachments.replaceChildren(...state.attachments.map(item => attachmentCard(item, ready ? () => post({ type: "removeAttachment", id: item.id }) : undefined)))
   const diffs = element("diffs")
   diffs.replaceChildren(...state.diffs.map((diff) => {
     const row = document.createElement("div"); row.className = "resourceRow"
@@ -211,5 +209,6 @@ window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResul
     saveDraft()
   }
 })
+installComposerCommands(prompt, () => state.phase === "ready" && !panels.locked(), post)
 saveDraft()
 post({ type: "ready" })

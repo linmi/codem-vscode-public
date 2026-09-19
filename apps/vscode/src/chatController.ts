@@ -1,3 +1,4 @@
+import { attachmentPreview } from "./attachmentPreview.ts"
 import { terminalReplyLast } from "./timelineOrder.ts"
 import { randomUUID } from "node:crypto"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerFileDiff, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
@@ -506,8 +507,11 @@ export class ChatController {
       if (this.attachments.size + unique.length > 20) throw new UserVisibleError("每条消息最多添加 20 个附件。")
       for (const item of unique) await validateAttachment(item)
       if (this.session !== session || this.disposed) return
-      for (const item of unique) this.attachments.set(randomUUID(), item)
-      this.update({ attachments: [...this.attachments].map(([id, item]) => ({ id, label: displayPath(session.cwd, item.path), kind: item.kind })) })
+      const additions = await Promise.all(unique.map(async item => ({ id: randomUUID(), item, preview: await attachmentPreview(item) })))
+      if (this.session !== session || this.disposed) return
+      this.options.assertTrusted()
+      for (const { id, item } of additions) this.attachments.set(id, item)
+      this.update({ attachments: [...this.state.attachments, ...additions.map(({ id, item, preview }) => ({ id, label: displayPath(session.cwd, item.path), kind: item.kind, preview }))] })
     } catch (error) {
       this.options.report("attachment", error)
       if (this.session === session) this.update({ notice: error instanceof UserVisibleError ? error.message : "附件不可用，请检查文件是否存在；图片不能超过 20 MiB。" })

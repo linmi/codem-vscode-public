@@ -10,7 +10,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
   const source = escapeHtml(resources.cspSource)
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${source}; style-src ${source}; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${source} data:; style-src ${source}; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'">
 <link rel="stylesheet" href="${escapeHtml(resources.style)}"><title>CodeM</title></head>
 <body>
 <div class="app" data-phase="initializing">

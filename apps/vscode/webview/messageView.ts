@@ -1,3 +1,4 @@
+import { attachmentCard } from "./attachmentView.ts"
 import { toolPresentation } from "./toolPresentation.ts"
 import type { ActivityStatus, ChatMessage } from "../src/messages.ts"
 import { uiIcon } from "../src/uiIcons.ts"
@@ -57,7 +58,10 @@ export function createMessageView(initial: ChatMessage): { root: HTMLElement; up
   function update(message: ChatMessage): void {
     const attachments = "attachments" in message ? message.attachments : undefined
     copyText = message.text
-    attachmentLabels.textContent = attachments?.map((item) => `▧ ${item.label}`).join(" · ") ?? ""
+    if (attachmentLabels.dataset.ids !== attachments?.map(item => item.id).join(",")) {
+      attachmentLabels.replaceChildren(...(attachments ?? []).map(item => attachmentCard(item)))
+      attachmentLabels.dataset.ids = attachments?.map(item => item.id).join(",") ?? ""
+    }
     attachmentLabels.hidden = !attachments?.length
     label.textContent = message.label + (attachments?.length ? ` · ${attachments.map((item) => item.label).join("、")}` : "")
     let text = message.text

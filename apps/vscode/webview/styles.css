@@ -172,3 +172,19 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .app[data-phase="loadingHistory"] .transcriptLoading { padding-block: 16px; }
 .app[data-phase="loadingHistory"] #messages { opacity: .45; pointer-events: none; }
 .app[data-phase="loadingHistory"] .loadingLines { margin-top: 16px; }
+
+.attachmentCard { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 11px; }
+.attachmentName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachmentThumbnail { display: block; width: 36px; height: 36px; object-fit: cover; border-radius: 4px; }
+.attachmentPreview { padding: 0; flex-shrink: 0; }
+.attachmentRemove { padding: 2px; display: flex; border-radius: 4px; }
+.attachmentRemove svg { width: 12px; height: 12px; }
+.messageAttachments { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.imagePreview { max-width: 90vw; max-height: 90vh; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); }
+.imagePreview::backdrop { background: #0008; }
+.imagePreview img { display: block; width: auto; height: auto; max-width: 80vw; max-height: 75vh; object-fit: contain; }
+.imagePreview button { display: block; margin: 8px auto 0; }
+
+.composerCommands { position: absolute; z-index: 8; left: 8px; right: 8px; bottom: calc(100% + 8px); padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--composerShadow); }
+.composerCommands button { display: block; width: 100%; text-align: left; padding: 8px; border-radius: 6px; font-size: 12px; }
+.composerCommands button[aria-selected="true"] { background: var(--soft); }
