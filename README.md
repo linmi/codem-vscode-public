@@ -30,6 +30,8 @@ Oxlint 配置在 `.oxlintrc.json`，启用 correctness 规则，warning 也会�
 
 ## 历史与复用
 
+历史插件的命令、菜单、快捷键、设置及已知限制见 [历史 VS Code 插件点位清单](docs/legacyVscodeContributionPoints.md)，供后续功能规划与迁移核对。
+
 旧项目在提交 `904dddd` 中归档，原始来源为 `c389c6304f0108cd50fd31ad3b79bd5402f28ad2`。`history/` 不参加 workspace、编译、测试或默认搜索。需要查阅时显式指定历史文件；历史开发规则不支配新实现。
 
 本次仅迁入上述三个包的源码、配置和测试，独立安装依赖并生成新的根锁文件。复制来源、许可证与原始修改记录见 [UPSTREAM.md](UPSTREAM.md)。旧插件、UI、SDK 和旧工作区依赖均留在归档中。
