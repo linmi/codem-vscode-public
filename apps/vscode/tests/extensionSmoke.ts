@@ -1,3 +1,5 @@
+import { assertTrusted, connectRuntime } from "../src/runtimeSession.ts"
+import { runLiveInteractions } from "./liveInteractions.ts"
 import assert from "node:assert/strict"
 import { writeFileSync } from "node:fs"
 import * as vscode from "vscode"
@@ -16,7 +18,8 @@ export async function run(): Promise<void> {
   await vscode.commands.executeCommand("codem.newChat")
   await runNativeFeatureSmoke()
   if (process.env.CODEM_LIVE_SMOKE === "1") {
-    if (process.env.CODEM_FEATURE_LIVE === "1") await runLiveFeatures(extension.extensionPath)
+    if (process.env.CODEM_INTERACTIONS_LIVE === "1") await runLiveInteractions({ connect: signal => connectRuntime(extension.extensionPath, "0.2.0", false, signal), assertTrusted })
+    else if (process.env.CODEM_FEATURE_LIVE === "1") await runLiveFeatures(extension.extensionPath)
     else await runLiveChat(extension.extensionPath)
   }
   assert.ok(process.env.CODEM_SMOKE_RESULT)

@@ -35,8 +35,9 @@ createServer((request, response) => {
       const demo = ${JSON.stringify(state).replaceAll("<", "\\u003c")};
       const panels = ${JSON.stringify(panelFixtures).replaceAll("<", "\\u003c")};
       let activePanel = panels[${JSON.stringify(url.searchParams.get("panel"))}] ?? null;
-      window.panelReplies = [];
+      window.panelReplies = []; window.viewActions = [];
       window.acquireVsCodeApi = () => ({getState: () => null, setState: () => {}, postMessage: action => {
+        window.viewActions.push(action);
         if (action.type === 'searchFiles') { window.postMessage({type:'fileSearchResult',requestId:action.requestId,files:action.query==='missing'?[]:[{id:'fileFixture',label:'src/main.ts'}],error:null},'*'); return; }
         if (action.type === 'selectFile') { demo.attachments=[{id:'fileFixture',label:'src/main.ts',kind:'file',preview:{kind:'none'}}]; window.postMessage(demo,'*'); window.postMessage({type:'fileSelected',requestId:action.requestId,accepted:true},'*'); return; }
         if (action.type === 'selectEffort') activePanel = panels.effort;

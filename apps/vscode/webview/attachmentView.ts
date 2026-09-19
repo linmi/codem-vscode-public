@@ -23,6 +23,7 @@ export function attachmentCard(item: AttachmentView, remove?: () => void): HTMLE
   } else if (item.preview.kind === "image") {
     const image = document.createElement("img"); image.src = item.preview.dataUrl; image.alt = item.label; image.className = "attachmentThumbnail"
     const preview = document.createElement("button"); preview.type = "button"; preview.className = "attachmentPreview"; preview.setAttribute("aria-label", `预览 ${item.label}`); preview.append(image)
+    image.addEventListener("error", () => { preview.disabled = true; preview.textContent = "图片无法解码"; preview.title = "图片内容损坏或格式不受支持" })
     preview.addEventListener("click", () => {
       const dialog = document.createElement("dialog"); dialog.className = "imagePreview"
       const full = image.cloneNode(true) as HTMLImageElement

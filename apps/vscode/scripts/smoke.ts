@@ -18,8 +18,8 @@ try {
   }
   if (!executable) throw new Error("Set CODEM_VSCODE_EXECUTABLE to the VS Code application executable")
   const result = join(temporary, "result")
-  const child = spawn(executable, args, { stdio: "inherit", env: { ...process.env, CODEM_SMOKE_RESULT: result, CODEM_FEATURE_NODE: process.execPath, CODEM_RESOURCES_ONLY: process.argv.includes("--resources") ? "1" : "0", CODEM_LIVE_SMOKE: process.argv.includes("--live") ? "1" : "0", CODEM_FEATURE_LIVE: process.argv.includes("--features") ? "1" : "0" } })
-  const timeout = setTimeout(() => child.kill(), process.argv.includes("--features") ? 420_000 : 120_000)
+  const child = spawn(executable, args, { stdio: "inherit", env: { ...process.env, CODEM_SMOKE_RESULT: result, CODEM_INTERACTIONS_LIVE: process.argv.includes("--interactions") ? "1" : "0", CODEM_FEATURE_NODE: process.execPath, CODEM_RESOURCES_ONLY: process.argv.includes("--resources") ? "1" : "0", CODEM_LIVE_SMOKE: process.argv.includes("--live") ? "1" : "0", CODEM_FEATURE_LIVE: process.argv.includes("--features") ? "1" : "0" } })
+  const timeout = setTimeout(() => child.kill(), (process.argv.includes("--features") || process.argv.includes("--interactions")) ? 720_000 : 120_000)
   try {
     const code = await new Promise<number | null>((resolve, reject) => { child.on("error", reject); child.on("exit", resolve) })
     if (code !== 0) throw new Error(`VS Code smoke test failed (${String(code)})`)

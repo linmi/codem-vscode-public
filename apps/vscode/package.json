@@ -118,7 +118,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p webview/tsconfig.json",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "test:extension": "node --experimental-strip-types scripts/smoke.ts",
-    "test:live": "node --experimental-strip-types scripts/smoke.ts --live"
+    "test:live": "node --experimental-strip-types scripts/smoke.ts --live",
+    "test:acceptance": "node --experimental-strip-types scripts/acceptance.ts"
   },
   "dependencies": {
     "@codem/app-server": "workspace:*",

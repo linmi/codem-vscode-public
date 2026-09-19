@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto"
+import { createSessionHistoryReader } from "../src/sessionHistory.ts"
 import assert from "node:assert/strict"
 import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -476,5 +478,68 @@ it("loads large image bytes only on demand and expires removed image handles", a
     assert.equal((await f.controller.loadImage("forged")).kind, "unavailable")
     f.controller.removeAttachment(item.id)
     assert.equal((await f.controller.loadImage(item.id)).kind, "unavailable")
+  } finally { await f.controller.dispose(); await rm(root, { recursive: true, force: true }) }
+})
+
+
+it("restores schema 13 image handles and rejects changed durable image bytes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "codemHistoryImage"))
+  const previousRoot = process.env.LINCO_SESSIONS_ROOT
+  process.env.LINCO_SESSIONS_ROOT = root
+  const f = setup()
+  try {
+    const directory = join(root, createHash("sha256").update(f.session.cwd).digest("hex").slice(0, 16))
+    const imageDirectory = join(directory, "thread-1", "attachments")
+    await mkdir(imageDirectory, { recursive: true })
+    const bytes = Buffer.alloc(1024 * 1024); Buffer.from([137,80,78,71,13,10,26,10]).copy(bytes)
+    const imagePath = join(imageDirectory, "image.png"); await writeFile(imagePath, bytes)
+    const at = "2026-09-20T00:00:00Z"
+    const records = [
+      { type: "header", schema_version: 13, session_id: "thread-1", cwd: f.session.cwd, started_at: at, model: "fixture", provider: "openai_compat" },
+      { type: "user_invocation", at, submission_id: "s1", input: { kind: "message", content: "历史图片", attachments: [{ kind: "image", path: "attachments/image.png", sha256: createHash("sha256").update(bytes).digest("hex"), media_type: "image/png", width: 1, height: 1, bytes: bytes.length, display_name: "历史图片.png" }] } },
+      { type: "turn_request", at, turn_index: 0, model: "fixture" },
+      { type: "assistant_text", at, text: "完成" },
+      { type: "turn_end", at, turn_index: 0, stop_reason: "EndTurn" },
+    ]
+    await writeFile(join(directory, "thread-1.jsonl"), records.map((record, i) => JSON.stringify({ ...record, record_seq: i + 1 })).join("\n") + "\n")
+    f.session.readHistory = createSessionHistoryReader({ cwd: f.session.cwd, sessionsRoot: root, authorize: async () => {} })
+    await f.controller.connect(); await f.controller.send("test")
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+    await f.controller.reloadHistory()
+    const user = f.controller.snapshot().messages.find(message => message.role === "user")!
+    assert.ok("attachments" in user)
+    const image = user.attachments![0]!
+    assert.equal(image.label, "历史图片.png"); assert.deepEqual(image.preview, { kind: "deferred" })
+    assert.doesNotMatch(JSON.stringify(user), /attachments\/image|sha256|data:image/)
+    assert.equal((await f.controller.loadImage(image.id)).kind, "image")
+    bytes[100] = 1; await writeFile(imagePath, bytes)
+    assert.equal((await f.controller.loadImage(image.id)).kind, "unavailable")
+    await f.controller.newChat()
+    assert.equal((await f.controller.loadImage(image.id)).kind, "unavailable")
+  } finally {
+    if (previousRoot === undefined) delete process.env.LINCO_SESSIONS_ROOT
+    else process.env.LINCO_SESSIONS_ROOT = previousRoot
+    await f.controller.dispose(); await rm(root, { recursive: true, force: true })
+  }
+})
+
+it("keeps final artifacts through late reply updates and expires their open handles", async () => {
+  const root = await mkdtemp(join(tmpdir(), "codemFinalArtifact"))
+  const f = setup(); f.session.cwd = root
+  try {
+    await writeFile(join(root, "report.txt"), "done")
+    await f.controller.connect(); await f.controller.send("test")
+    f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "final", type: "toolCall", tool: "final_answer", status: "completed", arguments: { status: "complete", kind: "task", summary: "done", artifacts: [{ kind: "file", title: "Report", path: "report.txt" }] } }, "fixture") })
+    const reply = f.controller.snapshot().messages.find(message => message.role === "assistant")!
+    const artifact = reply.artifacts![0]!
+    f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "finalAnswer", type: "agentMessage", status: "completed", text: "done, with details" }, "fixture") })
+    assert.equal(f.controller.snapshot().messages.find(message => message.id === reply.id)!.artifacts![0]!.id, artifact.id)
+    let opened = 0
+    await f.controller.openArtifact(artifact.id, async source => { assert.equal(source.kind, "file"); opened++ })
+    assert.equal(opened, 1)
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+    await f.controller.newChat()
+    await f.controller.openArtifact(artifact.id, async () => { opened++ })
+    assert.equal(opened, 1)
   } finally { await f.controller.dispose(); await rm(root, { recursive: true, force: true }) }
 })

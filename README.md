@@ -29,6 +29,14 @@ pnpm check
 
 运行 `pnpm build:vscode` 构建插件；在 VS Code 中打开仓库，选择 **CodeM VS Code** 调试配置并按 F5 启动开发宿主。在新窗口打开工作区，然后从活动栏进入 CodeM 并连接。
 
+已有开发宿主时，构建后复用该窗口并执行 **Developer: Reload Window**，不必重复按 F5 新开窗口。真实 Core 交互回归也可复用已有的临时验收工作区，不打开 VS Code：
+
+```bash
+pnpm --filter codem test:acceptance --workspace /absolute/path/to/existing/temporary/workspace
+```
+
+该命令需要已登录、已选择空间以及已构建的运行时；会实际调用模型，在指定临时工作区的父目录创建审批测试文件，并写入 Core 自有会话历史。路径必须在系统临时目录内。详细覆盖与限制见 [交互验收记录](docs/interactionAcceptance.md)。
+
 Oxlint 配置在 `.oxlintrc.json`，启用 correctness 规则，warning 也会使检查失败；归档、依赖及生成目录不参与 lint。配置依据 [Oxlint 官方文档](https://oxc.rs/docs/guide/usage/linter/config)。类型检查仍由各包的 TypeScript 执行。
 
 ## 历史与复用

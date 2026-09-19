@@ -1,5 +1,6 @@
 // Run with the Playwright CLI against tests/webviewPreview.ts; see docs/synaraStyleAlignment.md.
 export default async function webviewChecks(page) {
+  await page.goto("http://127.0.0.1:4318/");
   const result = await page.evaluate(async () => {
     const text = '## Render check\n\n- **Bold**\n- `inline`\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```ts\nconst x = "<script>safe code</script>"\n```\n\n<script>window.__xss = true</script><img src=x onerror="window.__xss=true"><svg onload="window.__xss=true"></svg><form><input autofocus onfocus="window.__xss=true"></form>\n\n[unsafe](command:codem.connect) [safe](https://example.com)';
     window.postMessage({...demo, messages:[{id:'safety',role:'assistant',label:'CodeM',text}]}, '*');
