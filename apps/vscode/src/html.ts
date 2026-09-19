@@ -49,8 +49,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
         </div>
       </div>
     </form>
-    <div class="footerMeta"><span class="environment">${uiIcon("monitor")}<span>本地</span></span><span class="workspaceLabel">${uiIcon("folder")}<span id="workspace">未连接工作区</span></span></div>
-    <div class="keyboardHint" id="status" role="status" aria-live="polite">Enter 发送 · Shift + Enter 换行</div>
+    <div class="footerMeta"><span class="environment">${uiIcon("monitor")}<span>本地</span></span><span class="workspaceLabel">${uiIcon("folder")}<span id="workspace">未连接工作区</span></span><span class="keyboardHint" id="status" role="status" aria-live="polite" title="Enter 发送 · Shift + Enter 换行">Enter 发送 · Shift + Enter 换行</span></div>
   </footer>
 </div><script nonce="${nonce}" src="${escapeHtml(resources.script)}"></script></body></html>`
 }
