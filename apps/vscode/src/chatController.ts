@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
-import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerFileDiff, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
-import { initialSnapshot, isBusy, type ChatMessage, type ChatSnapshot } from "./messages.ts"
+import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerFileDiff, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
+import { initialSnapshot, isBusy, type ActivityMessage, type ActivityStatus, type ChatSnapshot } from "./messages.ts"
 
 import { HistoryListController } from "./historyList.ts"
 import { historyMessages } from "./historyMessages.ts"
@@ -20,6 +20,8 @@ export interface ChatSession {
   readHistory: SessionHistoryReader
 }
 interface ActiveTurn {
+  finalAnswerCalls: Set<string>
+  toolMessageIds: Map<string, string>
   submissionId: string
   turnId: string | null
   abort: AbortController
@@ -105,7 +107,7 @@ export class ChatController {
     if (this.disposed || this.state.phase !== "ready" || !this.session) return
     if (!text.trim() || text.length > 32_000) return
     const session = this.session
-    const active: ActiveTurn = { submissionId: randomUUID(), turnId: null, abort: new AbortController(), requests: new Map(), approvals: Promise.resolve() }
+    const active: ActiveTurn = { submissionId: randomUUID(), turnId: null, abort: new AbortController(), finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
     this.active = active
     this.invalidateHistory()
     this.update({ phase: "sending", notice: null })
@@ -134,6 +136,7 @@ export class ChatController {
       }
     } catch (error) {
       if (this.active === active) {
+        this.finishActivities("incomplete")
         this.active = null
         active.abort.abort()
         this.options.report("send", error)
@@ -319,6 +322,7 @@ export class ChatController {
     this.resetResources()
     this.session = null
     this.generation++
+    this.finishActivities("incomplete")
     this.active?.abort.abort()
     this.active = null
     this.unsubscribe?.()
@@ -351,7 +355,7 @@ export class ChatController {
       }
       if (event.type === "turn-started" && event.submissionId === null && !this.active) {
         this.invalidateHistory()
-        this.active = { submissionId: randomUUID(), turnId: event.turnId, abort: new AbortController(), requests: new Map(), approvals: Promise.resolve() }
+        this.active = { submissionId: randomUUID(), turnId: event.turnId, abort: new AbortController(), finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
         this.update({ phase: "running" })
       }
     }
@@ -379,29 +383,37 @@ export class ChatController {
       this.diffs.set(id, event.diff)
       this.update({ diffs: [...this.state.diffs, { id, label: displayPath(this.session!.cwd, event.diff.path), added: event.diff.stats.linesAdded, removed: event.diff.stats.linesRemoved, preview: event.diff.preview.kind }] })
     } else if (event.type === "item-output-delta") {
-      this.upsert(`${event.turnId}:${event.itemId}`, "tool", "工具输出", event.delta, true)
+      if (active.finalAnswerCalls.has(event.toolCallId)) return
+      const id = this.toolMessageId(event.turnId, event.itemId, event.toolCallId)
+      this.upsertActivity(id, "tool", null, "running", event.delta, "", true)
     } else if (event.type === "interaction-resolved") {
       active.requests.get(event.requestId)?.abort()
     } else if (event.type === "text-delta" || event.type === "reasoning-delta") {
-      this.upsert(`${event.turnId}:${event.itemId}`, event.type === "text-delta" ? "assistant" : "reasoning", event.type === "text-delta" ? "CodeM" : "思考过程", event.delta, true)
+      const id = `${event.turnId}:${event.itemId}`
+      if (event.type === "text-delta") this.upsert(id, "assistant", "CodeM", event.delta, true)
+      else this.upsertActivity(id, "reasoning", "思考过程", "running", event.delta, "", true)
     } else if (event.type === "item-started" || event.type === "item-completed") {
       const item = event.item
       if (item.type === "userMessage") return
+      if (item.callId && active.finalAnswerCalls.has(item.callId) && item.toolName !== "final_answer") return
       if (item.toolName === "final_answer") {
+        if (item.callId) active.finalAnswerCalls.add(item.callId)
         if (item.finalAnswer?.summary) {
           const answer = [...this.state.messages].reverse().find((message) => message.role === "assistant" && message.id.startsWith(`${event.turnId}:`))
           this.upsert(answer?.id ?? `${event.turnId}:finalAnswer`, "assistant", "CodeM", item.finalAnswer.summary, false)
         }
         return
       }
-      const role = item.type === "agentMessage" ? "assistant" : item.type === "reasoning" ? "reasoning" : "tool"
-      const text = item.finalAnswer?.summary || item.text || item.output || item.summary
-      if (role === "reasoning" && !text && !this.state.messages.some((message) => message.id === `${event.turnId}:${item.id}`)) return
-      const status = { inProgress: "进行中", completed: "已完成", failed: "失败", declined: "已拒绝", interrupted: "已停止" }[item.status]
-      const tool = { commandExecution: "执行命令", fileChange: "修改文件", mcpToolCall: "调用工具", webSearch: "搜索", contextCompaction: "整理上下文", toolCall: "调用工具", toolResult: "工具结果", subagent: "子任务", reasoning: "思考", agentMessage: "回复", userMessage: "消息" }[item.type]
-      // A snapshot with no text must not erase already streamed content.
-      this.upsert(`${event.turnId}:${item.id}`, role, role === "assistant" ? "CodeM" : role === "reasoning" ? "思考过程" : `${item.type === "mcpToolCall" ? "MCP · " + (item.toolName ?? tool) : tool} · ${status}`, text, false)
+      if (item.type === "agentMessage") {
+        this.upsert(`${event.turnId}:${item.id}`, "assistant", "CodeM", item.text || item.output || item.summary, false)
+      } else {
+        const reasoning = item.type === "reasoning"
+        const id = reasoning ? `${event.turnId}:${item.id}` : this.toolMessageId(event.turnId, item.id, item.callId)
+        const status: ActivityStatus = item.isError ? "failed" : ({ inProgress: "running", completed: "completed", failed: "failed", declined: "declined", interrupted: "interrupted" } as const)[item.status]
+        this.upsertActivity(id, reasoning ? "reasoning" : "tool", reasoning ? "思考过程" : this.toolLabel(item, id), status, item.output || item.text, item.summary, false)
+      }
     } else if (event.type === "turn-completed") {
+      this.finishActivities(event.outcome === "completed" ? "completed" : event.outcome === "stopped" ? "interrupted" : "failed")
       active.abort.abort()
       this.active = null
       this.update({ phase: "ready", notice: event.outcome === "completed" ? null : event.outcome === "stopped" ? "已停止生成。" : "本轮任务失败，可以继续发送消息。" })
@@ -595,7 +607,47 @@ export class ChatController {
     } finally { active.abort.signal.removeEventListener("abort", cancel) }
   }
 
-  private upsert(id: string, role: ChatMessage["role"], label: string, text: string, append: boolean): void {
+  private toolMessageId(turnId: string, itemId: string, callId: string | null): string {
+    const ids = this.active!.toolMessageIds
+    const itemKey = `item:${itemId}`
+    const callKey = callId === null ? null : `call:${callId}`
+    const id = (callKey ? ids.get(callKey) : undefined) ?? ids.get(itemKey) ?? `${turnId}:tool:${itemId}`
+    ids.set(itemKey, id)
+    if (callKey) ids.set(callKey, id)
+    return id
+  }
+
+  private toolLabel(item: AppServerItem, id: string): string {
+    if (item.toolName) return item.type === "mcpToolCall" ? `MCP · ${item.toolName}` : item.toolName
+    const previous = this.state.messages.find((message) => message.id === id)
+    if (previous) return previous.label
+    return { commandExecution: "执行命令", fileChange: "修改文件", mcpToolCall: "调用工具", webSearch: "搜索", contextCompaction: "整理上下文", toolCall: "调用工具", toolResult: "工具结果", subagent: "子任务", reasoning: "思考过程", agentMessage: "回复", userMessage: "消息" }[item.type]
+  }
+
+  private upsertActivity(id: string, role: ActivityMessage["role"], label: string | null, status: ActivityStatus, text: string, summary: string, append: boolean): void {
+    const existing = this.state.messages.find((message) => message.id === id)
+    const previous = existing && "status" in existing ? existing : undefined
+    const message: ActivityMessage = {
+      id, role, label: label ?? previous?.label ?? "工具输出",
+      // Late progress cannot revert a terminal item to running.
+      status: status === "running" && previous && previous.status !== "running" ? previous.status : status,
+      text: append ? (previous?.text ?? "") + text : text || previous?.text || "",
+      summary: summary || previous?.summary || "",
+    }
+    this.update({ messages: previous ? this.state.messages.map((item) => item.id === id ? message : item) : [...this.state.messages, message] })
+  }
+
+  private finishActivities(status: "completed" | "failed" | "interrupted" | "incomplete"): void {
+    const turnId = this.active?.turnId
+    if (!turnId) return
+    this.update({ messages: this.state.messages.map((message) => {
+      if (!("status" in message) || message.status !== "running" || !message.id.startsWith(`${turnId}:`)) return message
+      // Turn success is not evidence that a tool with a missing result succeeded.
+      return { ...message, status: status === "completed" && message.role === "tool" ? "incomplete" : status }
+    }) })
+  }
+
+  private upsert(id: string, role: "user" | "assistant", label: string, text: string, append: boolean): void {
     const previous = this.state.messages.find((message) => message.id === id)
     const message = { id, role, label, text: append ? (previous?.text ?? "") + text : text || previous?.text || "" }
     this.update({ messages: previous ? this.state.messages.map((item) => item.id === id ? message : item) : [...this.state.messages, message] })

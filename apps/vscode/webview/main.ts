@@ -1,5 +1,6 @@
-import { initialSnapshot, isBusy, type ChatMessage, type ChatSnapshot, type ViewAction } from "../src/messages.ts"
+import { initialSnapshot, isBusy, type ChatSnapshot, type ViewAction } from "../src/messages.ts"
 
+import { createMessageView } from "./messageView.ts"
 import { createHistoryView } from "./historyView.ts"
 
 declare function acquireVsCodeApi(): { postMessage(message: ViewAction): void; getState(): { draft?: string } | undefined; setState(state: { draft: string }): void }
@@ -20,7 +21,7 @@ const messages = element("messages")
 const headerActions = document.querySelector<HTMLElement>(".headerActions")
 if (!headerActions) throw new Error("Missing CodeM header actions")
 const renderHistory = createHistoryView(headerActions, scroller, post)
-const nodes = new Map<string, { root: HTMLElement; body: HTMLElement; label: HTMLElement; text: string }>()
+const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
 let pendingText: string | null = null
 prompt.value = vscode.getState()?.draft ?? ""
@@ -110,42 +111,6 @@ function renderResources(): void {
   for (const id of ["background", "backgroundTasks"]) for (const node of element(id).querySelectorAll("button")) node.disabled = blocked
 }
 
-// No HTML from the model is ever interpreted. Code fences get safe native code elements.
-function renderText(target: HTMLElement, text: string): void {
-  target.replaceChildren()
-  const sections = text.split(/```[^\n]*\n/)
-  if (sections.length === 1) { target.textContent = text; return }
-  // Split complete and in-progress fences without rendering markdown as HTML.
-  const fence = /```[^\n]*\n([\s\S]*?)(?:```|$)/g
-  let end = 0
-  for (const match of text.matchAll(fence)) {
-    target.append(document.createTextNode(text.slice(end, match.index)))
-    const pre = document.createElement("pre")
-    const code = document.createElement("code")
-    code.textContent = match[1] ?? ""
-    pre.append(code); target.append(pre)
-    end = match.index + match[0].length
-  }
-  target.append(document.createTextNode(text.slice(end)))
-}
-
-function renderMessage(message: ChatMessage): void {
-  let node = nodes.get(message.id)
-  if (!node) {
-    const root = document.createElement("article")
-    root.className = "message"; root.dataset.role = message.role
-    const body = document.createElement("div"); body.className = "messageBody"
-    const label = document.createElement(message.role === "tool" || message.role === "reasoning" ? "summary" : "h2")
-    if (label.tagName === "SUMMARY") {
-      const details = document.createElement("details"); details.append(label, body); root.append(details)
-    } else { label.className = "messageLabel"; root.append(label, body) }
-    messages.append(root)
-    node = { root, body, label, text: "" }; nodes.set(message.id, node)
-  }
-  node.label.textContent = message.label + (message.attachments?.length ? ` · ${message.attachments.map((item) => item.label).join("、")}` : "")
-  if (node.text !== message.text) { renderText(node.body, message.text); node.text = message.text }
-}
-
 function render(next: ChatSnapshot): void {
   const follow = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 70
   const anchor = state.messages[0] ? nodes.get(state.messages[0].id)?.root : undefined
@@ -165,7 +130,9 @@ function render(next: ChatSnapshot): void {
   for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.root.remove(); nodes.delete(id) } }
   let position = messages.firstChild
   for (const message of state.messages) {
-    renderMessage(message)
+    let view = nodes.get(message.id)
+    if (!view) { view = createMessageView(message); nodes.set(message.id, view) }
+    else view.update(message)
     const root = nodes.get(message.id)!.root
     if (root !== position) messages.insertBefore(root, position)
     position = root.nextSibling

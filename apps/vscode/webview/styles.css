@@ -84,3 +84,22 @@ body.vscode-high-contrast .composer, body.vscode-high-contrast-light .composer, 
 #tools, #mcpNames { overflow-wrap: anywhere; line-height: 1.7; }
 @media (max-width: 300px) { .permission { display: inline-block; } .footerMeta { gap: 4px; } }
 .activityPanel > summary { position: sticky; top: 0; background: var(--vscode-sideBar-background, #f8f9fb); z-index: 1; }
+
+.activityMessage { padding: 8px 0; }
+.activityMessage details { border: 1px solid var(--vscode-contrastBorder, var(--vscode-widget-border, #d8dbe3)); border-radius: 7px; background: var(--vscode-editor-background, #fff); overflow: hidden; }
+.activityMessage summary { padding: 10px; display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 6px; align-items: baseline; list-style: none; }
+.activityMessage summary:focus-visible { outline-offset: -2px; }
+.activityMessage summary::-webkit-details-marker { display: none; }
+.activityMessage summary::before { content: "›"; font-size: 15px; line-height: 1; }
+.activityMessage details[open] > summary::before { transform: rotate(90deg); }
+.activityTitle { color: var(--vscode-foreground, #31343c); font-weight: 500; }
+.activityStatus { font-size: 10px; white-space: nowrap; }
+.activityPreview { grid-column: 2 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.activityMessage details[open] .activityPreview { display: none; }
+.activityMessage details .messageBody { padding: 0 12px 12px; max-height: 320px; overflow: auto; }
+.activityMessage[data-role="tool"] .messageBody { font-family: var(--vscode-editor-font-family, monospace); }
+.activityNote { padding: 0 12px 8px; font-size: 11px; white-space: pre-wrap; color: var(--vscode-descriptionForeground, #717783); }
+.emptyOutput { color: var(--vscode-descriptionForeground, #717783); }
+.activityMessage[data-status="running"] .activityStatus { color: var(--vscode-progressBar-background, #5964cf); }
+.activityMessage[data-status="failed"] .activityStatus { color: var(--vscode-errorForeground, #b92332); }
+.activityMessage[data-status="declined"] .activityStatus, .activityMessage[data-status="incomplete"] .activityStatus { color: var(--vscode-editorWarning-foreground, #996800); }

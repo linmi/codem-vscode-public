@@ -25,13 +25,14 @@ export interface AttachmentView { id: string; label: string; kind: "image" | "fi
 export interface DiffView { id: string; label: string; added: number; removed: number; preview: string }
 export interface BackgroundView { id: string; label: string; inProgress: boolean }
 export interface BackgroundTaskView { id: string; label: string; phase: "queued" | "started" | "skipped" | "cancelled" | "notFound" | "noop" }
-export interface ChatMessage {
+export type ActivityStatus = "running" | "completed" | "failed" | "declined" | "interrupted" | "incomplete"
+interface MessageContent {
   id: string
-  role: "user" | "assistant" | "reasoning" | "tool"
   label: string
   text: string
-  attachments?: readonly AttachmentView[]
 }
+export type ActivityMessage = MessageContent & { role: "reasoning" | "tool"; status: ActivityStatus; summary: string }
+export type ChatMessage = (MessageContent & { role: "user" | "assistant"; attachments?: readonly AttachmentView[] }) | ActivityMessage
 export interface ChatSnapshot {
   type: "state"
   phase: ChatPhase

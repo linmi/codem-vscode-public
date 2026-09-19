@@ -74,6 +74,22 @@ it("renders reasoning and tool results without exposing execution inputs or diag
     ],
   } }] }
   const messages = historyMessages("thread-1", page)
-  assert.deepEqual(messages.map((message) => [message.role, message.label, message.text]), [["reasoning", "思考过程", "reasoning text"], ["tool", "read_files · 已完成", "file contents"], ["tool", "历史错误", "历史操作失败。"]])
+  assert.deepEqual(messages.map((message) => [message.role, message.label, message.text]), [["reasoning", "思考过程", "reasoning text"], ["tool", "read_files", "file contents"], ["tool", "历史错误", "历史操作失败。"]])
+  assert.deepEqual(messages.map((message) => "status" in message ? message.status : null), ["completed", "completed", "failed"])
   assert.doesNotMatch(JSON.stringify(messages), /host-only|private-code|private-operation|private-id/)
+})
+
+it("keeps history tool outcomes explicit, including missing results and redacted reasoning", () => {
+  const page: SessionHistoryPage = { nextCursor: null, turns: [{ submissionId: "submission", turn: {
+    id: "turn", index: 0, engineTurnIndexes: [0], model: "fixture", provider: "fixture", startedAt: at, completedAt: at, state: "stopped", usage: null,
+    items: [
+      { id: "redacted", at, kind: "activity", activityType: "reasoning", redacted: true, text: "Reasoning content is redacted." },
+      ...(["running", "succeeded", "failed", "declined", "interrupted"] as const).map((status) => ({ id: status, at, kind: "tool-execution" as const, toolCallId: status, toolName: "run_bash", input: { value: "private input", preview: "private input", previewTruncated: false }, result: null, status })),
+    ],
+  } }] }
+  const messages = historyMessages("thread-1", page)
+  assert.equal(messages[0]?.text, "Core 未提供可显示的内容。")
+  assert.deepEqual(messages.slice(1).map((message) => "status" in message ? message.status : null), ["incomplete", "completed", "failed", "declined", "interrupted"])
+  assert.ok(messages.slice(1).every((message) => message.text === ""))
+  assert.doesNotMatch(JSON.stringify(messages), /private input|Reasoning content is redacted/)
 })

@@ -307,7 +307,9 @@ it("sends native attachments without exposing paths, deduplicates and keeps them
     fixture.host.startTurn = async (input) => { assert.deepEqual(input.attachments, attachments); return "turn-2" }
     await fixture.controller.send("retry")
     assert.equal(fixture.controller.snapshot().attachments.length, 0)
-    assert.equal(fixture.controller.snapshot().messages.at(-1)?.attachments?.length, 3)
+    const sent = fixture.controller.snapshot().messages.at(-1)
+    assert.ok(sent && "attachments" in sent)
+    assert.equal(sent.attachments?.length, 3)
   } finally { await fixture.controller.dispose(); await rm(root, { recursive: true, force: true }) }
 })
 
@@ -354,4 +356,69 @@ it("retains a confirmed model update if a following mode write conflicts", async
   assert.equal(fixture.controller.snapshot().permission, "default")
   assert.ok(fixture.controller.snapshot().notice)
   await fixture.controller.dispose()
+})
+
+it("shows empty reasoning immediately, streams whitespace and retains content on completion", async () => {
+  const f = setup()
+  try {
+    await f.controller.connect(); await f.controller.send("hello")
+    f.emit({ type: "item-started", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "thought", type: "reasoning", status: "inProgress" }, "fixture") })
+    assert.deepEqual(f.controller.snapshot().messages.at(-1), { id: "turn-1:thought", role: "reasoning", label: "思考过程", status: "running", text: "", summary: "" })
+    for (const delta of [" first\n", " second "]) f.emit({ type: "reasoning-delta", threadId: "thread-1", turnId: "turn-1", itemId: "thought", delta })
+    f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "thought", type: "reasoning", status: "completed" }, "fixture") })
+    assert.deepEqual(f.controller.snapshot().messages.at(-1), { id: "turn-1:thought", role: "reasoning", label: "思考过程", status: "completed", text: " first\n second ", summary: "" })
+  } finally { await f.controller.dispose() }
+})
+
+it("correlates tool calls and results, preserves tool names and separates summaries from output", async () => {
+  const f = setup()
+  try {
+    await f.controller.connect(); await f.controller.send("hello")
+    const emitItem = (type: "item-started" | "item-completed", value: unknown) => f.emit({ type, threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem(value, "fixture") })
+    emitItem("item-started", { id: "exec", type: "commandExecution", status: "inProgress", tool: "run_bash", arguments: { command: "host-only-input" } })
+    for (const delta of [" line one\n", "line two "]) f.emit({ type: "item-output-delta", threadId: "thread-1", turnId: "turn-1", itemId: "exec", toolCallId: "call-1", delta })
+    emitItem("item-completed", { id: "result", type: "toolResult", callId: "call-1", status: "completed", summary: "exit 0" })
+    assert.deepEqual(f.controller.snapshot().messages.slice(1), [{ id: "turn-1:tool:exec", role: "tool", label: "run_bash", status: "completed", text: " line one\nline two ", summary: "exit 0" }])
+    emitItem("item-completed", { id: "result", type: "toolResult", callId: "call-1", status: "completed", output: "full output" })
+    assert.equal(f.controller.snapshot().messages.at(-1)?.text, "full output")
+    f.emit({ type: "item-output-delta", threadId: "thread-1", turnId: "turn-1", itemId: "exec", toolCallId: "call-1", delta: "\nlate progress" })
+    const completed = f.controller.snapshot().messages.at(-1)
+    assert.ok(completed && "status" in completed)
+    assert.equal(completed.status, "completed")
+    assert.doesNotMatch(JSON.stringify(f.controller.snapshot()), /host-only-input/)
+    emitItem("item-completed", { id: "mcp", type: "mcpToolCall", tool: "mcp__fixture__echo", status: "completed", isError: true, output: "tool error" })
+    assert.deepEqual(f.controller.snapshot().messages.at(-1), { id: "turn-1:tool:mcp", role: "tool", label: "MCP · mcp__fixture__echo", status: "failed", text: "tool error", summary: "" })
+  } finally { await f.controller.dispose() }
+})
+
+it("updates tools first seen as output and keeps final_answer results out of tool cards", async () => {
+  const f = setup()
+  try {
+    await f.controller.connect(); await f.controller.send("hello")
+    f.emit({ type: "item-output-delta", threadId: "thread-1", turnId: "turn-1", itemId: "exec", toolCallId: "call-1", delta: "progress" })
+    f.emit({ type: "item-started", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "exec", type: "toolCall", status: "inProgress", tool: "read_files", callId: "call-1" }, "fixture") })
+    assert.equal(f.controller.snapshot().messages.length, 2)
+    assert.equal(f.controller.snapshot().messages.at(-1)?.label, "read_files")
+    for (const item of [
+      { id: "final", type: "toolCall", status: "completed", tool: "final_answer", callId: "final-call", arguments: { summary: "answer", kind: "chat" } },
+      { id: "final-result", type: "toolResult", status: "completed", callId: "final-call", output: "accepted" },
+    ]) f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem(item, "fixture") })
+    assert.equal(f.controller.snapshot().messages.at(-1)?.text, "answer")
+    assert.equal(f.controller.snapshot().messages.length, 3)
+  } finally { await f.controller.dispose() }
+})
+
+for (const outcome of ["completed", "failed", "stopped", "disconnected"] as const) it(`settles pending output on ${outcome} without inventing tool success`, async () => {
+  const f = setup()
+  try {
+    await f.controller.connect(); await f.controller.send("hello")
+    f.emit({ type: "reasoning-delta", threadId: "thread-1", turnId: "turn-1", itemId: "reasoning", delta: "thinking" })
+    f.emit({ type: "item-output-delta", threadId: "thread-1", turnId: "turn-1", itemId: "tool", toolCallId: "call", delta: "partial" })
+    if (outcome === "disconnected") f.emit({ type: "protocol-error", cwd: "/workspace", message: "fixture error" })
+    else f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome, stopReason: "fixture", error: null })
+    const messages = f.controller.snapshot().messages.slice(1)
+    const expected = outcome === "completed" ? ["completed", "incomplete"] : Array(2).fill(outcome === "stopped" ? "interrupted" : outcome === "disconnected" ? "incomplete" : "failed")
+    assert.deepEqual(messages.map((message) => "status" in message ? message.status : null), expected)
+    assert.deepEqual(messages.map((message) => message.text), ["thinking", "partial"])
+  } finally { await f.controller.dispose() }
 })
