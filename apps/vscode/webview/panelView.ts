@@ -109,7 +109,8 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
     }
     root.append(list)
     if (panel.allowText) { root.append(input); input.addEventListener("input", syncSelection) }
-    if (panel.confirmLabel) { root.append(confirm); confirm.disabled = true; confirm.addEventListener("click", () => submit([...selected])) }
+    const actions = document.createElement("div"); actions.className = "decisionActions"
+    if (panel.confirmLabel) { actions.append(confirm); confirm.disabled = true; confirm.addEventListener("click", () => submit([...selected])) }
     root.onkeydown = event => {
       if (event.isComposing) return
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); return }
@@ -125,8 +126,9 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
     }
     if (panel.backChoiceId) {
       const previous = document.createElement("button"); previous.type = "button"; previous.className = "decisionPrevious"; previous.textContent = "上一题"
-      previous.addEventListener("click", () => submit([panel.backChoiceId!])); root.append(previous)
+      previous.addEventListener("click", () => submit([panel.backChoiceId!])); actions.prepend(previous)
     }
+    if (actions.childElementCount) root.append(actions)
     if (panel.confirmLabel) syncSelection()
     root.removeAttribute("aria-busy")
     changed()
