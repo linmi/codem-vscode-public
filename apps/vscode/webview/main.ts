@@ -1,3 +1,4 @@
+import { createWorkGroups } from "./workGroups.ts"
 import { createPanelView } from "./panelView.ts"
 import type { PanelMessage } from "../src/panelTypes.ts"
 import { initialSnapshot, isBusy, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
@@ -39,6 +40,7 @@ jumpLatest.addEventListener("click", () => { scroller.scrollTop = scroller.scrol
 const headerActions = document.querySelector<HTMLElement>(".headerActions")
 if (!headerActions) throw new Error("Missing CodeM header actions")
 const renderHistory = createHistoryView(headerActions, scroller, post)
+const renderWorkGroups = createWorkGroups()
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
 const submission = new ComposerSubmission()
@@ -157,15 +159,18 @@ function render(next: ChatSnapshot): void {
   document.querySelector<HTMLElement>(".app")!.dataset.phase = state.phase
   const liveIds = new Set(state.messages.map((message) => message.id))
   for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.root.remove(); nodes.delete(id) } }
-  let position = messages.firstChild
   for (const message of state.messages) {
     let view = nodes.get(message.id)
     if (!view) { view = createMessageView(message); nodes.set(message.id, view) }
     else view.update(message)
-    const root = nodes.get(message.id)!.root
+  }
+  const timelineNodes = renderWorkGroups(state.messages, id => nodes.get(id)!.root)
+  let position = messages.firstChild
+  for (const root of timelineNodes) {
     if (root !== position) messages.insertBefore(root, position)
     position = root.nextSibling
   }
+  while (position) { const next = position.nextSibling; position.remove(); position = next }
   renderHistory(state)
   element("welcome").hidden = state.messages.length > 0
   element("connection").hidden = state.phase !== "disconnected" && state.phase !== "connecting"

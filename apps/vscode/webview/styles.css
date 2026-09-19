@@ -130,3 +130,13 @@ body.vscode-high-contrast textarea::placeholder, body.vscode-high-contrast-light
 body.vscode-high-contrast, body.vscode-high-contrast-light { --codeSurface: var(--vscode-textCodeBlock-background); --hover: var(--vscode-toolbar-hoverBackground); }
 body.vscode-high-contrast { color-scheme: dark; }
 body.vscode-high-contrast-light { color-scheme: light; }
+
+.workGroup { width: 100%; color: var(--muted); }
+.workGroup > summary { display: flex; gap: 6px; align-items: center; font-size: 12px; line-height: 20px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); list-style: none; cursor: pointer; }
+.workGroup > summary::-webkit-details-marker { display: none; }
+.workGroup > summary svg { width: 12px; height: 12px; transition: transform 150ms; }
+.workGroup[open] > summary svg { transform: rotate(90deg); }
+.workGroupContent { padding: 6px 0 2px; display: flex; flex-direction: column; gap: 4px; }
+.workGroupContent .message { margin: 0; }
+.workGroup[data-state="failed"] > summary { color: var(--vscode-errorForeground, #e02e2a); }
+@media (prefers-reduced-motion: reduce) { .workGroup > summary svg { transition: none; } }
