@@ -1,6 +1,7 @@
 import type { PanelView } from "../src/panelTypes.ts"
 const base = { backChoiceId: null, initialText: "", description: "", detail: null, multiple: false, allowText: false, confirmLabel: null }
 export const panelFixtures: Record<string, PanelView> = {
+  space: { ...base, id: "spaceFixture", kind: "space", title: "空间", description: "切换后开始新会话，历史记录仍保留。", choices: [{ id: "team", label: "研发团队", selected: true, description: "" }, { id: "personal", label: "个人空间", selected: false, description: "" }] },
   model: { ...base, id: "model-fixture", kind: "model", title: "模型", description: "下一轮生效", choices: [
     { id: "auto", label: "Auto", description: "自动选择合适的模型", selected: true },
     { id: "model-one", label: "CodeM Reasoning", description: "支持图片 · 200,000 tokens", selected: false },

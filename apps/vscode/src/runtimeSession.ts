@@ -9,11 +9,11 @@ export function assertTrusted(): void {
   if (!vscode.workspace.isTrusted) throw new UserVisibleError("请先通过 VS Code 管理工作区信任，再连接 CodeM。")
 }
 
-export async function connectRuntime(extensionRoot: string, version: string, signIn: boolean, signal: AbortSignal): Promise<ChatSession> {
+export async function connectRuntime(extensionRoot: string, version: string, signIn: boolean, signal: AbortSignal, target?: { cwd: string; workspace: string; key: string }): Promise<ChatSession> {
   assertTrusted()
   const folders = vscode.workspace.workspaceFolders ?? []
   if (folders.length === 0) throw new UserVisibleError("请先打开一个项目文件夹。")
-  const folder = folders.length === 1 ? folders[0] : await vscode.window.showWorkspaceFolderPick({ placeHolder: "选择本次 CodeM 会话的工作区" })
+  const folder = target ? { uri: vscode.Uri.file(target.cwd), name: target.workspace } : folders.length === 1 ? folders[0] : await vscode.window.showWorkspaceFolderPick({ placeHolder: "选择本次 CodeM 会话的工作区" })
   if (!folder) throw new UserVisibleError("已取消选择工作区。")
   if (folder.uri.scheme !== "file") throw new UserVisibleError("此工作区不提供可用的文件系统，请在本地或远程 Extension Host 中打开项目。")
   assertTrusted()
@@ -47,8 +47,10 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   assertTrusted()
   signal.throwIfAborted()
   const spaces = await listAppServerSpaces({ ...options, signal })
-  const key = spaces.current ?? (await vscode.window.showQuickPick(spaces.spaces.map((space) => ({ label: space.displayName, key: space.projectKey })), { title: "选择本次连接使用的 CodeM 空间" }))?.key
+  const key = target?.key ?? spaces.current ?? (await vscode.window.showQuickPick(spaces.spaces.map((space) => ({ label: space.displayName, key: space.projectKey })), { title: "选择本次连接使用的 CodeM 空间" }))?.key
   if (!key) throw new UserVisibleError("未选择可用空间，请先在 CodeM 账户中加入空间后重试。")
+  const space = spaces.spaces.find(space => space.projectKey === key)
+  if (!space) throw new UserVisibleError("所选空间已不可用，请重新选择。")
   signal.throwIfAborted()
   const authorize = async () => {
     assertTrusted()
@@ -69,7 +71,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
     if (!catalog.models.some((model) => model.id === catalog.activeModel)) throw new UserVisibleError("Core 没有返回可用的当前模型。")
     assertTrusted()
     signal.throwIfAborted()
-    return { host, cwd, authorize, readHistory, workspace: folder.name, model: catalog.activeModel, models: catalog.models, mcpServers: [] }
+    return { host, cwd, authorize, readHistory, workspace: folder.name, space: { key, name: space.displayName }, model: catalog.activeModel, models: catalog.models, mcpServers: [] }
   } catch (error) {
     await host.close()
     throw error

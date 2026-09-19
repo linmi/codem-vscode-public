@@ -20,6 +20,7 @@ export interface ChatSession {
   host: ChatHost
   cwd: string
   workspace: string
+  space: { key: string; name: string }
   model: string
   models: readonly AppServerModelSummary[]
   mcpServers: AppServerThreadSettings["mcpServers"]
@@ -93,24 +94,55 @@ export class ChatController {
       acquired = session
       if (this.disposed || generation !== this.generation) { await session.host.close(); return }
       this.options.assertTrusted()
-      this.session = session
-      this.historyList.bind({ host: session.host, cwd: session.cwd, authorize: async () => { this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted() } })
-      this.historyCursor = null
-      this.threadId = null
-      this.resetResources()
-      this.settings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default", model: session.model, mcpServers: session.mcpServers }
-      this.unsubscribe = session.host.onEvent((event) => {
-        if (this.session === session && generation === this.generation) this.onEvent(event)
-      })
-      this.update({ ...initialSnapshot(), phase: "ready", workspace: session.workspace, model: session.model, mcpNames: session.mcpServers.map((server) => server.name) })
-      this.poll = setInterval(() => { void this.refreshBackground() }, 3000)
-      this.poll.unref()
+      this.bindSession(session, generation)
     } catch (error) {
       if (acquired && this.session !== acquired) await acquired.host.close()
       if (!this.disposed && generation === this.generation) {
         this.options.report("connect", error)
         this.update({ phase: "disconnected", notice: error instanceof UserVisibleError ? error.message : "连接失败，请查看 CodeM 日志后重试。" })
       }
+    }
+  }
+
+  private bindSession(session: ChatSession, generation: number): void {
+    this.session = session
+    this.historyList.bind({ host: session.host, cwd: session.cwd, authorize: async () => { this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted() } })
+    this.historyCursor = null
+    this.threadId = null
+    this.resetResources()
+    this.settings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default", model: session.model, mcpServers: session.mcpServers }
+    this.unsubscribe = session.host.onEvent((event) => {
+      if (this.session === session && generation === this.generation) this.onEvent(event)
+    })
+    this.update({ ...initialSnapshot(), phase: "ready", workspace: session.workspace, space: session.space.name, model: session.model, mcpNames: session.mcpServers.map((server) => server.name) })
+    this.poll = setInterval(() => { void this.refreshBackground() }, 3000)
+    this.poll.unref()
+  }
+
+  async selectSpace(pick: (session: ChatSession, signal: AbortSignal) => Promise<ChatSession | null>): Promise<void> {
+    const previous = this.session
+    if (!previous || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy) return
+    this.update({ phase: "configuring", notice: null })
+    let next: ChatSession | null = null
+    try {
+      this.options.assertTrusted()
+      await previous.authorize()
+      if (this.disposed || this.session !== previous) return
+      this.options.assertTrusted()
+      next = await pick(previous, this.lifetime.signal)
+      if (!next) return
+      this.options.assertTrusted()
+      if (this.disposed || this.session !== previous || this.active) { await next.host.close(); next = null; return }
+      await this.retire()
+      if (this.disposed) { await next.host.close(); next = null; return }
+      this.bindSession(next, this.generation)
+      next = null
+    } catch (error) {
+      if (next) await next.host.close()
+      this.options.report("selectSpace", error)
+      if (!this.disposed) this.update({ notice: "空间切换失败，请重试或查看 CodeM 日志。" })
+    } finally {
+      if (!this.disposed && this.snapshot().phase === "configuring") this.update({ phase: this.session ? "ready" : "disconnected" })
     }
   }
 

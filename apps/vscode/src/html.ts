@@ -52,7 +52,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
         </div>
       </div>
     </form>
-    <div class="footerMeta"><span class="environment">${uiIcon("monitor")}<span>本地</span></span><span class="workspaceLabel">${uiIcon("folder")}<span id="workspace">未连接工作区</span></span><span class="keyboardHint" id="status" role="status" aria-live="polite" title="Enter 发送 · Shift + Enter 换行">Enter 发送 · Shift + Enter 换行</span></div>
+    <div class="footerMeta"><button type="button" id="selectSpace" class="spaceButton" aria-label="选择空间" title="选择 CodeM 空间">${uiIcon("space")}<span id="space">选择空间</span>${uiIcon("chevronDown")}</button><span class="environment">${uiIcon("monitor")}<span>本地</span></span><span class="workspaceLabel">${uiIcon("folder")}<span id="workspace">未连接工作区</span></span><span class="keyboardHint" id="status" role="status" aria-live="polite" title="Enter 发送 · Shift + Enter 换行">Enter 发送 · Shift + Enter 换行</span></div>
   </footer>
 </div><script nonce="${nonce}" src="${escapeHtml(resources.script)}"></script></body></html>`
 }

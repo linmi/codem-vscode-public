@@ -8,7 +8,7 @@ import { initialSnapshot, type ChatSnapshot } from "../src/messages.ts"
 import { panelFixtures } from "./panelFixtures.ts"
 
 const fixture: ChatSnapshot = {
-  ...initialSnapshot(), phase: "ready", workspace: "codem-plugin", model: "Auto", threadId: "preview",
+  ...initialSnapshot(), phase: "ready", workspace: "codem-plugin", space: "研发团队", model: "Auto", threadId: "preview",
   messages: [
     { id: "u", role: "user", label: "你", text: "帮我整理登录页面，让状态反馈更清晰。" },
     { id: "r", role: "reasoning", label: "分析登录流程", status: "completed", summary: "检查了登录状态与页面布局", text: "先确认登录、等待授权和已连接三种状态，避免按钮含义重叠。" },
@@ -40,12 +40,13 @@ createServer((request, response) => {
         window.viewActions.push(action);
         if (action.type === 'searchFiles') { window.postMessage({type:'fileSearchResult',requestId:action.requestId,files:action.query==='missing'?[]:[{id:'fileFixture',label:'src/main.ts'}],error:null},'*'); return; }
         if (action.type === 'selectFile') { demo.attachments=[{id:'fileFixture',label:'src/main.ts',kind:'file',preview:{kind:'none'}}]; window.postMessage(demo,'*'); window.postMessage({type:'fileSelected',requestId:action.requestId,accepted:true},'*'); return; }
+        if (action.type === 'selectSpace') activePanel = panels.space;
         if (action.type === 'selectEffort') activePanel = panels.effort;
         if (action.type === 'selectModel') activePanel = panels.model;
         if (action.type === 'panelReply') { window.panelReplies.push(action); activePanel = null; }
         if (action.type === 'showHistory') demo.history = {...demo.history, open: true, entries: [{id: 'preview', title: '整理登录页面', startedAt: '2026-09-19T12:00:00Z', turnCount: 1, archived: false}]};
         if (action.type === 'closeHistory') demo.history.open = false;
-        demo.phase = activePanel ? (['model', 'effort'].includes(activePanel.kind) ? 'configuring' : 'running') : 'ready';
+        demo.phase = activePanel ? (['space', 'model', 'effort'].includes(activePanel.kind) ? 'configuring' : 'running') : 'ready';
         window.postMessage(demo, '*');
         window.postMessage({type:'panel',panel:activePanel}, '*');
       }});

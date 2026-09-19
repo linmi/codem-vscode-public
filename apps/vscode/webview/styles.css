@@ -220,3 +220,9 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .artifactCard > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .artifactCard strong { font-size: 12px; font-weight: 500; }
 .artifactDetail { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+.spaceButton { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 140px; padding: 2px 4px; border-radius: 5px; color: var(--muted); font: inherit; flex-shrink: 1; }
+.spaceButton:hover:not(:disabled) { background: var(--soft); color: var(--ink); }
+.spaceButton span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spaceButton svg { flex-shrink: 0; width: 14px; height: 14px; }
+.spaceButton svg:last-child { width: 10px; height: 10px; }

@@ -1,4 +1,5 @@
 import * as vscode from "vscode"
+import { listAppServerSpaces, resolveBundledAppServerRuntime } from "@codem/app-server"
 import { ChatController, UserVisibleError } from "./chatController.ts"
 import { assertTrusted, connectRuntime } from "./runtimeSession.ts"
 import { showInteraction } from "./interactions.ts"
@@ -62,6 +63,26 @@ export function activate(context: vscode.ExtensionContext): void {
       case "newChat": await chat.newChat(); break
       case "send": reply({ type: "sendResult", requestId: action.requestId, accepted: await chat.send(action.text) }); break
       case "stop": await chat.stop(); break
+      case "selectSpace": {
+        await chat.selectSpace(async (session, signal) => {
+          const abort = new AbortController(); settingsAbort = abort
+          const cancel = () => abort.abort()
+          signal.addEventListener("abort", cancel, { once: true })
+          if (signal.aborted) abort.abort()
+          try {
+            const spaces = await listAppServerSpaces({ runtime: resolveBundledAppServerRuntime({ extensionRoot: context.extensionPath }), workingDirectory: session.cwd, signal: abort.signal })
+            if (!spaces.spaces.length) throw new UserVisibleError("没有可用空间，请先加入一个 CodeM 空间。")
+            const selection = await panels.request({ kind: "space", title: "空间", description: "切换后开始新会话，历史记录仍保留。", choices: spaces.spaces.map(space => ({ label: space.displayName, value: space.projectKey, selected: space.projectKey === session.space.key })) }, abort.signal)
+            const key = selection?.values[0]
+            if (!key || key === session.space.key) return null
+            assertTrusted()
+            return await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, false, signal, { cwd: session.cwd, workspace: session.workspace, key })
+          } finally {
+            signal.removeEventListener("abort", cancel)
+            if (settingsAbort === abort) settingsAbort = null
+          }
+        }); break
+      }
       case "selectModel": case "selectEffort": case "selectPermission": case "selectWorkMode": {
         const kind = action.type
         await chat.configure(async (settings, session) => {

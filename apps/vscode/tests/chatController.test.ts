@@ -37,7 +37,7 @@ function setup() {
     async respondToInteraction(_id, response) { answers.push(response) },
     async close() { closed++ },
   }
-  const session: ChatSession = { authorize: async () => {}, readHistory: async () => ({ turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
+  const session: ChatSession = { authorize: async () => {}, readHistory: async () => ({ turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
   const controller = new ChatController({ connect: async () => session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   return { controller, host, session, answers, emit: (event: AppServerHostEvent) => listener(event), counts: () => ({ starts, turns, closed }), submission: () => submissionId }
 }
@@ -542,4 +542,53 @@ it("keeps final artifacts through late reply updates and expires their open hand
     await f.controller.openArtifact(artifact.id, async () => { opened++ })
     assert.equal(opened, 1)
   } finally { await f.controller.dispose(); await rm(root, { recursive: true, force: true }) }
+})
+
+
+it("switches space only after preflight, resets the conversation and retires the old host", async () => {
+  const previous = setup(), next = setup()
+  await previous.controller.connect()
+  next.session.space = { key: "nextSpace", name: "另一个空间" }
+  await previous.controller.selectSpace(async current => {
+    assert.equal(current.space.key, "testSpace")
+    assert.equal(previous.controller.snapshot().phase, "configuring")
+    assert.equal(await previous.controller.send("must not send while choosing"), false)
+    return next.session
+  })
+  assert.equal(previous.counts().closed, 1)
+  assert.equal(previous.controller.snapshot().space, "另一个空间")
+  assert.equal(previous.controller.snapshot().threadId, null)
+  assert.deepEqual(previous.controller.snapshot().messages, [])
+  assert.equal(previous.controller.snapshot().phase, "ready")
+  await previous.controller.dispose()
+  assert.equal(next.counts().closed, 1)
+  await next.controller.dispose()
+})
+
+it("preserves current space on cancelled or failed selection and blocks switching during a turn", async () => {
+  const fixture = setup()
+  await fixture.controller.connect()
+  await fixture.controller.selectSpace(async () => null)
+  await fixture.controller.selectSpace(async () => { throw new Error("preflight failure") })
+  assert.equal(fixture.counts().closed, 0)
+  assert.equal(fixture.controller.snapshot().space, "测试空间")
+  assert.equal(fixture.controller.snapshot().phase, "ready")
+  assert.match(fixture.controller.snapshot().notice!, /空间切换失败/)
+  await fixture.controller.send("running")
+  let called = false
+  await fixture.controller.selectSpace(async () => { called = true; return null })
+  assert.equal(called, false)
+  await fixture.controller.dispose()
+})
+
+it("closes a prepared space when the view is disposed during selection", async () => {
+  const previous = setup(), next = setup()
+  await previous.controller.connect()
+  await previous.controller.selectSpace(async () => {
+    await previous.controller.dispose()
+    return next.session
+  })
+  assert.equal(previous.counts().closed, 1)
+  assert.equal(next.counts().closed, 1)
+  await next.controller.dispose()
 })

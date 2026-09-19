@@ -1,5 +1,5 @@
 /** Display-only DTOs. Core IDs, option values, credentials and RPC frames remain in Host. */
-export type PanelKind = "model" | "effort" | "permissionMode" | "workMode" | "approval" | "question" | "plan"
+export type PanelKind = "space" | "model" | "effort" | "permissionMode" | "workMode" | "approval" | "question" | "plan"
 export interface PanelChoice { id: string; label: string; description: string; selected: boolean }
 export interface PanelView {
   id: string

@@ -17,6 +17,6 @@ export async function liveRuntime(extensionRoot: string, workspace: string, sign
   try {
     await host.prepareConnection(cwd)
     const catalog = await host.listModels(cwd)
-    return { host, cwd, workspace: "acceptance", model: catalog.activeModel, models: catalog.models, mcpServers: [], authorize, readHistory: createSessionHistoryReader({ cwd, sessionsRoot: resolveSessionsRoot(process.env), authorize }) }
+    return { host, cwd, workspace: "acceptance", space: { key: spaces.current, name: spaces.spaces.find(space => space.projectKey === spaces.current)!.displayName }, model: catalog.activeModel, models: catalog.models, mcpServers: [], authorize, readHistory: createSessionHistoryReader({ cwd, sessionsRoot: resolveSessionsRoot(process.env), authorize }) }
   } catch (error) { await host.close(); throw error }
 }

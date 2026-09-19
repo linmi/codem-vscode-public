@@ -107,7 +107,7 @@ newChat.addEventListener("click", () => post({ type: "newChat" }))
 stop.addEventListener("click", () => post({ type: "stop" }))
 element("showOutput").addEventListener("click", () => post({ type: "showOutput" }))
 
-const configurationActions = ["selectModel", "selectEffort", "selectPermission", "selectWorkMode", "manageMcp", "refreshTools", "addAttachment"] as const
+const configurationActions = ["selectSpace", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "manageMcp", "refreshTools", "addAttachment"] as const
 for (const type of configurationActions) element(type).addEventListener("click", () => post({ type }))
 for (const type of ["refreshBackground", "cleanBackground"] as const) element(type).addEventListener("click", () => post({ type }))
 function button(label: string, action: ViewAction, disabled = false): HTMLButtonElement {
@@ -208,6 +208,8 @@ function render(next: ChatSnapshot): void {
   const generating = state.phase === "running" || state.phase === "stopping"
   stop.hidden = !generating; send.hidden = generating; stop.disabled = state.phase === "stopping"
   element("statusDot").dataset.connected = String(state.phase !== "disconnected" && state.phase !== "connecting")
+  element("space").textContent = state.space ?? "选择空间"
+  element("selectSpace").title = state.space ? `切换空间：${state.space}` : "连接后选择 CodeM 空间"
   element("workspace").textContent = state.workspace ?? "未连接工作区"
   element("model").textContent = !state.model || state.model === "codem-router/auto" ? "Auto" : state.model
   element("model").title = state.model ?? "连接后使用 Core 当前模型"
