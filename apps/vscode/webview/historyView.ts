@@ -55,7 +55,7 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
     panel.setAttribute("aria-busy", String(state.history.loading))
     refresh.disabled = more.disabled = disabled || state.history.loading
     more.hidden = !state.history.hasMore
-    status.textContent = state.history.error ?? (state.history.loading ? "正在加载会话…" : state.history.entries.length ? `已显示 ${state.history.entries.length} 个会话` : "当前工作区还没有历史会话。")
+    status.textContent = state.history.error ?? (state.phase === "loadingHistory" ? "正在恢复所选会话，当前记录暂时保留…" : state.history.loading ? "正在加载会话…" : state.history.entries.length ? `已显示 ${state.history.entries.length} 个会话` : "当前工作区还没有历史会话。")
     const switchingDisabled = disabled || state.backgroundBusy
     const key = JSON.stringify([state.history.entries, switchingDisabled, state.threadId])
     if (key !== previousEntries) {

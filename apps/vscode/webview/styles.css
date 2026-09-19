@@ -168,3 +168,7 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .workingRow { max-width: var(--chatWidth); width: 100%; margin: 0 auto; padding: 8px 0 24px; font: 12px/1.625 var(--uiFont); color: var(--muted); }
 .workingRow > span:last-child { animation: thinkingFade 1.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .workingRow > span:last-child { animation: none; } }
+
+.app[data-phase="loadingHistory"] .transcriptLoading { padding-block: 16px; }
+.app[data-phase="loadingHistory"] #messages { opacity: .45; pointer-events: none; }
+.app[data-phase="loadingHistory"] .loadingLines { margin-top: 16px; }
