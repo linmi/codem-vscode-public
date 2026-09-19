@@ -1,0 +1,75 @@
+# CodeM for VS Code
+
+第一版独立客户端，使用现有 `@codem/app-server` 连接已发布的 Core。新写的 Host 和 TypeScript Webview 不依赖历史插件、旧 SDK 或旧 UI。
+
+## 当前功能
+
+- CodeM 活动栏入口、原生标题工具栏与品牌 Logo。
+- 选择工作区、通过现有 CLI 凭据登录、选择本次连接的空间、校验 Core 连接与当前模型。
+- 单个当前会话的消息发送、真实流式回复、停止、新建会话。
+- 当前工作区的历史会话列表、恢复续聊、列表分页和加载更早消息。
+- 原生权限审批、问答及计划确认；审批结果必须仍属于当前运行中的请求。
+- VS Code 主题变量、键盘发送、中文输入法保护、窄侧栏、可见焦点与高对比度样式。
+- 输入区支持模型、思考强度（low / medium / high / xhigh）、Agent / Plan、默认权限 / 自动审批 / 完全访问切换。选择来自原生控件，模型来自 Core 目录；运行中锁定设置。模型、强度、MCP 通过同一 thread 的 resume 应用于下一轮；权限及计划模式使用 Core revision 校验，失败不会伪装成已生效。
+- 附件支持原生选择文件、图片和目录，移除、去重、最多 20 项；发送前重新校验文件，图片最多 20 MiB，不支持图片的模型会明确拒绝。发送失败保留附件，确认发送后清空。
+- 资源面板显示文件修改统计，点击可打开只读补丁预览或工作区文件；明确标注部分差异、二进制和缺失预览。打开文件校验真实路径，拒绝越出工作区的符号链接和路径穿越。
+- 后台进程每 3 秒刷新，也可手动刷新、查看日志尾部快照、终止进程和清理终端。后台任务唤醒通知单独展示并支持取消；任务 ID 与进程 ID 不混用。Core 发起的后续轮次按正常流式、审批和完成事件展示。
+- MCP 支持添加、启用、停用和移除 stdio 服务器，使用绝对可执行文件路径；参数与环境变量通过原生输入收集，配置保存在 VS Code SecretStorage。界面只展示名称。Core 的 `tools/list` 提供基础目录，MCP 工具由模型通过 `tool_search` 按需发现；列表不冒充健康检查，也不支持 Core 尚未提供的 HTTP transport。
+
+文本及代码围栏安全渲染。Core 仍负责保存真实历史，扩展不创建第二套记录。关闭整个 VS Code 窗口后不会自动恢复当前视图，重新连接后可从历史列表选择会话；Webview 隐藏/重建时由 Host 重发当前快照，草稿由 Webview state 保留。
+
+## 开发
+
+在仓库根目录运行：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+pnpm build:vscode
+```
+
+在 VS Code 中选择根目录的 **CodeM VS Code** 调试配置，按 F5。开发宿主中打开一个文件夹，再打开 CodeM 面板。已登录用户点击“连接工作区”；未登录时点击“登录 CodeM”。每次连接固定在所选工作区及空间中，不改写 CLI 的全局空间选择。
+
+`pnpm --filter codem watch` 持续构建；代码更新后使用开发宿主的 Reload Window 重新加载。构建产物在 `dist/`，匹配当前平台的 Core 与认证代理在 `bin/app-server/`，均不提交。此阶段尚未提供 VSIX 打包或发布命令。
+
+## 验证
+
+```bash
+pnpm --filter codem test:extension
+# 显式真实联调：需要已登录并有可用空间，会消耗一轮模型请求
+pnpm --filter codem test:live
+# 功能真实联调：附件、同会话设置切换、临时 MCP 实际调用、文件差异与后台进程（三轮模型请求）
+pnpm --filter codem test:live --features
+# 单独回归文件差异与后台进程（一轮模型请求）
+pnpm --filter codem test:live --features --resources
+```
+
+先执行构建。两种验证都启动真实 VS Code Extension Host，在隔离的临时工作区和用户配置下运行；常规 smoke 不启动 Core，live 模式额外运行应用的连接与聊天控制器。测试工作区的信任开关仅影响该隔离进程，不修改用户设置。macOS 默认定位 `/Applications/Visual Studio Code.app`，其他安装位置或系统设置 `CODEM_VSCODE_EXECUTABLE` 为应用可执行文件路径。
+
+默认 `pnpm check` 不登录、不启动真实模型。原生 smoke 额外校验只读差异预览、日志截断和 MCP 配置读取；`--features` 在一次性工作区创建附件和不含真实凭据的 MCP fixture，并验证实际调用。真实界面的发送、流式文本及停止还应在开发宿主面板内验证；浏览器截图只用于布局检查，不替代 Extension Host 验证。
+
+## 目录与边界
+
+```text
+src/              扩展入口、运行时连接、聊天控制器、原生审批、白名单消息
+webview/          浏览器端界面与 VS Code 主题样式
+assets/           从历史项目复制的 CodeM 素材
+scripts/          构建与 Extension Host 启动器
+tests/            协议、状态、生命周期及真实联调验证
+```
+
+连接与执行前检查 Workspace Trust；路径和认证只存在 Host。Webview 不接收原始 RPC、环境变量和凭据。Core 事件按连接、会话、轮次及 submissionId 关联；停止请求的回执不代表完成，`turn/completed` 才结束运行状态。模型文本使用 DOM 文本节点渲染，不执行模型输出的 HTML。
+
+参考：[VS Code Webview API](https://code.visualstudio.com/api/extension-guides/webview)、[Workspace Trust](https://code.visualstudio.com/api/extension-guides/workspace-trust)。素材来源与许可证见仓库根目录 [UPSTREAM.md](../../UPSTREAM.md)。
+
+## 历史会话
+
+连接后点击标题栏「历史」，或运行 `CodeM: 历史会话`。列表限定在当前连接的工作区，按 Core 返回的顺序显示，支持刷新和「加载更多会话」。已归档会话仅显示，不提供解除归档操作。
+
+选择会话后恢复最近 30 轮，使用原 threadId 继续对话；「加载更早消息」向顶部追加上一页并保留阅读位置。后续轮次沿用界面当前选择的模型、思考强度和 MCP 配置；权限与计划模式以恢复后 Core 返回的状态为准。恢复成功才清理之前会话的附件、差异和后台句柄。
+
+列表走 App Server `thread/list`，恢复通过 `thread/read` 校验工作区后调用 `thread/resume`；消息仅由 `@codem/session-history` 读取 Core schema 13 JSONL。分页游标和历史根目录仅存于 Host，界面发送操作意图与 threadId。每次读取历史前重新检查信任和登录状态，不创建额外历史存储。
+
+生成期间禁止切换、回放或翻页。实时轮次会使旧历史游标失效；完成后点击「重新加载记录」建立新快照。文件变化、损坏、权限或分页错误会保留已有显示并提示重试，不混合不同版本的记录。后台唤醒和断线会取消在途回放，迟到结果不能覆盖实时消息。
+
+关闭窗口后，重新连接并从历史列表选择会话即可恢复；不自动选择上次会话。历史附件只显示数量，历史差异和后台进程不会恢复为可操作的本地句柄。默认检查通过临时 JSONL 和独立 Host fixture 验证，不访问用户历史、不消耗模型请求。

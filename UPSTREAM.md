@@ -35,3 +35,16 @@
 保留 TypeScript 7.0.2，引入 Oxlint 1.83.0 并加入根检查命令。处理首次 lint 发现的问题：删除 Host 中未使用的 `boundedText`，移除 preflight 文案中无效的引号转义，测试中显式断言启动记录存在。空间代理的控制字符拒绝规则保留原行为，并为该正则记录行级 lint 例外及原因。归档保持不变。
 
 验证：lint、三个包类型检查、99 项测试及 frozen-lockfile 安装通过；默认 lint 文件发现不包含归档，临时未使用变量样例能使检查失败。
+
+## 2026-09-19：VS Code 应用素材
+
+从同一来源提交 `c389c6304f0108cd50fd31ad3b79bd5402f28ad2` 的归档按需复制品牌素材与许可证，Host 和 Webview 为新实现。
+
+| 归档来源 | 活跃路径 |
+| --- | --- |
+| `history/apps/vscode/assets/icons/codem.png` | `apps/vscode/assets/codem.png` |
+| `history/apps/vscode/assets/icons/codem-mark.svg` | `apps/vscode/assets/codemMark.svg` |
+| `history/apps/vscode/assets/icons/codem-dark.svg` | `apps/vscode/assets/codemActivity.svg` |
+| `history/apps/vscode/LICENSE` | `apps/vscode/LICENSE` |
+
+素材保留原品牌用途及许可证，活跃应用不引用归档路径。

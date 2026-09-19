@@ -9,6 +9,7 @@ catalog:
 
 # Published Core scripts set executable permissions and remove macOS quarantine.
 allowBuilds:
+  esbuild: true
   "@lark-codem/codem-core-darwin-arm64": true
   "@lark-codem/codem-core-darwin-x64": true
   "@lark-codem/codem-core-linux-arm64-gnu": true

@@ -1,0 +1,57 @@
+{
+  "name": "codem",
+  "displayName": "CodeM",
+  "description": "CodeM coding assistant for VS Code, powered by App Server.",
+  "version": "0.2.0",
+  "private": true,
+  "publisher": "codem",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "vscode": "^1.105.1" },
+  "categories": ["AI", "Chat"],
+  "icon": "assets/codem.png",
+  "main": "./dist/extension.cjs",
+  "extensionKind": ["workspace"],
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": "limited", "description": "可以查看界面；连接和执行任务需要信任工作区。" },
+    "virtualWorkspaces": { "supported": false, "description": "CodeM 需要可访问的工作区文件系统和本地进程。" }
+  },
+  "contributes": {
+    "commands": [
+      { "command": "codem.open", "title": "打开聊天", "category": "CodeM" },
+      { "command": "codem.history", "title": "历史会话", "category": "CodeM", "icon": "$(history)" },
+      { "command": "codem.newChat", "title": "新建会话", "category": "CodeM", "icon": "$(add)" },
+      { "command": "codem.connect", "title": "连接工作区", "category": "CodeM", "icon": "$(plug)" },
+      { "command": "codem.signIn", "title": "登录", "category": "CodeM" },
+      { "command": "codem.showOutput", "title": "查看日志", "category": "CodeM" }
+    ],
+    "viewsContainers": {
+      "activitybar": [{ "id": "codem", "title": "CodeM", "icon": "assets/codemActivity.svg" }]
+    },
+    "views": { "codem": [{ "type": "webview", "id": "codem.chat", "name": "聊天", "contextualTitle": "CodeM" }] },
+    "menus": {
+      "view/title": [
+        { "command": "codem.history", "when": "view == codem.chat", "group": "navigation@2" },
+        { "command": "codem.newChat", "when": "view == codem.chat", "group": "navigation@1" },
+        { "command": "codem.connect", "when": "view == codem.chat", "group": "navigation@3" },
+        { "command": "codem.signIn", "when": "view == codem.chat" },
+        { "command": "codem.showOutput", "when": "view == codem.chat" }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node --experimental-strip-types scripts/build.ts",
+    "watch": "node --experimental-strip-types scripts/build.ts --watch",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p webview/tsconfig.json",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "test:extension": "node --experimental-strip-types scripts/smoke.ts",
+    "test:live": "node --experimental-strip-types scripts/smoke.ts --live"
+  },
+  "dependencies": { "@codem/app-server": "workspace:*", "@codem/session-history": "workspace:*" },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/vscode": "1.105.0",
+    "esbuild": "0.28.2",
+    "typescript": "catalog:"
+  }
+}

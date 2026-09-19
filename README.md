@@ -1,9 +1,10 @@
 # CodeM
 
-面向各类客户端的 pnpm monorepo。当前先建立 App Server 基础能力，应用和界面尚未实现；后续 VS Code 客户端的界面与交互参考 VS Code 原生 Chat。
+面向各类客户端的 pnpm monorepo。首个应用是 [CodeM VS Code 插件](apps/vscode/README.md)，围绕 App Server 实现，界面与交互参考 VS Code 原生 Chat。
 
 ```text
-apps/                       各类应用与平台适配（目前为空骨架）
+apps/
+  vscode/                   VS Code 插件：Host、Webview、品牌素材与测试
 packages/
   app-server/               Core 运行时、认证代理、stdio RPC 与会话管理
   protocol/                 Host 与界面共享的类型、常量和校验
@@ -24,7 +25,9 @@ pnpm check
 
 使用 TypeScript **7.0.2** 进行类型检查，Oxlint **1.83.0** 进行静态检查。
 
-`pnpm check` 依次运行活跃代码的 lint、类型检查与测试，也可分别执行 `pnpm lint`、`pnpm typecheck`、`pnpm test`。`pnpm lint:fix` 执行 Oxlint 自动修复。尚无应用启动或界面构建命令。
+`pnpm check` 依次运行活跃代码的 lint、类型检查与测试，也可分别执行 `pnpm lint`、`pnpm typecheck`、`pnpm test`。`pnpm lint:fix` 执行 Oxlint 自动修复。
+
+运行 `pnpm build:vscode` 构建插件；在 VS Code 中打开仓库，选择 **CodeM VS Code** 调试配置并按 F5 启动开发宿主。在新窗口打开工作区，然后从活动栏进入 CodeM 并连接。
 
 Oxlint 配置在 `.oxlintrc.json`，启用 correctness 规则，warning 也会使检查失败；归档、依赖及生成目录不参与 lint。配置依据 [Oxlint 官方文档](https://oxc.rs/docs/guide/usage/linter/config)。类型检查仍由各包的 TypeScript 执行。
 

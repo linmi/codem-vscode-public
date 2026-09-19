@@ -1,0 +1,198 @@
+import { initialSnapshot, isBusy, type ChatMessage, type ChatSnapshot, type ViewAction } from "../src/messages.ts"
+
+import { createHistoryView } from "./historyView.ts"
+
+declare function acquireVsCodeApi(): { postMessage(message: ViewAction): void; getState(): { draft?: string } | undefined; setState(state: { draft: string }): void }
+const vscode = acquireVsCodeApi()
+function element<T extends HTMLElement>(id: string): T {
+  const found = document.getElementById(id)
+  if (!found) throw new Error(`Missing CodeM element ${id}`)
+  return found as T
+}
+const prompt = element<HTMLTextAreaElement>("prompt")
+const send = element<HTMLButtonElement>("send")
+const stop = element<HTMLButtonElement>("stop")
+const connect = element<HTMLButtonElement>("connect")
+const signIn = element<HTMLButtonElement>("signIn")
+const newChat = element<HTMLButtonElement>("newChat")
+const scroller = element("scrollArea")
+const messages = element("messages")
+const headerActions = document.querySelector<HTMLElement>(".headerActions")
+if (!headerActions) throw new Error("Missing CodeM header actions")
+const renderHistory = createHistoryView(headerActions, scroller, post)
+const nodes = new Map<string, { root: HTMLElement; body: HTMLElement; label: HTMLElement; text: string }>()
+let state: ChatSnapshot = initialSnapshot()
+let pendingText: string | null = null
+prompt.value = vscode.getState()?.draft ?? ""
+
+function post(action: ViewAction): void { vscode.postMessage(action) }
+function saveDraft(): void {
+  vscode.setState({ draft: prompt.value })
+  prompt.rows = Math.min(8, Math.max(3, prompt.value.split("\n").length))
+  send.disabled = state.phase !== "ready" || !prompt.value.trim() || pendingText !== null
+}
+function submit(): void {
+  if (send.disabled) return
+  pendingText = prompt.value
+  post({ type: "send", text: pendingText })
+  saveDraft()
+}
+element<HTMLFormElement>("composer").addEventListener("submit", (event) => { event.preventDefault(); submit() })
+prompt.addEventListener("input", saveDraft)
+prompt.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); submit() }
+})
+for (const button of document.querySelectorAll<HTMLButtonElement>("[data-prompt]")) {
+  button.addEventListener("click", () => { prompt.value = button.dataset.prompt ?? ""; saveDraft(); prompt.focus() })
+}
+connect.addEventListener("click", () => post({ type: "connect" }))
+signIn.addEventListener("click", () => post({ type: "signIn" }))
+newChat.addEventListener("click", () => post({ type: "newChat" }))
+stop.addEventListener("click", () => post({ type: "stop" }))
+element("showOutput").addEventListener("click", () => post({ type: "showOutput" }))
+
+const configurationActions = ["selectModel", "selectEffort", "selectPermission", "selectWorkMode", "manageMcp", "refreshTools", "addAttachment"] as const
+for (const type of configurationActions) element(type).addEventListener("click", () => post({ type }))
+for (const type of ["refreshBackground", "cleanBackground"] as const) element(type).addEventListener("click", () => post({ type }))
+function button(label: string, action: ViewAction, disabled = false): HTMLButtonElement {
+  const node = document.createElement("button")
+  node.type = "button"; node.textContent = label; node.disabled = disabled
+  node.addEventListener("click", () => post(action))
+  return node
+}
+let resourcesKey = ""
+function renderResources(): void {
+  const ready = state.phase === "ready" && !state.backgroundBusy
+  for (const type of configurationActions) element<HTMLButtonElement>(type).disabled = !ready
+  element("selectEffort").textContent = state.effort
+  element("selectWorkMode").textContent = state.workMode === "plan" ? "Plan" : "Agent"
+  element("selectPermission").textContent = `◈ ${{ default: "默认权限", auto: "自动审批", yolo: "完全访问" }[state.permission]}`
+  const blocked = state.backgroundBusy || state.phase === "disconnected" || state.phase === "connecting" || state.phase === "configuring"
+  const nextKey = JSON.stringify([state.attachments, state.diffs, state.background, state.backgroundTasks, state.mcpNames, state.tools])
+  // Streaming deltas and refresh acknowledgements must not replace focused resource buttons.
+  if (nextKey !== resourcesKey) {
+    resourcesKey = nextKey
+  const attachments = element("attachments")
+  attachments.replaceChildren(...state.attachments.map((item) => {
+    const remove = button(`${item.kind === "image" ? "图片" : item.kind === "directory" ? "目录" : "文件"} · ${item.label} ×`, { type: "removeAttachment", id: item.id }, !ready)
+    remove.title = `移除附件 ${item.label}`
+    return remove
+  }))
+  const diffs = element("diffs")
+  diffs.replaceChildren(...state.diffs.map((diff) => {
+    const row = document.createElement("div"); row.className = "resourceRow"
+    const title = document.createElement("span"); title.textContent = `${diff.label} +${diff.added} −${diff.removed}${diff.preview === "complete" ? "" : ` · ${{ partial: "部分差异", "raw-partial": "部分差异", binary: "二进制", omitted: "无预览" }[diff.preview] ?? "差异"}`}`
+    row.append(title, button("查看差异", { type: "openDiff", id: diff.id }), button("打开文件", { type: "openChangedFile", id: diff.id }))
+    return row
+  }))
+  if (!state.diffs.length) diffs.textContent = "尚无文件差异"
+  const background = element("background")
+  background.replaceChildren(...state.background.map((terminal) => {
+    const row = document.createElement("div"); row.className = "resourceRow"
+    const title = document.createElement("span"); title.textContent = `${terminal.label} · ${terminal.inProgress ? "运行中" : "已退出"}`
+    row.append(title, button("日志", { type: "openBackgroundLog", id: terminal.id }, blocked))
+    if (terminal.inProgress) row.append(button("终止", { type: "terminateBackground", id: terminal.id }, blocked))
+    return row
+  }))
+  if (!state.background.length) background.textContent = "尚无后台进程"
+  element("backgroundTasks").replaceChildren(...state.backgroundTasks.map((task) => {
+    const row = document.createElement("div"); row.className = "resourceRow"
+    const title = document.createElement("span"); title.textContent = `${task.label} · ${{ queued: "等待唤醒", started: "已唤醒", skipped: "已跳过", cancelled: "已取消", notFound: "已不存在", noop: "无需取消" }[task.phase]}`
+    row.append(title)
+    if (task.phase === "queued" || task.phase === "started") row.append(button("取消任务", { type: "cancelBackgroundTask", id: task.id }, blocked))
+    return row
+  }))
+  element("mcpNames").textContent = state.mcpNames.length ? `已配置：${state.mcpNames.join("、")}` : "未启用额外 MCP 服务器"
+  element("tools").textContent = state.tools.join(" · ")
+  }
+  for (const node of element("attachments").querySelectorAll("button")) node.disabled = !ready
+  for (const id of ["refreshBackground", "cleanBackground"]) element<HTMLButtonElement>(id).disabled = blocked
+  for (const id of ["background", "backgroundTasks"]) for (const node of element(id).querySelectorAll("button")) node.disabled = blocked
+}
+
+// No HTML from the model is ever interpreted. Code fences get safe native code elements.
+function renderText(target: HTMLElement, text: string): void {
+  target.replaceChildren()
+  const sections = text.split(/```[^\n]*\n/)
+  if (sections.length === 1) { target.textContent = text; return }
+  // Split complete and in-progress fences without rendering markdown as HTML.
+  const fence = /```[^\n]*\n([\s\S]*?)(?:```|$)/g
+  let end = 0
+  for (const match of text.matchAll(fence)) {
+    target.append(document.createTextNode(text.slice(end, match.index)))
+    const pre = document.createElement("pre")
+    const code = document.createElement("code")
+    code.textContent = match[1] ?? ""
+    pre.append(code); target.append(pre)
+    end = match.index + match[0].length
+  }
+  target.append(document.createTextNode(text.slice(end)))
+}
+
+function renderMessage(message: ChatMessage): void {
+  let node = nodes.get(message.id)
+  if (!node) {
+    const root = document.createElement("article")
+    root.className = "message"; root.dataset.role = message.role
+    const body = document.createElement("div"); body.className = "messageBody"
+    const label = document.createElement(message.role === "tool" || message.role === "reasoning" ? "summary" : "h2")
+    if (label.tagName === "SUMMARY") {
+      const details = document.createElement("details"); details.append(label, body); root.append(details)
+    } else { label.className = "messageLabel"; root.append(label, body) }
+    messages.append(root)
+    node = { root, body, label, text: "" }; nodes.set(message.id, node)
+  }
+  node.label.textContent = message.label + (message.attachments?.length ? ` · ${message.attachments.map((item) => item.label).join("、")}` : "")
+  if (node.text !== message.text) { renderText(node.body, message.text); node.text = message.text }
+}
+
+function render(next: ChatSnapshot): void {
+  const follow = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 70
+  const anchor = state.messages[0] ? nodes.get(state.messages[0].id)?.root : undefined
+  const anchorTop = anchor?.getBoundingClientRect().top ?? 0
+  const oldTop = scroller.scrollTop
+  const switched = state.threadId !== next.threadId
+  const previousFirst = state.messages[0]?.id
+  const prepended = !switched && previousFirst !== undefined && next.messages.findIndex((message) => message.id === previousFirst) > 0 && state.messages.at(-1)?.id === next.messages.at(-1)?.id
+  const previousCount = state.messages.length
+  state = next
+  if (pendingText !== null && state.messages.slice(previousCount).some((message) => message.role === "user" && message.text === pendingText)) {
+    if (prompt.value === pendingText) prompt.value = ""
+    pendingText = null
+  }
+  if (state.phase === "ready" || state.phase === "disconnected") pendingText = null
+  const liveIds = new Set(state.messages.map((message) => message.id))
+  for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.root.remove(); nodes.delete(id) } }
+  let position = messages.firstChild
+  for (const message of state.messages) {
+    renderMessage(message)
+    const root = nodes.get(message.id)!.root
+    if (root !== position) messages.insertBefore(root, position)
+    position = root.nextSibling
+  }
+  renderHistory(state)
+  element("welcome").hidden = state.messages.length > 0
+  element("connection").hidden = state.phase !== "disconnected" && state.phase !== "connecting"
+  connect.disabled = signIn.disabled = state.phase === "connecting"
+  connect.textContent = state.phase === "connecting" ? "正在连接…" : "连接工作区"
+  newChat.disabled = isBusy(state.phase) || state.backgroundBusy
+  const generating = state.phase === "running" || state.phase === "stopping"
+  stop.hidden = !generating; send.hidden = generating; stop.disabled = state.phase === "stopping"
+  element("statusDot").dataset.connected = String(state.phase !== "disconnected" && state.phase !== "connecting")
+  element("workspace").textContent = state.workspace ?? "未连接工作区"
+  element("model").textContent = !state.model || state.model === "codem-router/auto" ? "Auto" : state.model
+  element("model").title = state.model ?? "连接后使用 Core 当前模型"
+  element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
+  const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
+  element("status").textContent = state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "configuring" ? "正在设置…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : "Enter 发送 · Shift + Enter 换行"
+  renderResources()
+  saveDraft()
+  if (prepended && anchor) scroller.scrollTop = oldTop + anchor.getBoundingClientRect().top - anchorTop
+  else if (switched || follow) scroller.scrollTop = scroller.scrollHeight
+}
+
+window.addEventListener("message", (event: MessageEvent<ChatSnapshot>) => {
+  if (event.data?.type === "state") render(event.data)
+})
+saveDraft()
+post({ type: "ready" })

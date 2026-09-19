@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [{
+    "label": "Build CodeM VS Code",
+    "type": "shell",
+    "command": "pnpm --filter codem build",
+    "options": { "cwd": "${workspaceFolder}" },
+    "problemMatcher": []
+  }]
+}

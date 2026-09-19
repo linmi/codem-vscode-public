@@ -1,0 +1,210 @@
+import assert from "node:assert/strict"
+import { it } from "node:test"
+import type { AppServerHostEvent } from "@codem/app-server"
+import type { SessionHistoryPage } from "@codem/session-history"
+import { ChatController, type ChatHost, type ChatSession } from "../src/chatController.ts"
+
+const at = "2026-09-19T00:00:00Z"
+function page(index: number, nextCursor: string | null): SessionHistoryPage {
+  return { nextCursor, turns: [{ submissionId: `old-${index}`, turn: { id: `old-turn-${index}`, index, engineTurnIndexes: [index], model: "model", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null, items: [{ id: `user-${index}`, at, kind: "message", role: "user", text: `question ${index}`, attachments: [] }, { id: `answer-${index}`, at, kind: "message", role: "assistant", text: `answer ${index}`, delivery: null }] } }] }
+}
+function setup() {
+  let listener: (event: AppServerHostEvent) => void = () => {}
+  let trusted = true
+  const resumed: string[] = []
+  const released: string[] = []
+  const sent: string[] = []
+  const read: (string | undefined)[] = []
+  let starts = 0
+  const host: ChatHost = {
+    onEvent(callback) { listener = callback; return () => { listener = () => {} } },
+    async listThreads() { return { threads: ["history-1", "history-2"].map((id) => ({ id, cwd: "/workspace", archived: false, model: "model", profile: "default", preview: id, startedAt: at, turnCount: 2 })), nextCursor: null, total: 2 } },
+    async readThread(_cwd, id) { return { id, cwd: "/workspace", archived: false, model: "model", profile: "default", startedAt: at, status: "idle" } },
+    async resumeThread(_cwd, id) { resumed.push(id) },
+    async unsubscribeThread(_cwd, id) { released.push(id) },
+    async startThread() { starts++; return "new-thread" },
+    async startTurn(input) { sent.push(input.threadId); listener({ type: "turn-started", threadId: input.threadId, turnId: "live-turn", submissionId: input.submissionId }); return "live-turn" },
+    async readModes() { return { revision: 1, permissionEpoch: 1, permissionMode: "default", workMode: "plan" } },
+    async setModes() { throw new Error("restoration must preserve Core modes") },
+    async listTools() { return { threadId: "history-1", model: "model", tools: [] } },
+    async listBackgroundTerminals() { return { cwd: "/workspace", terminals: [] } },
+    async terminateBackgroundTerminal() {},
+    async cleanBackgroundTerminals() { return { cwd: "/workspace", results: [] } },
+    async cancelBackgroundTask() { return "cancelled" },
+    async interruptTurn() {}, async respondToInteraction() {}, async close() {},
+  }
+  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { assert.ok(trusted) }, readHistory: async (_id, cursor) => { read.push(cursor); return cursor ? page(0, null) : page(1, "older") } }
+  const chat = new ChatController({ connect: async () => session, assertTrusted() { assert.ok(trusted) }, publish() {}, interact: async () => null, report() {} })
+  return { chat, host, session, resumed, released, sent, read, starts: () => starts, untrust: () => { trusted = false }, emit: (event: AppServerHostEvent) => listener(event) }
+}
+
+it("restores a listed thread, prepends older turns and continues the same Core identity", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    assert.equal(f.chat.snapshot().threadId, "history-1")
+    assert.equal(f.chat.snapshot().history.open, false)
+    assert.equal(f.chat.snapshot().workMode, "plan")
+    assert.equal(f.chat.snapshot().hasOlderMessages, true)
+    await f.chat.loadOlderMessages()
+    assert.deepEqual(f.chat.snapshot().messages.map((message) => message.text), ["question 0", "answer 0", "question 1", "answer 1"])
+    assert.equal(f.chat.snapshot().hasOlderMessages, false)
+    await f.chat.send("continue")
+    assert.deepEqual(f.sent, ["history-1"])
+    assert.equal(f.starts(), 0)
+    assert.equal(f.chat.snapshot().historyNeedsRefresh, true)
+    f.emit({ type: "text-delta", threadId: "history-1", turnId: "live-turn", itemId: "answer", delta: "new answer" })
+    assert.equal(f.chat.snapshot().messages.at(-1)?.text, "new answer")
+  } finally { await f.chat.dispose() }
+})
+
+it("denies unlisted IDs, traversal and history operations during a live turn", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.resumeThread("history-1"); await f.chat.resumeThread("../history-1")
+    assert.deepEqual(f.resumed, [])
+    await f.chat.showHistory(); await f.chat.resumeThread("history-1"); await f.chat.send("continue")
+    await f.chat.resumeThread("history-2"); await f.chat.loadOlderMessages(); await f.chat.reloadHistory()
+    assert.deepEqual(f.resumed, ["history-1"])
+    assert.deepEqual(f.read, [undefined])
+    assert.equal(f.chat.snapshot().threadId, "history-1")
+  } finally { await f.chat.dispose() }
+})
+
+it("keeps current messages on failed pagination and requires an explicit fresh snapshot", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    const old = f.chat.snapshot().messages
+    f.session.readHistory = async () => { throw new Error("changed /private/path secret") }
+    await f.chat.loadOlderMessages()
+    assert.deepEqual(f.chat.snapshot().messages, old)
+    assert.equal(f.chat.snapshot().phase, "ready")
+    assert.equal(f.chat.snapshot().hasOlderMessages, false)
+    assert.equal(f.chat.snapshot().historyNeedsRefresh, true)
+    assert.doesNotMatch(JSON.stringify(f.chat.snapshot()), /private|secret/)
+    f.session.readHistory = async () => page(2, "fresh")
+    await f.chat.reloadHistory()
+    assert.deepEqual(f.chat.snapshot().messages.map((message) => message.text), ["question 2", "answer 2"])
+    assert.equal(f.chat.snapshot().historyNeedsRefresh, false)
+    assert.equal(f.chat.snapshot().hasOlderMessages, true)
+  } finally { await f.chat.dispose() }
+})
+
+it("prevents concurrent restores and drops a replay if the connection retires", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory()
+    let resolve: (value: SessionHistoryPage) => void = () => {}
+    f.session.readHistory = () => new Promise((done) => { resolve = done })
+    const restoring = f.chat.resumeThread("history-1")
+    await new Promise((done) => setImmediate(done))
+    await f.chat.resumeThread("history-2")
+    assert.deepEqual(f.resumed, ["history-1"])
+    f.emit({ type: "protocol-error", cwd: "/workspace", message: "connection retired" })
+    resolve(page(1, null)); await restoring
+    assert.equal(f.chat.snapshot().phase, "disconnected")
+    assert.deepEqual(f.chat.snapshot().messages, [])
+    assert.deepEqual(f.chat.snapshot().history.entries, [])
+  } finally { await f.chat.dispose() }
+})
+
+it("failed recovery leaves the previous thread usable and unsubscribes the failed target", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    f.session.readHistory = async () => { throw new Error("invalid JSONL") }
+    await f.chat.resumeThread("history-2")
+    assert.equal(f.chat.snapshot().threadId, "history-1")
+    assert.equal(f.chat.snapshot().messages[0]?.text, "question 1")
+    assert.deepEqual(f.released, ["history-2"])
+    await f.chat.send("continue old thread")
+    assert.deepEqual(f.sent, ["history-1"])
+  } finally { await f.chat.dispose() }
+})
+
+it("a background turn arriving during replay keeps realtime authority", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    let resolve: (value: SessionHistoryPage) => void = () => {}
+    f.session.readHistory = () => new Promise((done) => { resolve = done })
+    const reading = f.chat.loadOlderMessages()
+    await new Promise((done) => setImmediate(done))
+    f.emit({ type: "turn-started", threadId: "history-1", turnId: "background-turn", submissionId: null })
+    f.emit({ type: "text-delta", threadId: "history-1", turnId: "background-turn", itemId: "answer", delta: "live background answer" })
+    resolve(page(0, null)); await reading
+    assert.equal(f.chat.snapshot().phase, "running")
+    assert.equal(f.chat.snapshot().messages.at(-1)?.text, "live background answer")
+    assert.ok(!f.chat.snapshot().messages.some((message) => message.text === "question 0"))
+  } finally { await f.chat.dispose() }
+})
+
+it("switching and new chat clear the prior viewport cursor; revoked trust cannot read history", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    await f.chat.resumeThread("history-2")
+    assert.deepEqual(f.released, ["history-1"])
+    await f.chat.newChat()
+    assert.equal(f.chat.snapshot().threadId, null)
+    assert.equal(f.chat.snapshot().hasOlderMessages, false)
+    f.untrust()
+    await f.chat.resumeThread("history-1")
+    assert.deepEqual(f.resumed, ["history-1", "history-2"])
+  } finally { await f.chat.dispose() }
+})
+
+it("accepts empty histories and refuses archived or wrong-workspace recovery before subscribing", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory()
+    f.host.readThread = async () => { throw new Error("belongs to another workspace") }
+    await f.chat.resumeThread("history-1")
+    assert.deepEqual(f.resumed, [])
+    f.host.readThread = async (_cwd, id) => ({ id, cwd: "/workspace", archived: true, model: "model", profile: "default", startedAt: at, status: "idle" })
+    await f.chat.resumeThread("history-1")
+    assert.deepEqual(f.resumed, [])
+    f.host.readThread = async (_cwd, id) => ({ id, cwd: "/workspace", archived: false, model: "model", profile: "default", startedAt: at, status: "idle" })
+    f.session.readHistory = async () => ({ turns: [], nextCursor: null })
+    await f.chat.resumeThread("history-1")
+    assert.equal(f.chat.snapshot().threadId, "history-1")
+    assert.equal(f.chat.snapshot().phase, "ready")
+    assert.deepEqual(f.chat.snapshot().messages, [])
+  } finally { await f.chat.dispose() }
+})
+
+it("disconnects when a failed switch cannot safely release the candidate thread", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    f.session.readHistory = async () => { throw new Error("invalid JSONL") }
+    f.host.unsubscribeThread = async () => { throw new Error("subscription state unknown") }
+    await f.chat.resumeThread("history-2")
+    assert.equal(f.chat.snapshot().phase, "disconnected")
+    assert.equal(f.chat.snapshot().threadId, null)
+    assert.equal(f.chat.snapshot().messages[0]?.text, "question 1")
+    await f.chat.send("must not send")
+    assert.deepEqual(f.sent, [])
+  } finally { await f.chat.dispose() }
+})
+
+it("does not begin another restore until an aborted replay has finished cleanup", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    let resolve: (value: SessionHistoryPage) => void = () => {}
+    f.session.readHistory = () => new Promise((done) => { resolve = done })
+    const reading = f.chat.loadOlderMessages()
+    await new Promise((done) => setImmediate(done))
+    f.emit({ type: "turn-started", threadId: "history-1", turnId: "background-turn", submissionId: null })
+    f.emit({ type: "turn-completed", threadId: "history-1", turnId: "background-turn", outcome: "completed", stopReason: "end", error: null })
+    await f.chat.resumeThread("history-2")
+    assert.deepEqual(f.resumed, ["history-1"])
+    resolve(page(0, null)); await reading
+    f.session.readHistory = async () => page(3, null)
+    await f.chat.resumeThread("history-2")
+    assert.equal(f.chat.snapshot().threadId, "history-2")
+    assert.deepEqual(f.released, ["history-1"])
+  } finally { await f.chat.dispose() }
+})

@@ -6,4 +6,4 @@ Hosts must enforce workspace trust and authentication before reading. Supply the
 
 The wrapper retains the requested turn window, hydrates tool results from integrity-checked durable blobs, and never writes Core history. It performs a full streaming replay per request; there is no persistent index or SQLite runtime requirement. The shared reducer's submission identity set and active turn/background aggregates still scale with the size of that turn and task set. Raw records, paths and process objects are not webview DTOs.
 
-Run `pnpm --filter @codem/session-history test` and `pnpm --filter @codem/session-history typecheck` from the workspace root. Tests use temporary JSONL fixtures; application integration tests will belong to future applications.
+Run `pnpm --filter @codem/session-history test` and `pnpm --filter @codem/session-history typecheck` from the workspace root. Tests use temporary JSONL fixtures. VS Code integration tests in `apps/vscode/tests/historyMessages.test.ts` and `historyController.test.ts` cover display projection, restoration, pagination and cancellation without reading user history or running a model.
