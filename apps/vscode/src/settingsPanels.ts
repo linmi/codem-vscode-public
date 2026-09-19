@@ -1,3 +1,4 @@
+import { permissionIcons } from "./uiIcons.ts"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerThreadSettings } from "@codem/app-server"
 import type { ChatSession } from "./chatController.ts"
 import type { PanelBroker } from "./panelBroker.ts"
@@ -16,9 +17,9 @@ export async function selectSettings(kind: "selectModel" | "selectEffort" | "sel
     return answer ? { ...settings, workMode: answer.values[0]! } : null
   }
   const answer = await panels.request({ kind: "permissionMode", title: "权限模式", choices: [
-    { value: "default" as const, label: "默认权限", description: "遵循 Core 默认审批策略", selected: settings.permissionMode === "default" },
-    { value: "auto" as const, label: "自动审批", description: "由 Core 自动评估工具权限", selected: settings.permissionMode === "auto" },
-    { value: "yolo" as const, label: "完全访问", description: "跳过工具权限审批", selected: settings.permissionMode === "yolo" },
+    { value: "default" as const, icon: permissionIcons.default, label: "默认权限", description: "遵循 Core 默认审批策略", selected: settings.permissionMode === "default" },
+    { value: "auto" as const, icon: permissionIcons.auto, label: "自动审批", description: "由 Core 自动评估工具权限", selected: settings.permissionMode === "auto" },
+    { value: "yolo" as const, icon: permissionIcons.yolo, label: "完全访问", description: "跳过工具权限审批", selected: settings.permissionMode === "yolo" },
   ] }, signal)
   if (!answer) return null
   if (answer.values[0] === "yolo" && settings.permissionMode !== "yolo") {

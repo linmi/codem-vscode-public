@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto"
-import type { PanelKind, PanelMessage, PanelReply, PanelView } from "./panelTypes.ts"
+import type { PermissionChoiceIcon, PanelKind, PanelMessage, PanelReply, PanelView } from "./panelTypes.ts"
 
 export interface PanelInput<T> {
   kind: PanelKind
   title: string
   description?: string
   detail?: string | null
-  choices: readonly { value: T; label: string; description?: string; selected?: boolean }[]
+  choices: readonly { value: T; label: string; icon?: PermissionChoiceIcon; description?: string; selected?: boolean }[]
   back?: { value: T }
   initialText?: string
   multiple?: boolean
@@ -52,7 +52,7 @@ export class PanelBroker {
     if (input.choices.length > 100) return Promise.reject(new Error("Panel option limit exceeded"))
     const choices = input.choices.map(choice => ({ ...choice, id: randomUUID() }))
     const back = input.back ? { id: randomUUID(), value: input.back.value } : null
-    const view: PanelView = { id: randomUUID(), kind: input.kind, title: input.title, description: input.description ?? "", detail: input.detail ?? null, choices: choices.map(({ id, label, description, selected }) => ({ id, label, description: description ?? "", selected: selected ?? false })), backChoiceId: back?.id ?? null, initialText: input.initialText ?? "", multiple: input.multiple ?? false, allowText: input.allowText ?? false, confirmLabel: input.confirmLabel ?? null }
+    const view: PanelView = { id: randomUUID(), kind: input.kind, title: input.title, description: input.description ?? "", detail: input.detail ?? null, choices: choices.map(({ id, label, description, selected, icon }) => ({ ...(icon ? { icon } : {}), id, label, description: description ?? "", selected: selected ?? false })), backChoiceId: back?.id ?? null, initialText: input.initialText ?? "", multiple: input.multiple ?? false, allowText: input.allowText ?? false, confirmLabel: input.confirmLabel ?? null }
     return new Promise(resolve => {
       const finish = (result: { values: T[]; text: string } | null) => {
         if (this.pending !== pending) return

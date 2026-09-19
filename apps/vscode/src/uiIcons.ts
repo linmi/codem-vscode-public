@@ -18,6 +18,9 @@ const paths = {
   terminal: '<path d="m5 6 6 6-6 6m8 0h6"/>',
   folder: '<path d="M3 7V5h6l2 2h10v13H3z"/>',
   monitor: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/>',
+  hand: '<path d="M8 13V5a1.5 1.5 0 0 1 3 0v6-7a1.5 1.5 0 0 1 3 0v7-6a1.5 1.5 0 0 1 3 0v7-4a1.5 1.5 0 0 1 3 0v7c0 4-3 7-7 7-3 0-5-2-7-5l-3-4a1.7 1.7 0 0 1 2.5-2z"/>',
+  shieldCheck: '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/>',
+  shieldAlert: '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="M12 8v5m0 3h.01"/>',
   shield: '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/>',
   file: '<path d="M14 3H5v18h14V8zm0 0v5h5M8 12h8m-8 4h6"/>',
   thought: '<path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 2H9s0-1-1-2"/>',
@@ -27,3 +30,5 @@ const paths = {
 export function uiIcon(name: keyof typeof paths): string {
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`
 }
+
+export const permissionIcons = { default: "hand", auto: "shieldCheck", yolo: "shieldAlert" } as const

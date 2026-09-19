@@ -86,7 +86,13 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
       if (option.description) { const detail = document.createElement("span"); detail.className = "decisionChoiceDescription"; detail.textContent = option.description; content.append(detail) }
       const check = document.createElement("span"); check.className = "decisionCheck"; check.innerHTML = uiIcon("check")
       row.dataset.selected = String(option.selected); row.setAttribute("aria-pressed", String(option.selected))
-      row.append(chip, content, check)
+      row.append(chip)
+      if (option.icon) {
+        const icon = document.createElement("span"); icon.className = "decisionChoiceIcon"; icon.innerHTML = uiIcon(option.icon)
+        row.append(icon)
+        row.classList.toggle("permissionWarning", option.icon === "shieldAlert")
+      }
+      row.append(content, check)
       row.addEventListener("click", () => {
         if (panel.confirmLabel) {
           if (selected.has(option.id)) selected.delete(option.id)

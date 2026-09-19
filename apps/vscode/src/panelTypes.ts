@@ -1,6 +1,7 @@
 /** Display-only DTOs. Core IDs, option values, credentials and RPC frames remain in Host. */
 export type PanelKind = "space" | "model" | "effort" | "permissionMode" | "workMode" | "approval" | "question" | "plan"
-export interface PanelChoice { id: string; label: string; description: string; selected: boolean }
+export type PermissionChoiceIcon = "hand" | "shieldCheck" | "shieldAlert"
+export interface PanelChoice { icon?: PermissionChoiceIcon; id: string; label: string; description: string; selected: boolean }
 export interface PanelView {
   id: string
   kind: PanelKind

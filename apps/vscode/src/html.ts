@@ -45,7 +45,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
       <label class="visuallyHidden" for="prompt">发送给 CodeM 的消息</label>
       <textarea id="prompt" rows="2" maxlength="32000" placeholder="提出问题，或描述你想实现的功能…" spellcheck="false"></textarea>
       <div class="composerToolbar">
-        <div class="composerLeading"><button type="button" id="addAttachment" class="iconButton" title="添加文件、图片或文件夹" aria-label="添加附件">${uiIcon("plus")}</button><button type="button" id="selectPermission" class="iconButton permission" title="默认权限" aria-label="权限模式：默认权限">${uiIcon("shield")}</button></div>
+        <div class="composerLeading"><button type="button" id="addAttachment" class="iconButton" title="添加文件、图片或文件夹" aria-label="添加附件">${uiIcon("plus")}</button><button type="button" id="selectPermission" class="iconButton permission" title="默认权限" aria-label="权限模式：默认权限">${uiIcon("hand")}</button></div>
         <div class="composerTrailing"><button type="button" id="selectWorkMode" class="optionButton" title="切换工作模式">Agent</button><button type="button" id="selectEffort" class="iconButton" title="思考强度：medium" aria-label="思考强度：medium">${uiIcon("effort")}</button><button type="button" id="selectModel" class="optionButton" title="选择模型" aria-label="选择模型"><img src="${escapeHtml(resources.logo)}" alt="" width="14" height="14"><span id="model">Auto</span><span class="modelLoading" aria-hidden="true"><span class="loadingSpinner"></span>加载模型…</span></button>
           <button class="sendButton" id="send" type="submit" title="发送消息 · Enter" aria-label="发送消息" disabled>${uiIcon("arrowUp")}</button>
           <button class="stopButton" id="stop" type="button" title="停止生成" aria-label="停止生成" hidden>${uiIcon("stop")}</button>

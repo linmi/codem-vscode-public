@@ -1,3 +1,4 @@
+import { uiIcon, permissionIcons } from "../src/uiIcons.ts"
 import { installFileMentions } from "./fileMentions.ts"
 import { installComposerCommands } from "./composerCommands.ts"
 import { attachmentCard, configureImageLoader } from "./attachmentView.ts"
@@ -127,6 +128,7 @@ function renderResources(): void {
   permission.title = { default: "默认权限", auto: "自动审批", yolo: "完全访问" }[state.permission]
   permission.setAttribute("aria-label", `权限模式：${permission.title}`)
   permission.dataset.mode = state.permission
+  permission.innerHTML = uiIcon(permissionIcons[state.permission])
   const blocked = state.backgroundBusy || state.phase === "disconnected" || state.phase === "connecting" || state.phase === "configuring"
   const nextKey = JSON.stringify([state.attachments, state.diffs, state.background, state.backgroundTasks, state.mcpNames, state.tools])
   // Streaming deltas and refresh acknowledgements must not replace focused resource buttons.

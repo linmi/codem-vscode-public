@@ -56,3 +56,7 @@
 .decisionPanel:not(.pickerPanel) .decisionAnswer { flex-shrink: 0; min-height: 52px; padding: 8px 10px; }
 .decisionActions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .decisionPanel:not(.pickerPanel) .decisionSubmit { flex-shrink: 0; margin: 0 0 0 auto; }
+
+.decisionChoiceIcon { display: inline-flex; flex-shrink: 0; color: var(--muted); margin-right: 2px; }
+.decisionChoiceIcon svg { width: 17px; height: 17px; }
+.pickerPanel .permissionWarning, .permissionWarning .decisionChoiceIcon, .permissionWarning .decisionChoiceDescription, .permissionWarning .decisionCheck { color: var(--vscode-editorWarning-foreground, #e47140); }
