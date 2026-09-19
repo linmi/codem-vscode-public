@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { ChatController, UserVisibleError } from "./chatController.ts"
 import { assertTrusted, connectRuntime } from "./runtimeSession.ts"
 import { showInteraction } from "./interactions.ts"
-import { parseViewAction, type SendResult, type ViewAction } from "./messages.ts"
+import { parseViewAction, type FileSearchResult, type FileSelected, type SendResult, type ViewAction } from "./messages.ts"
 import { chatHtml } from "./html.ts"
 
 import { PanelBroker } from "./panelBroker.ts"
@@ -46,7 +46,7 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   })
   const chat = controller
-  const dispatch = async (action: ViewAction, reply: (result: SendResult) => void): Promise<void> => {
+  const dispatch = async (action: ViewAction, reply: (result: SendResult | FileSearchResult | FileSelected) => void): Promise<void> => {
     switch (action.type) {
       case "ready": chat.publish(); panels.replay(); break
       case "panelReply": break
@@ -71,6 +71,16 @@ export function activate(context: vscode.ExtensionContext): void {
         }); break
       }
       case "manageMcp": await chat.configure(settings => features.selectMcp(settings)); break
+      case "searchFiles": {
+        try { reply({ type: "fileSearchResult", requestId: action.requestId, files: await chat.searchFiles(action.query, (cwd, query) => features.findFiles(cwd, query)), error: null }) }
+        catch { reply({ type: "fileSearchResult", requestId: action.requestId, files: [], error: "文件搜索失败，请重试。" }) }
+        break
+      }
+      case "selectFile": {
+        try { reply({ type: "fileSelected", requestId: action.requestId, accepted: await chat.selectFile(action.id) }) }
+        catch { reply({ type: "fileSelected", requestId: action.requestId, accepted: false }) }
+        break
+      }
       case "addAttachment": await chat.addAttachments(() => features.pickAttachments()); break
       case "removeAttachment": chat.removeAttachment(action.id); break
       case "openDiff": await chat.showDiff(action.id, (diff, cwd) => features.showDiff(diff, cwd)); break

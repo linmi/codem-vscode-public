@@ -13,6 +13,10 @@ export async function runNativeFeatureSmoke(): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "codemNative"))
   try {
     assert.deepEqual(await native.loadMcp(), [])
+    const workspace = vscode.workspace.workspaceFolders![0]!.uri.fsPath
+    await writeFile(join(workspace, "referenceFixture.ts"), "export const fixture = true")
+    assert.ok((await native.findFiles(workspace, "referenceFixture")).includes(join(workspace, "referenceFixture.ts")))
+    assert.equal((await native.findFiles(workspace, "missingFileName")).length, 0)
     values.set("codem.mcp.v1", JSON.stringify({ servers: [{ type: "stdio", name: "test", command: process.execPath, args: [], env: [{ name: "TOKEN", value: "fixture-only" }] }], enabled: ["test"] }))
     assert.equal((await native.loadMcp())[0]?.env[0]?.value, "fixture-only")
     await native.showDiff({ source: { kind: "tool", toolCallId: "fixture" }, path: join(root, "file.txt"), changeType: "new", stats: { linesAdded: 1, linesRemoved: 0 }, preview: { kind: "complete", hunks: [{ oldStart: 0, oldCount: 0, newStart: 1, newCount: 1, lines: [{ kind: "insert", oldLine: null, newLine: 1, text: "fixture diff" }] }] } }, root)

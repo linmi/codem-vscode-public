@@ -71,6 +71,15 @@ export class NativeFeatures implements vscode.Disposable {
     return checked.servers.filter((server) => checked.enabled.includes(server.name))
   }
 
+  async findFiles(cwd: string, query: string): Promise<readonly string[]> {
+    assertTrusted()
+    // Escape glob metacharacters: typed text is a literal filename query, not a glob.
+    const literal = [...query.trim()].map(character => "*?[]{}".includes(character) ? `[${character}]` : character).join("")
+    const files = await vscode.workspace.findFiles(new vscode.RelativePattern(cwd, `**/*${literal}*`), "**/{.git,node_modules,dist,history}/**", 50)
+    assertTrusted()
+    return files.filter(uri => uri.scheme === "file").map(uri => uri.fsPath)
+  }
+
   async pickAttachments(): Promise<readonly AppServerPromptAttachment[]> {
     const kind = await vscode.window.showQuickPick([{ label: "文件或图片", folder: false }, { label: "文件夹", folder: true }], { title: "添加附件" })
     if (!kind) return []

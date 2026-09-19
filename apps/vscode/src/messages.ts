@@ -9,8 +9,12 @@ export type ViewAction =
   | HistoryAction
   | { type: typeof simpleActions[number] }
   | { type: typeof handleActions[number]; id: string }
+  | { type: "searchFiles"; query: string; requestId: string }
+  | { type: "selectFile"; id: string; requestId: string }
   | { type: "send"; text: string; requestId: string }
 
+export interface FileSearchResult { type: "fileSearchResult"; requestId: string; files: readonly { id: string; label: string }[]; error: string | null }
+export interface FileSelected { type: "fileSelected"; requestId: string; accepted: boolean }
 export interface SendResult { type: "sendResult"; requestId: string; accepted: boolean }
 
 export function parseViewAction(value: unknown): ViewAction {
@@ -18,6 +22,10 @@ export function parseViewAction(value: unknown): ViewAction {
   const record = value as Record<string, unknown>
   if (record.type === "panelReply") return parsePanelReply(record)
   const keys = Object.keys(record)
+  if (keys.length === 3 && typeof record.requestId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.requestId)) {
+    if (record.type === "searchFiles" && typeof record.query === "string" && record.query.length <= 200 && ![...record.query].some(character => character.charCodeAt(0) < 32)) return { type: "searchFiles", query: record.query, requestId: record.requestId }
+    if (record.type === "selectFile" && typeof record.id === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.id)) return { type: "selectFile", id: record.id, requestId: record.requestId }
+  }
   if (record.type === "send" && keys.length === 3 && typeof record.requestId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.requestId) && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return { type: "send", text: record.text, requestId: record.requestId }
   if (record.type === "resumeThread" && keys.length === 2 && typeof record.threadId === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(record.threadId)) return { type: "resumeThread", threadId: record.threadId }
   if (keys.length === 1 && simpleActions.some((type) => type === record.type)) return record as ViewAction

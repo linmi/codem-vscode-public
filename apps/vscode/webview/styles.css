@@ -197,3 +197,6 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .resourceTabs [role="tab"] { padding: 7px 10px; font-size: 12px; border-bottom: 2px solid transparent; color: var(--muted); }
 .resourceTabs [aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
 .toolCatalogEntry { padding: 7px 8px; border-bottom: 1px solid var(--line); font: 11px/1.5 var(--codeFont); overflow-wrap: anywhere; }
+
+.fileMentions { max-height: 240px; overflow-y: auto; }
+.fileSearchStatus { padding: 8px; font-size: 12px; color: var(--muted); }

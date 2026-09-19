@@ -1,9 +1,10 @@
+import { installFileMentions } from "./fileMentions.ts"
 import { installComposerCommands } from "./composerCommands.ts"
 import { attachmentCard } from "./attachmentView.ts"
 import { createWorkGroups } from "./workGroups.ts"
 import { createPanelView } from "./panelView.ts"
 import type { PanelMessage } from "../src/panelTypes.ts"
-import { initialSnapshot, isBusy, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
+import { initialSnapshot, isBusy, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
 import { ComposerSubmission } from "./composerSubmission.ts"
 
 import { createMessageView } from "./messageView.ts"
@@ -207,6 +208,7 @@ function render(next: ChatSnapshot): void {
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
   element("status").textContent = state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : "Enter 发送 · Shift + Enter 换行"
   element("status").title = element("status").textContent ?? ""
+  fileMentions.refresh()
   renderResources()
   saveDraft()
   panels.restoreFocus()
@@ -215,14 +217,16 @@ function render(next: ChatSnapshot): void {
   updateJump()
 }
 
-window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResult | PanelMessage>) => {
-  if (event.data?.type === "panel") panels.render(event.data.panel)
+window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected>) => {
+  if (event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected") fileMentions.receive(event.data)
+  else if (event.data?.type === "panel") panels.render(event.data.panel)
   else if (event.data?.type === "state") render(event.data)
   else if (event.data?.type === "sendResult") {
     if (submission.settle(event.data)) prompt.value = ""
     saveDraft()
   }
 })
+const fileMentions = installFileMentions(prompt, () => state.phase === "ready" && !panels.locked(), post)
 installComposerCommands(prompt, () => state.phase === "ready" && !panels.locked(), post)
 saveDraft()
 post({ type: "ready" })

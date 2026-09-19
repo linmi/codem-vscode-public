@@ -1,3 +1,4 @@
+import { FileReferences } from "./fileReferences.ts"
 import { attachmentPreview } from "./attachmentPreview.ts"
 import { terminalReplyLast } from "./timelineOrder.ts"
 import { randomUUID } from "node:crypto"
@@ -52,6 +53,7 @@ export class ChatController {
   private readonly lifetime = new AbortController()
   private state: ChatSnapshot = initialSnapshot()
   private settings: AppServerThreadSettings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" }
+  private readonly references = new FileReferences()
   private readonly attachments = new Map<string, AppServerPromptAttachment>()
   private readonly diffs = new Map<string, AppServerFileDiff>()
   private readonly terminals = new Map<string, AppServerBackgroundTerminal>()
@@ -494,6 +496,25 @@ export class ChatController {
     }
   }
 
+  async searchFiles(query: string, find: (cwd: string, query: string) => Promise<readonly string[]>) {
+    const session = this.session
+    if (!session || this.disposed || this.state.phase !== "ready") return []
+    this.options.assertTrusted()
+    const files = await this.references.search(session.cwd, query, find)
+    this.options.assertTrusted()
+    return this.session === session && this.state.phase === "ready" && !this.disposed ? files : []
+  }
+
+  async selectFile(id: string): Promise<boolean> {
+    const session = this.session
+    if (!session || this.state.phase !== "ready" || this.disposed) return false
+    this.options.assertTrusted()
+    const item = await this.references.resolve(session.cwd, id)
+    if (this.session !== session) return false
+    await this.addAttachments(async () => [item])
+    return this.session === session && [...this.attachments.values()].some(value => value.path === item.path)
+  }
+
   async addAttachments(pick: () => Promise<readonly AppServerPromptAttachment[]>): Promise<void> {
     const session = this.session
     if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy) return
@@ -602,7 +623,7 @@ export class ChatController {
   }
 
   private resetResources(): void {
-    this.attachments.clear(); this.diffs.clear(); this.terminals.clear(); this.tasks.clear()
+    this.references.clear(); this.attachments.clear(); this.diffs.clear(); this.terminals.clear(); this.tasks.clear()
   }
 
   private async respond(request: AppServerInteraction, active: ActiveTurn, abort: AbortController): Promise<void> {

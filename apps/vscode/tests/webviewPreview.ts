@@ -37,6 +37,8 @@ createServer((request, response) => {
       let activePanel = panels[${JSON.stringify(url.searchParams.get("panel"))}] ?? null;
       window.panelReplies = [];
       window.acquireVsCodeApi = () => ({getState: () => null, setState: () => {}, postMessage: action => {
+        if (action.type === 'searchFiles') { window.postMessage({type:'fileSearchResult',requestId:action.requestId,files:action.query==='missing'?[]:[{id:'fileFixture',label:'src/main.ts'}],error:null},'*'); return; }
+        if (action.type === 'selectFile') { demo.attachments=[{id:'fileFixture',label:'src/main.ts',kind:'file',preview:{kind:'none'}}]; window.postMessage(demo,'*'); window.postMessage({type:'fileSelected',requestId:action.requestId,accepted:true},'*'); return; }
         if (action.type === 'selectEffort') activePanel = panels.effort;
         if (action.type === 'selectModel') activePanel = panels.model;
         if (action.type === 'panelReply') { window.panelReplies.push(action); activePanel = null; }
