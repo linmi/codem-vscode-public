@@ -192,3 +192,8 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .messageEnter { animation: messageEnter 160ms ease-out; }
 @keyframes messageEnter { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .messageEnter { animation: none; } }
+
+.resourceTabs { display: flex; gap: 4px; margin: 10px 0 12px; border-bottom: 1px solid var(--line); }
+.resourceTabs [role="tab"] { padding: 7px 10px; font-size: 12px; border-bottom: 2px solid transparent; color: var(--muted); }
+.resourceTabs [aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.toolCatalogEntry { padding: 7px 8px; border-bottom: 1px solid var(--line); font: 11px/1.5 var(--codeFont); overflow-wrap: anywhere; }

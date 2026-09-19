@@ -26,6 +26,16 @@ const scroller = element("scrollArea")
 const messages = element("messages")
 const jumpLatest = element<HTMLButtonElement>("jumpLatest")
 const resources = element("activityPanel")
+const resourceTabs = [...document.querySelectorAll<HTMLButtonElement>(".resourceTabs [role=tab]")]
+function selectResourceTab(selected: HTMLButtonElement): void {
+  for (const tab of resourceTabs) { const active = tab === selected; tab.setAttribute("aria-selected", String(active)); tab.tabIndex = active ? 0 : -1; element(tab.getAttribute("aria-controls")!).hidden = !active }
+}
+for (const [index, tab] of resourceTabs.entries()) {
+  tab.addEventListener("click", () => selectResourceTab(tab))
+  tab.addEventListener("keydown", event => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); const next = resourceTabs[(index + (event.key === "ArrowRight" ? 1 : resourceTabs.length - 1)) % resourceTabs.length]!; selectResourceTab(next); next.focus() }
+  })
+}
 const toggleResources = element<HTMLButtonElement>("toggleResources")
 function showResources(open: boolean): void {
   resources.hidden = !open
@@ -140,7 +150,10 @@ function renderResources(): void {
     return row
   }))
   element("mcpNames").textContent = state.mcpNames.length ? `已配置：${state.mcpNames.join("、")}` : "未启用额外 MCP 服务器"
-  element("tools").textContent = state.tools.join(" · ")
+  element("tools").replaceChildren(...state.tools.map(name => { const row = document.createElement("div"); row.className = "toolCatalogEntry"; row.textContent = name; return row }))
+  element("filesTab").textContent = `文件${state.diffs.length ? ` · ${state.diffs.length}` : ""}`
+  element("backgroundTab").textContent = `任务${state.background.length + state.backgroundTasks.length ? ` · ${state.background.length + state.backgroundTasks.length}` : ""}`
+  element("toolsTab").textContent = `工具${state.tools.length ? ` · ${state.tools.length}` : ""}`
   }
   for (const node of element("attachments").querySelectorAll("button")) node.disabled = !ready
   for (const id of ["refreshBackground", "cleanBackground"]) element<HTMLButtonElement>(id).disabled = blocked

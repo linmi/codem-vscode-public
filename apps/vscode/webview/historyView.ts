@@ -33,7 +33,9 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
   const status = document.createElement("p"); status.className = "historyStatus"; status.setAttribute("role", "status")
   const list = document.createElement("ul"); list.className = "historyEntries"
   const more = button("加载更多会话", { type: "moreThreads" })
-  panel.append(toolbar, status, list, more)
+  const search = document.createElement("input"); search.type = "search"; search.className = "historySearch"; search.placeholder = "搜索已加载的会话…"; search.setAttribute("aria-label", "搜索已加载的会话")
+  const empty = document.createElement("p"); empty.className = "historyStatus"; empty.hidden = true; empty.textContent = "没有匹配的会话"
+  panel.append(toolbar, search, status, list, empty, more)
   const paging = document.createElement("div"); paging.className = "historyPaging"
   const older = button("加载更早消息", { type: "olderMessages" })
   const reload = button("重新加载记录", { type: "reloadHistory" })
@@ -44,12 +46,15 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
   let wasOpen = false
   panel.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.stopPropagation(); post({ type: "closeHistory" }) } })
 
-  return (state) => {
+  let lastState: HistoryViewState | null = null
+  search.addEventListener("input", () => { if (lastState) render(lastState) })
+  function render(state: HistoryViewState): void {
+    lastState = state
     const disabled = isBusy(state.phase) || state.phase === "disconnected"
     open.disabled = disabled
     open.setAttribute("aria-expanded", String(state.history.open))
     panel.hidden = !state.history.open
-    if (state.history.open && !wasOpen) close.focus()
+    if (state.history.open && !wasOpen) search.focus()
     if (!state.history.open && wasOpen && panel.contains(document.activeElement)) open.focus()
     wasOpen = state.history.open
     panel.setAttribute("aria-busy", String(state.history.loading))
@@ -57,21 +62,29 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
     more.hidden = !state.history.hasMore
     status.textContent = state.history.error ?? (state.phase === "loadingHistory" ? "正在恢复所选会话，当前记录暂时保留…" : state.history.loading ? "正在加载会话…" : state.history.entries.length ? `已显示 ${state.history.entries.length} 个会话` : "当前工作区还没有历史会话。")
     const switchingDisabled = disabled || state.backgroundBusy
-    const key = JSON.stringify([state.history.entries, switchingDisabled, state.threadId])
+    const key = JSON.stringify([state.history.entries, switchingDisabled, state.threadId, search.value])
     if (key !== previousEntries) {
       previousEntries = key
-      list.replaceChildren(...state.history.entries.map((entry) => {
+      const query = search.value.trim().toLocaleLowerCase()
+      const filtered = state.history.entries.filter(entry => entry.title.toLocaleLowerCase().includes(query))
+      empty.hidden = !query || filtered.length > 0
+      let day = ""
+      const rows: HTMLElement[] = []
+      for (const entry of filtered) {
+        const date = new Date(entry.startedAt)
+        const nextDay = Number.isNaN(date.getTime()) ? "日期未知" : date.toLocaleDateString()
+        if (day !== nextDay) { const heading = document.createElement("li"); heading.className = "historyDay"; heading.textContent = nextDay; rows.push(heading); day = nextDay }
         const row = document.createElement("li")
         const select = button("", { type: "resumeThread", threadId: entry.id }); select.className = "historyEntry"
         select.disabled = switchingDisabled || entry.archived
         if (entry.id === state.threadId) select.setAttribute("aria-current", "true")
         const label = document.createElement("span"); label.textContent = entry.title
         const detail = document.createElement("small")
-        const date = new Date(entry.startedAt)
         detail.textContent = `${Number.isNaN(date.getTime()) ? "" : date.toLocaleString()} · ${entry.turnCount} 轮${entry.archived ? " · 已归档" : ""}`
         select.append(label, detail); row.append(select)
-        return row
-      }))
+        rows.push(row)
+      }
+      list.replaceChildren(...rows)
     }
     paging.hidden = !state.threadId || (!state.hasOlderMessages && !state.historyNeedsRefresh)
     reload.hidden = !state.threadId
@@ -79,4 +92,5 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
     older.disabled = reload.disabled = switchingDisabled
     hint.textContent = state.historyNeedsRefresh ? "记录已变化，重新加载后可继续翻页。" : ""
   }
+  return render
 }
