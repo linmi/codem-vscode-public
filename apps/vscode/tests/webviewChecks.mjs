@@ -13,6 +13,7 @@ export default async function webviewChecks(page) {
   if(result.heading!=='Render check'||result.listItems!==2||result.tableCells!==2||result.unsafeElements||result.unsafeLinks||result.injected||!result.code.includes('<script>safe code</script>')) throw new Error(JSON.stringify(result));
   console.log(JSON.stringify(result));
   await page.evaluate(() => window.postMessage(demo,'*'));
+  await page.locator('.workGroup > summary').click();
   await page.getByText('读取文件 · auth.ts',{exact:true}).click();
   const expanded = await page.locator('.activityMessage[data-role="tool"] details').getAttribute('open');
   if(expanded===null) throw new Error('Tool output did not expand');

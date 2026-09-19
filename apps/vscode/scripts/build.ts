@@ -17,7 +17,7 @@ const configurations: BuildOptions[] = [
 ]
 
 for (const configuration of configurations) {
-  const options: BuildOptions = { ...configuration, absWorkingDir: root, bundle: true, sourcemap: true, logLevel: "info" }
+  const options: BuildOptions = { ...configuration, absWorkingDir: root, bundle: true, sourcemap: true, logLevel: "info", logOverride: { "css-syntax-error": "error" } }
   if (process.argv.includes("--watch")) {
     await (await context(options)).watch()
   } else {

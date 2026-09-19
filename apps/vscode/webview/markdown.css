@@ -28,3 +28,12 @@
 .codeBlock { margin: 12px 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--codeSurface); }
 .codeHeader { display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 8px 0 12px; color: var(--muted); font: 10px var(--codeFont); border-bottom: 1px solid var(--line); }
 .chatMarkdown .codeBlock pre { margin: 0; border: 0; border-radius: 0; background: transparent; }
+
+.codeWrap { margin-left: auto; font-size: 10px; padding: 2px 5px; border-radius: 4px; color: var(--muted); }
+.wrapCode pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal { color: var(--vscode-symbolIcon-keywordForeground, #8959a8); }
+.hljs-string, .hljs-regexp, .hljs-addition { color: var(--vscode-symbolIcon-stringForeground, #4e8b36); }
+.hljs-number, .hljs-attr { color: var(--vscode-symbolIcon-numberForeground, #b27523); }
+.hljs-title, .hljs-built_in { color: var(--vscode-symbolIcon-functionForeground, #4271ae); }
+.hljs-comment { color: var(--muted); font-style: italic; }
+.hljs-deletion { color: var(--vscode-gitDecoration-deletedResourceForeground, #c84040); }

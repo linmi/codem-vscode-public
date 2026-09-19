@@ -71,3 +71,8 @@
 
 - Same pinned Synara commit as above. Referenced composer picker styles, pending approval/user-input panels and numbered choice rows; retained existing MIT notice.
 - Replaced native model/mode pickers and approval/question/plan prompts with native-TypeScript Webview panels. No React or upstream backend imported. Host owns opaque one-shot choices, cancellation and session/turn correlation. Native credential and file dialogs remain platform-owned.
+
+## Synara interaction continuation — 2026-09-20
+
+- Same pinned Synara reference. Added native TypeScript work-group disclosures, loading states, effort slider, question navigation, safe attachment cards, local composer commands and message motion.
+- Added Highlight.js 11.12.0 (BSD-3-Clause) for eight explicitly registered grammars; existing Marked and DOMPurify do not provide syntax highlighting. Highlighted output is sanitized separately and never grants model HTML new attributes. API verified against https://github.com/highlightjs/highlight.js/blob/11.12.0/docs/api.rst.

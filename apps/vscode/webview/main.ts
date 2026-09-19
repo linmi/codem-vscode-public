@@ -114,7 +114,7 @@ function renderResources(): void {
   if (nextKey !== resourcesKey) {
     resourcesKey = nextKey
   const attachments = element("attachments")
-  attachments.replaceChildren(...state.attachments.map(item => attachmentCard(item, ready ? () => post({ type: "removeAttachment", id: item.id }) : undefined)))
+  attachments.replaceChildren(...state.attachments.map(item => attachmentCard(item, () => post({ type: "removeAttachment", id: item.id }))))
   const diffs = element("diffs")
   diffs.replaceChildren(...state.diffs.map((diff) => {
     const row = document.createElement("div"); row.className = "resourceRow"
@@ -161,7 +161,7 @@ function render(next: ChatSnapshot): void {
   for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.root.remove(); nodes.delete(id) } }
   for (const message of state.messages) {
     let view = nodes.get(message.id)
-    if (!view) { view = createMessageView(message); nodes.set(message.id, view) }
+    if (!view) { view = createMessageView(message); nodes.set(message.id, view); if (state.phase === "running" || state.phase === "sending") view.root.classList.add("messageEnter") }
     else view.update(message)
   }
   const timelineNodes = renderWorkGroups(state.messages, id => nodes.get(id)!.root)

@@ -1,3 +1,4 @@
+import { highlightCode } from "./codeHighlight.ts"
 import { marked, Renderer } from "marked"
 import DOMPurify from "dompurify"
 import { uiIcon } from "../src/uiIcons.ts"
@@ -29,6 +30,8 @@ export function renderMarkdown(target: HTMLElement, text: string): void {
     else input.disabled = true
   }
   for (const pre of fragment.querySelectorAll("pre")) {
+    const code = pre.querySelector("code")
+    if (code) highlightCode(code, pre.title)
     const wrapper = document.createElement("div"); wrapper.className = "codeBlock"
     const header = document.createElement("div"); header.className = "codeHeader"
     const label = document.createElement("span"); label.textContent = pre.title.slice(0, 32) || "代码"; pre.removeAttribute("title")
@@ -37,7 +40,9 @@ export function renderMarkdown(target: HTMLElement, text: string): void {
       try { await navigator.clipboard.writeText(pre.textContent ?? ""); copy.innerHTML = uiIcon("check"); copy.setAttribute("aria-label", "已复制代码") }
       catch { copy.setAttribute("aria-label", "复制失败，点击重试"); label.textContent = "复制失败，点击重试" }
     })
-    header.append(label, copy)
+    const wrap = document.createElement("button"); wrap.type = "button"; wrap.textContent = "换行"; wrap.className = "codeWrap"; wrap.setAttribute("aria-pressed", "false"); wrap.setAttribute("aria-label", "代码自动换行")
+    wrap.addEventListener("click", () => { const enabled = wrapper.classList.toggle("wrapCode"); wrap.setAttribute("aria-pressed", String(enabled)) })
+    header.append(label, wrap, copy)
     pre.replaceWith(wrapper); wrapper.append(header, pre)
   }
   target.replaceChildren(fragment)

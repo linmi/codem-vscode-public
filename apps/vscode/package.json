@@ -7,35 +7,108 @@
   "publisher": "codem",
   "license": "MIT",
   "type": "module",
-  "engines": { "vscode": "^1.105.1" },
-  "categories": ["AI", "Chat"],
+  "engines": {
+    "vscode": "^1.105.1"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
   "icon": "assets/codem.png",
   "main": "./dist/extension.cjs",
-  "extensionKind": ["workspace"],
+  "extensionKind": [
+    "workspace"
+  ],
   "capabilities": {
-    "untrustedWorkspaces": { "supported": "limited", "description": "可以查看界面；连接和执行任务需要信任工作区。" },
-    "virtualWorkspaces": { "supported": false, "description": "CodeM 需要可访问的工作区文件系统和本地进程。" }
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "可以查看界面；连接和执行任务需要信任工作区。"
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "CodeM 需要可访问的工作区文件系统和本地进程。"
+    }
   },
   "contributes": {
     "commands": [
-      { "command": "codem.open", "title": "打开聊天", "category": "CodeM" },
-      { "command": "codem.history", "title": "历史会话", "category": "CodeM", "icon": "$(history)" },
-      { "command": "codem.newChat", "title": "新建会话", "category": "CodeM", "icon": "$(add)" },
-      { "command": "codem.connect", "title": "连接工作区", "category": "CodeM", "icon": "$(plug)" },
-      { "command": "codem.signIn", "title": "登录", "category": "CodeM" },
-      { "command": "codem.showOutput", "title": "查看日志", "category": "CodeM" }
+      {
+        "command": "codem.open",
+        "title": "打开聊天",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.history",
+        "title": "历史会话",
+        "category": "CodeM",
+        "icon": "$(history)"
+      },
+      {
+        "command": "codem.newChat",
+        "title": "新建会话",
+        "category": "CodeM",
+        "icon": "$(add)"
+      },
+      {
+        "command": "codem.connect",
+        "title": "连接工作区",
+        "category": "CodeM",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "codem.signIn",
+        "title": "登录",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.showOutput",
+        "title": "查看日志",
+        "category": "CodeM"
+      }
     ],
     "viewsContainers": {
-      "activitybar": [{ "id": "codem", "title": "CodeM", "icon": "assets/codemActivity.svg" }]
+      "activitybar": [
+        {
+          "id": "codem",
+          "title": "CodeM",
+          "icon": "assets/codemActivity.svg"
+        }
+      ]
     },
-    "views": { "codem": [{ "type": "webview", "id": "codem.chat", "name": "聊天", "contextualTitle": "CodeM" }] },
+    "views": {
+      "codem": [
+        {
+          "type": "webview",
+          "id": "codem.chat",
+          "name": "聊天",
+          "contextualTitle": "CodeM"
+        }
+      ]
+    },
     "menus": {
       "view/title": [
-        { "command": "codem.history", "when": "view == codem.chat", "group": "navigation@2" },
-        { "command": "codem.newChat", "when": "view == codem.chat", "group": "navigation@1" },
-        { "command": "codem.connect", "when": "view == codem.chat", "group": "navigation@3" },
-        { "command": "codem.signIn", "when": "view == codem.chat" },
-        { "command": "codem.showOutput", "when": "view == codem.chat" }
+        {
+          "command": "codem.history",
+          "when": "view == codem.chat",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codem.newChat",
+          "when": "view == codem.chat",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codem.connect",
+          "when": "view == codem.chat",
+          "group": "navigation@3"
+        },
+        {
+          "command": "codem.signIn",
+          "when": "view == codem.chat"
+        },
+        {
+          "command": "codem.showOutput",
+          "when": "view == codem.chat"
+        }
       ]
     }
   },
@@ -47,7 +120,13 @@
     "test:extension": "node --experimental-strip-types scripts/smoke.ts",
     "test:live": "node --experimental-strip-types scripts/smoke.ts --live"
   },
-  "dependencies": { "@codem/app-server": "workspace:*", "@codem/session-history": "workspace:*", "marked": "18.0.13", "dompurify": "3.4.15" },
+  "dependencies": {
+    "@codem/app-server": "workspace:*",
+    "@codem/session-history": "workspace:*",
+    "dompurify": "3.4.15",
+    "highlight.js": "11.12.0",
+    "marked": "18.0.13"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/vscode": "1.105.0",
