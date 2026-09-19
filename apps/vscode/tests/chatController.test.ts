@@ -1,3 +1,4 @@
+import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
 import { ConnectionPreferences } from "../src/connectionPreferences.ts"
 import { createHash } from "node:crypto"
 import { createSessionHistoryReader } from "../src/sessionHistory.ts"
@@ -38,7 +39,7 @@ function setup() {
     async respondToInteraction(_id, response) { answers.push(response) },
     async close() { closed++ },
   }
-  const session: ChatSession = { authorize: async () => {}, readHistory: async () => ({ turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
+  const session: ChatSession = { authorize: async () => {}, readHistory: async () => ({ turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
   const controller = new ChatController({ connect: async () => session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   return { controller, host, session, answers, emit: (event: AppServerHostEvent) => listener(event), counts: () => ({ starts, turns, closed }), submission: () => submissionId }
 }
@@ -637,4 +638,37 @@ it("a settings persistence failure leaves the applied selection visible with a w
   assert.equal(controller.snapshot().effort, "high")
   assert.match(controller.snapshot().notice!, /配置已应用，但保存失败/)
   await controller.dispose(); await fixture.controller.dispose()
+})
+
+
+it("opens space choices without authentication IO and ignores cancelled selection", async () => {
+  const f = setup()
+  await f.controller.connect()
+  f.session.authorize = async () => { throw new Error("Menu must not spawn auth") }
+  let opened = false
+  await f.controller.selectSpace(async () => { opened = true; return null })
+  assert.equal(opened, true)
+  assert.equal(f.counts().closed, 0)
+  assert.equal(f.controller.snapshot().phase, "ready")
+  await f.controller.dispose()
+})
+
+it("shows the prepared space before slow old-host cleanup and waits for cleanup on disposal", async () => {
+  const old = setup(), next = setup()
+  await old.controller.connect()
+  let release!: () => void
+  old.host.close = () => new Promise<void>(resolve => { release = resolve })
+  next.session.space = { key: "next", name: "新空间" }
+  await old.controller.selectSpace(async () => next.session)
+  assert.equal(old.controller.snapshot().space, "新空间")
+  assert.equal(old.controller.snapshot().phase, "ready")
+  old.emit({ type: "connection-closed", cwd: "/workspace", exit: { code: 0, signal: null } } as unknown as AppServerHostEvent)
+  assert.equal(old.controller.snapshot().phase, "ready", "Old host events have no authority")
+  let disposed = false
+  const closing = old.controller.dispose().then(() => { disposed = true })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(disposed, false)
+  release(); await closing
+  assert.equal(disposed, true)
+  await next.controller.dispose()
 })

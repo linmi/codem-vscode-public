@@ -1,3 +1,4 @@
+import type { SpaceDirectory } from "./spaceDirectory.ts"
 import type { SettingsPersistence } from "./connectionPreferences.ts"
 import { projectToolDetails } from "./toolDetails.ts"
 import { Artifacts, type ArtifactSource } from "./artifacts.ts"
@@ -22,6 +23,7 @@ export interface ChatSession {
   cwd: string
   workspace: string
   space: { key: string; name: string }
+  spaceDirectory: SpaceDirectory
   model: string
   models: readonly AppServerModelSummary[]
   mcpServers: AppServerThreadSettings["mcpServers"]
@@ -58,6 +60,7 @@ export class ChatController {
   private active: ActiveTurn | null = null
   private unsubscribe: (() => void) | null = null
   private generation = 0
+  private readonly retiringHosts = new Set<Promise<void>>()
   private disposed = false
   private readonly lifetime = new AbortController()
   private state: ChatSnapshot = initialSnapshot()
@@ -151,9 +154,6 @@ export class ChatController {
     let next: ChatSession | null = null
     try {
       this.options.assertTrusted()
-      await previous.authorize()
-      if (this.disposed || this.session !== previous) return
-      this.options.assertTrusted()
       next = await pick(previous, this.lifetime.signal)
       if (!next) return
       this.options.assertTrusted()
@@ -161,8 +161,9 @@ export class ChatController {
       const restored = await this.restoreSettings(next)
       if (this.disposed || this.session !== previous || this.active) { await next.host.close(); next = null; return }
       this.options.assertTrusted()
-      await this.retire()
-      if (this.disposed) { await next.host.close(); next = null; return }
+      const retiring = this.retire()
+      this.retiringHosts.add(retiring)
+      void retiring.catch(error => this.options.report("retireSpace", error)).finally(() => this.retiringHosts.delete(retiring))
       this.bindSession(next, this.generation, restored)
       const connected = next
       next = null
@@ -391,7 +392,8 @@ export class ChatController {
   async dispose(): Promise<void> {
     this.disposed = true
     this.lifetime.abort()
-    await this.retire()
+    try { await this.retire() }
+    finally { await Promise.allSettled(this.retiringHosts) }
   }
 
   private async retire(): Promise<void> {

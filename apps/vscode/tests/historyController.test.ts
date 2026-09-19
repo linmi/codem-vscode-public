@@ -1,3 +1,4 @@
+import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import type { AppServerHostEvent } from "@codem/app-server"
@@ -33,7 +34,7 @@ function setup() {
     async cancelBackgroundTask() { return "cancelled" },
     async interruptTurn() {}, async respondToInteraction() {}, async close() {},
   }
-  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { assert.ok(trusted) }, readHistory: async (_id, cursor) => { read.push(cursor); return cursor ? page(0, null) : page(1, "older") } }
+  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { assert.ok(trusted) }, readHistory: async (_id, cursor) => { read.push(cursor); return cursor ? page(0, null) : page(1, "older") } }
   const chat = new ChatController({ connect: async () => session, assertTrusted() { assert.ok(trusted) }, publish() {}, interact: async () => null, report() {} })
   return { chat, host, session, resumed, released, sent, read, starts: () => starts, untrust: () => { trusted = false }, emit: (event: AppServerHostEvent) => listener(event) }
 }

@@ -46,7 +46,7 @@ export class AppServerLoginCancelledError extends Error {
   }
 }
 
-export async function readAppServerAuthStatus(options: AppServerAuthenticationOptions): Promise<AppServerAuthStatus> {
+export async function readAppServerAuthStatus(options: AppServerAuthenticationOptions & { readonly signal?: AbortSignal }): Promise<AppServerAuthStatus> {
   validateOptions(options)
   const result = await runCapturedAuthCommand(options, ["auth", "status", "--json"], {
     timeoutMs: options.statusTimeoutMs ?? DEFAULT_AUTH_STATUS_TIMEOUT_MS,
@@ -228,11 +228,12 @@ interface AuthCommandResult {
 }
 
 async function runCapturedAuthCommand(
-  options: AppServerAuthenticationOptions,
+  options: AppServerAuthenticationOptions & { readonly signal?: AbortSignal },
   args: readonly string[],
   command: { readonly timeoutMs: number; readonly stdoutLimitBytes: number; readonly label: string },
 ): Promise<AuthCommandResult> {
   requirePositiveTimeout(command.timeoutMs, command.label)
+  options.signal?.throwIfAborted()
   const child = spawnAuth(options, args)
   let stdout = ""
   let stdoutBytes = 0
@@ -244,6 +245,12 @@ async function runCapturedAuthCommand(
     child.kill("SIGKILL")
   }, command.timeoutMs)
   timer.unref?.()
+  const abort = () => {
+    terminalError = new Error(`CodeM ${command.label} cancelled`)
+    child.kill("SIGKILL")
+  }
+  options.signal?.addEventListener("abort", abort, { once: true })
+  if (options.signal?.aborted) abort()
 
   child.stdout.setEncoding("utf8")
   child.stdout.on("data", (chunk: string) => {
@@ -266,6 +273,7 @@ async function runCapturedAuthCommand(
     return { ...exit, stdout, stderr }
   } finally {
     clearTimeout(timer)
+    options.signal?.removeEventListener("abort", abort)
   }
 }
 

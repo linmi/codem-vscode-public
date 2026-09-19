@@ -1,6 +1,6 @@
 import { ConnectionPreferences } from "./connectionPreferences.ts"
 import * as vscode from "vscode"
-import { listAppServerSpaces, resolveBundledAppServerRuntime } from "@codem/app-server"
+import type { SpaceDirectory } from "./spaceDirectory.ts"
 import { ChatController, UserVisibleError } from "./chatController.ts"
 import { assertTrusted, connectRuntime } from "./runtimeSession.ts"
 import { showInteraction } from "./interactions.ts"
@@ -23,8 +23,8 @@ export function activate(context: vscode.ExtensionContext): void {
   let settingsAbort: AbortController | null = null
   let view: vscode.WebviewView | undefined
   let previousPhase: string | null = null
-  const openSession = async (signIn: boolean, signal: AbortSignal, target = preferences.lastConnection()) => {
-    const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signIn, signal, target)
+  const openSession = async (signIn: boolean, signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
+    const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signIn, signal, target, directory)
     try {
       session.mcpServers = await features.loadMcp()
       return session
@@ -88,13 +88,25 @@ export function activate(context: vscode.ExtensionContext): void {
           signal.addEventListener("abort", cancel, { once: true })
           if (signal.aborted) abort.abort()
           try {
-            const spaces = await listAppServerSpaces({ runtime: resolveBundledAppServerRuntime({ extensionRoot: context.extensionPath }), workingDirectory: session.cwd, signal: abort.signal })
-            if (!spaces.spaces.length) throw new UserVisibleError("没有可用空间，请先加入一个 CodeM 空间。")
-            const selection = await panels.request({ kind: "space", title: "空间", description: "切换后开始新会话，历史记录仍保留。", choices: spaces.spaces.map(space => ({ label: space.displayName, value: space.projectKey, selected: space.projectKey === session.space.key })) }, abort.signal)
-            const key = selection?.values[0]
-            if (!key || key === session.space.key) return null
-            assertTrusted()
-            return await openSession(false, signal, { cwd: session.cwd, workspace: session.workspace, key })
+            for (;;) {
+              const selection = await panels.request<{ kind: "space"; key: string } | { kind: "refresh"; key: string }>({ kind: "space", title: "空间", description: "切换后开始新会话，历史记录仍保留。", choices: [
+                ...session.spaceDirectory.list().map(space => ({ label: space.displayName, value: { kind: "space" as const, key: space.projectKey }, selected: space.projectKey === session.space.key })),
+                { label: "刷新空间列表", value: { kind: "refresh" as const, key: "" } },
+              ] }, abort.signal)
+              const choice = selection?.values[0]
+              if (!choice) return null
+              if (choice.kind === "refresh") {
+                let refreshing = true
+                void panels.request({ kind: "space", title: "空间", description: "正在刷新空间列表…", choices: [] }, abort.signal).then(() => { if (refreshing) abort.abort() })
+                try { await session.spaceDirectory.refresh(abort.signal) }
+                catch (error) { if (abort.signal.aborted) return null; throw error }
+                finally { refreshing = false; panels.cancel() }
+                continue
+              }
+              if (choice.key === session.space.key) return null
+              assertTrusted()
+              return await openSession(false, signal, { cwd: session.cwd, workspace: session.workspace, key: choice.key }, session.spaceDirectory)
+            }
           } finally {
             signal.removeEventListener("abort", cancel)
             if (settingsAbort === abort) settingsAbort = null

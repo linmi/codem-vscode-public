@@ -1,3 +1,4 @@
+import { SpaceDirectory } from "./spaceDirectory.ts"
 import * as vscode from "vscode"
 import { realpath } from "node:fs/promises"
 import { AppServerHost, assertAppServerAuthenticated, listAppServerSpaces, prepareAppServerSpace, readAppServerAuthStatus, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
@@ -9,7 +10,7 @@ export function assertTrusted(): void {
   if (!vscode.workspace.isTrusted) throw new UserVisibleError("请先通过 VS Code 管理工作区信任，再连接 CodeM。")
 }
 
-export async function connectRuntime(extensionRoot: string, version: string, signIn: boolean, signal: AbortSignal, target?: { cwd: string; workspace: string; key: string }): Promise<ChatSession> {
+export async function connectRuntime(extensionRoot: string, version: string, signIn: boolean, signal: AbortSignal, target?: { cwd: string; workspace: string; key: string }, knownSpaces?: SpaceDirectory): Promise<ChatSession> {
   assertTrusted()
   const folders = vscode.workspace.workspaceFolders ?? []
   if (folders.length === 0) throw new UserVisibleError("请先打开一个项目文件夹。")
@@ -22,7 +23,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   signal.throwIfAborted()
   const cwd = await realpath(folder.uri.fsPath)
   const runtime = resolveBundledAppServerRuntime({ extensionRoot })
-  const options = { runtime, workingDirectory: cwd }
+  const options = { runtime, workingDirectory: cwd, signal }
   let status = await readAppServerAuthStatus(options)
   signal.throwIfAborted()
   if (signIn && !status.loggedIn) {
@@ -48,24 +49,40 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   assertAppServerAuthenticated(status)
   assertTrusted()
   signal.throwIfAborted()
-  const spaces = await listAppServerSpaces({ ...options, signal })
+  const reusableSpaces = knownSpaces?.matchesAccount(status) ? knownSpaces : undefined
+  const spaces = reusableSpaces ? { current: target?.key ?? null, spaces: reusableSpaces.list() } : await listAppServerSpaces({ ...options, signal })
   const requestedKey = target?.key ?? spaces.current
-  const key = spaces.spaces.some(space => space.projectKey === requestedKey) ? requestedKey : (await vscode.window.showQuickPick(spaces.spaces.map((space) => ({ label: space.displayName, key: space.projectKey })), { title: requestedKey ? "上次空间已不可用，请重新选择 CodeM 空间" : "选择本次连接使用的 CodeM 空间" }))?.key
+  const needsSelection = !spaces.spaces.some(space => space.projectKey === requestedKey)
+  const key = !needsSelection ? requestedKey : (await vscode.window.showQuickPick(spaces.spaces.map((space) => ({ label: space.displayName, key: space.projectKey })), { title: requestedKey ? "上次空间已不可用，请重新选择 CodeM 空间" : "选择本次连接使用的 CodeM 空间" }))?.key
   if (!key) throw new UserVisibleError("未选择可用空间，请先在 CodeM 账户中加入空间后重试。")
   const space = spaces.spaces.find(space => space.projectKey === key)
   if (!space) throw new UserVisibleError("所选空间已不可用，请重新选择。")
   signal.throwIfAborted()
+  // A user prompt may have remained open for an arbitrary time; renew auth then.
+  if (needsSelection) { status = await readAppServerAuthStatus({ ...options, signal }); assertAppServerAuthenticated(status) }
+  let directory: SpaceDirectory
   const authorize = async () => {
     assertTrusted()
-    assertAppServerAuthenticated(await readAppServerAuthStatus(options))
+    const current = await readAppServerAuthStatus({ ...options, signal })
+    assertAppServerAuthenticated(current)
+    directory.assertAccount(current)
     assertTrusted()
     signal.throwIfAborted()
   }
+  directory = reusableSpaces ?? new SpaceDirectory(spaces, status, async refreshSignal => {
+    assertTrusted()
+    const current = await readAppServerAuthStatus({ ...options, signal: refreshSignal })
+    assertAppServerAuthenticated(current); directory.assertAccount(current)
+    return listAppServerSpaces({ ...options, signal: refreshSignal })
+  })
+  // Reuse only the authentication already verified within this startup transaction.
+  // Later reconnects and operations always call authorize again.
+  let starting = true
   const readHistory = createSessionHistoryReader({ cwd, sessionsRoot: resolveSessionsRoot(process.env), authorize })
   const host = new AppServerHost({
     runtime,
     clientInfo: { name: "codem-vscode", version },
-    assertAuthenticated: authorize,
+    assertAuthenticated: async () => { assertTrusted(); signal.throwIfAborted(); if (starting) assertAppServerAuthenticated(status); else await authorize() },
     prepareSpace: () => prepareAppServerSpace({ ...options, signal }, key),
   })
   try {
@@ -74,9 +91,9 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
     if (!catalog.models.some((model) => model.id === catalog.activeModel)) throw new UserVisibleError("Core 没有返回可用的当前模型。")
     assertTrusted()
     signal.throwIfAborted()
-    return { host, cwd, authorize, readHistory, workspace: folder.name, space: { key, name: space.displayName }, model: catalog.activeModel, models: catalog.models, mcpServers: [] }
+    return { host, cwd, authorize, readHistory, workspace: folder.name, space: { key, name: space.displayName }, spaceDirectory: directory, model: catalog.activeModel, models: catalog.models, mcpServers: [] }
   } catch (error) {
     await host.close()
     throw error
-  }
+  } finally { starting = false }
 }

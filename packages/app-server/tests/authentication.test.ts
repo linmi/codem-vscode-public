@@ -21,6 +21,15 @@ afterEach(() => {
 })
 
 describe("App Server authentication", () => {
+  it("aborts an in-flight status subprocess and rejects pre-aborted reads", async () => {
+    const fixture = createAuthFixture({ status: "wait" })
+    const abort = new AbortController()
+    const pending = readAppServerAuthStatus({ ...fixture.options(), signal: abort.signal })
+    abort.abort()
+    await assert.rejects(pending, /cancelled/)
+    await assert.rejects(readAppServerAuthStatus({ ...fixture.options(), signal: abort.signal }), { name: "AbortError" })
+  })
+
   it("reads a strict signed-in credential-broker status", async () => {
     const fixture = createAuthFixture()
     const status = await readAppServerAuthStatus(fixture.options())
@@ -165,6 +174,7 @@ const action = process.argv[3]
 if (command !== "auth") process.exit(9)
   if (action === "status") {
   const state = fs.readFileSync(statePath, "utf8")
+  if (state === "wait") { setInterval(() => {}, 1000); return }
   if (state === "malformed") {
     process.stdout.write("not-json\\n")
     process.exit(0)

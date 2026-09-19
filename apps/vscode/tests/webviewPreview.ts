@@ -63,10 +63,13 @@ createServer((request, response) => {
             if (choice && activePanel.kind === 'permissionMode') demo.permission = choice.id;
             if (choice && activePanel.kind === 'workMode') demo.workMode = choice.id;
             if (choice && activePanel.kind === 'effort') demo.effort = choice.id;
-            if (choice && activePanel.kind === 'space') demo.space = choice.label;
+            if (choice && activePanel.kind === 'space' && choice.id !== 'refresh') demo.space = choice.label;
             if (choice && activePanel.kind === 'model') demo.model = choice.label;
           }
-          activePanel = null;
+          if (!action.cancelled && activePanel?.kind === 'space' && action.choiceIds[0] === 'refresh') {
+            activePanel = {...panels.space, id:'spaceRefreshing', description:'正在刷新空间列表…', choices:[]};
+            setTimeout(() => { if (activePanel?.id === 'spaceRefreshing') { activePanel = {...panels.space, id:'spaceRefreshed'}; window.postMessage({type:'panel',panel:activePanel},'*'); } }, 500);
+          } else activePanel = null;
         }
         if (action.type === 'showHistory') demo.history = {...demo.history, open: true, entries: [{id: 'preview', title: '整理登录页面', startedAt: '2026-09-19T12:00:00Z', turnCount: 1, archived: false}]};
         if (action.type === 'closeHistory') demo.history.open = false;
