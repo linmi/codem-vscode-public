@@ -18,3 +18,15 @@
 | 12 历史与资源面板 | 已补已加载会话搜索、按日期分组、文件/任务/工具 tabs 和数量、键盘切换；RESOURCES_VIEW_OK。没有假装具备全库搜索或独立终端工作区 |
 
 第 1 项：新增晚到 reasoning/tool 及 schema 13 历史投影回归。排序只依据明确的终态回复，不猜测事件时间、不把所有思考移到整个对话开头。不改变 Core JSONL。
+
+## 集中验证（2026-09-20）
+
+- `pnpm check`：Oxlint、TS 7 和 169 个测试通过。
+- `pnpm build:vscode`：通过；CSS 语法警告升级为构建错误，避免无效样式被当作成功构建。
+- 浏览器回归：`WEBVIEW_CHECKS_OK`、`PANEL_UI_OK`、`FOOTER_STABLE_OK`、`PICKER_ANCHORED_OK`、`WORK_GROUP_OK`、`LIFECYCLE_VIEW_OK`、`RESOURCES_VIEW_OK`、`NEW_SURFACES_OK`；覆盖新布局、搜索、多选、导航、附件放大、高亮、代码换行、取消和内容安全。
+- `test:live`：真实 Extension Host 激活及 Core 流式测试通过，2 个增量，Core 完成后回到 ready。
+- 真实 VS Code 手工观察：发送后的等待行可见，Core 工具执行分组位于最终回复之前，结束后收起并恢复输入。没有把模型自称“收到答案”的文字当作卡片端到端验收证据。
+
+## 仍未宣称完成的对齐范围
+
+本轮是 12 类问题的第一轮实现，不能标记为完整 1:1。尚缺：工具参数/复杂产物的专用卡片、索引式 @ 文件搜索、较大图片与历史图片缩略图、完整 provider 分组、Core 没有提供的精确执行耗时，以及真实审批/多题回退/计划拒绝的逐项端到端验收。现有原生文件差异预览继续有效；本轮不增加桌面独立 Git/终端/浏览器工作区。
