@@ -60,7 +60,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .activityChevron svg { width: 12px; height: 12px; }
 .activityMessage summary:hover .activityChevron, .activityMessage summary:focus-visible .activityChevron, .activityMessage details[open] .activityChevron { opacity: 1; }
 .activityMessage details[open] .activityChevron { transform: rotate(90deg); }
-.activityLoading { min-width: 0; }
+.activityLoading { display: flex; align-items: center; min-width: 0; }
 .activityLoading .beautifulLoading { max-width: 100%; }
 .activityLoading .beautifulLoadingLabel { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .activityTitle { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

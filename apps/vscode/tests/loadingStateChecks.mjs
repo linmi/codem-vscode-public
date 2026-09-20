@@ -1,3 +1,14 @@
+async function checkActivityAlignment(page) {
+  const offsets = await page.locator('.activityMessage summary').evaluateAll(rows => rows.flatMap(row => {
+    if (!row.getBoundingClientRect().height) return [];
+    const parts = [...row.querySelectorAll('.activityIcon svg, .activityTitle, .beautifulLoadingGrid, .beautifulLoadingLabel, .activityChevron svg')]
+      .map(node => node.getBoundingClientRect()).filter(rect => rect.height > 0);
+    const centers = parts.map(rect => rect.top + rect.height / 2);
+    return centers.length ? [Math.max(...centers) - Math.min(...centers)] : [];
+  }));
+  if (!offsets.length || offsets.some(offset => offset > 1)) throw new Error(`Activity icons, text and arrows are misaligned: ${offsets}`);
+}
+
 export default async function loadingStateChecks(page) {
   const errors = [];
   const onError = error => errors.push(String(error));
@@ -12,6 +23,7 @@ export default async function loadingStateChecks(page) {
     if (await page.locator('.activityStatus:visible').count()) throw new Error('Duplicate thinking badge');
     if (await page.locator('#workingRow').isVisible()) throw new Error('Duplicate thinking footer');
     if (await page.locator('.activityLoading .beautifulLoadingGrid > span').count() !== 9) throw new Error('Missing pixel grid');
+    await checkActivityAlignment(page);
     await page.evaluate(() => { window.savedGrid = document.querySelector('.workGroup .beautifulLoadingGrid'); demo.messages[1].text += ' delta'; window.postMessage(demo,'*'); });
     await page.waitForFunction(() => document.querySelector('[data-role=reasoning] .messageBody').textContent.includes(' delta'));
     if (!await page.evaluate(() => savedGrid === document.querySelector('.workGroup .beautifulLoadingGrid'))) throw new Error('Streaming remounts the loading animation');
@@ -52,10 +64,12 @@ export default async function loadingStateChecks(page) {
     await page.setViewportSize({width:420,height:800});
     await page.goto('http://127.0.0.1:4318/?scenario=thinking&theme=dark');
     await page.locator('.workGroup .beautifulLoading').waitFor();
+    await checkActivityAlignment(page);
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Narrow loading layout overflows');
     await page.screenshot({path:'output/playwright/beautifulLoadingDark.png'});
     await page.goto('http://127.0.0.1:4318/?scenario=failed');
     await page.locator('.activityStatus:visible').getByText('失败',{exact:true}).waitFor();
+    await checkActivityAlignment(page);
     if (errors.length) throw new Error(errors.join('\n'));
     return 'LOADING_STATE_OK';
   } finally {
