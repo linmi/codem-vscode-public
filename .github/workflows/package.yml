@@ -1,0 +1,54 @@
+name: Package VSIX
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: VSIX (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: darwin-arm64
+          - runner: macos-15-intel
+            target: darwin-x64
+          - runner: windows-latest
+            target: win32-x64
+          - runner: windows-11-arm
+            target: win32-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.23.2
+          package-manager-cache: false
+      - name: Install pinned pnpm
+        run: npm install --global pnpm@12.4.1
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint and types
+        run: pnpm lint && pnpm typecheck
+      - name: Runtime and packaging regressions
+        run: pnpm test:windows && pnpm test:packaging
+      - name: Build and package native VSIX
+        run: pnpm package:vscode --target ${{ matrix.target }}
+      - name: Check native executables without login or model requests
+        run: pnpm --filter codem test:runtime
+      - name: Upload VSIX and SHA-256
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: codem-${{ matrix.target }}
+          path: |
+            dist/vsix/*.vsix
+            dist/vsix/*.sha256
+          if-no-files-found: error
+          retention-days: 14

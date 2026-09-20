@@ -53,13 +53,21 @@ pnpm build:vscode
 
 在 VS Code 中选择根目录的 **CodeM VS Code** 调试配置，按 F5。开发宿主中打开 CodeM 面板：未登录时显示居中登录按钮，浏览器授权成功后进入聊天；登录不需要打开文件夹或信任工作区，也不启动 Core。已登录时右上角显示真实头像（图片不可用时回退到姓名首字），点击查看或刷新个人信息。首次打开面板时，已登录且已打开可信文件夹的用户仍按 autoConnect 设置连接；登录后首次发送或显式连接再准备工作区。连接失败保留手动重试入口，不循环重试。工作区未信任时不会启动 Core，授予信任后自动连接。保存的选择仅作用于当前 VS Code 工作区及对应空间，不改写 CLI 的全局空间选择。
 
-`pnpm --filter codem watch` 持续构建；代码更新后使用开发宿主的 Reload Window 重新加载。构建产物在 `dist/`，匹配当前平台的 Core 与认证代理在 `bin/app-server/`，均不提交。此阶段尚未提供 VSIX 打包或发布命令。
+`pnpm --filter codem watch` 持续构建；代码更新后使用开发宿主的 Reload Window 重新加载。构建产物在 `dist/`，匹配当前平台的 Core 与认证代理在 `bin/app-server/`，均不提交。
+
+### VSIX 打包
+
+在仓库根目录运行 `pnpm package:vscode`，自动重新构建并生成当前平台的 `dist/vsix/codem-<版本>-<系统>-<架构>.vsix` 和 `.sha256` 文件。可用 `pnpm package:vscode --target win32-x64` 显式校验目标；目标必须匹配本机 Node 的系统和架构，不支持将本机二进制改名成其他平台包。
+
+在 VS Code 扩展面板选择 **从 VSIX 安装…**，或运行 `code --install-extension <文件路径>`。安装包内置 Core 和认证程序，使用者不需要安装 Node.js、pnpm 或 CodeM CLI。
+
+GitHub Actions 的 **Package VSIX** 工作流支持手动触发，一次生成 macOS / Windows 的 x64、ARM64 四份安装包及校验文件，下载对应平台的 artifact 即可。该流程只打包，不发布 Marketplace 或创建 Release。打包边界、许可证与验收见 [VSIX 打包](../../docs/packaging.md)。
 
 ### Windows
 
 Windows x64 和 ARM64 使用原生 VS Code Extension Host，无需 WSL。使用与 VS Code 架构一致的 Node.js（>=22.23.2）和 pnpm 12.4.1，在 PowerShell 中执行上述安装、构建命令，再按 F5 启动 **CodeM VS Code**。Windows 构建自动携带 `codem-core.exe` 和 `codem-auth.exe`；不要复制 macOS/Linux 的 `bin/app-server/`，切换系统或 Node 架构后重新安装依赖并构建。
 
-`pnpm test:windows` 验证运行包、路径和进程生命周期；构建后 `pnpm --filter codem test:runtime` 启动真实二进制检查 CLI 版本及 Core 初始化，不登录、不请求模型。`test:extension` 自动查找 Windows 用户安装和系统安装的 VS Code；便携版或非默认安装位置先设置 `$env:CODEM_VSCODE_EXECUTABLE = 'D:\VS Code\Code.exe'`，不要指定 `bin\code.cmd`。当前交付仍为开发宿主方式，未提供 Windows VSIX 安装包。验证范围见 [Windows 支持](../../docs/windowsSupport.md)。
+`pnpm test:windows` 验证运行包、路径和进程生命周期；构建后 `pnpm --filter codem test:runtime` 启动真实二进制检查 CLI 版本及 Core 初始化，不登录、不请求模型。`test:extension` 自动查找 Windows 用户安装和系统安装的 VS Code；便携版或非默认安装位置先设置 `$env:CODEM_VSCODE_EXECUTABLE = 'D:\VS Code\Code.exe'`，不要指定 `bin\code.cmd`。可以在 Windows 上执行 `pnpm package:vscode`，也可通过上述 CI 生成 VSIX。验证范围见 [Windows 支持](../../docs/windowsSupport.md)。
 
 ## 验证
 

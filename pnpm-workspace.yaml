@@ -16,3 +16,5 @@ allowBuilds:
   "@lark-codem/codem-core-linux-x64-gnu": true
   "@lark-codem/codem-core-win32-arm64-gnu": true
   "@lark-codem/codem-core-win32-x64-msvc": true
+  # Local VSIX packaging does not sign or publish extensions.
+  "@vscode/vsce-sign": false

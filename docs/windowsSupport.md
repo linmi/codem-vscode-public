@@ -14,7 +14,7 @@ Host 仍以连接建立时的 canonical cwd 为唯一会话状态键。此前 `t
 - Windows smoke 启动器按显式路径、用户安装、系统安装定位 `Code.exe`；支持空格和中文目录。明确指定的错误路径直接失败，不转用其他安装，不经过 cmd.exe。
 - `pnpm test:windows` 在各平台验证两种 Windows 包布局及损坏拒绝、工作区归属、安装定位、真实子进程 stdio 初始化、关闭与初始化超时。RPC fixture 通过当前 Node 可执行文件启动，不再依赖 Unix shebang。
 - CI 新增 `windows-latest`（x64）和 `windows-11-arm`，执行 lint、类型检查、上述专项测试、原生构建和 `test:runtime`。后者只检查 CLI 版本及 Core initialize/close，不登录、不消耗模型请求。Windows 专项不是全量测试替代：Ubuntu 原有 `pnpm check` 继续保留；其他既有测试仍有 Unix fixture 假设。
-- UI 未修改，模拟界面不作为 Windows 验收依据。真实 Windows 登录、发送、取消、历史恢复及 VS Code 操作仍需要 Windows 实机执行；本机 macOS 验证不能代替这些结果。当前未提供 VSIX 打包。
+- UI 未修改，模拟界面不作为 Windows 验收依据。真实 Windows 登录、发送、取消、历史恢复及 VS Code 操作仍需要 Windows 实机执行；本机 macOS 验证不能代替这些结果。VSIX 本机打包及四平台 CI 现已接入，参见 [打包流程](packaging.md)。
 
 运行器依据：[GitHub 官方运行器列表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)。安装位置依据：[VS Code Windows 安装文档](https://code.visualstudio.com/docs/setup/windows)。
 

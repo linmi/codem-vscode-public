@@ -362,7 +362,8 @@
     "test:extension": "node --experimental-strip-types scripts/smoke.ts",
     "test:runtime": "node --experimental-strip-types scripts/runtimeSmoke.ts",
     "test:live": "node --experimental-strip-types scripts/smoke.ts --live",
-    "test:acceptance": "node --experimental-strip-types scripts/acceptance.ts"
+    "test:acceptance": "node --experimental-strip-types scripts/acceptance.ts",
+    "package:vsix": "node --experimental-strip-types scripts/packageVsix.ts"
   },
   "dependencies": {
     "@codem/app-server": "workspace:*",
@@ -388,6 +389,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/vscode": "1.105.0",
+    "@vscode/vsce": "4.0.0",
     "esbuild": "0.28.2",
     "postcss": "8.5.28",
     "tailwindcss": "4.3.3",
@@ -398,5 +400,10 @@
     "onWebviewPanel:codem.editor",
     "onLanguage",
     "onTerminalShellIntegration:*"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/linmi/codem-vscode.git",
+    "directory": "apps/vscode"
+  }
 }
