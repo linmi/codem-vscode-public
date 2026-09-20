@@ -1,3 +1,4 @@
+import type { PasteImagesResult } from "../src/shared/pastedImages.ts"
 import { createAccountView } from "./account/accountView.tsx"
 import type { AccountMessage } from "../src/shared/accountTypes.ts"
 import { createResourceTools } from "./resources/resourceTools.tsx"
@@ -44,6 +45,12 @@ const renderWorkGroups = createWorkGroups(post)
 const accountView = createAccountView(element("accountRoot"), element("accountMenu"), document.querySelector<HTMLElement>(".app")!, element("accountRoot").dataset.logo!, post)
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
+let pasteNotice: string | null = null
+function renderNotice(): void {
+  const notice = element("notice")
+  const text = pasteNotice ?? state.notice
+  notice.hidden = !text; notice.textContent = text ?? ""
+}
 const imageRequests = new Map<string, (preview: import("../src/shared/messages.ts").AttachmentView["preview"]) => void>()
 configureImageLoader(id => new Promise(resolve => {
   const timer = setTimeout(() => { imageRequests.delete(id); resolve({ kind: "unavailable", reason: "图片加载超时，请重试。" }) }, 30000)
@@ -58,7 +65,7 @@ const composer = createComposerView({ form: element<HTMLFormElement>("composer")
   const trigger = element(({ files: "addAttachment", model: "selectModel", mode: "selectWorkMode" })[menu])
   if (menu === "model") trigger.click()
   else trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
-})
+}, text => { pasteNotice = text; renderNotice() })
 
 function post(action: ViewAction): void { vscode.postMessage(action) }
 function renderWorkingStatus(): void {
@@ -125,7 +132,7 @@ function render(next: ChatSnapshot): void {
   element("statusDot").dataset.connected = String(state.phase !== "disconnected" && state.phase !== "connecting")
   element("workspace").textContent = state.workspace ?? "未连接工作区"
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
-  const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
+  renderNotice()
   element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : ""
   renderResources()
   composer.update(state)
@@ -135,8 +142,8 @@ function render(next: ChatSnapshot): void {
   updateJump()
 }
 
-window.addEventListener("message", (event: MessageEvent<AccountMessage | EditorMessage | ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected | ImageResult>) => {
-  if (event.data?.type === "codeSelection" || event.data?.type === "composerDraft" || event.data?.type === "appendContext" || event.data?.type === "focusComposer" || event.data?.type === "editorSettings" || event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected" || event.data?.type === "sendResult") {
+window.addEventListener("message", (event: MessageEvent<PasteImagesResult | AccountMessage | EditorMessage | ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected | ImageResult>) => {
+  if (event.data?.type === "pasteImagesResult" || event.data?.type === "codeSelection" || event.data?.type === "composerDraft" || event.data?.type === "appendContext" || event.data?.type === "focusComposer" || event.data?.type === "editorSettings" || event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected" || event.data?.type === "sendResult") {
     composer.receive(event.data)
     if (event.data.type === "editorSettings") renderCapabilityStatus(state, composer.sendKey)
   }

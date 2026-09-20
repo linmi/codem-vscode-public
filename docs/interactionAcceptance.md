@@ -69,3 +69,15 @@ CODEM_LIVE_INTERACTIONS_OK
 - `ChatSnapshot.turnTimings` 由 Host 所有，按 Core `turnId` 与消息关联。实时开始时间取收到已关联 `turn-started` 的时间；若只有 startTurn 回执，则从确认接受时计时。重复开始事件和回执不重置时间。`turn/completed` 固定终点；断连只结束观测时长，不把任务标记成功。停止回执本身不结束计时。
 - Webview 仅每秒刷新标签，流式重绘和面板重建沿用 Host 时间。新会话清空，切换会话替换，历史翻页追加对应的计时。历史耗时来自 Core JSONL 的 `startedAt` / `completedAt`；未完成历史记录不补造终点或重新启动计时。
 - 模拟预览以 36 秒作为已标明的 fixture 基线。自动验证覆盖计时位置、递增、完成后停止、新轮隔离、断连、重复/过期事件、完成早于发送回执、历史时间投影与未知时长；未以模拟验证代替真实 Core / VS Code 操作。
+
+## 输入框图片粘贴（2026-09-21）
+
+原问题是输入框没有图片 `paste` 入口；文件选择器与 Core 的 localImage 发送能力不能代替剪贴板接入。此次保留原附件样式和普通消息发送规则，只增加截图/图片粘贴。
+
+- Webview 在用户粘贴时读取 PNG/JPEG/GIF/WebP 文件；纯文字不拦截，混合文字仍由原生输入处理。单次图片合计不超过 20 MiB，每条消息仍最多 20 个附件。读取或等待 Host 回执期间禁止发送，成功后复用缩略图、放大和移除入口，失败保留文字草稿并允许重试。
+- `shared/pastedImages.ts` 定义有界字节与作用域契约；Host 验证大小、规范 base64、文件头、工作区信任、当前会话和忙碌状态。只由 Host 生成私有临时目录与文件路径，Webview 不能指定路径。粘贴本身不连接 Core、不调用 RPC、不自动发送。
+- `composer/imagePaste.ts` 拥有当前 Webview 的读取任务与回执状态。模式/上下文切换取消旧读取，晚到回执不修改新操作；重载从 Host 附件状态恢复，不持久化剪贴板字节。`ConversationResources` 拥有临时文件、句柄和异步清理；移除未发送图片、会话清理或失败批次时回收，发送后保留至消息不再需要预览；关闭连接时等待 Core 退出后再删文件，dispose 等待未完成导入和清理。没有新增反向依赖或连接状态所有者。
+- 单元/集成：`messages`、`conversationResources`、`chatController` 回归覆盖图片字节到 localImage、首次连接保留、后续会话粘贴、发送失败重试、过期操作、权限撤销、错误类型/base64/大小/数量、原子清理和关闭时延迟释放。架构门禁随 `pnpm check` 执行。
+- 模拟界面：`tests/imagePasteChecks.mjs` 在已有预览服务上验证 ClipboardEvent、缩略图/放大/移除、纯文字与混合粘贴不被阻止、读取与回执期间防误发、超限/格式错误、上下文切换取消和重载。模拟宿主不写文件；文件与发送行为由上述集成测试单独验证。
+- 真实 Core：本轮未执行真实模型请求，沿用现有 localImage 通道；此前真实图片记录仍见上文。
+- 真实 VS Code：本轮未执行操作系统剪贴板到 VS Code Webview 的按键验收；浏览器合成粘贴事件不作为这一层的替代证据。

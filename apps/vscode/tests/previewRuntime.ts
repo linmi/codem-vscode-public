@@ -1,3 +1,4 @@
+import { attachmentScope, parsePastedImages } from "../src/shared/pastedImages.ts"
 import { appendContext, codePrompt } from "../src/shared/editorContext.ts"
 import type { ChatSnapshot, CodeSelectionsView, ViewAction } from "../src/shared/messages.ts"
 import type { AccountState } from "../src/shared/accountTypes.ts"
@@ -214,6 +215,12 @@ export function createPreviewRuntime(initial: PreviewSearch) {
       const choice = choices.find(item => item.id === action.id)
       if (choice) { choices.forEach(item => { item.selected = item.id === choice.id }); if (action.type === "chooseModel") demo.model = choice.label; else demo.space = choice.label }
       publish(); return
+    }
+    if (action.type === "pasteImages") {
+      if (action.scope !== attachmentScope(demo)) { emit({ type: "pasteImagesResult", requestId: action.requestId, error: "会话已切换，请重新粘贴图片。" }); return }
+      const images = parsePastedImages(action.images)
+      demo.attachments = [...demo.attachments, ...images.map(image => ({ id: crypto.randomUUID(), label: "粘贴图片.png", kind: "image" as const, preview: { kind: "image" as const, dataUrl: `data:${image.mediaType};base64,${image.data}` } }))]
+      publish(); emit({ type: "pasteImagesResult", requestId: action.requestId, error: null }); return
     }
     if (action.type === "pickAttachment") { demo.notice = "已请求本地文件选择（模拟），未连接 Core。"; publish(); return }
     if (action.type === "refreshSpaces") { demo.notice = "已刷新空间列表（模拟）。"; publish(); return }

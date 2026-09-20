@@ -1,3 +1,5 @@
+import { installImagePaste } from "./imagePaste.ts"
+import type { PasteImagesResult } from "../../src/shared/pastedImages.ts"
 import type { ChatSnapshot, CodeSelectionsView, ComposerDraft, EditorMessage, FileSearchResult, FileSelected, SendResult, ViewAction } from "../../src/shared/messages.ts"
 import { initialSnapshot } from "../../src/shared/messages.ts"
 import { commandUnavailable, inputUnavailable, inputModes, slashQuery, type ComposerMode, type SessionCommandId, type SessionPanelCommand } from "../../src/shared/sessionCommands.ts"
@@ -21,7 +23,7 @@ interface ComposerElements {
 }
 
 /** One input surface for the lifetime of its Webview; state rules stay in ComposerState. */
-export function createComposerView(elements: ComposerElements, transport: ComposerTransport, locked: () => boolean, changed: () => void, openMenu: (menu: "files" | "model" | "mode") => void) {
+export function createComposerView(elements: ComposerElements, transport: ComposerTransport, locked: () => boolean, changed: () => void, openMenu: (menu: "files" | "model" | "mode") => void, pasteStatus: (text: string | null) => void) {
   const { form, prompt, send, attachments } = elements
   const draft = new ComposerState(transport.getState() ?? {})
   let state: ChatSnapshot = initialSnapshot()
@@ -42,6 +44,7 @@ export function createComposerView(elements: ComposerElements, transport: Compos
   const fileMentions = installFileMentions(prompt, () => draft.mode === "message" && state.phase === "ready" && !locked(), post)
   const commandsHost = document.createElement("span"); commandsHost.id = "slashCommandsHost"; commandsHost.hidden = true; form.append(commandsHost)
   const commands = createSlashCommands(commandsHost, form, prompt, chooseCommand)
+  const imagePaste = installImagePaste(prompt, () => ({ state, messageMode: draft.mode === "message", blocked: locked() || draft.busy }), post, pasteStatus, refresh)
 
   function fitPrompt(): void {
     const width = prompt.clientWidth
@@ -65,11 +68,12 @@ export function createComposerView(elements: ComposerElements, transport: Compos
 
   function isSlashInput(): boolean { return draft.mode !== "shellCommand" && slashQuery(draft.text) !== null }
   function refresh(): void {
+    imagePaste.sync()
     // Avoid resetting selection/caret on unrelated streamed messages.
     if (prompt.value !== draft.text) prompt.value = draft.text
     fitPrompt()
     prompt.disabled = locked()
-    send.disabled = (!isSlashInput() && Boolean(inputUnavailable(draft.mode, state))) || !draft.text.trim() || draft.busy || locked() || (draft.mode === "message" && selectedReferences().some(item => Boolean(item.error)))
+    send.disabled = (!isSlashInput() && Boolean(inputUnavailable(draft.mode, state))) || !draft.text.trim() || draft.busy || imagePaste.busy || locked() || (draft.mode === "message" && selectedReferences().some(item => Boolean(item.error)))
     send.hidden = (state.phase === "running" || state.phase === "stopping") && draft.mode !== "steer"
     send.setAttribute("aria-label", draft.mode === "message" ? "发送消息" : draft.mode === "shellCommand" ? "检查命令" : `发送${modeLabels[draft.mode]}`)
     prompt.setAttribute("aria-label", draft.mode === "message" ? "发送给 CodeM 的消息" : `${modeLabels[draft.mode]}输入`)
@@ -135,8 +139,9 @@ export function createComposerView(elements: ComposerElements, transport: Compos
       commandPanels.update(state); commands.update(state)
       persist(); refresh()
     },
-    receive(message: EditorMessage | SendResult | FileSearchResult | FileSelected): void {
+    receive(message: PasteImagesResult | EditorMessage | SendResult | FileSearchResult | FileSelected): void {
       switch (message.type) {
+        case "pasteImagesResult": imagePaste.receive(message); break
         case "codeSelection": selection = message.value; refresh(); break
         case "composerDraft":
           draft.restore(message.value, message.pendingRequestId)

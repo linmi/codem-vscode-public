@@ -1231,20 +1231,22 @@ export class ChatController {
   async pasteImages(action: PasteImagesAction): Promise<string | null> {
     const session = this.session
     const generation = this.generation
-    if (this.disposed || action.scope !== attachmentScope(this.state)) return "会话已切换，请重新粘贴图片。"
+    if (this.disposed || action.scope !== attachmentScope({ ...this.state, threadId: this.threadId })) return "会话已切换，请重新粘贴图片。"
     if (!["ready", "disconnected"].includes(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return "请等待当前操作完成后再粘贴图片。"
     const assertCurrent = () => {
       this.options.assertTrusted()
-      if (this.disposed || this.session !== session || this.generation !== generation || action.scope !== attachmentScope(this.state)) throw new Error("Image paste expired")
+      if (this.disposed || this.session !== session || this.generation !== generation || action.scope !== attachmentScope({ ...this.state, threadId: this.threadId })) throw new Error("Image paste expired")
     }
+    let additions: AttachmentView[] = []
     this.update({ phase: "configuring", notice: null })
     try {
       assertCurrent()
-      const additions = await this.resources.addPastedImages(action.images, assertCurrent)
+      additions = await this.resources.addPastedImages(action.images, assertCurrent)
       assertCurrent()
       this.update({ attachments: [...this.state.attachments, ...additions] })
       return null
     } catch (error) {
+      for (const item of additions) this.resources.remove(item.id)
       this.options.report("pasteImages", error)
       return error instanceof UserVisibleError ? error.message : "图片粘贴失败，请重新复制后重试。"
     } finally {

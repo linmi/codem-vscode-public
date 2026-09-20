@@ -1,3 +1,4 @@
+import { attachmentScope } from "../src/shared/pastedImages.ts"
 import { capabilityHostFixture } from "./capabilityHostFixture.ts"
 import { SpaceDirectory } from "../src/connection/spaceDirectory.ts"
 import { fixtureIdentity, fixtureSpaces, fixtureSpaceDirectory } from "./spaceFixtures.ts"
@@ -1286,4 +1287,76 @@ it("failed account cleanup cannot be bypassed by retrying or reconnecting", asyn
   assert.equal(f.counts().connections, 1)
   assert.equal(f.controller.snapshot().phase, "disconnected")
   await f.controller.dispose()
+})
+
+it("pasted image flows through preview and localImage submission without connecting on paste", async t => {
+  const { readFile } = await import("node:fs/promises")
+  const fixture = setup()
+  t.after(() => fixture.controller.dispose())
+  const images = [{ mediaType: "image/png" as const, data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==" }]
+  assert.equal(await fixture.controller.pasteImages({ type: "pasteImages", requestId: "paste", scope: "[null,null,null]", images }), null)
+  assert.equal(fixture.counts().connections, 0)
+  const [attachment] = fixture.controller.snapshot().attachments
+  assert.equal((await fixture.controller.loadImage(attachment!.id)).kind, "image")
+  let path = ""
+  const start = fixture.host.startTurn
+  fixture.host.startTurn = async input => {
+    assert.equal(input.attachments?.length, 1)
+    assert.equal(input.attachments![0]!.kind, "image")
+    path = input.attachments![0]!.path
+    assert.equal((await readFile(path)).toString("base64"), images[0]!.data)
+    return start(input)
+  }
+  assert.equal(await fixture.controller.send("解释这张图片"), true)
+  assert.equal(fixture.controller.snapshot().attachments.length, 0)
+  assert.equal((await fixture.controller.loadImage(attachment!.id)).kind, "image")
+  assert.match((await fixture.controller.pasteImages({ type: "pasteImages", requestId: "busy", scope: attachmentScope(fixture.controller.snapshot()), images }))!, /等待/)
+  await fixture.controller.dispose()
+  await assert.rejects(readFile(path), { code: "ENOENT" })
+})
+
+it("paste rejects stale conversations, recovers from invalid images and cannot survive account reset", async () => {
+  const fixture = setup()
+  const action = { type: "pasteImages" as const, requestId: "paste", scope: "[null,null,null]", images: [{ mediaType: "image/png" as const, data: "iVBORw0KGgo=" }] }
+  assert.match((await fixture.controller.pasteImages({ ...action, scope: "stale" }))!, /会话已切换/)
+  assert.match((await fixture.controller.pasteImages({ ...action, images: [{ mediaType: "image/png", data: "bm90IHBpY3R1cmU=" }] }))!, /格式无效/)
+  assert.equal(fixture.controller.snapshot().phase, "disconnected")
+  const pending = fixture.controller.pasteImages(action)
+  await fixture.controller.resetAccount()
+  assert.notEqual(await pending, null)
+  assert.deepEqual(fixture.controller.snapshot().attachments, [])
+  assert.equal(fixture.controller.snapshot().phase, "disconnected")
+  await fixture.controller.dispose()
+})
+
+it("a late trust revocation rolls back pasted attachments before the next submission", async t => {
+  const fixture = setup()
+  let checks = 0
+  const controller = new ChatController({
+    connect: async () => fixture.session,
+    assertTrusted() { if (++checks === 4) throw new UserVisibleError("工作区信任已撤销") },
+    publish() {}, interact: async () => null, report() {},
+  })
+  t.after(() => controller.dispose())
+  assert.match((await controller.pasteImages({ type: "pasteImages", requestId: "paste", scope: "[null,null,null]", images: [{ mediaType: "image/png", data: "iVBORw0KGgo=" }] }))!, /信任已撤销/)
+  assert.deepEqual(controller.snapshot().attachments, [])
+  const start = fixture.host.startTurn
+  fixture.host.startTurn = async input => { assert.deepEqual(input.attachments, []); return start(input) }
+  assert.equal(await controller.send("普通消息"), true)
+})
+
+it("a rejected turn preserves the pasted image for retry in the established conversation", async t => {
+  const fixture = setup()
+  t.after(() => fixture.controller.dispose())
+  const images = [{ mediaType: "image/png" as const, data: "iVBORw0KGgo=" }]
+  await fixture.controller.pasteImages({ type: "pasteImages", requestId: "paste", scope: attachmentScope(fixture.controller.snapshot()), images })
+  const start = fixture.host.startTurn
+  fixture.host.startTurn = async () => { throw new Error("fixture rejected turn") }
+  assert.equal(await fixture.controller.send("截图"), false)
+  const [attachment] = fixture.controller.snapshot().attachments
+  assert.equal((await fixture.controller.loadImage(attachment!.id)).kind, "image")
+  // A second paste in the same established thread must not be mistaken for an old scope.
+  assert.equal(await fixture.controller.pasteImages({ type: "pasteImages", requestId: "second", scope: attachmentScope(fixture.controller.snapshot()), images }), null)
+  fixture.host.startTurn = start
+  assert.equal(await fixture.controller.send("截图"), true)
 })

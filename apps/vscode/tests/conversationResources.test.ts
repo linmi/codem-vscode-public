@@ -69,3 +69,63 @@ it("connection binding can preserve draft attachment identities while retiring c
   resources.clear()
   assert.deepEqual(resources.attachmentViews(cwd), [])
 })
+
+const pastedPng = { mediaType: "image/png" as const, data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==" }
+
+it("pasted images become private local attachments and retain previews after send, until the conversation is cleared", async t => {
+  const { readFile, stat } = await import("node:fs/promises")
+  const resources = new ConversationResources()
+  t.after(async () => { resources.clear(); await resources.finishImageCleanup() })
+  const added = await resources.addPastedImages([pastedPng], () => {})
+  const path = resources.selected()[0]!.path
+  resources.retainImages([], []) // A snapshot emitted before the import receipt cannot discard selected bytes.
+  assert.equal((await stat(path)).mode & 0o777, 0o600)
+  assert.equal((await readFile(path)).toString("base64"), pastedPng.data)
+  assert.equal(added[0]!.label, "粘贴图片.png")
+  resources.clear(true) // Initial connection preserves the staged clipboard image.
+  assert.deepEqual(resources.attachmentViews("/workspace"), added)
+  resources.remove(added[0]!.id)
+  resources.retainImages([], [{ id: "sent", role: "user", label: "你", text: "图片", attachments: added }])
+  assert.deepEqual(await resources.loadImage(added[0]!.id), { kind: "image", dataUrl: `data:image/png;base64,${pastedPng.data}` })
+  resources.clear()
+  await resources.finishImageCleanup()
+  await assert.rejects(readFile(path), { code: "ENOENT" })
+})
+
+it("removing an unsent image deletes only its owned temporary file", async () => {
+  const { readFile } = await import("node:fs/promises")
+  const resources = new ConversationResources()
+  const [added] = await resources.addPastedImages([pastedPng], () => {})
+  const path = resources.selected()[0]!.path
+  resources.remove(added!.id); resources.retainImages([], [])
+  await resources.finishImageCleanup()
+  await assert.rejects(readFile(path), { code: "ENOENT" })
+})
+
+it("pasted image batches are atomic for wrong MIME, non-canonical base64, count limits and cancellation", async () => {
+  const resources = new ConversationResources()
+  await assert.rejects(resources.addPastedImages([pastedPng, { ...pastedPng, mediaType: "image/jpeg" }], () => {}), /格式无效/)
+  await assert.rejects(resources.addPastedImages([{ mediaType: "image/png", data: "iVBORw0KGgp=" }], () => {}), /格式无效/)
+  assert.deepEqual(resources.selected(), [])
+  const pending = resources.addPastedImages([pastedPng], () => {})
+  resources.clear()
+  await assert.rejects(pending, /expired/)
+  await assert.rejects(resources.addPastedImages([pastedPng], () => { throw new Error("untrusted") }), /untrusted/)
+  await resources.addPastedImages(Array.from({ length: 20 }, () => pastedPng), () => {})
+  await assert.rejects(resources.addPastedImages([pastedPng], () => {}), /20 个附件/)
+  resources.clear(); await resources.finishImageCleanup()
+  assert.deepEqual(resources.selected(), [])
+})
+
+it("retirement waits for Core to release pasted files before deleting them", async () => {
+  const { readFile } = await import("node:fs/promises")
+  const resources = new ConversationResources()
+  await resources.addPastedImages([pastedPng], () => {})
+  const path = resources.selected()[0]!.path
+  let close!: () => void
+  const closing = new Promise<void>(resolve => { close = resolve })
+  resources.clear(false, closing)
+  assert.equal((await readFile(path)).toString("base64"), pastedPng.data)
+  close(); await resources.finishImageCleanup()
+  await assert.rejects(readFile(path), { code: "ENOENT" })
+})

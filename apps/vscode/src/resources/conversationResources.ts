@@ -94,9 +94,16 @@ export class ConversationResources {
         await writeFile(path, bytes, { flag: "wx", mode: 0o600 })
       }
       if (revision !== this.revision) throw new Error("Image paste expired")
-      const added = await this.add(null, created.map(item => ({ kind: "image", path: item.path })), assertCurrent)
-      added.forEach((item, index) => this.pastedDirectories.set(item.id, created[index]!.directory))
-      return added
+      assertCurrent()
+      if (this.attachments.size + created.length > MAX_ATTACHMENTS) throw new UserVisibleError("每条消息最多添加 20 个附件。")
+      return created.map(({ directory, path }): AttachmentView => {
+        const id = randomUUID()
+        const item = { kind: "image" as const, path }
+        this.attachments.set(id, item)
+        this.images.set(id, () => attachmentPreview(item))
+        this.pastedDirectories.set(id, directory)
+        return { id, label: basename(path), kind: "image", preview: { kind: "deferred" } }
+      })
     } catch (error) {
       await Promise.all(created.map(item => rm(item.directory, { recursive: true, force: true })))
       throw error
@@ -115,8 +122,8 @@ export class ConversationResources {
   }
 
   async finishImageCleanup(): Promise<void> {
-    await Promise.allSettled([...this.imageImports])
-    await Promise.all([...this.imageCleanup])
+    await Promise.allSettled(this.imageImports)
+    await Promise.all(this.imageCleanup)
     if (this.cleanupErrors.length) throw new AggregateError(this.cleanupErrors.splice(0), "Pasted image cleanup failed")
   }
 
@@ -135,7 +142,7 @@ export class ConversationResources {
   }
 
   retainImages(attachments: readonly AttachmentView[], messages: readonly ChatMessage[]): void {
-    const ids = new Set([...attachments, ...messages.flatMap(message => "attachments" in message ? message.attachments ?? [] : [])].map(item => item.id))
+    const ids = new Set([...this.attachments.keys(), ...[...attachments, ...messages.flatMap(message => "attachments" in message ? message.attachments ?? [] : [])].map(item => item.id)])
     for (const id of this.images.keys()) if (!ids.has(id)) { this.images.delete(id); this.releasePastedImage(id) }
   }
 

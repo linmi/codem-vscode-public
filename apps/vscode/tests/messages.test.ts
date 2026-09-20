@@ -68,3 +68,19 @@ it("uses value-bearing composer actions and rejects obsolete menu-opening reques
   for (const type of ["selectModel", "selectSpace", "selectWorkMode", "selectPermission", "addAttachment"]) assert.throws(() => parseViewAction({ type }))
   for (const value of [{ type: "setWorkMode", workMode: "normal" }, { type: "setPermission", permission: "admin" }, { type: "pickAttachment", kind: "remote" }, { type: "chooseModel", id: "path/to/model" }, { type: "chooseSpace", id: "ok", key: "injected" }]) assert.throws(() => parseViewAction(value))
 })
+
+it("image paste accepts bounded raster bytes and rejects paths, extra fields and malformed payloads", () => {
+  const images = [{ mediaType: "image/png", data: "iVBORw0KGgo=" }]
+  const action = { type: "pasteImages", requestId: "paste-1", scope: "[null,null,null]", images }
+  assert.deepEqual(parseViewAction(action), action)
+  for (const change of [
+    { path: "/tmp/arbitrary.png" }, { requestId: "bad/id" }, { scope: null },
+    { images: [] }, { images: Array.from({ length: 21 }, () => images[0]) },
+    { images: [{ ...images[0], mediaType: "image/svg+xml" }] },
+    { images: [{ ...images[0], path: "/tmp/arbitrary.png" }] },
+    { images: [{ ...images[0], data: "not base64" }] },
+    { images: [{ ...images[0], data: "" }] },
+    { images: [{ ...images[0], data: "AAAA".repeat(7 * 1024 * 1024) }] },
+    { images: Array.from({ length: 2 }, () => ({ ...images[0], data: "AAAA".repeat(4 * 1024 * 1024) })) },
+  ]) assert.throws(() => parseViewAction({ ...action, ...change }))
+})
