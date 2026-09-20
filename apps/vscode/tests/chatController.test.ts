@@ -672,3 +672,55 @@ it("shows the prepared space before slow old-host cleanup and waits for cleanup 
   assert.equal(disposed, true)
   await next.controller.dispose()
 })
+
+
+it("shutdown gate: repeated disposal waits for the same host cleanup", async () => {
+  const fixture = setup()
+  await fixture.controller.connect()
+  let release!: () => void
+  let closeCalls = 0
+  fixture.host.close = () => { closeCalls++; return new Promise<void>(resolve => { release = resolve }) }
+  const first = fixture.controller.dispose()
+  const second = fixture.controller.dispose()
+  let settled = false
+  void second.then(() => { settled = true })
+  try {
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(settled, false, "Repeated disposal must not report completion while the host is alive")
+    assert.equal(first, second, "All callers must observe one disposal promise")
+    assert.equal(closeCalls, 1)
+  } finally { release(); await Promise.all([first, second]) }
+})
+
+it("shutdown gate: disposal waits for cleanup started by a connection failure", async () => {
+  const fixture = setup()
+  await fixture.controller.connect()
+  let release!: () => void
+  fixture.host.close = () => new Promise<void>(resolve => { release = resolve })
+  fixture.emit({ type: "protocol-error", cwd: "/workspace", message: "fixture failure" })
+  let settled = false
+  const closing = fixture.controller.dispose().then(() => { settled = true })
+  try {
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(settled, false, "Event-triggered cleanup belongs to the controller lifetime")
+  } finally { release(); await closing }
+})
+
+it("shutdown gate: disposal reports cleanup failure after every host settles", async () => {
+  const old = setup(), next = setup()
+  await old.controller.connect()
+  let rejectOld!: (error: Error) => void
+  old.host.close = () => new Promise<void>((_resolve, reject) => { rejectOld = reject })
+  await old.controller.selectSpace(async () => next.session)
+  let releaseNext!: () => void
+  next.host.close = () => new Promise<void>(resolve => { releaseNext = resolve })
+  const closing = old.controller.dispose()
+  const failure = assert.rejects(closing, /cleanup/i)
+  let settled = false
+  void closing.then(() => { settled = true }, () => { settled = true })
+  try {
+    rejectOld(new Error("old host cleanup failed"))
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(settled, false, "A failure must not skip cleanup of other hosts")
+  } finally { releaseNext(); await failure; await next.controller.dispose() }
+})

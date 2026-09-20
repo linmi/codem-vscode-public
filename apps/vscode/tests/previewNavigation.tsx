@@ -1,3 +1,6 @@
+import { createRootRoute, createRoute, createRouter, Link, RouterProvider } from "@tanstack/react-router"
+import { createPreviewRuntime } from "./previewRuntime.ts"
+import { parsePreviewSearch } from "./previewState.ts"
 import { useEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { MenuIcon } from "lucide-react"
@@ -6,18 +9,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../webview/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../webview/components/select.tsx"
 import { previewScenarios } from "./previewScenarios.ts"
 
-const url = new URL(location.href)
-const scenario = url.searchParams.get("scenario") ?? "conversation"
-const theme = url.searchParams.get("theme") === "dark" ? "dark" : "light"
+const runtime = createPreviewRuntime(parsePreviewSearch(Object.fromEntries(new URL(location.href).searchParams)))
+const rootRoute = createRootRoute()
+const previewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", validateSearch: parsePreviewSearch, component: PreviewNavigation })
+const router = createRouter({ routeTree: rootRoute.addChildren([previewRoute]), defaultPreload: false, scrollRestoration: false })
+declare module "@tanstack/react-router" { interface Register { router: typeof router } }
+const unsubscribe = router.subscribe("onResolved", event => runtime.select(parsePreviewSearch(event.toLocation.search)))
 const groups = [...new Set(previewScenarios.map(item => item[1]))]
-function scenarioUrl(nextScenario: string, nextTheme: string): string {
-  const next = new URL(location.href)
-  next.search = ""
-  next.searchParams.set("scenario", nextScenario)
-  next.searchParams.set("theme", nextTheme)
-  return next.href
-}
 function PreviewNavigation() {
+  const { scenario, theme } = previewRoute.useSearch()
   const [narrow, setNarrow] = useState(() => matchMedia("(max-width: 700px)").matches)
   const [expanded, setExpanded] = useState(false)
   const toc = useRef<HTMLElement>(null)
@@ -39,20 +39,20 @@ function PreviewNavigation() {
     </div>
     <CollapsibleContent className="previewSidebarContent">
       <div className="previewControls">
-        <Select value={theme} onValueChange={value => { location.href = scenarioUrl(scenario, value) }}>
+        <Select value={theme} onValueChange={value => { void router.navigate({ to: "/", search: { scenario, theme: value === "dark" ? "dark" : "light" }, resetScroll: false }) }}>
           <SelectTrigger id="previewTheme" aria-label="预览主题"><SelectValue /></SelectTrigger>
           <SelectContent position="popper" align="start">
             <SelectItem value="light">浅色</SelectItem><SelectItem value="dark">深色</SelectItem>
           </SelectContent>
         </Select>
-        <Button id="resetPreview" variant="ghost" size="sm" onClick={() => { location.href = scenarioUrl(scenario, theme) }}>重置</Button>
+        <Button id="resetPreview" variant="ghost" size="sm" onClick={() => { runtime.reset() }}>重置</Button>
       </div>
       <nav ref={toc} className="previewToc" aria-label="场景目录">
         {groups.map(group => <section key={group} aria-label={group}>
           <h2>{group}</h2>
           {previewScenarios.filter(item => item[1] === group).map(([id, , label]) =>
             <Button key={id} asChild variant="ghost" size="sm" className="previewScenarioLink">
-              <a href={scenarioUrl(id, theme)} aria-current={id === scenario ? "page" : undefined}>{label}</a>
+              <Link to="/" search={{ scenario: id, theme }} resetScroll={false} activeOptions={{ exact: true, includeSearch: true }} onClick={() => { if (narrow) setExpanded(false) }} aria-current={id === scenario ? "page" : undefined}>{label}</Link>
             </Button>
           )}
         </section>)}
@@ -63,5 +63,5 @@ function PreviewNavigation() {
 const container = document.getElementById("previewNavigation")
 if (!container) throw new Error("Missing preview navigation")
 const root = createRoot(container)
-root.render(<PreviewNavigation />)
-window.addEventListener("pagehide", () => root.unmount(), { once: true })
+root.render(<RouterProvider router={router} />)
+window.addEventListener("pagehide", () => { unsubscribe(); runtime.dispose(); root.unmount() }, { once: true })

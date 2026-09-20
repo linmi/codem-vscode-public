@@ -19,5 +19,8 @@
     "src/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts"
+  ],
+  "exclude": [
+    "tests/previewRuntime.ts"
   ]
 }

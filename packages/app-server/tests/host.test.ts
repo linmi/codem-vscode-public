@@ -21,6 +21,45 @@ afterEach(() => {
 })
 
 describe("AppServerHost", () => {
+
+  for (const scenario of [
+    { method: "thread/unsubscribe", hold: "", stubborn: false },
+    { method: "turn/interrupt", hold: "turn", stubborn: false },
+    { method: "thread/sideQuestion/cancel", hold: "question", stubborn: false },
+    { method: "thread/unsubscribe", hold: "", stubborn: true },
+  ]) {
+    it(`shutdown gate: reaps Core when ${scenario.method} hangs${scenario.stubborn ? " and EOF/SIGTERM are ignored" : ""}`, { timeout: 12_000 }, async () => {
+      const fixture = createFixture(undefined, [])
+      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "shutdown-test", version: "1" }, assertAuthenticated() {}, environment: {
+        PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath,
+        SHUTDOWN_HANG: scenario.method, SHUTDOWN_HOLD: scenario.hold, ...(scenario.stubborn ? { IGNORE_SHUTDOWN: "1" } : {}),
+      } })
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      const pid: number = JSON.parse(readFileSync(fixture.capturePath, "utf8").split("\n")[0]!).pid
+      const kill = () => { try { process.kill(pid, "SIGKILL") } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error } }
+      // Independent watchdog also reaps the fixture when the implementation regresses.
+      let watchdogFired = false
+      const watchdog = setTimeout(() => { watchdogFired = true; kill() }, 9_000)
+      try {
+        if (scenario.hold === "turn") await host.startTurn({ cwd: fixture.root, threadId, submissionId: "shutdown", text: "hold" })
+        if (scenario.hold === "question") await host.startSideQuestion(fixture.root, threadId, "shutdown", "hold")
+        const start = performance.now()
+        const closing = host.close()
+        assert.equal(host.close(), closing)
+        await closing
+        const elapsed = performance.now() - start
+        assert.equal(watchdogFired, false, "Host relied on test watchdog instead of terminating Core")
+        assert.ok(elapsed < 8_000, `Shutdown exceeded budget: ${elapsed}ms`)
+        assert.throws(() => process.kill(pid, 0), { code: "ESRCH" }, "The child must actually be reaped")
+        const records = readFileSync(fixture.capturePath, "utf8").trim().split("\n").map(line => JSON.parse(line))
+        assert.equal(records.filter(record => record.method === scenario.method).length, 1)
+        assert.ok(records.some(record => record.stdinClosed))
+        if (scenario.stubborn) assert.ok(records.some(record => record.signal === "SIGTERM"))
+        assert.equal(host.hasActiveWork, false)
+      } finally { clearTimeout(watchdog); kill(); await host.close() }
+    })
+  }
+
   it("delivers idle background wakes and Core-owned turns without reviving completed turns", { timeout: 5000 }, async () => {
     const fixture = createFixture()
     const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "background-test", version: "1" }, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, BACKGROUND_AFTER_TURN: "1" }, assertAuthenticated: () => {} })
@@ -694,14 +733,18 @@ function fixtureSource(
 const fs = require("node:fs")
 const readline = require("node:readline")
 const capture = (value) => fs.appendFileSync(process.env.CAPTURE_PATH, JSON.stringify(value) + "\\n")
-capture({ argv: process.argv.slice(2), environment: { credentialHost: JSON.parse(process.env.CODEM_ROUTER_CREDENTIAL_HOST_CMD), source: process.env.CODEM_SESSION_SOURCE, managedDirectory: process.env.CODEM_MANAGED_DIR } })
+capture({ pid: process.pid, argv: process.argv.slice(2), environment: { credentialHost: JSON.parse(process.env.CODEM_ROUTER_CREDENTIAL_HOST_CMD), source: process.env.CODEM_SESSION_SOURCE, managedDirectory: process.env.CODEM_MANAGED_DIR } })
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n")
 const modes = new Map()
 let failedModeRead = false
 let hitlThread = null
 const mode = (threadId) => modes.get(threadId) ?? { revision: 0, permissionEpoch: 0, permissionMode: "default", workMode: "normal" }
 const lines = readline.createInterface({ input: process.stdin })
-lines.on("close", () => process.exit(0))
+if (process.env.IGNORE_SHUTDOWN) {
+  setInterval(() => {}, 1000)
+  process.on("SIGTERM", () => capture({ signal: "SIGTERM" }))
+}
+lines.on("close", () => { capture({ stdinClosed: true }); if (!process.env.IGNORE_SHUTDOWN) process.exit(0) })
 lines.on("line", (line) => {
   const frame = JSON.parse(line)
   if (!Object.prototype.hasOwnProperty.call(frame, "id")) return
@@ -713,6 +756,7 @@ lines.on("line", (line) => {
     return
   }
   capture({ method: frame.method, params: frame.params })
+  if (frame.method === process.env.SHUTDOWN_HANG) return
   if (frame.method === "initialize") return send({ jsonrpc: "2.0", id: frame.id, result: { protocolVersion: 1, agentInfo: { version: "0.8.37+1.gfixture" }, capabilities: ${JSON.stringify(capabilities)} } })
   if (frame.method === "thread/start") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1" } } })
   if (frame.method === "thread/resume") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: frame.params.threadId } } })
@@ -720,6 +764,7 @@ lines.on("line", (line) => {
     const sideQuestion = { id: "question-1", question: frame.params.question, status: "inProgress" }
     send({ method: "thread/sideQuestion/started", params: { threadId: frame.params.threadId, sideQuestion } })
     send({ id: frame.id, result: { sideQuestion: { ...sideQuestion, status: "accepted" } } })
+    if (process.env.SHUTDOWN_HOLD === "question") return
     for (const notification of ${JSON.stringify(textNotifications)}) send({ method: notification.method, params: { threadId: frame.params.threadId, sideQuestionId: sideQuestion.id, ...notification.params } })
     return send({ method: "thread/sideQuestion/completed", params: { threadId: frame.params.threadId, sideQuestion: { ...sideQuestion, status: "completed" } } })
   }
@@ -768,6 +813,7 @@ lines.on("line", (line) => {
     send({ jsonrpc: "2.0", method: "turn/started", params: { threadId: frame.params.threadId, turn: { id: "turn-1" } } })
     send({ jsonrpc: "2.0", id: frame.id, result: { turn: { id: "turn-1" } } })
     send({ jsonrpc: "2.0", method: "item/started", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "tool-1", type: "commandExecution", status: "inProgress", tool: "run_bash", callId: "call-1", arguments: { command: "pwd" } } } })
+    if (process.env.SHUTDOWN_HOLD === "turn") return
     if (process.env.HITL_EMPTY_LABEL) {
       hitlThread = frame.params.threadId
       send({ jsonrpc: "2.0", id: "hitl-1", method: "item/commandExecution/requestApproval", params: { threadId: frame.params.threadId, turnId: "turn-1", requestId: "permission-1", tool: "run_bash", callId: "call-1", options: [{ optionId: "allow_once", label: "" }, { optionId: "reject_once", name: "Reject" }], preview: { kind: "bash_command", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), command: "echo HITL_OK", risk: {}, suggestedRules: [] } } })
