@@ -1,9 +1,10 @@
+import type { FileDiffContent } from "./filePresentation.ts"
 import type { ArtifactSource } from "./artifacts.ts"
 import * as vscode from "vscode"
 import { randomUUID } from "node:crypto"
 import { open } from "node:fs/promises"
 import { extname, isAbsolute } from "node:path"
-import { type AppServerMcpServer, type AppServerThreadSettings, type AppServerPromptAttachment, type AppServerFileDiff } from "@codem/app-server"
+import { type AppServerMcpServer, type AppServerThreadSettings, type AppServerPromptAttachment } from "@codem/app-server"
 import { assertTrusted } from "./runtimeSession.ts"
 import { changedFilePath, diffText, displayPath } from "./filePresentation.ts"
 import { parseMcpConfiguration, type McpConfiguration } from "./mcpConfiguration.ts"
@@ -102,10 +103,10 @@ export class NativeFeatures implements vscode.Disposable {
     else await vscode.commands.executeCommand("vscode.open", vscode.Uri.file(source.path), { preview: true })
   }
 
-  async showDiff(diff: AppServerFileDiff, cwd: string): Promise<void> {
+  async showDiff(diff: FileDiffContent, cwd: string): Promise<void> {
     await this.preview(diffText(diff, displayPath(cwd, diff.path)), "diff", "文件差异")
   }
-  async showChangedFile(diff: AppServerFileDiff, cwd: string): Promise<void> {
+  async showChangedFile(diff: FileDiffContent, cwd: string): Promise<void> {
     assertTrusted()
     await vscode.window.showTextDocument(vscode.Uri.file(await changedFilePath(cwd, diff.path)), { preview: true })
   }

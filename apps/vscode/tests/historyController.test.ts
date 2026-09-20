@@ -211,3 +211,31 @@ it("does not begin another restore until an aborted replay has finished cleanup"
     assert.deepEqual(f.released, ["history-1"])
   } finally { await f.chat.dispose() }
 })
+
+
+it("restores durable diff handles with turn ownership and retires old handles on history reload", async () => {
+  const f = setup()
+  try {
+    const history = page(0, null)
+    const turn = history.turns[0]!.turn
+    f.session.readHistory = async () => ({ ...history, turns: [{ ...history.turns[0]!, turn: { ...turn, items: [...turn.items, { id: "diff", at: turn.startedAt, kind: "file-diff", runId: "run", source: { kind: "checkpoint", checkpointId: "checkpoint" }, diff: { path: "/private/project/src/file.ts", changeType: "modified", stats: { linesAdded: 1, linesRemoved: 0 }, preview: { kind: "omitted" } } }] } }] })
+    await f.chat.connect()
+    await f.chat.showHistory()
+    await f.chat.resumeThread("history-1")
+    const first = f.chat.snapshot().diffs[0]!
+    assert.equal(first.turnId, turn.id)
+    assert.equal(first.available, true)
+    assert.doesNotMatch(JSON.stringify(first), /private/)
+    let opened = 0
+    await f.chat.showDiff(first.id, async value => { assert.equal(value.stats.linesAdded, 1); opened++ })
+    await f.chat.reloadHistory()
+    await f.chat.showDiff(first.id, async () => { opened++ })
+    const second = f.chat.snapshot().diffs[0]!
+    assert.notEqual(first.id, second.id)
+    await f.chat.showDiff(second.id, async () => { opened++ })
+    assert.equal(opened, 2)
+    f.session.readHistory = async () => { throw new Error("read failed") }
+    await f.chat.reloadHistory()
+    assert.deepEqual(f.chat.snapshot().diffs, [second])
+  } finally { await f.chat.dispose() }
+})

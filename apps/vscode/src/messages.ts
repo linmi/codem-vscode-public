@@ -40,7 +40,7 @@ export function parseViewAction(value: unknown): ViewAction {
 
 export type ChatPhase = "sideQuestion" | "loadingHistory" | "disconnected" | "connecting" | "configuring" | "ready" | "sending" | "running" | "stopping"
 export interface AttachmentView { id: string; label: string; kind: "image" | "file" | "directory"; preview: { kind: "deferred" } | { kind: "none" } | { kind: "image"; dataUrl: string } | { kind: "unavailable"; reason: string } }
-export interface DiffView { id: string; label: string; added: number; removed: number; preview: string }
+export interface DiffView { id: string; turnId: string; label: string; added: number; removed: number; preview: "complete" | "partial" | "raw-partial" | "binary" | "omitted"; available: boolean }
 export interface BackgroundView { id: string; label: string; inProgress: boolean }
 export interface BackgroundTaskView { id: string; label: string; phase: "queued" | "started" | "skipped" | "cancelled" | "notFound" | "noop" }
 export type ActivityStatus = "running" | "completed" | "failed" | "declined" | "interrupted" | "incomplete"

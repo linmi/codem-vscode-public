@@ -79,3 +79,16 @@
 .toolDialog [data-slot="button"][data-variant="destructive"] { color: var(--vscode-errorForeground, #d54040); background: var(--surface); border: 1px solid color-mix(in srgb, var(--vscode-errorForeground, #d54040) 32%, var(--line)); }
 .toolDialog [data-slot="button"]:hover:not(:disabled) { background: var(--soft); }
 .toolDialog [data-slot="button"]:focus-visible, .toolTabs [data-slot="tabs-trigger"]:focus-visible { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 2px; }
+
+.turnChanges { margin: 12px 0 24px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; font: 12px/1.6 var(--uiFont); }
+.turnChangesHeading { display: flex; align-items: center; gap: 8px; }
+.turnChangesHeading > svg { width: 16px; height: 16px; color: var(--muted); }
+.turnChangesHeading > span { color: var(--muted); font-size: 11px; }
+.turnChangesHint { color: var(--muted); margin: 8px 0; font-size: 11px; }
+.turnChanges ul { padding: 0; margin: 10px 0 0; list-style: none; }
+.turnChanges li { border-top: 1px solid var(--line); padding: 10px 0 2px; }
+.turnChangeFile { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.turnChangeFile > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.turnChangeStats { display: flex; gap: 8px; white-space: nowrap; font-family: var(--codeFont); font-size: 11px; }
+.turnChangeActions { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+.turnChangeActions [data-slot="button"] { margin-left: auto; height: 28px; padding: 4px 8px; font-size: 11px; }

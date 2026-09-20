@@ -258,6 +258,13 @@ it("publishes opaque diff handles, rejects invented handles, and retires them on
   fixture.emit({ type: "file-diff", threadId: "thread-1", turnId: "turn-1", itemId: "file", diff: { source: { kind: "tool", toolCallId: "call" }, path: "/private/secret/project/file.ts", changeType: "modified", stats: { linesAdded: 1, linesRemoved: 2 }, preview: { kind: "omitted" } } })
   const row = fixture.controller.snapshot().diffs[0]!
   assert.equal(row.label, "file.ts")
+  assert.equal(row.turnId, "turn-1")
+  assert.equal(row.available, true)
+  fixture.emit({ type: "file-diff", threadId: "thread-1", turnId: "turn-1", itemId: "file", diff: { source: { kind: "tool", toolCallId: "call" }, path: "/private/secret/project/file.ts", changeType: "modified", stats: { linesAdded: 3, linesRemoved: 2 }, preview: { kind: "omitted" } } })
+  assert.equal(fixture.controller.snapshot().diffs.length, 1)
+  assert.equal(fixture.controller.snapshot().diffs[0]!.id, row.id)
+  assert.equal(fixture.controller.snapshot().diffs[0]!.added, 3)
+  assert.ok(!fixture.controller.snapshot().messages.some(message => message.artifacts?.some(item => item.kind === "diff")), "Diffs no longer live inside folded tool records")
   assert.doesNotMatch(JSON.stringify(fixture.controller.snapshot()), /\/private/)
   let shown = 0
   await fixture.controller.showDiff("invented", async () => { shown++ })

@@ -46,7 +46,7 @@ const statusHost = document.createElement("div")
 statusHost.className = "capabilityStatusHost"
 element("composer").before(statusHost)
 const renderCapabilityStatus = createCapabilityStatus(statusHost)
-const renderWorkGroups = createWorkGroups()
+const renderWorkGroups = createWorkGroups(post)
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
 const imageRequests = new Map<string, (preview: import("../src/messages.ts").AttachmentView["preview"]) => void>()
@@ -142,7 +142,7 @@ function render(next: ChatSnapshot): void {
     if (!view) { view = createMessageView(message, post); nodes.set(message.id, view); if (state.phase === "running" || state.phase === "sending") view.root.classList.add("messageEnter") }
     else view.update(message)
   }
-  const timelineNodes = renderWorkGroups(state.messages, id => nodes.get(id)!.root, state.phase, state.turnTimings)
+  const timelineNodes = renderWorkGroups(state.messages, id => nodes.get(id)!.root, state.phase, state.turnTimings, state.diffs)
   let position = messages.firstChild
   for (const root of timelineNodes) {
     if (root !== position) messages.insertBefore(root, position)

@@ -1,3 +1,4 @@
+import type { FileDiffContent } from "./filePresentation.ts"
 import { realpath, stat } from "node:fs/promises"
 import { basename } from "node:path"
 import { projectCatalog } from "./capabilityCatalog.ts"
@@ -12,7 +13,7 @@ import { changedFilePath } from "./filePresentation.ts"
 import { attachmentPreview, rasterPreview } from "./attachmentPreview.ts"
 import { terminalReplyLast } from "./timelineOrder.ts"
 import { randomUUID } from "node:crypto"
-import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerFileDiff, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
+import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
 import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatSnapshot } from "./messages.ts"
 
 import { HistoryListController } from "./historyList.ts"
@@ -79,7 +80,8 @@ export class ChatController {
   private readonly images = new Map<string, () => Promise<AttachmentView["preview"]>>()
   private readonly references = new FileReferences()
   private readonly attachments = new Map<string, AppServerPromptAttachment>()
-  private readonly diffs = new Map<string, AppServerFileDiff>()
+  private readonly diffs = new Map<string, FileDiffContent>()
+  private readonly diffIds = new Map<string, string>()
   private readonly terminals = new Map<string, AppServerBackgroundTerminal>()
   private readonly tasks = new Map<string, string>()
   private poll: ReturnType<typeof setInterval> | null = null
@@ -543,8 +545,9 @@ export class ChatController {
       this.historyCursor = page.nextCursor
       this.resetResources()
       const messages = this.projectHistory(threadId, page, session)
+      const diffs = this.restoreDiffs(page, true)
       this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }
-      this.update({ phase: "ready", messages, turnTimings: historyTurnTimings(page), permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
+      this.update({ phase: "ready", messages, turnTimings: historyTurnTimings(page), permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs, background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
       this.historyList.close()
     } catch (error) {
       if (this.session !== session || this.disposed) return
@@ -585,8 +588,9 @@ export class ChatController {
       this.assertHistoryContext(session, abort)
       const messages = this.projectHistory(threadId, page, session)
       if (append && (page.nextCursor === cursor || messages.some((message) => this.state.messages.some((old) => old.id === message.id)))) throw new Error("History page overlaps the current snapshot")
+      const diffs = this.restoreDiffs(page, !append)
       this.historyCursor = page.nextCursor
-      this.update({ messages: append ? [...messages, ...this.state.messages] : messages, turnTimings: append ? [...historyTurnTimings(page), ...this.state.turnTimings] : historyTurnTimings(page), hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
+      this.update({ diffs, messages: append ? [...messages, ...this.state.messages] : messages, turnTimings: append ? [...historyTurnTimings(page), ...this.state.turnTimings] : historyTurnTimings(page), hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
     } catch (error) {
       if (this.session !== session || this.disposed || abort.signal.aborted) return
       this.options.report("historyPage", error)
@@ -731,7 +735,7 @@ export class ChatController {
         this.finishActivities("incomplete")
         this.active?.abort.abort(); this.active = null; this.threadId = null
         this.invalidateHistory(); this.resetResources()
-        this.update({ attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], messages: this.state.messages.map(message => message.artifacts ? { ...message, artifacts: message.artifacts.map(artifact => ({ ...artifact, available: false })) } : message), phase: this.mutatingThread ? "configuring" : "ready", notice: "当前会话已关闭或归档。已有内容保留，可从历史列表重新选择会话。" })
+        this.update({ attachments: [], diffs: this.state.diffs.map(diff => ({ ...diff, available: false })), background: [], backgroundTasks: [], tools: [], messages: this.state.messages.map(message => message.artifacts ? { ...message, artifacts: message.artifacts.map(artifact => ({ ...artifact, available: false })) } : message), phase: this.mutatingThread ? "configuring" : "ready", notice: "当前会话已关闭或归档。已有内容保留，可从历史列表重新选择会话。" })
         return
       }
       if (event.type === "thread-cleared") {
@@ -776,12 +780,8 @@ export class ChatController {
     } else if (event.type === "hook-completed") {
       this.update({ capabilities: { ...this.state.capabilities, hooks: [...this.state.capabilities.hooks, { id: randomUUID(), event: event.eventName, tool: event.toolName, outcome: event.outcome, elapsedMs: event.elapsedMs }] } })
     } else if (event.type === "file-diff") {
-      const id = randomUUID()
-      this.diffs.set(id, event.diff)
-      const messageId = this.toolMessageId(event.turnId, event.diff.source.toolCallId, event.diff.source.toolCallId)
-      if (!this.state.messages.some(message => message.id === messageId)) this.upsertActivity(messageId, "tool", "修改文件", "running", "", "", false)
-      this.update({ messages: this.state.messages.map(message => message.id === messageId ? { ...message, artifacts: [...message.artifacts ?? [], { id, kind: "diff" as const, title: displayPath(this.session!.cwd, event.diff.path), detail: `+${event.diff.stats.linesAdded} −${event.diff.stats.linesRemoved} · ${event.diff.preview.kind}`, available: true }] } : message) })
-      this.update({ diffs: [...this.state.diffs, { id, label: displayPath(this.session!.cwd, event.diff.path), added: event.diff.stats.linesAdded, removed: event.diff.stats.linesRemoved, preview: event.diff.preview.kind }] })
+      const row = this.recordDiff(event.turnId, event.itemId, event.diff)
+      this.update({ diffs: [...this.state.diffs.filter(diff => diff.id !== row.id), row] })
     } else if (event.type === "item-output-delta") {
       if (active.finalAnswerCalls.has(event.toolCallId)) return
       const id = this.toolMessageId(event.turnId, event.itemId, event.toolCallId)
@@ -898,6 +898,20 @@ export class ChatController {
     }
   }
 
+  private recordDiff(turnId: string, itemId: string, diff: FileDiffContent): import("./messages.ts").DiffView {
+    const key = JSON.stringify([turnId, itemId])
+    const id = this.diffIds.get(key) ?? randomUUID()
+    this.diffIds.set(key, id)
+    this.diffs.set(id, diff)
+    return { id, turnId, label: displayPath(this.session!.cwd, diff.path), added: diff.stats.linesAdded, removed: diff.stats.linesRemoved, preview: diff.preview.kind, available: true }
+  }
+
+  private restoreDiffs(page: SessionHistoryPage, replace: boolean): import("./messages.ts").DiffView[] {
+    if (replace) { this.diffs.clear(); this.diffIds.clear() }
+    const restored = page.turns.flatMap(({ turn }) => turn.items.flatMap(item => item.kind === "file-diff" ? [this.recordDiff(turn.id, item.id, item.diff)] : []))
+    return replace ? restored : [...restored, ...this.state.diffs.filter(diff => !restored.some(row => row.id === diff.id))]
+  }
+
   private projectHistory(threadId: string, page: SessionHistoryPage, session: ChatSession) {
     return historyMessages(threadId, page, (item: ConversationAttachment): AttachmentView => {
       const id = randomUUID()
@@ -991,7 +1005,7 @@ export class ChatController {
     this.update({ attachments: this.state.attachments.filter((item) => item.id !== id) })
   }
 
-  async showDiff(id: string, show: (diff: AppServerFileDiff, cwd: string) => Promise<void>): Promise<void> {
+  async showDiff(id: string, show: (diff: FileDiffContent, cwd: string) => Promise<void>): Promise<void> {
     const diff = this.diffs.get(id)
     if (!this.session || !diff || this.disposed) return
     this.options.assertTrusted()
@@ -1069,7 +1083,7 @@ export class ChatController {
   private resetResources(): void {
     this.side = null; this.controlTurn = null; this.skillNames.clear()
     this.state = { ...this.state, capabilities: emptyCapabilities(), sessionTools: { ...emptySessionTools(), directories: this.state.sessionTools.directories } }
-    this.artifacts.clear(); this.references.clear(); this.attachments.clear(); this.diffs.clear(); this.terminals.clear(); this.tasks.clear()
+    this.artifacts.clear(); this.references.clear(); this.attachments.clear(); this.diffs.clear(); this.diffIds.clear(); this.terminals.clear(); this.tasks.clear()
   }
 
   private async respond(request: AppServerInteraction, active: ActiveTurn, abort: AbortController): Promise<void> {

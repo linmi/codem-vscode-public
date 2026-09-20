@@ -1,12 +1,15 @@
+import { turnChanges } from "../src/turnChanges.ts"
+import { createTurnChanges } from "./components/turnChanges.tsx"
 import { elapsedTime } from "./elapsedTime.ts"
-import type { ChatMessage, ChatPhase, TurnTiming } from "../src/messages.ts"
+import type { ChatMessage, ChatPhase, TurnTiming, DiffView, ViewAction } from "../src/messages.ts"
 import { timelineGroups } from "../src/timelineGroups.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 
 /** Reuse disclosures for adjacent execution records without moving visible replies. */
-export function createWorkGroups() {
+export function createWorkGroups(post: (action: ViewAction) => void) {
+  const changeViews = new Map<string, { root: HTMLElement; view: ReturnType<typeof createTurnChanges> }>()
   const groups = new Map<string, { root: HTMLDetailsElement; summary: HTMLElement; content: HTMLElement; touched: boolean; label: HTMLElement; timer: ReturnType<typeof setInterval> | null }>()
-  return (messages: readonly ChatMessage[], node: (id: string) => HTMLElement, phase: ChatPhase, timings: readonly TurnTiming[]): HTMLElement[] => {
+  return (messages: readonly ChatMessage[], node: (id: string) => HTMLElement, phase: ChatPhase, timings: readonly TurnTiming[], diffs: readonly DiffView[]): HTMLElement[] => {
     const result: HTMLElement[] = []
     const alive = new Set<string>()
     let lastActivityId: string | null = null
@@ -66,6 +69,21 @@ export function createWorkGroups() {
       result.push(group.root)
     }
     for (const [id, group] of groups) if (!alive.has(id)) { if (group.timer) clearInterval(group.timer); group.root.remove(); groups.delete(id) }
+    const changes = turnChanges(messages, diffs)
+    for (const [id, entry] of changeViews) if (!changes.some(change => change.turnId === id)) { entry.view.dispose(); entry.root.remove(); changeViews.delete(id) }
+    for (const change of changes) {
+      let entry = changeViews.get(change.turnId)
+      if (!entry) {
+        const root = document.createElement("div")
+        entry = { root, view: createTurnChanges(root, post) }
+        changeViews.set(change.turnId, entry)
+      }
+      entry.view.update(change)
+      const anchor = change.afterMessageId ? node(change.afterMessageId) : null
+      const index = anchor ? result.findIndex(root => root === anchor || root.contains(anchor)) : -1
+      if (index < 0) result.push(entry.root)
+      else result.splice(index + 1, 0, entry.root)
+    }
     return result
   }
 }

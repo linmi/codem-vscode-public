@@ -33,9 +33,9 @@ export function createPreviewState(search: PreviewSearch) {
   if (activePanel?.kind === "permissionMode") activePanel.choices.forEach(choice => { choice.selected = choice.id === demo.permission })
   if (demo.messages.length) {
     const turnId = "previewTurn"
-    demo.messages = demo.messages.map(message => ({ ...message, turnId }))
+    demo.messages = demo.messages.map(message => ({ ...message, turnId: message.turnId ?? turnId }))
     const now = Date.now()
-    demo.turnTimings = [{ turnId, startedAt: now - 36_000, finishedAt: ["running", "stopping"].includes(demo.phase) ? null : now }]
+    demo.turnTimings = [...new Set(demo.messages.map(message => message.turnId!))].map(turnId => ({ turnId, startedAt: now - 36_000, finishedAt: ["running", "stopping"].includes(demo.phase) ? null : now }))
   }
   return { demo, panels, activePanel, surface: content?.surface ?? null }
 }

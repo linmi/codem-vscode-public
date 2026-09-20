@@ -2,6 +2,8 @@ import { basename, isAbsolute, relative, resolve, sep } from "node:path"
 import { realpath, stat } from "node:fs/promises"
 import type { AppServerFileDiff, AppServerPromptAttachment } from "@codem/app-server"
 
+export type FileDiffContent = Omit<AppServerFileDiff, "source">
+
 export function displayPath(cwd: string, path: string): string {
   const local = relative(cwd, resolve(cwd, path))
   return local && !local.startsWith(`..${sep}`) && local !== ".." && !isAbsolute(local) ? local : basename(path)
@@ -24,7 +26,7 @@ export async function validateAttachment(attachment: AppServerPromptAttachment):
 }
 
 /** A patch is shown as a patch: partial hunks must never masquerade as full file contents. */
-export function diffText(diff: AppServerFileDiff, label: string): string {
+export function diffText(diff: FileDiffContent, label: string): string {
   const heading = `${label} · ${diff.changeType}\n+${diff.stats.linesAdded} -${diff.stats.linesRemoved}\n`
   const preview = diff.preview
   if (preview.kind === "binary") return `${heading}\n二进制文件，无法显示文本差异。`

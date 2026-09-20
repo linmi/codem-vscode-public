@@ -19,7 +19,7 @@ export async function runNativeFeatureSmoke(): Promise<void> {
     assert.equal((await native.findFiles(workspace, "missingFileName")).length, 0)
     values.set("codem.mcp.v1", JSON.stringify({ servers: [{ type: "stdio", name: "test", command: process.execPath, args: [], env: [{ name: "TOKEN", value: "fixture-only" }] }], enabled: ["test"] }))
     assert.equal((await native.loadMcp())[0]?.env[0]?.value, "fixture-only")
-    await native.showDiff({ source: { kind: "tool", toolCallId: "fixture" }, path: join(root, "file.txt"), changeType: "new", stats: { linesAdded: 1, linesRemoved: 0 }, preview: { kind: "complete", hunks: [{ oldStart: 0, oldCount: 0, newStart: 1, newCount: 1, lines: [{ kind: "insert", oldLine: null, newLine: 1, text: "fixture diff" }] }] } }, root)
+    await native.showDiff({ path: join(root, "file.txt"), changeType: "new", stats: { linesAdded: 1, linesRemoved: 0 }, preview: { kind: "complete", hunks: [{ oldStart: 0, oldCount: 0, newStart: 1, newCount: 1, lines: [{ kind: "insert", oldLine: null, newLine: 1, text: "fixture diff" }] }] } }, root)
     assert.equal(vscode.window.activeTextEditor?.document.uri.scheme, "codem-preview")
     assert.match(vscode.window.activeTextEditor!.document.getText(), /\+fixture diff/)
     const log = join(root, "log.txt")
