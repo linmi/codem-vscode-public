@@ -5,7 +5,7 @@ import type { ChatMessage, ChatPhase, TurnTiming, DiffView, ViewAction } from ".
 import { timelineGroups } from "../../src/shared/timelineGroups.ts"
 import { uiIcon } from "../../src/shared/uiIcons.ts"
 
-/** Reuse one execution disclosure per turn; assistant replies stay outside in their own order. */
+/** Reuse one execution disclosure per turn, including its intermediate progress replies. */
 export function createWorkGroups(post: (action: ViewAction) => void) {
   const changeViews = new Map<string, { root: HTMLElement; view: ReturnType<typeof createTurnChanges> }>()
   const groups = new Map<string, { root: HTMLDetailsElement; summary: HTMLElement; content: HTMLElement; touched: boolean; label: HTMLElement; timer: ReturnType<typeof setInterval> | null }>()

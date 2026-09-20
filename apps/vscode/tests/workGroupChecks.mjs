@@ -25,14 +25,16 @@ export default async function workGroupChecks(page) {
   await page.getByText('最终答复',{exact:true}).waitFor();
   if(await page.locator('.workGroup').count() !== 1) throw new Error('Progress text split one turn into multiple processing groups');
   const first = page.locator('.workGroup').first();
-  await page.locator('#messages > .message').getByText('调整查询关键词',{exact:true}).waitFor();
-  if(await page.locator('.workGroup .message[data-role="assistant"]').count()) throw new Error('Assistant text was folded into execution');
+  if (await page.locator('#messages > .message[data-role="assistant"]').count() !== 1) throw new Error('Progress was left outside processing');
+  if (await first.getByText('调整查询关键词',{exact:true}).isVisible()) throw new Error('Collapsed progress remains visible');
   await first.locator(':scope > summary').click();
+  await first.getByText('调整查询关键词',{exact:true}).waitFor();
   if (await first.locator('.activityMessage').count() !== 2) throw new Error('One turn did not retain both tool records');
   await first.locator('.activityMessage summary').first().click();
   await first.getByText('第一轮',{exact:true}).waitFor();
   await first.locator(':scope > summary').press('Enter');
-  await page.locator('#messages > .message').getByText('调整查询关键词',{exact:true}).waitFor();
+  await first.getByText('调整查询关键词',{exact:true}).waitFor({state:'hidden'});
+  await page.locator('#messages > .message').getByText('最终答复',{exact:true}).waitFor();
 
   await page.evaluate(() => {
     demo.phase = 'running';
@@ -44,7 +46,7 @@ export default async function workGroupChecks(page) {
   await first.locator(':scope > summary').click();
   await first.getByText('已运行 pnpm check',{exact:true}).waitFor();
   await first.locator(':scope > summary').click();
-  if (await page.locator('#messages > .message[data-role="assistant"] .messageActions:visible').count() !== 2) throw new Error('Visible replies lost their actions');
+  if (await page.locator('#messages > .message[data-role="assistant"] .messageActions:visible').count() !== 1) throw new Error('Final reply lost its actions');
   await page.evaluate(() => { demo.phase='ready'; window.postMessage(demo,'*'); });
   await first.getByText('已处理',{exact:true}).waitFor();
   // A new user turn must not reopen or relabel preceding execution groups.
@@ -54,9 +56,35 @@ export default async function workGroupChecks(page) {
   });
   if (await page.locator('.workGroup[open]').count()) throw new Error('Historical groups reopened for a new turn');
   await page.goto('http://127.0.0.1:4318/?scenario=progressUpdates');
-  await page.locator('#messages > .message').getByText('暂未获取城市，先检索国内要闻。',{exact:true}).waitFor();
+  if (await page.locator('#messages > .message[data-role="assistant"]').count() !== 1) throw new Error('Intermediate progress left a separate reply gap');
+  await page.locator('.workGroup > summary').click();
+  await page.locator('.workGroup').getByText('暂未获取城市，先检索国内要闻。',{exact:true}).waitFor();
   if (await page.locator('.workGroup').count() !== 1) throw new Error('Persisted progress scenario split one processing group');
   if (await page.locator('.workGroup > summary').filter({hasText:/已处理 \d+秒/}).count() !== 1) throw new Error('One turn duration was duplicated across execution groups');
+  // A streaming explanation starts outside, then moves into the same collapsed group.
+  await page.evaluate(() => {
+    demo.phase = 'running';
+    demo.messages = [
+      {id:'u-stream',role:'user',label:'你',text:'进度'},
+      {id:'t-stream',role:'tool',label:'搜索',status:'completed',summary:'',text:'结果'},
+      {id:'p-stream',role:'assistant',label:'CodeM',text:'Wiki 未命中，继续检查代码库。'},
+    ]; window.postMessage(demo,'*');
+  });
+  await page.locator('#messages > .message').getByText('Wiki 未命中，继续检查代码库。',{exact:true}).waitFor();
+  await page.locator('.workGroup > summary').click();
+  await page.evaluate(() => {
+    window.progressNode = document.querySelector('#messages > .message[data-role="assistant"]');
+    window.workNode = document.querySelector('.workGroup');
+    demo.messages.push(
+      {id:'t-next',role:'tool',label:'读取',status:'completed',summary:'',text:'结果'},
+      {id:'a-final',role:'assistant',label:'CodeM',text:'这是最终的项目进展。'},
+    ); window.postMessage(demo,'*');
+  });
+  await page.locator('#messages > .message').getByText('这是最终的项目进展。',{exact:true}).waitFor();
+  if (await page.locator('#messages > .message[data-role="assistant"]').count() !== 1) throw new Error('Progress left a top-level message gap');
+  if (!await page.evaluate(() => document.querySelector('.workGroup') === window.workNode && window.workNode.contains(window.progressNode) && !window.workNode.open)) throw new Error('Moving progress replaced the group or lost its collapse state');
+  await page.locator('.workGroup > summary').click();
+  await page.locator('.workGroup').getByText('Wiki 未命中，继续检查代码库。',{exact:true}).waitFor();
   return 'WORK_GROUP_OK';
 
 }
