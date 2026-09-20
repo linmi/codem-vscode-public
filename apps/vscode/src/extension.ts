@@ -194,7 +194,7 @@ export function activate(context: vscode.ExtensionContext): void {
     "codem.openInSidebar": () => surfaces?.openInSidebar(),
     "codem.settings": () => vscode.commands.executeCommand("workbench.action.openSettings", "@ext:codem.codem"),
     "codem.stop": () => chat.stop(),
-    "codem.history": async () => { await surfaces?.focus(); await chat.showHistory() },
+    "codem.history": async () => { await surfaces?.focus(); await chat.toggleHistory() },
     "codem.newChat": async () => { await surfaces?.focus(); await chat.newChat() },
     "codem.connect": () => chat.connect(),
     "codem.signIn": () => chat.connect(true),

@@ -41,6 +41,58 @@ function setup() {
   return { chat, host, session, resumed, released, sent, read, starts: () => starts, untrust: () => { trusted = false }, emit: (event: AppServerHostEvent) => listener(event) }
 }
 
+it("toggles history open, closed and open again without fetching on close", async () => {
+  const f = setup()
+  let requests = 0
+  const listThreads = f.host.listThreads
+  f.host.listThreads = async (...args) => { requests++; return listThreads(...args) }
+  try {
+    await f.chat.toggleHistory()
+    assert.equal(f.chat.snapshot().history.open, true)
+    const entries = f.chat.snapshot().history.entries
+    assert.equal(requests, 1)
+    await f.chat.toggleHistory()
+    assert.equal(f.chat.snapshot().history.open, false)
+    assert.deepEqual(f.chat.snapshot().history.entries, entries)
+    assert.equal(requests, 1)
+    await f.chat.toggleHistory()
+    assert.equal(f.chat.snapshot().history.open, true)
+    assert.equal(requests, 2)
+  } finally { await f.chat.dispose() }
+})
+
+for (const failed of [false, true]) {
+  it(`keeps history closed when a pending list request ${failed ? "fails" : "completes"}`, async () => {
+    const f = setup()
+    let requests = 0
+    let finish!: () => void
+    const pending = new Promise<void>(resolve => { finish = resolve })
+    const listThreads = f.host.listThreads
+    f.host.listThreads = async (...args) => {
+      requests++
+      await pending
+      if (failed) throw new Error("list failed")
+      return listThreads(...args)
+    }
+    try {
+      await f.chat.connect()
+      const opening = f.chat.toggleHistory()
+      await new Promise(resolve => setImmediate(resolve))
+      assert.equal(f.chat.snapshot().history.open, true)
+      assert.equal(f.chat.snapshot().history.loading, true)
+      await f.chat.toggleHistory()
+      assert.equal(f.chat.snapshot().history.open, false)
+      assert.equal(requests, 1)
+      finish()
+      await opening
+      assert.equal(f.chat.snapshot().history.open, false)
+      assert.equal(f.chat.snapshot().history.loading, false)
+      assert.equal(f.chat.snapshot().history.error !== null, failed)
+      assert.equal(requests, 1)
+    } finally { finish(); await f.chat.dispose() }
+  })
+}
+
 it("restores a listed thread, prepends older turns and continues the same Core identity", async () => {
   const f = setup()
   try {

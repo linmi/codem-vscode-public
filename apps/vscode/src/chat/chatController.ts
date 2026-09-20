@@ -596,6 +596,11 @@ export class ChatController {
     this.update({ hasOlderMessages: false, historyNeedsRefresh: false, messages: [], turnTimings: [], attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], notice: null, phase: this.session ? "ready" : "disconnected" })
   }
 
+  async toggleHistory(): Promise<void> {
+    if (this.historyList.snapshot().open) this.closeHistory()
+    else await this.showHistory()
+  }
+
   async showHistory(): Promise<void> {
     if (this.state.phase === "disconnected") await this.connect()
     if (this.disposed || this.state.phase !== "ready") return
