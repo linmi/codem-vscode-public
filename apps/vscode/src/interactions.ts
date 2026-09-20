@@ -3,7 +3,7 @@ import type { PanelBroker } from "./panelBroker.ts"
 import { displayPath } from "./filePresentation.ts"
 
 /** Explicit display projection; no raw Core frame or request/option identity reaches Webview. */
-export async function showInteraction(request: AppServerInteraction, signal: AbortSignal, panels: PanelBroker, cwd: string): Promise<AppServerInteractionResponse | null> {
+export async function showInteraction(request: AppServerInteraction, signal: AbortSignal, panels: Pick<PanelBroker, "request">, cwd: string): Promise<AppServerInteractionResponse | null> {
   if (signal.aborted) return null
   if (request.kind === "permission") {
     const preview = request.preview

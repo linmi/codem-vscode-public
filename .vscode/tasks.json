@@ -1,6 +1,12 @@
 {
   "version": "2.0.0",
   "tasks": [{
+    "label": "Build CodeM Native Chat",
+    "type": "shell",
+    "command": "pnpm --filter codem build:native-chat",
+    "options": { "cwd": "${workspaceFolder}" },
+    "problemMatcher": []
+  }, {
     "label": "Build CodeM VS Code",
     "type": "shell",
     "command": "pnpm --filter codem build",

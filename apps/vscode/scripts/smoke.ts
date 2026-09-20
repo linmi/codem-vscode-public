@@ -5,7 +5,13 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-if (process.argv.includes("--reply-delivery")) {
+if (process.argv.includes("--native-chat")) {
+  if (!process.argv.includes("--live")) throw new Error("Native chat acceptance requires explicit test:live")
+  const { runLiveNativeChat } = await import("../tests/liveNativeChat.ts")
+  const temporary = await mkdtemp(join(tmpdir(), "codemNativeChat"))
+  try { await runLiveNativeChat(root, temporary) }
+  finally { await rm(temporary, { recursive: true, force: true }) }
+} else if (process.argv.includes("--reply-delivery")) {
   if (!process.argv.includes("--live")) throw new Error("Reply delivery acceptance requires explicit --live")
   const { runLiveReplyDelivery } = await import("../tests/liveReplyDelivery.ts")
   const temporary = await mkdtemp(join(tmpdir(), "codemReplyDelivery"))

@@ -200,6 +200,31 @@ export class ChatController {
     }
   }
 
+  /** Native session providers need a Core identity before the first prompt. */
+  async createThread(): Promise<string> {
+    if (this.disposed || !this.session || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy || this.threadId) throw new UserVisibleError("请先结束当前任务并新建空白会话。")
+    const session = this.session
+    this.update({ phase: "configuring", notice: null })
+    try {
+      this.options.assertTrusted()
+      await session.authorize()
+      this.options.assertTrusted()
+      return await this.ensureThread(session)
+    } finally {
+      if (!this.disposed && this.session === session) this.update({ phase: "ready" })
+    }
+  }
+
+  private async ensureThread(session: ChatSession): Promise<string> {
+    if (this.session !== session || this.disposed) throw new UserVisibleError("连接已关闭。")
+    if (!this.threadId) {
+      const threadId = await session.host.startThread(session.cwd, this.settings)
+      if (this.session !== session || this.disposed) throw new UserVisibleError("创建会话期间连接已关闭，请从历史列表核对。")
+      this.threadId = threadId
+    }
+    return this.threadId
+  }
+
   async send(text: string): Promise<boolean> {
     if (this.disposed || this.state.phase !== "ready" || !this.session || this.state.sessionTools.busy) return false
     if (!text.trim() || text.length > 32_000) return false
@@ -219,11 +244,7 @@ export class ChatController {
       this.options.assertTrusted()
       for (const attachment of this.attachments.values()) await validateAttachment(attachment)
       if ([...this.attachments.values()].some((attachment) => attachment.kind === "image") && !session.models.find((model) => model.id === this.settings.model)?.supportsVision) throw new UserVisibleError("当前模型不支持图片，请切换模型或移除图片。")
-      if (!this.threadId) {
-        const threadId = await session.host.startThread(session.cwd, this.settings)
-        if (this.session !== session || this.disposed) return false
-        this.threadId = threadId
-      }
+      const threadId = await this.ensureThread(session)
       this.options.assertTrusted()
       const attachments = [...this.attachments.values()]
       this.update({ messages: [...this.state.messages, { id: active.submissionId, role: "user", label: "你", text, ...(this.state.attachments.length ? { attachments: this.state.attachments } : {}) }] })
@@ -231,7 +252,7 @@ export class ChatController {
       const skillName = skillId === null ? undefined : this.skillNames.get(skillId)
       if (skillId !== null && !skillName) throw new UserVisibleError("技能目录已变化，请重新选择技能。")
       if (skillName && attachments.length) throw new UserVisibleError("技能输入暂不支持附件，请先移除附件。")
-      const turnId = await session.host.startTurn({ cwd: session.cwd, threadId: this.threadId, submissionId: active.submissionId, text, attachments, ...(skillName ? { skillName } : {}) })
+      const turnId = await session.host.startTurn({ cwd: session.cwd, threadId, submissionId: active.submissionId, text, attachments, ...(skillName ? { skillName } : {}) })
       consumeAttachments()
       // Core can complete the turn before turn/start returns. Never revive it.
       if (this.active === active && this.session === session && !this.disposed) {

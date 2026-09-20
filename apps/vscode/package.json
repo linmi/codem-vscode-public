@@ -335,6 +335,7 @@
     }
   },
   "scripts": {
+    "build:native-chat": "node --experimental-strip-types scripts/buildNativeChat.ts",
     "build": "node --experimental-strip-types scripts/build.ts",
     "watch": "node --experimental-strip-types scripts/build.ts --watch",
     "typecheck": "tsc --noEmit && tsc --noEmit -p webview/tsconfig.json",
