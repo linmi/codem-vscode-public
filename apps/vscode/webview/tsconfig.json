@@ -1,5 +1,24 @@
 {
   "extends": "../../../tsconfig.json",
-  "compilerOptions": { "allowImportingTsExtensions": true, "lib": ["ES2022", "DOM", "DOM.Iterable"], "types": [] },
-  "include": ["*.ts", "../src/messages.ts"]
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [],
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "../tests/previewToolbar.tsx",
+    "../src/messages.ts"
+  ]
 }

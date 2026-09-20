@@ -1,0 +1,29 @@
+/* Utilities only: do not reset existing chat markup during component migration. */
+@layer theme, utilities;
+@import "tw-animate-css";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "./components";
+@source "../tests/previewToolbar.tsx";
+@custom-variant dark (&:is(.vscode-dark *, .vscode-high-contrast *));
+
+@theme inline {
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--ink);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--soft);
+  --color-accent-foreground: var(--ink);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--vscode-focusBorder, #0169cc);
+  --color-destructive: var(--vscode-errorForeground, #e02e2a);
+}
+[data-slot="select-trigger"] { font: 12px/18px var(--uiFont); border-style: solid; height: 30px; background: var(--surface); }
+[data-slot="select-content"] { font: 12px/18px var(--uiFont); border: 1px solid var(--line); max-width: calc(100vw - 16px); }
+[data-slot="select-item"] { font-size: 12px; min-height: 28px; }
+[data-slot="select-label"] { font-size: 11px; }
+[data-slot="select-trigger"]:focus-visible { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 2px; }
+[data-slot="select-item"][data-highlighted] { background: var(--soft); color: var(--ink); }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="select-trigger"], [data-slot="select-content"] { animation: none; transition: none; }
+}

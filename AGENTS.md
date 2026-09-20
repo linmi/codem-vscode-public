@@ -6,7 +6,7 @@
 - `history/` 是完整旧项目的参考快照，不是活跃应用或 workspace 成员。不要继续修复、重构、安装、构建或启动历史项目，除非用户明确要求。
 - 历史目录中的 AGENTS.md、README、迁移计划及构建命令仅记录旧项目规则，不支配新实现，不自动继承其迁移目标或功能范围。
 - 当前应用为 `apps/vscode/`，共享包为 `@codem/app-server`、`@codem/protocol`、`@codem/session-history`。不预建其他应用或框架。
-- 当前 VS Code Webview 仍为手写 TypeScript DOM，尚未接入 shadcn/ui；后续组件实现遵循下文「UI 组件约定」。Host 与 Webview 通过 `src/messages.ts` 的白名单消息通信；当前模型与模式菜单、审批、问答及计划确认使用 Webview 内的手写面板，Host 校验请求归属和选项。真实模型测试必须显式运行 `test:live`，默认检查使用独立 fixture。
+- 当前 VS Code 聊天 Webview 主体仍为手写 TypeScript DOM；已接入 React、Tailwind 和 shadcn/ui Select，模拟预览的场景与主题选择器已迁移。后续组件实现遵循下文「UI 组件约定」。Host 与 Webview 通过 `src/messages.ts` 的白名单消息通信；当前模型与模式菜单、审批、问答及计划确认使用 Webview 内的手写面板，Host 校验请求归属和选项。真实模型测试必须显式运行 `test:live`，默认检查使用独立 fixture。
 - `app-server` 与 `session-history` 保持 Node-only，不引入编辑器、Electron 或 DOM API；`protocol` 保持无运行时依赖且可用于 Host 和界面。
 - 实时通信只通过 Core App Server stdio；Core 拥有 threadId，`turn/completed` 是实时终态依据，Core JSONL schema 13 是唯一持久历史来源。
 - 应用负责平台权限、工作区信任、凭据保护和界面适配；不得向界面暴露原始协议帧、密钥或任意文件路径。
@@ -14,6 +14,7 @@
 ## UI 组件约定
 
 - 用户已确定以 shadcn/ui 为统一 UI 组件基础，正式 Webview 和模拟预览均遵守；不得把手写 DOM/CSS 仿样式描述成已经使用 shadcn/ui。
+- shadcn 组件源码位于 `apps/vscode/webview/components/`，主题适配与 Tailwind 入口为 `webview/shadcnStyles.css`，源码来源与迁移范围见 `docs/shadcnIntegration.md`。
 - 当前手写实现是待迁移现状，不是继续新增同类实现的依据。接入时同步处理组件运行环境、构建、主题和受影响调用方；每次迁移一个可独立验证的组件边界，并删除该边界被替代的手写实现。
 - 场景选择、主题选择、模型与模式选择等菜单统一使用适合其交互的 shadcn/ui 组件，不再以原生 select 系统弹出菜单或另写一套菜单替代。预览工具栏不得例外。
 - Codex、Synara 等截图用于视觉与交互参考；业务文案、选项和状态以 CodeM 的真实协议及产品语义为准，不照抄参考图中的模型名、思考强度或权限语义。

@@ -22,6 +22,10 @@ it("uses a fresh CSP nonce, escapes resources and prohibits inline handlers and 
   assert.match(first, /form-action 'none'/)
   assert.doesNotMatch(first, /unsafe-inline|unsafe-eval| onload="/)
   assert.match(first, /script\.js&quot;/)
+  const nonce = first.match(/nonce="([^"]+)"/)?.[1]
+  assert.ok(nonce)
+  assert.ok(first.includes("style-src https://resource.test 'nonce-" + nonce + "';"))
+  assert.ok(first.includes("script-src 'nonce-" + nonce + "';"))
   assert.notEqual(first.match(/nonce="([^"]+)"/)?.[1], second.match(/nonce="([^"]+)"/)?.[1])
 })
 

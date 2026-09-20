@@ -1,5 +1,23 @@
 {
   "extends": "../../tsconfig.json",
-  "compilerOptions": { "allowImportingTsExtensions": true, "lib": ["ES2023"], "types": ["node", "vscode"] },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"]
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "node",
+      "vscode"
+    ],
+    "paths": {
+      "@/*": [
+        "./webview/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.ts"
+  ]
 }
