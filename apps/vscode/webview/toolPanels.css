@@ -126,6 +126,7 @@
 .sessionCommandConfirm .sessionToolSection { gap: 12px; }
 .sessionCommandConfirm .sessionConfirmActions { justify-content: flex-end; margin-top: 8px; }
 .sessionCommandConfirm .sessionToolActions > [data-slot="select-trigger"] { flex-basis: 130px; }
+.sessionDeleteTitle { font-size: 13px; font-weight: 500; line-height: 1.6; overflow-wrap: anywhere; max-height: 100px; overflow: auto; }
 .sessionCommandShell.toolDialog { width: min(520px, calc(100vw - 24px)); }
 .sessionCommandDialog.sessionCommandCatalog { height: min(620px, calc(100dvh - 32px)); }
 .sessionCommandBody { min-height: 0; overflow: auto; padding: 0 24px 24px; }

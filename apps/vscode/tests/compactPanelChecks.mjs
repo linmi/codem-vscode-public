@@ -21,11 +21,16 @@ export default async function compactPanelChecks(page) {
     if (layout.width > 420 || layout.height > 320 || layout.overflow) throw Error('Confirmation is oversized or clipped')
     const [cancel, confirm] = await Promise.all(['取消','确认删除'].map(name => dialog.getByRole('button',{name,exact:true}).boundingBox()))
     if (!cancel || !confirm || Math.abs(cancel.y-confirm.y)>1 || cancel.x>=confirm.x) throw Error('Confirmation actions are not aligned')
-    await page.getByRole('combobox',{name:'操作目标会话'}).click()
-    await page.getByRole('listbox').waitFor()
-    await page.keyboard.press('Escape')
+    if (await dialog.getByRole('combobox').count() || await dialog.getByRole('button',{name:'加载会话列表'}).count()) throw Error('Delete must not ask for a different target')
+    await dialog.getByText('帮我整理登录页面，让状态反馈更清晰。',{exact:true}).waitFor()
     await dialog.getByRole('button',{name:'取消',exact:true}).click()
     if (await page.evaluate(() => window.viewActions.some(action => action.type === 'manageThread'))) throw Error('Cancel changed a thread')
+    await page.getByRole('button', {name:'会话命令',exact:true}).click()
+    await page.getByRole('combobox', {name:'搜索会话命令'}).fill('delete')
+    await page.getByRole('combobox', {name:'搜索会话命令'}).press('Enter')
+    await page.getByRole('button',{name:'确认删除',exact:true}).click()
+    const action = await page.evaluate(() => window.viewActions.findLast(action => action.type === 'manageThread'))
+    if (!action || action.operation !== 'delete' || action.threadId !== await page.evaluate(() => window.demo.threadId)) throw Error('Delete did not target current thread')
   }
   return 'COMPACT_PANELS_OK'
 }
