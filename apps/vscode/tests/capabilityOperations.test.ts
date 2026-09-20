@@ -68,6 +68,7 @@ it("control completion before RPC acknowledgement reloads durable history withou
   await f.controller.startControl("compact", "request")
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(reads, 1)
+  assert.equal(f.controller.snapshot().sessionTools.busy, null)
   assert.equal(f.controller.snapshot().phase, "ready")
 })
 
@@ -147,6 +148,11 @@ it("compaction progress never becomes a synthetic terminal; interrupted controls
   f.session.readHistory = async () => { reads++; return { turns: [], nextCursor: null } }
   f.host.compactThread = async () => { f.emit({ type: "turn-started", threadId: "thread-1", turnId: "compact", submissionId: null }); return "compact" }
   await f.controller.startControl("compact", "request")
+  assert.equal(f.controller.snapshot().sessionTools.busy, "compact")
+  let catalogs = 0
+  f.host.listSkills = async () => { catalogs++; return [] }
+  await f.controller.loadCatalog("skills")
+  assert.equal(catalogs, 0)
   f.emit({ type: "warning", threadId: "thread-1", message: "context compacted: replaced 2 earlier messages, kept 1" })
   assert.equal(f.controller.snapshot().phase, "running")
   assert.equal(reads, 0)
@@ -155,6 +161,7 @@ it("compaction progress never becomes a synthetic terminal; interrupted controls
   f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "compact", outcome: "stopped", stopReason: "cancelled", error: null })
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(reads, 1)
+  assert.equal(f.controller.snapshot().sessionTools.busy, null)
   assert.equal(f.controller.snapshot().phase, "ready")
 })
 

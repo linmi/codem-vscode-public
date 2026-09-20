@@ -71,7 +71,7 @@ Provide `AppServerHost.prepareSpace` to bind each Core process to broker-validat
 
 ### Historical turn recovery
 
-Realtime turns continue to use pinned online CLI 0.1.208 / Core 0.8.44. Durable history is read by the editor host through `@codem/session-history` from Core JSONL schema 13. This reuses the shared Desktop record reducer and domain types from `main@d7763f0a`, including user invocation boundaries, hidden model inputs, tool correlation, clear and rewind semantics. `thread/turns/list` and `thread/items/list` are no longer history sources or public host methods. No local Core override is required.
+Realtime turns continue to use pinned online CLI 0.1.208 / Core 0.8.44. Durable history is read by the editor host through `@codem/session-history` from Core JSONL schema 13. This reuses the shared Desktop record reducer and domain types from `main@d7763f0a`, including user invocation boundaries, hidden model inputs, tool correlation, clear and rewind semantics. `listLiveThreadTurns` and `listLiveThreadItems` expose typed, ephemeral diagnostic snapshots; they are never history sources. Snapshot-only `steerAccepted` records are modeled separately from streamed items. No local Core override is required.
 
 History failures are explicit; there is no RPC fallback or second transcript store. Live `turn/completed` remains terminal authority. In-flight JSONL snapshots cannot replace live parts; idle reopening replaces the viewport from the durable projection.
 
@@ -88,3 +88,5 @@ For an established connection, `AppServerHost.close()` shares one promise across
 The VS Code controller synchronously revokes old event authority before retiring a session. Switching spaces can publish the prepared replacement while the previous process exits. Every retirement, including protocol/authentication failures, is tracked until settled. Repeated disposal observes the same promise and waits for current and already-retiring hosts; cleanup failure remains a rejection. Connecting operations are cancelled through the lifetime signal, and late results are closed without binding them.
 
 The default tests include real child-process fixtures that withhold unsubscribe, interrupt or side-question cancellation replies, plus a child ignoring EOF and SIGTERM. Assertions check that the PID no longer exists and that the independent test watchdog was not needed. These are isolated protocol fixtures, not live Core or model calls. Controller tests cover repeated disposal, failure-triggered retirement, slow space retirement and failure while other hosts are still closing.
+
+Native skills use `startTurn({ skillName, text, ... })` with Core structured skill input; attachments are rejected for this input variant. `clearThread` validates the operation/source identity and returns the newly loaded thread ID. The editor must revoke old handles and use that new identity. See [capability acceptance and Core limitations](../../docs/appServerCapabilities.md).

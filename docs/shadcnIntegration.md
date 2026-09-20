@@ -35,3 +35,10 @@
 验证：tests/previewRouterChecks.mjs 检查零新增文档请求、DOM 身份/目录滚动位置保留、前进后退、旧空间刷新失效及连续切换。一次本地浏览器采样中，六次场景更新到下一帧耗时为 11–17ms；这不是生产性能承诺。还需执行 previewNavigationChecks.mjs、previewLayoutChecks.mjs 和既有面板检查。
 
 官方参考：https://tanstack.com/router/latest/docs/routing/code-based-routing 、https://tanstack.com/router/latest/docs/guide/search-params 。通过已锁定版本的本地类型和浏览器行为确认 API。
+
+
+## App Server 会话工具与回退面板（2026-09-20）
+
+新增独立 React 边界：会话工具、运行详情和回退检查点/范围选择。复用 Select、Button、Collapsible；Dialog、Input、Textarea 源码取自官方 new-york-v4 registry（`https://ui.shadcn.com/r/styles/new-york-v4/{dialog,input,textarea}.json`），MIT 许可证沿用 `components/shadcnLicense.md`。Dialog 滚动锁继续注入 CSP nonce，关闭文案中文化，主题与尺寸使用 CodeM 变量。回退的旧「一律取消」分支已删除；既有模型/审批手写面板仍未迁移。
+
+`sessionToolsChecks.mjs` 在 1440px 浅色、380px 深色验证真实展开菜单、Escape 焦点恢复、目录按需加载、取消不写入、失败保留草稿、迟到回执不清除新编辑、Dialog 内部滚动以及回退两步选择/取消；结果 `SESSION_TOOLS_UI_OK`，无 console/CSP error。截图仅证明模拟 Webview 交互；真实 Core 和 Extension Host 的验证层次见能力接入文档。

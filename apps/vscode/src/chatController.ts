@@ -340,6 +340,7 @@ export class ChatController {
     if (!session || !threadId || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     const active: ActiveTurn = { submissionId: requestId, turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
     this.active = active; this.controlTurn = active
+    this.updateTools({ busy: kind })
     this.invalidateHistory()
     this.update({ phase: "sending", notice: null })
     try {
@@ -352,7 +353,7 @@ export class ChatController {
     } catch (error) {
       this.options.report(kind, error)
       if (this.session !== session || this.threadId !== threadId) return
-      if (this.active === active && active.turnId === null) { this.active = null; this.controlTurn = null; active.abort.abort(); this.update({ phase: "ready" }) }
+      if (this.active === active && active.turnId === null) { this.active = null; this.controlTurn = null; active.abort.abort(); this.updateTools({ busy: null }); this.update({ phase: "ready" }) }
       this.update({ notice: "操作未能确认，已有记录保留；请检查当前状态后重试。" })
       this.updateTools({ result: { requestId, accepted: active.turnId !== null } })
     }
@@ -823,6 +824,7 @@ export class ChatController {
     } else if (event.type === "turn-completed") {
       const reload = this.controlTurn === active
       this.controlTurn = null
+      if (reload) this.updateTools({ busy: null })
       this.update({ capabilities: { ...this.state.capabilities, activity: null } })
       this.finishActivities(event.outcome === "completed" ? "completed" : event.outcome === "stopped" ? "interrupted" : "failed")
       active.abort.abort()
