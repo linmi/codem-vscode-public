@@ -13,7 +13,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${source} data:; style-src ${source} 'nonce-${nonce}'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'">
 <link rel="stylesheet" href="${escapeHtml(resources.style)}"><title>CodeM</title></head>
 <body>
-<div class="app" data-phase="initializing">
+<div class="app" data-phase="disconnected">
   <header class="sessionHeader"><span class="sessionTitle"><span class="sessionIcon">${uiIcon("chat")}</span><span id="sessionTitle">新会话</span><span class="statusDot" id="statusDot" title="连接状态"></span></span><div class="headerActions">
     <div id="resourceToolsHost"></div>
     ${resources.surface === "editor" ? `<div class="headerActions" id="standaloneActions"><button class="iconButton" id="newChat" title="新建会话" aria-label="新建会话">${uiIcon("plus")}</button>
@@ -21,7 +21,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
   </div></header>
   <div class="timelineArea">
   <main id="scrollArea">
-    <section class="transcriptLoading" id="transcriptLoading" role="status" aria-live="polite"><span class="loadingSpinner" aria-hidden="true"></span><span id="loadingLabel">正在初始化 CodeM…</span><div class="loadingLines" aria-hidden="true"><i></i><i></i><i></i></div></section>
+    <section class="transcriptLoading" id="transcriptLoading" hidden role="status" aria-live="polite"><span class="loadingSpinner" aria-hidden="true"></span><span id="loadingLabel">正在初始化 CodeM…</span><div class="loadingLines" aria-hidden="true"><i></i><i></i><i></i></div></section>
     <section class="welcome" id="welcome" aria-labelledby="welcomeTitle">
       <img class="brandMark" src="${escapeHtml(resources.logo)}" alt="CodeM" width="40" height="40">
       <h1 id="welcomeTitle">我们一起做点什么？</h1>

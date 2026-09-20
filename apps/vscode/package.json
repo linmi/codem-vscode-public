@@ -307,8 +307,8 @@
       "properties": {
         "codem.autoConnect": {
           "type": "boolean",
-          "default": true,
-          "description": "在可信工作区打开聊天时自动连接。关闭后使用连接命令。",
+          "default": false,
+          "description": "在可信工作区打开聊天时提前连接。默认按需连接：首次发送或选择模型、空间、历史及附件时连接。",
           "scope": "window"
         },
         "codem.chat.sendKey": {

@@ -1,5 +1,11 @@
 export default async function lifecycleViewChecks(page) {
-  await page.goto('http://127.0.0.1:4318/?empty=1');
+  await page.goto('http://127.0.0.1:4318/?scenario=disconnected');
+  await page.locator('#welcome').waitFor();
+  if(await page.locator('#transcriptLoading').isVisible() || await page.locator('#connection').isVisible()) throw new Error('Opening chat should not show connection UI');
+  await page.locator('#prompt').fill('first message');
+  if(!await page.locator('#send').isEnabled() || !await page.locator('#selectModel').isEnabled()) throw new Error('Disconnected chat must support demand-driven actions');
+  await page.locator('#send').click(); // Fixture rejects; the pending draft must survive.
+  if(await page.locator('#prompt').inputValue() !== 'first message') throw new Error('Failed first send lost draft');
   for(const phase of ['connecting','loadingHistory']) {
     await page.evaluate(phase=>window.postMessage({...demo,phase},'*'),phase);
     await page.locator('#transcriptLoading').waitFor();

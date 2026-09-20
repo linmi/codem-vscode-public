@@ -187,8 +187,10 @@ it("disconnects when a failed switch cannot safely release the candidate thread"
     assert.equal(f.chat.snapshot().phase, "disconnected")
     assert.equal(f.chat.snapshot().threadId, null)
     assert.equal(f.chat.snapshot().messages[0]?.text, "question 1")
-    await f.chat.send("must not send")
-    assert.deepEqual(f.sent, [])
+    assert.deepEqual(f.sent, []) // Failure itself never submits to the uncertain thread.
+    assert.equal(await f.chat.send("reconnect into a new conversation"), true)
+    assert.deepEqual(f.sent, ["new-thread"])
+    assert.equal(f.starts(), 1)
   } finally { await f.chat.dispose() }
 })
 

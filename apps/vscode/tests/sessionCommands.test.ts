@@ -24,3 +24,12 @@ it("all command IDs are unique and slash detection never interprets normal prose
   assert.equal(slashQuery("/unknown"), "unknown")
   for (const text of ["说明 /compact", "hello", "https://example.com", "/model\n正文"]) assert.equal(slashQuery(text), null)
 })
+
+
+it("disconnected conversations allow first send and demand-driven entry points only", () => {
+  const state = initialSnapshot()
+  assert.equal(inputUnavailable("message", state), null)
+  for (const id of ["files", "model", "mode", "history"] as const) assert.equal(commandUnavailable(id, state), null)
+  for (const id of ["unarchive", "rename", "shell", "ask"] as const) assert.ok(commandUnavailable(id, state))
+  assert.ok(inputUnavailable("message", { ...state, phase: "connecting" }))
+})

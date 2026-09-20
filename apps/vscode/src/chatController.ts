@@ -59,6 +59,7 @@ export interface ChatControllerOptions {
 
 /** One live conversation. Core owns durable history; these are display-only snapshots. */
 export class ChatController {
+  private pendingSend: symbol | null = null
   private textGeneration: { operationId: string; cancelled: boolean; finish: (error: Error | null, text?: string) => void } | null = null
   private side: { operationId: string; id: string | null } | null = null
   private controlTurn: ActiveTurn | null = null
@@ -172,6 +173,7 @@ export class ChatController {
   }
 
   async selectSpace(pick: (session: ChatSession, signal: AbortSignal) => Promise<ChatSession | null>): Promise<void> {
+    if (this.state.phase === "disconnected") await this.connect()
     const previous = this.session
     if (!previous || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     this.update({ phase: "configuring", notice: null })
@@ -226,6 +228,22 @@ export class ChatController {
   }
 
   async send(text: string): Promise<boolean> {
+    if (this.disposed || this.pendingSend || !text.trim() || text.length > 32_000) return false
+    if (this.state.phase !== "disconnected" && this.state.phase !== "ready") return false
+    const request = Symbol("send")
+    this.pendingSend = request
+    const connecting = this.state.phase === "disconnected"
+    const generation = this.generation + (connecting ? 1 : 0)
+    try {
+      if (connecting) await this.connect()
+      if (this.pendingSend !== request || this.generation !== generation || (connecting && this.threadId !== null)) return false
+      return await this.sendConnected(text)
+    } finally {
+      if (this.pendingSend === request) this.pendingSend = null
+    }
+  }
+
+  private async sendConnected(text: string): Promise<boolean> {
     if (this.disposed || this.state.phase !== "ready" || !this.session || this.state.sessionTools.busy) return false
     if (!text.trim() || text.length > 32_000) return false
     const session = this.session
@@ -553,6 +571,7 @@ export class ChatController {
 
   async newChat(): Promise<void> {
     if (this.disposed || isBusy(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    this.pendingSend = null
     if (this.session && this.threadId) {
       const session = this.session
       this.update({ phase: "sending" })
@@ -574,6 +593,7 @@ export class ChatController {
   }
 
   async showHistory(): Promise<void> {
+    if (this.state.phase === "disconnected") await this.connect()
     if (this.disposed || this.state.phase !== "ready") return
     await this.historyList.open()
   }
@@ -921,6 +941,7 @@ export class ChatController {
 
   /** Host owns the settings transaction. Holding this phase prevents sends racing a selection. */
   async configure(pick: (settings: AppServerThreadSettings, session: ChatSession) => Promise<AppServerThreadSettings | null>): Promise<void> {
+    if (this.state.phase === "disconnected") await this.connect()
     const session = this.session
     if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     this.update({ phase: "configuring", notice: null })
@@ -1059,6 +1080,7 @@ export class ChatController {
   }
 
   async addAttachments(pick: () => Promise<readonly AppServerPromptAttachment[]>): Promise<void> {
+    if (this.state.phase === "disconnected") await this.connect()
     const session = this.session
     if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     this.update({ phase: "configuring", notice: null })

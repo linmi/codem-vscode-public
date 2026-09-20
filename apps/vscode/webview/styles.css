@@ -158,7 +158,6 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .loadingLines i { display: block; height: 10px; border-radius: 6px; background: var(--soft); animation: thinkingFade 1.6s ease-in-out infinite; }
 .loadingLines i:nth-child(2) { width: 85%; }
 .loadingLines i:nth-child(3) { width: 55%; }
-.app[data-phase="initializing"] #welcome { display: none; }
 @keyframes loadingSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .loadingSpinner, .loadingLines i { animation: none; } }
 .workingRow { max-width: var(--chatWidth); width: 100%; margin: 0 auto; padding: 8px 4px 12px; font: 12px/1.625 var(--uiFont); color: var(--muted); }

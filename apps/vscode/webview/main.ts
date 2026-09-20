@@ -157,7 +157,7 @@ const configurationActions = ["selectSpace", "selectModel", "selectEffort", "sel
 for (const type of configurationActions) element(type).addEventListener("click", () => post({ type }))
 let attachmentsKey = ""
 function renderResources(): void {
-  const ready = state.phase === "ready" && !state.backgroundBusy && !state.sessionTools.busy
+  const ready = ["ready", "disconnected"].includes(state.phase) && !state.backgroundBusy && !state.sessionTools.busy
   for (const type of configurationActions) element<HTMLButtonElement>(type).disabled = !ready
   element("selectEffort").setAttribute("aria-label", `思考强度：${state.effort}`)
   element("selectEffort").title = `思考强度：${state.effort}`
@@ -217,7 +217,7 @@ function render(next: ChatSnapshot): void {
   messages.setAttribute("aria-busy", String(restoring))
   element("selectModel").setAttribute("aria-busy", String(initializing))
   element("welcome").hidden = initializing || restoring || ["sending", "running", "stopping"].includes(state.phase) || state.messages.length > 0
-  element("connection").hidden = state.phase !== "disconnected"
+  element("connection").hidden = state.phase !== "disconnected" || !state.notice
   connect.disabled = signIn.disabled = state.phase === "connecting"
   if (newChat) newChat.disabled = isBusy(state.phase) || state.backgroundBusy || Boolean(state.sessionTools.busy)
   const generating = state.phase === "running" || state.phase === "stopping"

@@ -56,7 +56,7 @@ export function createHistoryView(header: HTMLElement | null, scroller: HTMLElem
     lastState = state
     const disabled = isBusy(state.phase) || state.phase === "disconnected"
     if (open) {
-      open.disabled = disabled && !state.history.open
+      open.disabled = isBusy(state.phase) && !state.history.open
       open.title = state.history.open ? "关闭历史会话" : "浏览当前工作区的历史会话"
       open.setAttribute("aria-expanded", String(state.history.open))
     }

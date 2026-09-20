@@ -15,6 +15,7 @@ import { ChatController, UserVisibleError, type ChatHost, type ChatSession } fro
 function setup() {
   let listener: (event: AppServerHostEvent) => void = () => undefined
   let submissionId = ""
+  let connections = 0
   let starts = 0
   let turns = 0
   let closed = 0
@@ -42,18 +43,19 @@ function setup() {
     async close() { closed++ },
   }
   const session: ChatSession = { authorize: async () => {}, readHistory: async () => ({ turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
-  const controller = new ChatController({ connect: async () => session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
-  return { controller, host, session, answers, emit: (event: AppServerHostEvent) => listener(event), counts: () => ({ starts, turns, closed }), submission: () => submissionId }
+  const controller = new ChatController({ connect: async () => { connections++; return session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  return { controller, host, session, answers, emit: (event: AppServerHostEvent) => listener(event), counts: () => ({ connections, starts, turns, closed }), submission: () => submissionId }
 }
 
-it("does not start Core until explicitly connected; denies simultaneous sends and keeps whitespace", async () => {
+it("connects only on the first valid send; denies simultaneous sends and keeps whitespace", async () => {
   const fixture = setup()
   assert.equal(fixture.controller.snapshot().phase, "disconnected")
-  await fixture.controller.send("premature")
-  assert.equal(fixture.counts().starts, 0)
-  await fixture.controller.connect()
+  await fixture.controller.send("   ")
+  await fixture.controller.send("x".repeat(32_001))
+  assert.equal(fixture.counts().connections, 0)
   await Promise.all([fixture.controller.send("first"), fixture.controller.send("duplicate")])
   assert.equal(fixture.counts().turns, 1)
+  assert.equal(fixture.counts().connections, 1)
   fixture.emit({ type: "text-delta", threadId: "thread-1", turnId: "turn-1", itemId: "answer", delta: " hello\n " })
   assert.equal(fixture.controller.snapshot().messages[1]?.text, " hello\n ")
   await fixture.controller.dispose()
@@ -227,8 +229,11 @@ it("blocks sends during native pickers, keeps cancelled settings, and rejects am
   await fixture.controller.configure(async (settings) => ({ ...settings, model: "other-model" }))
   assert.equal(fixture.controller.snapshot().phase, "disconnected")
   assert.doesNotMatch(JSON.stringify(fixture.controller.snapshot()), /secret MCP credentials/)
-  await fixture.controller.send("must reconnect")
-  assert.equal(fixture.counts().turns, 1)
+  assert.equal(fixture.counts().turns, 1) // A failed settings change must not automatically replay a turn.
+  assert.equal(await fixture.controller.send("reconnect and send"), true)
+  assert.equal(fixture.counts().connections, 2)
+  assert.equal(fixture.counts().starts, 2)
+  assert.equal(fixture.counts().turns, 2)
   await fixture.controller.dispose()
 })
 
@@ -855,5 +860,84 @@ it("platform generation rejects a context captured before a conversation switch 
   f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
   await assert.rejects(f.controller.generateText("stale source", new AbortController().signal, previous), /会话已切换/)
   assert.equal(f.controller.snapshot().phase, "ready")
+  await f.controller.dispose()
+})
+
+
+it("lazy send failure preserves the request for explicit retry and never starts a turn", async () => {
+  const f = setup()
+  let attempts = 0
+  const c = new ChatController({ connect: async () => { if (++attempts === 1) throw new UserVisibleError("已取消选择工作区。"); return f.session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  assert.equal(await c.send("retained draft"), false)
+  assert.equal(c.snapshot().phase, "disconnected")
+  assert.equal(c.snapshot().notice, "已取消选择工作区。")
+  assert.equal(f.counts().turns, 0)
+  assert.equal(await c.send("retained draft"), true)
+  assert.equal(attempts, 2)
+  assert.equal(c.snapshot().messages[0]?.text, "retained draft")
+  f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "stop", error: null })
+  assert.equal(await c.send("second message"), true)
+  assert.equal(attempts, 2)
+  assert.equal(f.counts().turns, 2)
+  await c.dispose()
+})
+
+it("lazy send does not resume after disposal and closes a late connection", async () => {
+  const f = setup()
+  let resolve!: (session: ChatSession) => void
+  let attempts = 0
+  const c = new ChatController({ connect: () => { attempts++; return new Promise(done => { resolve = done }) }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const pending = c.send("first")
+  assert.equal(await c.send("duplicate"), false)
+  await c.dispose()
+  resolve(f.session)
+  assert.equal(await pending, false)
+  assert.equal(attempts, 1)
+  assert.equal(f.counts().turns, 0)
+  assert.equal(f.counts().closed, 1)
+})
+
+it("lazy send still enforces workspace trust before opening a connection", async () => {
+  let attempts = 0
+  const c = new ChatController({ connect: async () => { attempts++; throw Error("must not connect") }, assertTrusted() { throw new UserVisibleError("workspace is untrusted") }, publish() {}, interact: async () => null, report() {} })
+  assert.equal(await c.send("hello"), false)
+  assert.equal(attempts, 0)
+  assert.equal(c.snapshot().notice, "workspace is untrusted")
+  await c.dispose()
+})
+
+it("model selection connects on demand and a cancelled picker does not create a thread", async () => {
+  const f = setup()
+  let picked = false
+  await f.controller.configure(async () => { picked = true; return null })
+  assert.equal(picked, true)
+  assert.equal(f.counts().connections, 1)
+  assert.equal(f.counts().starts, 0)
+  assert.equal(await f.controller.send("hello"), true)
+  assert.equal(f.counts().connections, 1)
+  await f.controller.dispose()
+})
+
+it("a new conversation invalidates a first send still waiting for connection bookkeeping", async () => {
+  const f = setup()
+  let finish!: () => void
+  let connected!: () => void
+  const ready = new Promise<void>(done => { connected = done })
+  const c = new ChatController({ connect: async () => f.session, connected: () => { connected(); return new Promise<void>(done => { finish = done }) }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const pending = c.send("old context")
+  await ready
+  await c.newChat()
+  finish()
+  assert.equal(await pending, false)
+  assert.equal(f.counts().turns, 0)
+  await c.dispose()
+})
+
+it("opening history connects on demand without creating a conversation", async () => {
+  const f = setup()
+  await f.controller.showHistory()
+  assert.equal(f.counts().connections, 1)
+  assert.equal(f.counts().starts, 0)
+  assert.equal(f.controller.snapshot().history.open, true)
   await f.controller.dispose()
 })

@@ -29,11 +29,12 @@ export function inputUnavailable(mode: ComposerMode, state: ChatSnapshot): strin
   if (state.sessionTools.busy || state.backgroundBusy) return "正在处理其他操作"
   if (mode !== "message" && !state.threadId) return "先发送消息建立会话"
   if (mode === "steer") return state.phase === "running" ? null : "主任务运行时可补充指令"
-  return state.phase === "ready" ? null : "主任务空闲时可用"
+  return state.phase === "ready" || (mode === "message" && state.phase === "disconnected") ? null : "主任务空闲时可用"
 }
 export function commandUnavailable(id: SessionCommandId, state: ChatSnapshot): string | null {
   if (["skills", "catalog", "directories"].includes(id)) return null // Read existing state; refresh buttons enforce Host availability.
   if (id === "ask" && state.sessionTools.sideQuestion) return null // Also opens the existing answer / cancellation controls.
+  if (state.phase === "disconnected" && !["files", "model", "mode", "history"].includes(id)) return "请先连接 CodeM"
   const reason = inputUnavailable(inputModes[id] ?? "message", state)
   if (reason) return reason
   if (["compact", "rewind", "clear", "rename", "fork", "archive", "delete"].includes(id) && !state.threadId) return "先发送消息建立会话"
