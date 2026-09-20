@@ -2,7 +2,7 @@
 
 Reusable Node-only CodeM App Server client/runtime boundary. Core itself is supplied by the pinned published package; this package is not the Core server implementation.
 
-No application has been added to the active workspace yet. Source and tests were copied from the archived implementation; see [provenance](../../UPSTREAM.md).
+The active VS Code application consumes this package. Its initial source and tests were copied from the archived implementation; see [provenance](../../UPSTREAM.md).
 
 It owns the exact published Core and authentication CLI versions, supported platform mapping, executable and license resolution, deterministic extension staging, installed-bundle integrity checks, and the shared Host protocol/lifecycle implementation. The CLI binary is used only as the published credential broker; App Server still starts the smaller Core executable directly. The package never reads or writes credential files and does not own editor APIs or Webview state.
 
@@ -45,7 +45,7 @@ const result = await connection.request("thread/list", { cwd: workspacePath })
 await connection.close()
 ```
 
-`AppServerHost` pools one long-lived Core child process per canonical absolute `cwd`. Permission mode is per-thread (`thread/mode/read|set`), not a second connection key. The connection drains stderr through the editor-owned logging hook, performs and validates `initialize`, sends `initialized`, correlates concurrent requests, routes notifications and server requests, and fails closed on malformed, duplicate, stale, or unknown frames. Shutdown is bounded: stdin close is followed by `SIGTERM` and then `SIGKILL` when Core does not exit. The pinned Core 0.8.37 currently omits `jsonrpc` on responses, so inbound frames temporarily accept either omission or the exact value `"2.0"`; outbound frames are always JSON-RPC 2.0.
+`AppServerHost` pools one long-lived Core child process per canonical absolute `cwd`. Permission mode is per-thread (`thread/mode/read|set`), not a second connection key. The connection drains stderr through the editor-owned logging hook, performs and validates `initialize`, sends `initialized`, correlates concurrent requests, routes notifications and server requests, and fails closed on malformed, duplicate, stale, or unknown frames. Shutdown is bounded: stdin close is followed by `SIGTERM` and then `SIGKILL` when Core does not exit. The pinned Core 0.8.44 currently omits `jsonrpc` on responses, so inbound frames temporarily accept either omission or the exact value `"2.0"`; outbound frames are always JSON-RPC 2.0.
 
 For `hook/completed`, Core 0.8.37 emits an empty `run.tool` for lifecycle hooks such as `SessionStart`, and `run.reason` may be `null`. The host represents both absent associations and absent reasons explicitly as `null`; missing or incorrectly typed wire fields still fail validation. A successful hook verdict is `allow`. Hook failure verdicts remain distinct from the turn's terminal result.
 
@@ -71,7 +71,7 @@ Provide `AppServerHost.prepareSpace` to bind each Core process to broker-validat
 
 ### Historical turn recovery
 
-Realtime turns continue to use pinned online CLI 0.1.208 / Core 0.8.37. Durable history is read by the editor host through `@codem/session-history` from Core JSONL schema 13. This reuses the shared Desktop record reducer and domain types from `main@d7763f0a`, including user invocation boundaries, hidden model inputs, tool correlation, clear and rewind semantics. `thread/turns/list` and `thread/items/list` are no longer history sources or public host methods. No local Core override is required.
+Realtime turns continue to use pinned online CLI 0.1.208 / Core 0.8.44. Durable history is read by the editor host through `@codem/session-history` from Core JSONL schema 13. This reuses the shared Desktop record reducer and domain types from `main@d7763f0a`, including user invocation boundaries, hidden model inputs, tool correlation, clear and rewind semantics. `thread/turns/list` and `thread/items/list` are no longer history sources or public host methods. No local Core override is required.
 
 History failures are explicit; there is no RPC fallback or second transcript store. Live `turn/completed` remains terminal authority. In-flight JSONL snapshots cannot replace live parts; idle reopening replaces the viewport from the durable projection.
 
@@ -79,7 +79,7 @@ Run `pnpm --filter @codem/app-server test` and `pnpm --filter @codem/app-server 
 
 Background wake events remain observable while the originating turn is idle. A `turn/started` notification on a subscribed thread can begin a Core-owned background turn with `submissionId: null`; its streamed items, approvals and terminal event follow the normal lifecycle. Completed turn IDs are remembered for that subscription so a duplicate start cannot revive a finished turn. Notifications for unsubscribed threads remain ignored.
 
-Pinned Core 0.8.37 reports each `thread/backgroundTerminals/list` row with `alive`, `processId`, `logPath` and process metadata. The host maps `alive` to its normalized `inProgress` boolean and excludes metadata from that DTO. The old assumed wire field `inProgress` is rejected, not used as a fallback. This mapping and process termination/cleanup are covered by the VS Code opt-in resource integration test.
+Pinned Core 0.8.44 reports each `thread/backgroundTerminals/list` row with `alive`, `processId`, `logPath` and process metadata. The host maps `alive` to its normalized `inProgress` boolean and excludes metadata from that DTO. The old assumed wire field `inProgress` is rejected, not used as a fallback. This mapping and process termination/cleanup are covered by the VS Code opt-in resource integration test.
 
 ### Shutdown ownership and fault verification
 

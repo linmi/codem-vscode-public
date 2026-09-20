@@ -86,3 +86,9 @@
 - Source: https://www.beautifului.dev/ and the LoadingState React example supplied by the user with this request.
 - Adapted the 3×3 pixel grid, staggered chevron animation and shimmer label into `apps/vscode/webview/components/loadingState.tsx` and `loadingState.css`, using existing React dependencies and CodeM theme tokens. No external video, elapsed-time simulation or additional dependency was imported.
 - Applied to the live turn header and initial waiting placeholder. Once the current turn has progress, its bottom thinking placeholder disappears; approval, question, plan and stopping feedback remain. Added reduced-motion and forced-colors behavior. This is an adaptation of the supplied loading design, not an import of the full Beautiful UI component library.
+
+## 2026-09-20：Core 0.8.44
+
+用户要求检查并升级最新 Core。npm registry 的 latest 为 `@lark-codem/codem-core@0.8.44`（2026-09-18 发布）；同步更新精确依赖、唯一锁文件、运行时 pin 和版本校验 fixture。包没有提供 README、仓库链接或独立迁移说明，因此不猜测版本间改动。CLI 暂留 `0.1.208`，Core 元包没有声明新的认证 CLI 依赖。
+
+本机 arm64 构建/staging 实际使用 `0.8.44+2725.g997c17f.dirty`。临时工作区实测 initialize（协议版本 1）、新建、清空以及删除清理；能力声明与旧版本一致，仍不支持 configWrite 和 HTTP MCP。历史 schema 13 的来源契约保留原始版本说明，不伪造重新生成记录。模型流式与认证联调在能力适配验收时单独报告。

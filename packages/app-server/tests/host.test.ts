@@ -713,7 +713,7 @@ function createFixture(
     runtime: {
       target: "darwin-arm64",
       packageName: "@lark-codem/codem-core-darwin-arm64",
-      coreVersion: "0.8.37",
+      coreVersion: "0.8.44",
       executablePath,
       licensePath: join(root, "LICENSE.core"),
       authPackageName: "@lark-codem/codem-cli-darwin-arm64",
@@ -757,7 +757,7 @@ lines.on("line", (line) => {
   }
   capture({ method: frame.method, params: frame.params })
   if (frame.method === process.env.SHUTDOWN_HANG) return
-  if (frame.method === "initialize") return send({ jsonrpc: "2.0", id: frame.id, result: { protocolVersion: 1, agentInfo: { version: "0.8.37+1.gfixture" }, capabilities: ${JSON.stringify(capabilities)} } })
+  if (frame.method === "initialize") return send({ jsonrpc: "2.0", id: frame.id, result: { protocolVersion: 1, agentInfo: { version: "0.8.44+1.gfixture" }, capabilities: ${JSON.stringify(capabilities)} } })
   if (frame.method === "thread/start") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1" } } })
   if (frame.method === "thread/resume") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: frame.params.threadId } } })
   if (frame.method === "thread/sideQuestion/start") {
@@ -790,13 +790,13 @@ lines.on("line", (line) => {
     return send({ id: frame.id, result })
   }
   if (frame.method === "thread/read") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), archived: false, model: "codem/auto", profile: "default", startedAt: "2026-09-15T00:00:00.000Z", status: "idle" } } })
-  if (frame.method === "environment/info") return send({ id: frame.id, result: { agent: { name: "codem", version: "0.8.37+1.gfixture" }, arch: "aarch64", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), os: "macos", shell: "/bin/zsh" } })
+  if (frame.method === "environment/info") return send({ id: frame.id, result: { agent: { name: "codem", version: "0.8.44+1.gfixture" }, arch: "aarch64", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), os: "macos", shell: "/bin/zsh" } })
   if (frame.method === "config/read") return send({ id: frame.id, result: { writable: false, writeOwner: "codem-bridge", config: { active: { model: "codem-router/auto" }, custom: [{ apikey: "secret-value", model: "codem-router/auto" }] } } })
   if (frame.method === "hooks/list") return send({ id: frame.id, result: { cwd: require("node:path").dirname(process.env.CAPTURE_PATH), hooks: { SessionStart: [{ command: "check.sh", matcher: null }] } } })
   if (frame.method === "plugin/list") return send({ id: frame.id, result: { installed: { demo: { name: "demo", enabled: true } }, marketplaces: {} } })
   if (frame.method === "permissionProfile/list") return send({ id: frame.id, result: { profiles: [{ id: "default", name: "Ask", description: "Ask", settableAtRuntime: true }, { id: "auto", name: "Auto", description: "Review", settableAtRuntime: true }, { id: "yolo", name: "Yolo", description: "Bypass", settableAtRuntime: true }] } })
   if (frame.method === "space/list") return send({ id: frame.id, result: { current: null, spaces: [] } })
-  if (frame.method === "modelProvider/capabilities/read") return send({ id: frame.id, result: { version: "0.8.37+1.gfixture", ask_user: { image_attachments_v1: true }, custom: { auth_mode: true } } })
+  if (frame.method === "modelProvider/capabilities/read") return send({ id: frame.id, result: { version: "0.8.44+1.gfixture", ask_user: { image_attachments_v1: true }, custom: { auth_mode: true } } })
   if (frame.method === "tools/list") return send({ id: frame.id, result: { threadId: frame.params.threadId, model: "codem-router/auto", tools: ["read_files", "run_bash"] } })
   if (frame.method === "thread/loaded/list") return send({ id: frame.id, result: { threadIds: ["thread-1"] } })
   if (frame.method === "thread/backgroundTerminals/list") return send({ id: frame.id, result: { cwd: require("node:path").dirname(process.env.CAPTURE_PATH), terminals: process.env.HAS_TERMINAL ? [{ processId: 4242, logPath: "/tmp/codem-term.log", alive: true }] : [] } })

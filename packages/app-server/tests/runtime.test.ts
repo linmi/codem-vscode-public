@@ -44,18 +44,18 @@ describe("App Server runtime", () => {
   })
 
   it("rejects a platform package whose version differs from the pin", () => {
-    const fixture = createRuntimeFixture({ platformVersion: "0.8.36" })
+    const fixture = createRuntimeFixture({ platformVersion: "0.8.37" })
     assert.throws(
       () => resolveAppServerRuntime({ packageRoot: fixture.root, platform: "darwin", arch: "arm64" }),
-      /requires @lark-codem\/codem-core-darwin-arm64@0\.8\.37, resolved 0\.8\.36/u,
+      /requires @lark-codem\/codem-core-darwin-arm64@0\.8\.44, resolved 0\.8\.37/u,
     )
   })
 
   it("rejects an online Core meta package whose version differs from the pin", () => {
-    const fixture = createRuntimeFixture({ coreVersion: "0.8.36" })
+    const fixture = createRuntimeFixture({ coreVersion: "0.8.37" })
     assert.throws(
       () => resolveAppServerRuntime({ packageRoot: fixture.root, platform: "darwin", arch: "arm64" }),
-      /requires @lark-codem\/codem-core@0\.8\.37, resolved 0\.8\.36/u,
+      /requires @lark-codem\/codem-core@0\.8\.44, resolved 0\.8\.37/u,
     )
   })
 

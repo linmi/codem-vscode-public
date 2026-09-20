@@ -37,11 +37,11 @@ describe("App Server control-plane projection", () => {
     )
   })
 
-  it("parses the live Core 0.8.37 control-plane shapes", () => {
+  it("parses the live Core 0.8.44 control-plane shapes", () => {
     assert.deepEqual(
       parseAppServerEnvironmentInfo(
         {
-          agent: { name: "codem", version: "0.8.37+1.gfixture" },
+          agent: { name: "codem", version: "0.8.44+1.gfixture" },
           arch: "aarch64",
           cwd: "/tmp/ws",
           os: "macos",
@@ -51,7 +51,7 @@ describe("App Server control-plane projection", () => {
       ),
       {
         agentName: "codem",
-        agentVersion: "0.8.37+1.gfixture",
+        agentVersion: "0.8.44+1.gfixture",
         arch: "aarch64",
         cwd: "/tmp/ws",
         os: "macos",

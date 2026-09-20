@@ -267,8 +267,8 @@ importers:
         specifier: 0.1.208
         version: 0.1.208
       '@lark-codem/codem-core':
-        specifier: 0.8.37
-        version: 0.8.37
+        specifier: 0.8.44
+        version: 0.8.44
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -531,13 +531,29 @@ packages:
     cpu: [arm64]
     os: [darwin]
 
+  '@lark-codem/codem-core-darwin-arm64@0.8.44':
+    resolution: {integrity: sha512-fBcPdglsCo9lW16zsElfFVk7AUgHCFhq5qaPvru+KGFtOPiFkAmPqjljg5vyNJmkNUTyDDE944fwWzAid7VOug==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-darwin-arm64/-/codem-core-darwin-arm64-0.8.44.tgz}
+    cpu: [arm64]
+    os: [darwin]
+
   '@lark-codem/codem-core-darwin-x64@0.8.37':
     resolution: {integrity: sha512-GjWWEZlMyfi14zJSYa0+I7v24Jhjqzhyms3yCg7wdiWBDqTg51RcSxIs0Z7Xr5Q28nf8LEZsIlB8dW8TfK3TTA==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-darwin-x64/-/codem-core-darwin-x64-0.8.37.tgz}
     cpu: [x64]
     os: [darwin]
 
+  '@lark-codem/codem-core-darwin-x64@0.8.44':
+    resolution: {integrity: sha512-I2HPQmHCC+tZRCC6rnQvAtnKHXGKsAHOAlGA7V1JVMR9I1DVDo3dCNZUEmykcSBCWppbbPVI9C+gRPpZm9XySQ==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-darwin-x64/-/codem-core-darwin-x64-0.8.44.tgz}
+    cpu: [x64]
+    os: [darwin]
+
   '@lark-codem/codem-core-linux-arm64-gnu@0.8.37':
     resolution: {integrity: sha512-U5e4i7rRW+LvBwwvo/VijeDv6w3NIPD0FUy/ol8L96PIOz5+/zXLP/EdkAfiIrZP7uCZjOd1ymGuNjMltbPDNA==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-linux-arm64-gnu/-/codem-core-linux-arm64-gnu-0.8.37.tgz}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@lark-codem/codem-core-linux-arm64-gnu@0.8.44':
+    resolution: {integrity: sha512-xH0sI/oj/XfetTyjUi8sDDP6sLoYB4bhS3sUsX6orRGEUrL3CLK50BBJL/yVNOuLqnxQPU5L40jFtbFZlyiPSg==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-linux-arm64-gnu/-/codem-core-linux-arm64-gnu-0.8.44.tgz}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
@@ -548,8 +564,19 @@ packages:
     os: [linux]
     libc: [glibc]
 
+  '@lark-codem/codem-core-linux-x64-gnu@0.8.44':
+    resolution: {integrity: sha512-L1TECKCbFGJN4vLtck/ZoQEBwhNnmYFYREByfm33nsUClsfCwn4OIPsgjIhPJyBAQKL0J/HtjJOGurBVuBG8NQ==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-linux-x64-gnu/-/codem-core-linux-x64-gnu-0.8.44.tgz}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
   '@lark-codem/codem-core-win32-arm64-gnu@0.8.37':
     resolution: {integrity: sha512-N2VTgvsXnhusWm/3TyVDhW4Lq1c5fXUGUaWgGl6+I3vPLcttyAsE3extBxyuYV9e+O3l+q4TBXlfzJ71pnsxxQ==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-win32-arm64-gnu/-/codem-core-win32-arm64-gnu-0.8.37.tgz}
+    cpu: [arm64]
+    os: [win32]
+
+  '@lark-codem/codem-core-win32-arm64-gnu@0.8.44':
+    resolution: {integrity: sha512-LY5SGxqq2c3JiwYSU9H92hcn5I6uOf7FTVjYxfvx/2I2t/u1NMx1myKOXN6q3g9OMi+4DpoNtOeYt5qcy6ONBg==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-win32-arm64-gnu/-/codem-core-win32-arm64-gnu-0.8.44.tgz}
     cpu: [arm64]
     os: [win32]
 
@@ -558,8 +585,18 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@lark-codem/codem-core-win32-x64-msvc@0.8.44':
+    resolution: {integrity: sha512-Bt5XfRDa2kMqao7H/O+sVwi6FN07YLSQKQ24nIWH1t7a0mTSToSkRrlB5oL1B23u0X3JyQbe3KFIJP0K6AY2+w==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core-win32-x64-msvc/-/codem-core-win32-x64-msvc-0.8.44.tgz}
+    cpu: [x64]
+    os: [win32]
+
   '@lark-codem/codem-core@0.8.37':
     resolution: {integrity: sha512-kfGJjQ8pbEzr5T75VN2IJV153OrSeF5pAg//d3wTIMbIisuBmNmSsL12y/Zq82G3rhmi2/O8mD12Uvk9TIqkJg==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core/-/codem-core-0.8.37.tgz}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  '@lark-codem/codem-core@0.8.44':
+    resolution: {integrity: sha512-aqs3tPQFMV8ofECCN9EHN2hsrJWwvB14XOYx+y1bT1L8rTtd9n2shWrF1gjRCAbfe+UHsacdZN1T/vXaa2F2RA==, tarball: https://registry.npmmirror.com/@lark-codem/codem-core/-/codem-core-0.8.44.tgz}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -2066,19 +2103,37 @@ snapshots:
   '@lark-codem/codem-core-darwin-arm64@0.8.37':
     optional: true
 
+  '@lark-codem/codem-core-darwin-arm64@0.8.44':
+    optional: true
+
   '@lark-codem/codem-core-darwin-x64@0.8.37':
+    optional: true
+
+  '@lark-codem/codem-core-darwin-x64@0.8.44':
     optional: true
 
   '@lark-codem/codem-core-linux-arm64-gnu@0.8.37':
     optional: true
 
+  '@lark-codem/codem-core-linux-arm64-gnu@0.8.44':
+    optional: true
+
   '@lark-codem/codem-core-linux-x64-gnu@0.8.37':
+    optional: true
+
+  '@lark-codem/codem-core-linux-x64-gnu@0.8.44':
     optional: true
 
   '@lark-codem/codem-core-win32-arm64-gnu@0.8.37':
     optional: true
 
+  '@lark-codem/codem-core-win32-arm64-gnu@0.8.44':
+    optional: true
+
   '@lark-codem/codem-core-win32-x64-msvc@0.8.37':
+    optional: true
+
+  '@lark-codem/codem-core-win32-x64-msvc@0.8.44':
     optional: true
 
   '@lark-codem/codem-core@0.8.37':
@@ -2089,6 +2144,15 @@ snapshots:
       '@lark-codem/codem-core-linux-x64-gnu': 0.8.37
       '@lark-codem/codem-core-win32-arm64-gnu': 0.8.37
       '@lark-codem/codem-core-win32-x64-msvc': 0.8.37
+
+  '@lark-codem/codem-core@0.8.44':
+    optionalDependencies:
+      '@lark-codem/codem-core-darwin-arm64': 0.8.44
+      '@lark-codem/codem-core-darwin-x64': 0.8.44
+      '@lark-codem/codem-core-linux-arm64-gnu': 0.8.44
+      '@lark-codem/codem-core-linux-x64-gnu': 0.8.44
+      '@lark-codem/codem-core-win32-arm64-gnu': 0.8.44
+      '@lark-codem/codem-core-win32-x64-msvc': 0.8.44
 
   '@oxlint/binding-android-arm-eabi@1.83.0':
     optional: true
