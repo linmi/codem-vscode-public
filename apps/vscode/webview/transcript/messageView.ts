@@ -5,6 +5,7 @@ import { activityTitle, toolPresentation } from "./toolPresentation.ts"
 import type { ActivityStatus, ChatMessage, ViewAction } from "../../src/shared/messages.ts"
 import { uiIcon } from "../../src/shared/uiIcons.ts"
 import { renderMarkdown } from "./markdownView.ts"
+import { createUserMessage } from "./userMessage.tsx"
 
 const statusLabels: Record<ActivityStatus, string> = {
   running: "进行中", completed: "已完成", failed: "失败", declined: "已拒绝", interrupted: "已停止", incomplete: "未完成",
@@ -15,6 +16,7 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
   const root = document.createElement("article")
   root.className = "message"; root.dataset.role = initial.role
   const body = document.createElement("div"); body.className = "messageBody"
+  const userMessage = initial.role === "user" ? createUserMessage(body) : null
   if (initial.role === "assistant" || initial.role === "reasoning") body.classList.add("chatMarkdown")
   const label = document.createElement("span")
   const badge = document.createElement("span"); badge.className = "activityStatus"
@@ -126,11 +128,12 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
       const top = body.scrollTop
       const follow = body.scrollHeight - top - body.clientHeight < 40
       if (message.role === "assistant" || message.role === "reasoning") renderMarkdown(body, text)
+      else if (userMessage) userMessage.update(text)
       else body.textContent = text
       previousText = text
       body.scrollTop = follow ? body.scrollHeight : top
     }
   }
   update(initial)
-  return { root, update, dispose: () => loading.dispose() }
+  return { root, update, dispose: () => { loading.dispose(); userMessage?.dispose() } }
 }
