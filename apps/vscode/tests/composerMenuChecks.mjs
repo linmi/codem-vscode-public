@@ -1,4 +1,5 @@
 export default async function composerMenuChecks(page) {
+  await catalogStyleChecks(page)
   await page.goto('http://127.0.0.1:4318/?scenario=disconnected')
   for (const [id, menu] of [['addAttachment', '.composerChoiceMenu'], ['selectPermission', '.composerChoiceMenu'], ['selectWorkMode', '.composerChoiceMenu'], ['selectModel', '.composerCatalogMenu'], ['selectSpace', '.composerCatalogMenu']]) {
     const before = await page.evaluate(() => window.viewActions.length)
@@ -24,4 +25,67 @@ export default async function composerMenuChecks(page) {
   const actions = await page.evaluate(() => window.viewActions.filter(action => ['setWorkMode', 'pickAttachment'].includes(action.type)))
   if (JSON.stringify(actions) !== JSON.stringify([{ type: 'setWorkMode', workMode: 'plan' }, { type: 'pickAttachment', kind: 'file' }])) throw new Error('Incorrect menu actions')
   return 'LOCAL_COMPOSER_MENUS_OK'
+}
+
+async function catalogStyleChecks(page) {
+  for (const [theme, width] of [['light', 900], ['dark', 380]]) {
+    await page.setViewportSize({ width, height: 700 })
+    await page.goto(`http://127.0.0.1:4318/?scenario=welcome&theme=${theme}`)
+    for (const [title, query] of [['空间', '个人'], ['模型', 'Fast']]) {
+      const trigger = page.getByRole('button', { name: `选择${title}`, exact: true })
+      await trigger.click()
+      const input = page.getByRole('combobox', { name: `搜索${title}`, exact: true })
+      await input.waitFor()
+      await page.waitForFunction(() => document.activeElement?.matches('[data-slot="command-input"]'))
+      const checkStyle = async () => {
+        const errors = await input.evaluate(el => {
+          const row = el.parentElement, menu = el.closest('[data-slot="popover-content"]')
+          const style = getComputedStyle(el), rowStyle = getComputedStyle(row), menuStyle = getComputedStyle(menu)
+          const rect = el.getBoundingClientRect(), rowRect = row.getBoundingClientRect(), menuRect = menu.getBoundingClientRect()
+          const probe = document.createElement('span')
+          probe.style.color = 'var(--line)'
+          menu.append(probe)
+          const line = getComputedStyle(probe).color
+          probe.style.color = 'var(--ink)'
+          const ink = getComputedStyle(probe).color
+          probe.style.color = 'var(--vscode-focusBorder, #0169cc)'
+          const focus = getComputedStyle(probe).color
+          probe.remove()
+          return [
+            ['native input border', ['Top', 'Right', 'Bottom', 'Left'].some(side => style[`border${side}Width`] !== '0px')],
+            ['input font or theme', style.fontFamily !== menuStyle.fontFamily || style.fontSize !== '12px' || style.color !== ink],
+            ['input exceeds search row', rect.top < rowRect.top || rect.bottom > rowRect.bottom || rect.right > rowRect.right],
+            ['menu border ignores theme', menuStyle.borderTopColor !== line],
+            ['missing search focus indicator', rowStyle.borderBottomColor !== focus],
+            ['menu exceeds viewport', menuRect.left < 0 || menuRect.right > innerWidth || menuRect.top < 0 || menuRect.bottom > innerHeight],
+          ].filter(([, failed]) => failed).map(([label]) => label)
+        })
+        if (errors.length) throw new Error(`${theme} ${title}: ${errors.join(', ')}`)
+      }
+      await checkStyle()
+      await input.fill(query)
+      await page.waitForFunction(() => document.querySelectorAll('.composerCatalogMenu [cmdk-item]').length === 1)
+      await checkStyle()
+      await input.fill('no-match-fixture')
+      await page.getByText('没有匹配的选项', { exact: true }).waitFor()
+      await input.fill('')
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(title => document.activeElement?.getAttribute('aria-label') === `选择${title}`, title)
+      await trigger.click()
+      if (await input.inputValue() !== '') throw new Error('Reopened catalog retained old search')
+      await page.keyboard.press('Escape')
+    }
+    await page.reload()
+    await page.getByRole('button', { name: '选择空间', exact: true }).waitFor()
+    if (await page.locator('.composerCatalogMenu').count()) throw new Error('Reload opened catalog unexpectedly')
+    await page.locator('#prompt').fill('/')
+    const commandSearch = page.getByRole('combobox', { name: '搜索会话命令', exact: true })
+    await commandSearch.waitFor()
+    if (!await commandSearch.evaluate(el => {
+      const box = el.getBoundingClientRect(), row = el.parentElement.getBoundingClientRect()
+      return getComputedStyle(el).borderTopWidth === '0px' && box.top >= row.top && box.bottom <= row.bottom
+    })) throw new Error('Slash command search retained a separate broken input style')
+    await commandSearch.press('Escape')
+    if (await page.locator('#prompt').inputValue() !== '/') throw new Error('Slash search cancellation lost draft')
+  }
 }

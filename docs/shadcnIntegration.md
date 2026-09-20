@@ -113,3 +113,13 @@
 `webview/account/accountView.tsx` 使用 React 与现有 shadcn/ui Button，复用主题令牌，分别提供居中登录页、头像入口和紧凑个人账户页。没有新增依赖、手写菜单或原生 select。身份仅来自 Host 白名单 `AccountState`，认证行为、刷新失效和状态保存范围见 `accountExperience.md`。
 
 账户头像使用 `components/ui/avatar.tsx`（shadcn Avatar / AvatarImage / AvatarFallback），来源和生命周期见 `accountExperience.md`。缺图时由 Radix 的图片加载状态显示后备头像，删除原手写圆形 span 实现；两处头像保持固定尺寸和无 Referrer 图片请求。
+
+## 搜索菜单基础样式修复（2026-09-20）
+
+空间和模型菜单的 CommandInput 缺少无 Preflight 环境所需的基础适配。浏览器实测原输入框为 `2px inset` 边框、14px Arial，40px 高输入框超出 36px 搜索行；Popover 和搜索行边框取正文颜色。项目锁定 Tailwind 4.3.3，继续保留仅导入 theme/utilities 的边界；基础重置语义参考官方 [Preflight 文档](https://tailwindcss.com/docs/preflight)。
+
+`shadcnStyles.css` 统一负责 Popover 主题边框、Command 字体、40px 搜索行、无原生边框且不溢出的输入框，以及搜索行焦点指示；删除 `/` 菜单中的重复输入框适配。首次打开、重复打开、搜索、取消和重载仍由原组件管理，空间/会话切换的卸载清理不变；没有新增状态、缓存、RPC、子进程、依赖或反向引用。
+
+验证：`pnpm build:vscode`、定向 Oxlint、`git diff --check` 通过；`composerMenuChecks.mjs` 返回 `LOCAL_COMPOSER_MENUS_OK`，新增浅色 900px / 深色 380px 下实际展开后的边框、字体、焦点指示、输入框与视口边界、过滤/无结果、重复打开、Escape 焦点恢复、重载默认关闭及 `/` 搜索取消保留草稿检查。440px 深浅主题截图已检查。复用 4318 预览服务，仅创建一个 `codem-menu-style` 测试浏览器并在结束后关闭；浏览器无 error 日志。
+
+真实 VS Code：复用空闲开发宿主，执行 Reload Webviews，展开空间和模型菜单确认样式与 Escape 焦点恢复，没有改变实际选择。单元/集成测试本轮未重跑（变更仅限 CSS 与浏览器回归），未调用真实 Core 模型。
