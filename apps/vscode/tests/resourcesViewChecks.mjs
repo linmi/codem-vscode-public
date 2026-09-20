@@ -1,6 +1,10 @@
 export default async function resourcesViewChecks(page) {
   await page.goto('http://127.0.0.1:4318/');
   await page.getByRole('button',{name:'历史会话',exact:true}).click();
+  await page.getByRole('button',{name:'历史会话',exact:true}).click();
+  await page.locator('#historyPanel').waitFor({state:'hidden'});
+  await page.getByRole('button',{name:'历史会话',exact:true}).click();
+  await page.locator('#historyPanel').waitFor({state:'visible'});
   await page.getByRole('searchbox',{name:'搜索已加载的会话'}).fill('missing');
   await page.getByText('没有匹配的会话',{exact:true}).waitFor();
   if(await page.locator('.historyEntry').count()) throw new Error('Search did not filter');
@@ -45,5 +49,16 @@ export default async function resourcesViewChecks(page) {
   await page.locator('[data-resource-section="files"]').waitFor();
   await page.getByRole('tab', {name:'工具', exact:true}).click();
   if (await search.inputValue()) throw Error('Query leaked across contexts');
+  await page.goto('http://127.0.0.1:4318/?scenario=historyFailure&theme=light');
+  await page.locator('#historyPanel').waitFor({state:'visible'});
+  await page.getByRole('button',{name:'历史会话',exact:true}).click();
+  await page.locator('#historyPanel').waitFor({state:'hidden'});
+  const lastAction = await page.evaluate(() => window.viewActions.at(-1));
+  if (lastAction.type !== 'closeHistory') throw Error('History icon refreshed a failed panel instead of closing it');
+  await page.evaluate(() => window.dispatchEvent(new MessageEvent('message',{data:{...window.demo,phase:'loadingHistory',history:{...window.demo.history,open:true,loading:true}}})));
+  await page.locator('#historyPanel').waitFor({state:'visible'});
+  if (!await page.getByRole('button',{name:'历史会话',exact:true}).isEnabled()) throw Error('Open history cannot be dismissed during loading');
+  await page.getByRole('button',{name:'历史会话',exact:true}).click();
+  await page.locator('#historyPanel').waitFor({state:'hidden'});
   return 'RESOURCES_VIEW_OK';
 }

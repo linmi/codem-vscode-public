@@ -18,7 +18,9 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
     node.addEventListener("click", () => post(action))
     return node
   }
-  const open = button("历史", { type: "showHistory" })
+  const open = document.createElement("button")
+  open.type = "button"
+  open.addEventListener("click", () => post({ type: lastState?.history.open ? "closeHistory" : "showHistory" }))
   open.className = "iconButton"; open.innerHTML = uiIcon("history"); open.setAttribute("aria-label", "历史会话")
   open.title = "浏览当前工作区的历史会话"; open.setAttribute("aria-controls", "historyPanel")
   header.prepend(open)
@@ -51,7 +53,8 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
   function render(state: HistoryViewState): void {
     lastState = state
     const disabled = isBusy(state.phase) || state.phase === "disconnected"
-    open.disabled = disabled
+    open.disabled = disabled && !state.history.open
+    open.title = state.history.open ? "关闭历史会话" : "浏览当前工作区的历史会话"
     open.setAttribute("aria-expanded", String(state.history.open))
     panel.hidden = !state.history.open
     if (state.history.open && !wasOpen) search.focus()
