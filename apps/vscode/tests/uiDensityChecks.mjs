@@ -1,7 +1,7 @@
 // Called by the existing browser harness; never launches a browser.
 export default async function uiDensityChecks(page) {
   const openCommand = async name => {
-    await page.getByRole('button',{name:'会话命令',exact:true}).click()
+    await page.locator('#prompt').fill('/')
     await page.getByRole('combobox',{name:'搜索会话命令'}).fill(name)
     await page.getByRole('combobox',{name:'搜索会话命令'}).press('Enter')
   }
@@ -26,7 +26,7 @@ export default async function uiDensityChecks(page) {
     await page.setViewportSize({width:380,height:500})
     for (const scenario of ['attachmentsMany','questionLong','planLong']) {
       await page.goto(`http://127.0.0.1:4318/?scenario=${scenario}&theme=${theme}`)
-      await page.locator('#openCommands').waitFor()
+      await page.locator('#selectPermission').waitFor()
       const bounds = await page.locator('.composerToolbar').boundingBox()
       if (!bounds || bounds.y < 0 || bounds.y + bounds.height > 500) throw Error(`${scenario}: composer toolbar clipped`)
     }

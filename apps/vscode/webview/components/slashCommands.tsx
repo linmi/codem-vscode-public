@@ -1,24 +1,20 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { createPortal } from "react-dom"
-import { SlashIcon } from "lucide-react"
 import type { ChatSnapshot } from "../../src/messages.ts"
 import { commandUnavailable, sessionCommands, type SessionCommandId } from "../../src/sessionCommands.ts"
-import { Button } from "./button.tsx"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./command.tsx"
 interface Request { id: number; query: string }
-interface Props { state: ChatSnapshot; request: Request | null; open: () => void; close: (focus: boolean) => void; choose: (id: SessionCommandId) => void; composer: HTMLElement }
-function SlashCommands({ state, request, open, close, choose, composer }: Props) {
+interface Props { state: ChatSnapshot; request: Request | null; close: (focus: boolean) => void; choose: (id: SessionCommandId) => void; composer: HTMLElement }
+function SlashCommands({ state, request, close, choose, composer }: Props) {
   const menu = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!request) return
-    const outside = (event: PointerEvent) => { if (!menu.current?.contains(event.target as Node) && !(event.target as Element).closest?.('#openCommands')) close(false) }
+    const outside = (event: PointerEvent) => { if (!menu.current?.contains(event.target as Node)) close(false) }
     document.addEventListener("pointerdown", outside)
     return () => document.removeEventListener("pointerdown", outside)
   }, [request, close])
-  return <><Button id="openCommands" data-thread-id={state.threadId ?? ""} type="button" className="toolPanelTrigger" variant="ghost" size="icon" title="会话命令 /" aria-label="会话命令" aria-expanded={Boolean(request)} onClick={() => request ? close(true) : open()}><SlashIcon aria-hidden="true" /></Button>
-    {request && createPortal(<CommandMenu key={request.id} {...{ state, request, close, choose, menu, composer }} />, composer)}
-  </>
+  return request ? createPortal(<CommandMenu key={request.id} {...{ state, request, close, choose, menu, composer }} />, composer) : null
 }
 function CommandMenu({ state, request, close, choose, menu, composer }: Pick<Props, "state" | "close" | "choose" | "composer"> & { request: Request; menu: React.RefObject<HTMLDivElement | null> }) {
   const [query, setQuery] = useState(request.query)
@@ -55,7 +51,7 @@ export function createSlashCommands(host: HTMLElement, composer: HTMLElement, pr
   let request: Request | null = null
   let sequence = 0
   let scope = ""
-  const render = () => root.render(<SlashCommands state={state} request={request} composer={composer} open={() => open("")} close={close} choose={choose} />)
+  const render = () => root.render(<SlashCommands state={state} request={request} composer={composer} close={close} choose={choose} />)
   function close(focus: boolean) { request = null; render(); if (focus) prompt.focus() }
   function open(query: string) { request = { id: ++sequence, query }; render() }
   function choose(id: SessionCommandId) {
@@ -65,6 +61,6 @@ export function createSlashCommands(host: HTMLElement, composer: HTMLElement, pr
   return { open, close, update(next: ChatSnapshot) {
     const nextScope = JSON.stringify([next.workspace, next.space, next.threadId])
     if (scope !== nextScope) request = null
-    scope = nextScope; state = next; render()
+    scope = nextScope; state = next; host.dataset.threadId = next.threadId ?? ""; render()
   } }
 }

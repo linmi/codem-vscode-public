@@ -47,8 +47,9 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     // rather than assuming a fixed number of frames means both roots have committed.
     nextFrame(() => {
       if (surface === "sessionTools") {
-        whenRendered(`#openCommands[data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, node => {
-          node.click()
+        whenRendered(`#slashCommandsHost[data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, () => {
+          const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
+          prompt.value = "/"; prompt.dispatchEvent(new Event("input", { bubbles: true }))
           const kind = demo.sessionTools.catalog?.kind
           const command = demo.sessionTools.sideQuestion ? "ask" : search.scenario === "sessionDirectories" ? "directories" : kind || search.scenario.startsWith("catalog") ? (kind && kind !== "skills" ? "catalog" : "skills") : "rename"
           whenRendered(`[cmdk-item][data-value="${command}"]`, node => {

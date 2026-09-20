@@ -62,7 +62,7 @@
 
 ## `/` 会话命令迁移（2026-09-20）
 
-当前入口为输入框 `/` 或底部斜杠按钮。已删除顶栏会话工具、四页签会话大面板、旧手写 `composerCommands.ts`；文件与工具仍保留独立 Dialog / Tabs。历史小节记录之前各 Cycle 的实现，当前交互以 `sessionCommandsAndChanges.md` 为准。
+当前入口为输入框 `/`；底部斜杠按钮已移除。已删除顶栏会话工具、四页签会话大面板、旧手写 `composerCommands.ts`；文件与工具仍保留独立 Dialog / Tabs。历史小节记录之前各 Cycle 的实现，当前交互以 `sessionCommandsAndChanges.md` 为准。
 
 命令菜单使用官方 shadcn Command（https://ui.shadcn.com/r/styles/new-york-v4/command.json ，MIT），搜索和键盘选择依赖其要求的 `cmdk` 1.1.1；现有 Select / Button 不提供该命令搜索交互，因此新增此单一生产依赖，精确锁定并复用已有 Radix/React。`cn` 和 Dialog imports 适配本地组件；菜单在输入框上方，按实际剩余高度约束滚动区，匹配已有主题和 CSP。未使用 `CommandDialog` 创建额外顶层入口。
 

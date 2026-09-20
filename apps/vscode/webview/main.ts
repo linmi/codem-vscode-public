@@ -274,7 +274,7 @@ window.addEventListener("message", (event: MessageEvent<EditorMessage | ChatSnap
   }
 })
 const fileMentions = installFileMentions(prompt, () => inputMode === "message" && state.phase === "ready" && !panels.locked(), post)
-const commandsHost = document.createElement("span"); document.querySelector(".composerLeading")!.append(commandsHost)
+const commandsHost = document.createElement("span"); commandsHost.id = "slashCommandsHost"; commandsHost.hidden = true; element("composer").append(commandsHost)
 commands = createSlashCommands(commandsHost, element("composer"), prompt, chooseCommand)
 commands.update(state)
 commandPanels.update(state)
