@@ -28,5 +28,11 @@ export function createPreviewState(search: PreviewSearch) {
   const panelName = applyPreviewScenario(demo, search.scenario) ?? search.panel
   const activePanel = panelName ? panels[panelName] : null
   if (activePanel?.kind === "permissionMode") activePanel.choices.forEach(choice => { choice.selected = choice.id === demo.permission })
+  if (demo.messages.length) {
+    const turnId = "previewTurn"
+    demo.messages = demo.messages.map(message => ({ ...message, turnId }))
+    const now = Date.now()
+    demo.turnTimings = [{ turnId, startedAt: now - 36_000, finishedAt: ["running", "stopping"].includes(demo.phase) ? null : now }]
+  }
   return { demo, panels, activePanel }
 }

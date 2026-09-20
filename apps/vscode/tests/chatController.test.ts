@@ -94,6 +94,8 @@ it("does not resurrect a turn completed before startTurn resolves", async () => 
   }
   await fixture.controller.connect(); await fixture.controller.send("hello")
   assert.equal(fixture.controller.snapshot().phase, "ready")
+  assert.equal(fixture.controller.snapshot().turnTimings.length, 1)
+  assert.notEqual(fixture.controller.snapshot().turnTimings[0]!.finishedAt, null)
   await fixture.controller.dispose()
 })
 
@@ -141,7 +143,7 @@ it("projects the final-answer tool into the existing reply instead of exposing p
   fixture.emit({ type: "text-delta", threadId: "thread-1", turnId: "turn-1", itemId: "answer", delta: "partial" })
   fixture.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "final", type: "toolCall", tool: "final_answer", status: "completed", arguments: { status: "complete", kind: "chat", summary: "final reply", artifacts: [] } }, "fixture") })
   const answers = fixture.controller.snapshot().messages.filter((message) => message.role !== "user")
-  assert.deepEqual(answers, [{ id: "turn-1:answer", role: "assistant", label: "CodeM", text: "final reply" }])
+  assert.deepEqual(answers, [{ id: "turn-1:answer", turnId: "turn-1", role: "assistant", label: "CodeM", text: "final reply" }])
   await fixture.controller.dispose()
 })
 
@@ -367,10 +369,10 @@ it("shows empty reasoning immediately, streams whitespace and retains content on
   try {
     await f.controller.connect(); await f.controller.send("hello")
     f.emit({ type: "item-started", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "thought", type: "reasoning", status: "inProgress" }, "fixture") })
-    assert.deepEqual(f.controller.snapshot().messages.at(-1), { id: "turn-1:thought", role: "reasoning", label: "思考过程", status: "running", text: "", summary: "" })
+    assert.deepEqual(f.controller.snapshot().messages.at(-1), { id: "turn-1:thought", turnId: "turn-1", role: "reasoning", label: "思考过程", status: "running", text: "", summary: "" })
     for (const delta of [" first\n", " second "]) f.emit({ type: "reasoning-delta", threadId: "thread-1", turnId: "turn-1", itemId: "thought", delta })
     f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "thought", type: "reasoning", status: "completed" }, "fixture") })
-    assert.deepEqual(f.controller.snapshot().messages.at(-1), { id: "turn-1:thought", role: "reasoning", label: "思考过程", status: "completed", text: " first\n second ", summary: "" })
+    assert.deepEqual(f.controller.snapshot().messages.at(-1), { id: "turn-1:thought", turnId: "turn-1", role: "reasoning", label: "思考过程", status: "completed", text: " first\n second ", summary: "" })
   } finally { await f.controller.dispose() }
 })
 
@@ -382,7 +384,7 @@ it("correlates tool calls and results, preserves tool names and separates summar
     emitItem("item-started", { id: "exec", type: "commandExecution", status: "inProgress", tool: "run_bash", arguments: { command: "echo card", env: { SECRET: "host-only-input" } } })
     for (const delta of [" line one\n", "line two "]) f.emit({ type: "item-output-delta", threadId: "thread-1", turnId: "turn-1", itemId: "exec", toolCallId: "call-1", delta })
     emitItem("item-completed", { id: "result", type: "toolResult", callId: "call-1", status: "completed", summary: "exit 0" })
-    assert.deepEqual(f.controller.snapshot().messages.slice(1), [{ id: "turn-1:tool:exec", role: "tool", label: "run_bash", status: "completed", text: " line one\nline two ", summary: "exit 0", details: { kind: "command", fields: [], code: "echo card" } }])
+    assert.deepEqual(f.controller.snapshot().messages.slice(1), [{ id: "turn-1:tool:exec", turnId: "turn-1", role: "tool", label: "run_bash", status: "completed", text: " line one\nline two ", summary: "exit 0", details: { kind: "command", fields: [], code: "echo card" } }])
     emitItem("item-completed", { id: "result", type: "toolResult", callId: "call-1", status: "completed", output: "full output" })
     assert.equal(f.controller.snapshot().messages.at(-1)?.text, "full output")
     f.emit({ type: "item-output-delta", threadId: "thread-1", turnId: "turn-1", itemId: "exec", toolCallId: "call-1", delta: "\nlate progress" })
@@ -391,7 +393,7 @@ it("correlates tool calls and results, preserves tool names and separates summar
     assert.equal(completed.status, "completed")
     assert.doesNotMatch(JSON.stringify(f.controller.snapshot()), /host-only-input/)
     emitItem("item-completed", { id: "mcp", type: "mcpToolCall", tool: "mcp__fixture__echo", status: "completed", isError: true, output: "tool error" })
-    assert.deepEqual(f.controller.snapshot().messages.at(-1), { id: "turn-1:tool:mcp", role: "tool", label: "MCP · mcp__fixture__echo", status: "failed", text: "tool error", summary: "" })
+    assert.deepEqual(f.controller.snapshot().messages.at(-1), { id: "turn-1:tool:mcp", turnId: "turn-1", role: "tool", label: "MCP · mcp__fixture__echo", status: "failed", text: "tool error", summary: "" })
   } finally { await f.controller.dispose() }
 })
 
@@ -723,4 +725,30 @@ it("shutdown gate: disposal reports cleanup failure after every host settles", a
     await new Promise(resolve => setImmediate(resolve))
     assert.equal(settled, false, "A failure must not skip cleanup of other hosts")
   } finally { releaseNext(); await failure; await next.controller.dispose() }
+})
+
+it("times correlated turns once, keeps ticking through stop acknowledgement, and settles on completion", async t => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1000 })
+  const f = setup()
+  try {
+    await f.controller.connect(); await f.controller.send("first")
+    assert.deepEqual(f.controller.snapshot().turnTimings, [{ turnId: "turn-1", startedAt: 1000, finishedAt: null }])
+    f.emit({ type: "reasoning-delta", threadId: "thread-1", turnId: "turn-1", itemId: "reason", delta: "thinking" })
+    assert.equal(f.controller.snapshot().messages[1]!.turnId, "turn-1")
+    t.mock.timers.setTime(36_000)
+    f.emit({ type: "turn-started", threadId: "thread-1", turnId: "turn-1", submissionId: f.submission() })
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "foreign", outcome: "completed", stopReason: "end", error: null })
+    await f.controller.stop()
+    assert.equal(f.controller.snapshot().turnTimings[0]!.startedAt, 1000)
+    assert.equal(f.controller.snapshot().turnTimings[0]!.finishedAt, null)
+    t.mock.timers.setTime(37_000)
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "stopped", stopReason: "end", error: null })
+    t.mock.timers.setTime(90_000)
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+    assert.equal(f.controller.snapshot().turnTimings[0]!.finishedAt, 37_000)
+    await f.controller.send("second")
+    assert.equal(f.controller.snapshot().turnTimings[1]!.startedAt, 90_000)
+    f.emit({ type: "connection-closed", cwd: "/workspace", exit: { code: null, signal: null, expected: false } })
+    assert.equal(f.controller.snapshot().turnTimings[1]!.finishedAt, 90_000)
+  } finally { await f.controller.dispose() }
 })

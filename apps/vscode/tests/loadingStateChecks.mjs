@@ -5,16 +5,18 @@ export default async function loadingStateChecks(page) {
   const viewport = await page.evaluate(() => ({width: innerWidth, height: innerHeight}));
   try {
     await page.goto('http://127.0.0.1:4318/?scenario=thinking');
-    await page.locator('.workGroup > summary .beautifulLoading').waitFor();
-    await page.getByText('正在分析实现方案', {exact:true}).first().waitFor();
+    await page.locator('.activityLoading .beautifulLoading').waitFor();
+    await page.locator('.activityLoading').getByText('正在分析实现方案', {exact:true}).waitFor();
+    if (await page.locator('.workGroup > summary .beautifulLoading').count()) throw new Error('Header still has loading animation');
+    await page.locator('.workGroup > summary').getByText(/已处理 \d+秒/).waitFor();
     if (await page.locator('.activityStatus:visible').count()) throw new Error('Duplicate thinking badge');
     if (await page.locator('#workingRow').isVisible()) throw new Error('Duplicate thinking footer');
-    if (await page.locator('.workGroup > summary .beautifulLoadingGrid > span').count() !== 9) throw new Error('Missing pixel grid');
+    if (await page.locator('.activityLoading .beautifulLoadingGrid > span').count() !== 9) throw new Error('Missing pixel grid');
     await page.evaluate(() => { window.savedGrid = document.querySelector('.workGroup .beautifulLoadingGrid'); demo.messages[1].text += ' delta'; window.postMessage(demo,'*'); });
     await page.waitForFunction(() => document.querySelector('[data-role=reasoning] .messageBody').textContent.includes(' delta'));
     if (!await page.evaluate(() => savedGrid === document.querySelector('.workGroup .beautifulLoadingGrid'))) throw new Error('Streaming remounts the loading animation');
     const layout = await page.locator('.workGroup > summary').evaluate(el => {
-      const text = el.querySelector('.beautifulLoading').getBoundingClientRect();
+      const text = el.firstElementChild.getBoundingClientRect();
       const icon = el.querySelector('.workGroupChevron').getBoundingClientRect();
       return {textRight:text.right, iconLeft:icon.left, iconRight:icon.right, right:el.getBoundingClientRect().right};
     });

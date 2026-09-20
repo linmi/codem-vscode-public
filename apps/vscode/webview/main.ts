@@ -186,13 +186,13 @@ function render(next: ChatSnapshot): void {
   state = next
   document.querySelector<HTMLElement>(".app")!.dataset.phase = state.phase
   const liveIds = new Set(state.messages.map((message) => message.id))
-  for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.root.remove(); nodes.delete(id) } }
+  for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.dispose(); node.root.remove(); nodes.delete(id) } }
   for (const message of state.messages) {
     let view = nodes.get(message.id)
     if (!view) { view = createMessageView(message, post); nodes.set(message.id, view); if (state.phase === "running" || state.phase === "sending") view.root.classList.add("messageEnter") }
     else view.update(message)
   }
-  const timelineNodes = renderWorkGroups(state.messages, id => nodes.get(id)!.root, state.phase)
+  const timelineNodes = renderWorkGroups(state.messages, id => nodes.get(id)!.root, state.phase, state.turnTimings)
   let position = messages.firstChild
   for (const root of timelineNodes) {
     if (root !== position) messages.insertBefore(root, position)

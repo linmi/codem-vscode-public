@@ -44,7 +44,7 @@ it("reads real schema 13 pages, projects safe display fields and keeps chronolog
     assert.equal(messages.find((message) => message.role === "assistant")?.text, " answer 0\n ")
     assert.equal(messages.filter((message) => message.text === "final 0").length, 1)
     assert.doesNotMatch(JSON.stringify(messages), /hidden model context|final_answer|sessionsRoot|record_seq|openai_compat/)
-    assert.ok(messages.every((message) => Object.keys(message).sort().join(",") === "id,label,role,text"))
+    assert.ok(messages.every((message) => Object.keys(message).sort().join(",") === "id,label,role,text,turnId"))
     assert.equal(authorizations, 2)
     await appendFile(path, '{"type":')
     await assert.rejects(read("thread-1", newest.nextCursor, signal), /changed or cursor/)

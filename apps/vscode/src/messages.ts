@@ -42,7 +42,11 @@ export interface BackgroundTaskView { id: string; label: string; phase: "queued"
 export type ActivityStatus = "running" | "completed" | "failed" | "declined" | "interrupted" | "incomplete"
 export interface ToolDetails { kind: "command" | "file" | "search" | "web" | "mcp" | "subagent"; fields: readonly { label: string; value: string }[]; code: string | null }
 export interface ArtifactView { id: string; kind: "file" | "image" | "chart" | "url" | "diff"; title: string; detail: string; available: boolean }
+/** Host-observed live interval or durable Core interval; finish also records an interrupted connection. */
+export interface TurnTiming { turnId: string; startedAt: number; finishedAt: number | null }
 interface MessageContent {
+  /** Absent only until Core accepts a pending user submission, or in timing-free fixtures. */
+  turnId?: string
   artifacts?: readonly ArtifactView[]
   id: string
   label: string
@@ -67,6 +71,7 @@ export interface ChatSnapshot {
   backgroundTasks: readonly BackgroundTaskView[]
   backgroundBusy: boolean
   messages: readonly ChatMessage[]
+  turnTimings: readonly TurnTiming[]
   notice: string | null
   threadId: string | null
   history: HistoryList
@@ -74,7 +79,7 @@ export interface ChatSnapshot {
   historyNeedsRefresh: boolean
 }
 export function initialSnapshot(): ChatSnapshot {
-  return { threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: "medium", permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], notice: null }
+  return { threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: "medium", permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
 }
 export function isBusy(phase: ChatPhase): boolean {
   return phase !== "ready" && phase !== "disconnected"

@@ -12,7 +12,7 @@ import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServ
 import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatSnapshot } from "./messages.ts"
 
 import { HistoryListController } from "./historyList.ts"
-import { historyMessages } from "./historyMessages.ts"
+import { historyMessages, historyTurnTimings } from "./historyMessages.ts"
 import type { SessionHistoryReader } from "./sessionHistory.ts"
 
 import { displayPath, validateAttachment } from "./filePresentation.ts"
@@ -208,6 +208,7 @@ export class ChatController {
       // Core can complete the turn before turn/start returns. Never revive it.
       if (this.active === active && this.session === session && !this.disposed) {
         active.turnId = turnId
+        this.startTiming(turnId, active.submissionId)
         this.update({ phase: "running" })
       }
       return true
@@ -265,7 +266,7 @@ export class ChatController {
     this.threadId = null
     this.historyCursor = null
     this.resetResources()
-    this.update({ hasOlderMessages: false, historyNeedsRefresh: false, messages: [], attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], notice: null, phase: this.session ? "ready" : "disconnected" })
+    this.update({ hasOlderMessages: false, historyNeedsRefresh: false, messages: [], turnTimings: [], attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], notice: null, phase: this.session ? "ready" : "disconnected" })
   }
 
   async showHistory(): Promise<void> {
@@ -322,7 +323,7 @@ export class ChatController {
       this.resetResources()
       const messages = this.projectHistory(threadId, page, session)
       this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }
-      this.update({ phase: "ready", messages, permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
+      this.update({ phase: "ready", messages, turnTimings: historyTurnTimings(page), permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
       this.historyList.close()
     } catch (error) {
       if (this.session !== session || this.disposed) return
@@ -364,7 +365,7 @@ export class ChatController {
       const messages = this.projectHistory(threadId, page, session)
       if (append && (page.nextCursor === cursor || messages.some((message) => this.state.messages.some((old) => old.id === message.id)))) throw new Error("History page overlaps the current snapshot")
       this.historyCursor = page.nextCursor
-      this.update({ messages: append ? [...messages, ...this.state.messages] : messages, hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
+      this.update({ messages: append ? [...messages, ...this.state.messages] : messages, turnTimings: append ? [...historyTurnTimings(page), ...this.state.turnTimings] : historyTurnTimings(page), hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
     } catch (error) {
       if (this.session !== session || this.disposed || abort.signal.aborted) return
       this.options.report("historyPage", error)
@@ -456,6 +457,7 @@ export class ChatController {
       if (event.type === "turn-started" && event.submissionId === null && !this.active) {
         this.invalidateHistory()
         this.active = { submissionId: randomUUID(), turnId: event.turnId, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
+        this.startTiming(event.turnId, this.active.submissionId)
         this.update({ phase: "running" })
       }
     }
@@ -474,6 +476,7 @@ export class ChatController {
     if (event.type === "turn-started") {
       if ((event.submissionId !== null && event.submissionId !== active.submissionId) || (active.turnId && active.turnId !== event.turnId)) return
       active.turnId = event.turnId
+      this.startTiming(event.turnId, active.submissionId)
       this.update({ phase: "running" })
       return
     }
@@ -809,7 +812,7 @@ export class ChatController {
     const previous = existing && "status" in existing ? existing : undefined
     const message: ActivityMessage = {
       ...previous, ...(details ? { details } : {}),
-      id, role, label: label ?? previous?.label ?? "工具输出",
+      id, role, turnId: this.active?.turnId ?? undefined, label: label ?? previous?.label ?? "工具输出",
       // Late progress cannot revert a terminal item to running.
       status: status === "running" && previous && previous.status !== "running" ? previous.status : status,
       text: append ? (previous?.text ?? "") + text : text || previous?.text || "",
@@ -818,10 +821,18 @@ export class ChatController {
     this.update({ messages: terminalReplyLast(previous ? this.state.messages.map((item) => item.id === id ? message : item) : [...this.state.messages, message], this.active?.finalReplyId ?? null) })
   }
 
+  private startTiming(turnId: string, submissionId: string): void {
+    if (this.state.turnTimings.some(timing => timing.turnId === turnId)) return
+    this.update({
+      turnTimings: [...this.state.turnTimings, { turnId, startedAt: Date.now(), finishedAt: null }],
+      messages: this.state.messages.map(message => message.id === submissionId ? { ...message, turnId } : message),
+    })
+  }
+
   private finishActivities(status: "completed" | "failed" | "interrupted" | "incomplete"): void {
     const turnId = this.active?.turnId
     if (!turnId) return
-    this.update({ messages: this.state.messages.map((message) => {
+    this.update({ turnTimings: this.state.turnTimings.map(timing => timing.turnId === turnId && timing.finishedAt === null ? { ...timing, finishedAt: Math.max(timing.startedAt, Date.now()) } : timing), messages: this.state.messages.map((message) => {
       if (!("status" in message) || message.status !== "running" || !message.id.startsWith(`${turnId}:`)) return message
       // Turn success is not evidence that a tool with a missing result succeeded.
       return { ...message, status: status === "completed" && message.role === "tool" ? "incomplete" : status }
@@ -830,7 +841,7 @@ export class ChatController {
 
   private upsert(id: string, role: "user" | "assistant", label: string, text: string, append: boolean): void {
     const previous = this.state.messages.find((message) => message.id === id)
-    const message = { ...previous, id, role, label, text: append ? (previous?.text ?? "") + text : text || previous?.text || "" }
+    const message = { ...previous, id, role, turnId: this.active?.turnId ?? undefined, label, text: append ? (previous?.text ?? "") + text : text || previous?.text || "" }
     this.update({ messages: terminalReplyLast(previous ? this.state.messages.map((item) => item.id === id ? message : item) : [...this.state.messages, message], this.active?.finalReplyId ?? null) })
   }
 

@@ -1,12 +1,12 @@
-import { createLoadingStatus } from "./loadingStatusView.ts"
-import type { ChatMessage, ChatPhase } from "../src/messages.ts"
+import { elapsedTime } from "./elapsedTime.ts"
+import type { ChatMessage, ChatPhase, TurnTiming } from "../src/messages.ts"
 import { timelineGroups } from "../src/timelineGroups.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 
 /** Keep a response’s execution and progress updates in one disclosure. */
 export function createWorkGroups() {
-  const groups = new Map<string, { root: HTMLDetailsElement; summary: HTMLElement; content: HTMLElement; touched: boolean; label: HTMLElement; indicator: HTMLElement; loading: ReturnType<typeof createLoadingStatus> }>()
-  return (messages: readonly ChatMessage[], node: (id: string) => HTMLElement, phase: ChatPhase): HTMLElement[] => {
+  const groups = new Map<string, { root: HTMLDetailsElement; summary: HTMLElement; content: HTMLElement; touched: boolean; label: HTMLElement; timer: ReturnType<typeof setInterval> | null }>()
+  return (messages: readonly ChatMessage[], node: (id: string) => HTMLElement, phase: ChatPhase, timings: readonly TurnTiming[]): HTMLElement[] => {
     const result: HTMLElement[] = []
     const alive = new Set<string>()
     let lastUserIndex = -1
@@ -23,12 +23,10 @@ export function createWorkGroups() {
         const chevron = document.createElement("span"); chevron.className = "workGroupChevron"
         chevron.innerHTML = uiIcon("chevron"); chevron.setAttribute("aria-hidden", "true")
         const label = document.createElement("span")
-        const indicator = document.createElement("span"); indicator.hidden = true
-        summary.append(label, indicator, chevron)
-        const loading = createLoadingStatus(indicator)
+        summary.append(label, chevron)
         const content = document.createElement("div"); content.className = "workGroupContent"
         root.append(summary, content)
-        group = { root, summary, content, touched: false, label, indicator, loading }
+        group = { root, summary, content, touched: false, label, timer: null }
         const current = group
         summary.addEventListener("click", event => { event.preventDefault(); current.touched = true; root.open = !root.open })
         groups.set(id, group)
@@ -40,10 +38,16 @@ export function createWorkGroups() {
       group.root.dataset.state = running ? "running" : failed ? "failed" : interrupted ? "interrupted" : "completed"
       if (!group.touched) group.root.open = running || failed
       const label = running ? (phase === "stopping" ? "正在停止" : "正在处理") : failed ? "处理需要关注" : interrupted ? "已停止或拒绝" : "已处理"
-      group.label.hidden = running
-      group.label.textContent = running ? "" : label
-      group.indicator.hidden = !running
-      group.loading.set(running ? label : null)
+      if (group.timer) clearInterval(group.timer)
+      group.timer = null
+      const timing = timings.find(timing => work.some(message => message.turnId === timing.turnId))
+      const heading = group.label
+      const updateElapsed = () => {
+        const status = failed ? "处理需要关注 · " : phase === "stopping" && latestResponse ? "正在停止 · " : interrupted ? "已停止或拒绝 · " : ""
+        heading.textContent = timing ? `${status}已处理 ${elapsedTime(timing, Date.now())}` : label
+      }
+      updateElapsed()
+      if (timing?.finishedAt === null && running) group.timer = setInterval(updateElapsed, 1000)
       let position = group.content.firstChild
       for (const message of work) {
         const child = node(message.id)
@@ -53,7 +57,7 @@ export function createWorkGroups() {
       while (position) { const next = position.nextSibling; position.remove(); position = next }
       result.push(group.root)
     }
-    for (const [id, group] of groups) if (!alive.has(id)) { group.loading.dispose(); group.root.remove(); groups.delete(id) }
+    for (const [id, group] of groups) if (!alive.has(id)) { if (group.timer) clearInterval(group.timer); group.root.remove(); groups.delete(id) }
     return result
   }
 }

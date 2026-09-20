@@ -1,3 +1,4 @@
+import { createLoadingStatus } from "./loadingStatusView.ts"
 import { artifactCard } from "./artifactView.ts"
 import { attachmentCard } from "./attachmentView.ts"
 import { activityTitle, toolPresentation } from "./toolPresentation.ts"
@@ -10,7 +11,7 @@ const statusLabels: Record<ActivityStatus, string> = {
 }
 
 /** Keep the native details node across deltas so the reader owns its open state. */
-export function createMessageView(initial: ChatMessage, post: (action: ViewAction) => void): { root: HTMLElement; update(message: ChatMessage): void } {
+export function createMessageView(initial: ChatMessage, post: (action: ViewAction) => void): { root: HTMLElement; update(message: ChatMessage): void; dispose(): void } {
   const root = document.createElement("article")
   root.className = "message"; root.dataset.role = initial.role
   const body = document.createElement("div"); body.className = "messageBody"
@@ -21,6 +22,8 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
   const toolOutput = document.createElement("section"); toolOutput.className = "toolOutput"
   const toolHeading = document.createElement("div"); toolHeading.className = "toolOutputHeading"
   const inputDetails = document.createElement("div"); inputDetails.className = "toolInputCard"
+  const loadingSlot = document.createElement("span"); loadingSlot.className = "activityLoading"; loadingSlot.hidden = true
+  const loading = createLoadingStatus(loadingSlot)
   let inputKey = ""
   let activityIcon: HTMLElement | null = null
   let details: HTMLDetailsElement | null = null
@@ -36,7 +39,7 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
     activityIcon = icon
     icon.innerHTML = uiIcon(initial.role === "reasoning" ? "thought" : "terminal")
     const chevron = document.createElement("span"); chevron.className = "activityChevron"; chevron.innerHTML = uiIcon("chevron")
-    summary.append(icon, label, chevron, badge)
+    summary.append(icon, label, loadingSlot, chevron, badge)
     summary.addEventListener("click", (event) => { event.preventDefault(); userToggled = true; details!.open = !details!.open })
     details.append(summary, note)
     if (initial.role === "tool") {
@@ -104,6 +107,11 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
         toolOutput.setAttribute("aria-label", toolHeading.textContent)
         body.setAttribute("aria-label", `${presentation.title}输出`)
       } else label.textContent = activityTitle(message)
+      const thinking = message.role === "reasoning" && message.status === "running"
+      label.hidden = thinking
+      activityIcon!.hidden = thinking
+      loadingSlot.hidden = !thinking
+      loading.set(thinking ? label.textContent : null)
       label.title = label.textContent ?? ""
       if (!userToggled && details) details.open = message.status === "failed"
       badge.textContent = message.role === "reasoning" ? ({ running: "思考中", completed: "思考完成", interrupted: "思考已停止", incomplete: "思考未完成", failed: "思考失败", declined: "已拒绝" } as const)[message.status] : statusLabels[message.status]
@@ -124,5 +132,5 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
     }
   }
   update(initial)
-  return { root, update }
+  return { root, update, dispose: () => loading.dispose() }
 }
