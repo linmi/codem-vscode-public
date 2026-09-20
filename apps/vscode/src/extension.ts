@@ -1,11 +1,13 @@
+import { registerTerminalActions } from "./terminalActions.ts"
+import { ChatSurfaces } from "./chatSurfaces.ts"
+import { registerEditorActions } from "./editorActions.ts"
 import { ConnectionPreferences } from "./connectionPreferences.ts"
 import * as vscode from "vscode"
 import type { SpaceDirectory } from "./spaceDirectory.ts"
 import { ChatController, UserVisibleError } from "./chatController.ts"
 import { assertTrusted, connectRuntime } from "./runtimeSession.ts"
 import { showInteraction } from "./interactions.ts"
-import { parseViewAction, type ImageResult, type FileSearchResult, type FileSelected, type SendResult, type ViewAction } from "./messages.ts"
-import { chatHtml } from "./html.ts"
+import { type ImageResult, type FileSearchResult, type FileSelected, type SendResult, type ViewAction } from "./messages.ts"
 
 import { PanelBroker } from "./panelBroker.ts"
 import { selectSettings } from "./settingsPanels.ts"
@@ -21,8 +23,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(features)
   const panels = new PanelBroker()
   let settingsAbort: AbortController | null = null
-  let view: vscode.WebviewView | undefined
-  let viewResolvedAt = 0
+  let surfaces: ChatSurfaces | undefined
   let connectingAt: number | null = null
   let previousPhase: string | null = null
   const openSession = async (signIn: boolean, signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
@@ -49,7 +50,7 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     assertTrusted,
     interact: async (request, signal, cwd) => {
-      await vscode.commands.executeCommand("codem.chat.focus")
+      await surfaces?.focus()
       return showInteraction(request, signal, panels, cwd)
     },
     publish: (state) => {
@@ -63,7 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         output.appendLine(`UI phase: ${state.phase}`); previousPhase = state.phase
       }
-      void view?.webview.postMessage(state)
+      surfaces?.post(state)
     },
     report: (operation, error) => {
       // Do not log raw Core frames, broker output, tokens, or arbitrary exception payloads.
@@ -73,14 +74,16 @@ export function activate(context: vscode.ExtensionContext): void {
   const chat = controller
   let autoConnectAttempted = false
   const autoConnect = async () => {
-    if (autoConnectAttempted || !view || !vscode.workspace.isTrusted || !vscode.workspace.workspaceFolders?.length) return
+    if (autoConnectAttempted || !surfaces?.available || !vscode.workspace.isTrusted || !vscode.workspace.workspaceFolders?.length) return
+    if (!vscode.workspace.getConfiguration("codem").get<boolean>("autoConnect", true)) return
     autoConnectAttempted = true
     await chat.connect()
   }
   context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => { void autoConnect() }))
   const dispatch = async (action: ViewAction, reply: (result: SendResult | FileSearchResult | FileSelected | ImageResult) => void): Promise<void> => {
     switch (action.type) {
-      case "ready": output.appendLine(`Webview ready: ${Math.round(performance.now() - viewResolvedAt)}ms`); chat.publish(); panels.replay(); await autoConnect(); break
+      case "ready": await autoConnect(); break
+      case "composerChanged": case "composerRestore": case "contextAdded": break
       case "panelReply": break
       case "connect": await chat.connect(); break
       case "signIn": await chat.connect(true); break
@@ -172,32 +175,25 @@ export function activate(context: vscode.ExtensionContext): void {
       case "showOutput": output.show(); break
     }
   }
-  context.subscriptions.push(output, vscode.window.registerWebviewViewProvider("codem.chat", {
-    resolveWebviewView(resolved) {
-      view = resolved
-      viewResolvedAt = performance.now()
-      panels.bind(resolved, message => { void resolved.webview.postMessage(message) })
-      resolved.webview.options = {
-        enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "dist"), vscode.Uri.joinPath(context.extensionUri, "assets")],
-      }
-      const resource = (path: string) => resolved.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, path)).toString()
-      resolved.webview.html = chatHtml({ script: resource("dist/webview.js"), style: resource("dist/webview.css"), logo: resource("assets/codemMark.svg"), cspSource: resolved.webview.cspSource })
-      const listener = resolved.webview.onDidReceiveMessage((message: unknown) => {
-        if (view !== resolved) return
-        try {
-          const action = parseViewAction(message)
-          if (action.type === "panelReply") { assertTrusted(); panels.answer(resolved, action); return }
-          void dispatch(action, (result) => { void resolved.webview.postMessage(result) }).catch(() => { output.appendLine("CodeM 操作未完成，请重试。"); void vscode.window.showErrorMessage("CodeM 操作未完成，文件可能已移除或不在当前工作区。") }) }
-        catch { output.appendLine("拒绝了不受支持的界面请求。") }
-      })
-      resolved.onDidDispose(() => { listener.dispose(); panels.unbind(resolved); if (view === resolved) view = undefined })
-    },
+  surfaces = new ChatSurfaces(context, panels, dispatch, () => chat.publish())
+  const addContext = async (text: string, uri?: vscode.Uri) => {
+    assertTrusted()
+    if (uri?.scheme === "file") await chat.assertContextWorkspace(uri.fsPath)
+    await surfaces!.addContext(text)
+  }
+  context.subscriptions.push(output, surfaces, registerEditorActions(addContext), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
+    if (event.affectsConfiguration("codem.chat.sendKey")) surfaces?.postSettings()
+    if (event.affectsConfiguration("codem.autoConnect")) void autoConnect()
   }))
   const commands: Record<string, () => unknown> = {
-    "codem.open": () => vscode.commands.executeCommand("codem.chat.focus"),
-    "codem.history": async () => { await vscode.commands.executeCommand("codem.chat.focus"); await chat.showHistory() },
-    "codem.newChat": async () => { await vscode.commands.executeCommand("codem.chat.focus"); await chat.newChat() },
+    "codem.open": () => surfaces?.focus(),
+    "codem.focusChatInput": () => surfaces?.focus(),
+    "codem.openInTab": () => surfaces?.openInTab(),
+    "codem.openInSidebar": () => surfaces?.openInSidebar(),
+    "codem.settings": () => vscode.commands.executeCommand("workbench.action.openSettings", "@ext:codem.codem"),
+    "codem.stop": () => chat.stop(),
+    "codem.history": async () => { await surfaces?.focus(); await chat.showHistory() },
+    "codem.newChat": async () => { await surfaces?.focus(); await chat.newChat() },
     "codem.connect": () => chat.connect(),
     "codem.signIn": () => chat.connect(true),
     "codem.showOutput": () => output.show(),

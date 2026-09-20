@@ -143,3 +143,15 @@ it("rewind maps opaque checkpoint and scope choices, with cancellation at either
     assert.deepEqual(await result, cancelAt ? { kind: "rewind", cancelled: true } : { kind: "rewind", cancelled: false, checkpointId: "core-checkpoint", mode: "conversation" })
   }
 })
+
+it("moves a pending approval to another surface without cancelling or authorizing the old surface", async () => {
+  const f = fixture()
+  const result = f.broker.request({ kind: "approval", title: "Approve", choices: [{ label: "Allow", value: "allow" }] })
+  const reply = f.reply([f.view().choices[0]!.id])
+  const nextOwner = {}
+  f.broker.transfer(nextOwner, message => f.messages.push(message))
+  f.broker.answer(f.owner, reply)
+  assert.equal(f.view().id, reply.id)
+  f.broker.answer(nextOwner, reply)
+  assert.deepEqual(await result, { values: ["allow"], text: "" })
+})

@@ -63,6 +63,71 @@
         "command": "codem.showOutput",
         "title": "查看日志",
         "category": "CodeM"
+      },
+      {
+        "command": "codem.focusChatInput",
+        "title": "聚焦聊天输入框",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.openInTab",
+        "title": "在编辑器标签页打开聊天",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.openInSidebar",
+        "title": "将聊天移回侧栏",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.settings",
+        "title": "打开设置",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.stop",
+        "title": "停止生成",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.addToContext",
+        "title": "将选区加入上下文",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.explainCode",
+        "title": "解释选中代码",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.fixCode",
+        "title": "修复选中代码",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.improveCode",
+        "title": "改进选中代码",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.terminalSelectionToContext",
+        "title": "复制终端选区并加入上下文",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.terminalAddToContext",
+        "title": "最近终端输出加入上下文",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.terminalExplainCommand",
+        "title": "解释最近终端命令",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.terminalFixCommand",
+        "title": "分析最近终端错误",
+        "category": "CodeM"
       }
     ],
     "viewsContainers": {
@@ -108,8 +173,124 @@
         {
           "command": "codem.showOutput",
           "when": "view == codem.chat"
+        },
+        {
+          "command": "codem.openInTab",
+          "when": "view == codem.chat"
+        },
+        {
+          "command": "codem.settings",
+          "when": "view == codem.chat"
+        }
+      ],
+      "editor/context": [
+        {
+          "submenu": "codem.editorActions",
+          "group": "1_codem",
+          "when": "editorHasSelection && isWorkspaceTrusted"
+        }
+      ],
+      "codem.editorActions": [
+        {
+          "command": "codem.addToContext",
+          "group": "actions@0"
+        },
+        {
+          "command": "codem.explainCode",
+          "group": "actions@1"
+        },
+        {
+          "command": "codem.fixCode",
+          "group": "actions@2"
+        },
+        {
+          "command": "codem.improveCode",
+          "group": "actions@3"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "codem.openInSidebar",
+          "when": "activeWebviewPanelId == codem.editor",
+          "group": "navigation"
+        }
+      ],
+      "terminal/context": [
+        {
+          "submenu": "codem.terminalActions",
+          "group": "codem",
+          "when": "isWorkspaceTrusted"
+        }
+      ],
+      "codem.terminalActions": [
+        {
+          "command": "codem.terminalSelectionToContext",
+          "when": "terminalTextSelected"
+        },
+        {
+          "command": "codem.terminalAddToContext"
+        },
+        {
+          "command": "codem.terminalExplainCommand"
+        },
+        {
+          "command": "codem.terminalFixCommand"
         }
       ]
+    },
+    "submenus": [
+      {
+        "id": "codem.editorActions",
+        "label": "CodeM"
+      },
+      {
+        "id": "codem.terminalActions",
+        "label": "CodeM"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "codem.focusChatInput",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m"
+      },
+      {
+        "command": "codem.addToContext",
+        "key": "ctrl+k ctrl+m",
+        "mac": "cmd+k cmd+m",
+        "when": "editorTextFocus && editorHasSelection && isWorkspaceTrusted"
+      },
+      {
+        "command": "codem.newChat",
+        "key": "ctrl+alt+n",
+        "mac": "cmd+alt+n",
+        "when": "focusedView == codem.chat || activeWebviewPanelId == codem.editor"
+      }
+    ],
+    "configuration": {
+      "title": "CodeM",
+      "properties": {
+        "codem.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "在可信工作区打开聊天时自动连接。关闭后使用连接命令。",
+          "scope": "window"
+        },
+        "codem.chat.sendKey": {
+          "type": "string",
+          "enum": [
+            "enter",
+            "ctrlEnter"
+          ],
+          "enumDescriptions": [
+            "Enter 发送，Shift+Enter 换行",
+            "Ctrl+Enter（macOS 为 Cmd+Enter）发送，Enter 换行"
+          ],
+          "default": "enter",
+          "description": "聊天输入框的发送按键。",
+          "scope": "window"
+        }
+      }
     }
   },
   "scripts": {
@@ -149,5 +330,10 @@
     "tailwindcss": "4.3.3",
     "tw-animate-css": "1.4.0",
     "typescript": "catalog:"
-  }
+  },
+  "activationEvents": [
+    "onWebviewPanel:codem.editor",
+    "onLanguage",
+    "onTerminalShellIntegration:*"
+  ]
 }

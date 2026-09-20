@@ -5,7 +5,11 @@ import { emptyHistoryList, type HistoryAction, type HistoryList } from "./histor
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
 const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "selectSpace", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
 const handleActions = ["openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
+export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" } }
+export type EditorMessage = { type: "composerDraft"; value: ComposerDraft; focus: boolean; pendingRequestId: string | null } | { type: "appendContext"; id: string; text: string } | { type: "focusComposer" } | { type: "editorSettings"; sendKey: string }
 export type ViewAction =
+  | { type: "contextAdded"; id: string; accepted: boolean; value: ComposerDraft }
+  | { type: "composerChanged" | "composerRestore"; value: ComposerDraft }
   | CapabilityAction
   | PanelReply
   | HistoryAction
@@ -23,6 +27,19 @@ export interface SendResult { type: "sendResult"; requestId: string; accepted: b
 export function parseViewAction(value: unknown): ViewAction {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid CodeM action")
   const record = value as Record<string, unknown>
+  if (record.type === "contextAdded") {
+    if (Object.keys(record).length !== 4 || typeof record.id !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(record.id) || typeof record.accepted !== "boolean") throw new Error("Invalid context receipt")
+    const draft = parseViewAction({ type: "composerChanged", value: record.value })
+    if (draft.type !== "composerChanged") throw new Error("Invalid context draft")
+    return { type: "contextAdded", id: record.id, accepted: record.accepted, value: draft.value }
+  }
+  if (record.type === "composerChanged" || record.type === "composerRestore") {
+    const value = record.value as ComposerDraft | undefined
+    if (Object.keys(record).length !== 2 || !value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(key => key !== "draft" && key !== "tools") || typeof value.draft !== "string" || value.draft.length > 32_000) throw new Error("Invalid composer draft")
+    const t = value.tools
+    if (t !== undefined && (!t || typeof t !== "object" || Object.keys(t).length !== 3 || typeof t.scope !== "string" || t.scope.length > 1000 || typeof t.text !== "string" || t.text.length > 32_000 || !["askSideQuestion", "steer", "shellCommand"].includes(t.mode))) throw new Error("Invalid tools draft")
+    return { type: record.type, value }
+  }
   if (record.type === "panelReply") return parsePanelReply(record)
   const capability = parseCapabilityAction(record)
   if (capability) return capability

@@ -28,6 +28,9 @@ export class PanelBroker {
   bind(owner: object, publish: (message: PanelMessage) => void): void {
     this.cancel(); this.owner = owner; this.publish = publish
   }
+  transfer(owner: object, publish: (message: PanelMessage) => void): void {
+    this.owner = owner; this.publish = publish; this.replay()
+  }
   unbind(owner: object): void {
     if (owner !== this.owner) return
     this.cancel(); this.owner = null; this.publish = null

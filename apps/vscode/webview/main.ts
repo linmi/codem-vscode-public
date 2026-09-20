@@ -1,3 +1,4 @@
+import { appendContext } from "../src/editorContext.ts"
 import { createResourceTools } from "./components/resourceTools.tsx"
 import { createSessionCommandPanel } from "./components/sessionCommandPanel.tsx"
 import { createSlashCommands } from "./components/slashCommands.tsx"
@@ -12,7 +13,7 @@ import { attachmentCard, configureImageLoader } from "./attachmentView.ts"
 import { createWorkGroups } from "./workGroups.ts"
 import { createPanelView } from "./panelView.ts"
 import type { PanelMessage } from "../src/panelTypes.ts"
-import { initialSnapshot, isBusy, type ImageResult, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
+import { initialSnapshot, isBusy, type EditorMessage, type ImageResult, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
 import { ComposerSubmission } from "./composerSubmission.ts"
 
 import { createMessageView } from "./messageView.ts"
@@ -41,6 +42,10 @@ const headerActions = document.querySelector<HTMLElement>(".headerActions")
 if (!headerActions) throw new Error("Missing CodeM header actions")
 let toolsDraft = vscode.getState()?.tools
 let inputMode: ComposerMode = "message"
+let sendKey = "enter"
+let hostDraftReady = false
+let applyingHostDraft = false
+let lastDraft = ""
 let messageDraft = vscode.getState()?.draft ?? ""
 let inputScope = ""
 let commands: ReturnType<typeof createSlashCommands> | undefined
@@ -86,7 +91,10 @@ function saveDraft(): void {
   workingIndicator.set(status?.label ?? null, status?.animate)
   if (inputMode === "message") messageDraft = prompt.value
   else toolsDraft = { scope: inputScope, mode: inputMode, text: prompt.value }
-  vscode.setState({ draft: messageDraft, tools: toolsDraft })
+  const value = { draft: messageDraft, ...(toolsDraft ? { tools: toolsDraft } : {}) }
+  vscode.setState(value)
+  const encoded = JSON.stringify(value)
+  if (hostDraftReady && !applyingHostDraft && encoded !== lastDraft) { lastDraft = encoded; post({ type: "composerChanged", value }) }
   fitPrompt()
   prompt.disabled = panels.locked()
   send.disabled = (!isSlashInput() && Boolean(inputUnavailable(inputMode, state))) || !prompt.value.trim() || submission.busy || panels.locked()
@@ -138,7 +146,7 @@ prompt.addEventListener("input", event => {
   if (!(event as InputEvent).isComposing && isSlashInput() && !panels.locked()) commands?.open(slashQuery(prompt.value)!)
 })
 prompt.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); submit() }
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing && (sendKey === "enter" ? !event.ctrlKey && !event.metaKey : event.ctrlKey || event.metaKey)) { event.preventDefault(); submit() }
 })
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-prompt]")) {
   button.addEventListener("click", () => { prompt.value = button.dataset.prompt ?? ""; submission.edited(); saveDraft(); prompt.focus() })
@@ -227,7 +235,7 @@ function render(next: ChatSnapshot): void {
   element("model").title = state.model ?? "连接后使用 Core 当前模型"
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
-  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : "Enter 发送 · Shift + Enter 换行"
+  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : sendKey === "enter" ? "Enter 发送 · Shift + Enter 换行" : "Ctrl / Cmd + Enter 发送 · Enter 换行"
   element("status").title = element("status").textContent ?? ""
   fileMentions.refresh()
   renderResources()
@@ -238,8 +246,31 @@ function render(next: ChatSnapshot): void {
   updateJump()
 }
 
-window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected | ImageResult>) => {
-  if (event.data?.type === "imageResult") { imageRequests.get(event.data.id)?.(event.data.preview); imageRequests.delete(event.data.id) }
+window.addEventListener("message", (event: MessageEvent<EditorMessage | ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected | ImageResult>) => {
+  if (event.data?.type === "composerDraft") {
+    applyingHostDraft = true; hostDraftReady = true
+    submission.reset()
+    if (event.data.pendingRequestId) submission.begin(event.data.pendingRequestId)
+    messageDraft = event.data.value.draft; toolsDraft = event.data.value.tools
+    inputMode = "message"; prompt.value = messageDraft; saveDraft()
+    lastDraft = JSON.stringify(event.data.value); applyingHostDraft = false
+    if (event.data.focus) prompt.focus()
+  }
+  else if (event.data?.type === "appendContext") {
+    let accepted = false
+    try {
+      const next = appendContext(inputMode === "message" ? prompt.value : messageDraft, event.data.text)
+      setInputMode("message"); applyingHostDraft = true
+      prompt.value = next; submission.edited(); saveDraft(); accepted = true
+    } catch { /* Host reports a rejected receipt and keeps the previous draft. */ }
+    finally { applyingHostDraft = false }
+    const value = { draft: messageDraft, ...(toolsDraft ? { tools: toolsDraft } : {}) }
+    lastDraft = JSON.stringify(value)
+    post({ type: "contextAdded", id: event.data.id, value, accepted })
+  }
+  else if (event.data?.type === "focusComposer") prompt.focus()
+  else if (event.data?.type === "editorSettings") { sendKey = event.data.sendKey; send.title = sendKey === "enter" ? "发送消息 · Enter" : "发送消息 · Ctrl / Cmd + Enter"; render(state) }
+  else if (event.data?.type === "imageResult") { imageRequests.get(event.data.id)?.(event.data.preview); imageRequests.delete(event.data.id) }
   else if (event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected") fileMentions.receive(event.data)
   else if (event.data?.type === "panel") panels.render(event.data.panel)
   else if (event.data?.type === "state") render(event.data)
@@ -255,3 +286,4 @@ commands.update(state)
 commandPanels.update(state)
 saveDraft()
 post({ type: "ready" })
+post({ type: "composerRestore", value: { draft: messageDraft, ...(toolsDraft ? { tools: toolsDraft } : {}) } })

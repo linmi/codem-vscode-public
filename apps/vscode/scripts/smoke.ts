@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "node:child_process"
-import { mkdtemp, mkdir, rm, readFile } from "node:fs/promises"
+import { mkdtemp, mkdir, rm, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -22,6 +22,8 @@ const temporary = await mkdtemp(join(tmpdir(), "codemExtensionSmoke"))
 try {
   const workspace = join(temporary, "workspace")
   await mkdir(workspace)
+  await mkdir(join(workspace, ".vscode"))
+  await writeFile(join(workspace, ".vscode", "settings.json"), JSON.stringify({ "codem.autoConnect": false }))
   if (process.argv.includes("--headless")) {
     if (!process.argv.includes("--live")) throw new Error("Headless connection checks require explicit test:live")
     const { runLiveConnection } = await import("../tests/liveConnection.ts")

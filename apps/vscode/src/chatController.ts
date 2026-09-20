@@ -100,6 +100,10 @@ export class ChatController {
     return structuredClone({ ...this.state, threadId: this.threadId, history: this.historyList.snapshot() })
   }
 
+  async assertContextWorkspace(path: string): Promise<void> {
+    if (this.session) await changedFilePath(this.session.cwd, path)
+  }
+
   publish(): void { if (!this.disposed) this.options.publish(this.snapshot()) }
 
   async connect(signIn = false): Promise<void> {

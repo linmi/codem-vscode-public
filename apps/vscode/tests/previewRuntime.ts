@@ -109,6 +109,8 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   }
   function postMessage(action: ViewAction) {
     viewActions.push(action)
+    if (action.type === "composerRestore") { emit({ type: "composerDraft", value: action.value, focus: false, pendingRequestId: null }); return }
+    if (action.type === "composerChanged" || action.type === "contextAdded") return
     if (action.type === "ready") { ready = true; publish(); showSurface(); return }
     if (action.type === "send") { emit({type:"sendResult",requestId:action.requestId,accepted:false}); return }
     if (action.type === "loadImage") {

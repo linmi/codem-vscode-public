@@ -1,3 +1,4 @@
+import { waitForTabs } from "./nativeTestWait.ts"
 import { assertTrusted, connectRuntime } from "../src/runtimeSession.ts"
 import { runLiveInteractions } from "./liveInteractions.ts"
 import assert from "node:assert/strict"
@@ -13,9 +14,17 @@ export async function run(): Promise<void> {
   await extension.activate()
   assert.equal(extension.isActive, true)
   const commands = await vscode.commands.getCommands(true)
-  for (const command of ["codem.open", "codem.history", "codem.newChat", "codem.connect", "codem.signIn", "codem.showOutput"]) assert.ok(commands.includes(command), command)
+  for (const command of ["codem.open", "codem.history", "codem.newChat", "codem.connect", "codem.signIn", "codem.showOutput", "codem.openInTab", "codem.openInSidebar", "codem.addToContext", "codem.explainCode", "codem.fixCode", "codem.improveCode", "codem.terminalAddToContext", "codem.terminalSelectionToContext"]) assert.ok(commands.includes(command), command)
   await vscode.commands.executeCommand("codem.open")
   await vscode.commands.executeCommand("codem.newChat")
+  await vscode.commands.executeCommand("codem.openInTab")
+  await vscode.commands.executeCommand("codem.openInTab")
+  const chatTabs = () => vscode.window.tabGroups.all.flatMap(group => group.tabs).filter(tab => tab.input instanceof vscode.TabInputWebview && tab.input.viewType.endsWith("codem.editor"))
+  await waitForTabs(() => chatTabs().length === 1, "chat editor did not open")
+  assert.equal(chatTabs().length, 1)
+  await vscode.commands.executeCommand("codem.openInSidebar")
+  await waitForTabs(() => chatTabs().length === 0, "chat editor did not close")
+  assert.equal(chatTabs().length, 0)
   await runNativeFeatureSmoke()
   if (process.env.CODEM_LIVE_SMOKE === "1") {
     if (process.env.CODEM_INTERACTIONS_LIVE === "1") await runLiveInteractions({ connect: signal => connectRuntime(extension.extensionPath, "0.2.0", false, signal), assertTrusted })

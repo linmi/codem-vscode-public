@@ -48,3 +48,10 @@ it("accepts history intents but refuses paths, caller-supplied cursors and malfo
   for (const threadId of ["", "../thread", "/tmp/thread", "thread\\path", " a ", "a".repeat(129)]) assert.throws(() => parseViewAction({ type: "resumeThread", threadId }))
   assert.throws(() => parseViewAction({ type: "resumeThread", threadId: "valid", cwd: "/workspace" }))
 })
+
+it("accepts bounded drafts and rejects arbitrary properties and malformed tool state", () => {
+  assert.deepEqual(parseViewAction({ type: "composerChanged", value: { draft: "code" } }), { type: "composerChanged", value: { draft: "code" } })
+  for (const value of [{ draft: "x".repeat(32001) }, { draft: "", path: "/etc/passwd" }, { draft: "", tools: { scope: "t", text: "x", mode: "shell" } }, []]) {
+    assert.throws(() => parseViewAction({ type: "composerChanged", value }))
+  }
+})
