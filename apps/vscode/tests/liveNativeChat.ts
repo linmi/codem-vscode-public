@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
-import type { ChatSession } from "../src/chatController.ts"
-import { NativeChatService } from "../src/nativeChatService.ts"
+import type { ChatSession } from "../src/chat/chatController.ts"
+import { NativeChatService } from "../src/nativeChat/nativeChatService.ts"
 import { liveRuntime } from "./liveRuntime.ts"
 
 /** Explicit test:live acceptance of the native adapter, with a disposable workspace. */

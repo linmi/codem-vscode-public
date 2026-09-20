@@ -10,7 +10,7 @@ it("native generators reject automatic completions, stale documents, changed sta
   const directory = await mkdtemp(join(tmpdir(), "codem-native-generation-")); t.after(() => rm(directory, { recursive: true, force: true }))
   const outfile = join(directory, "fixture.mjs")
   const root = process.cwd().endsWith("apps/vscode") ? join(process.cwd(), "../..") : process.cwd()
-  await build({ outfile, bundle: true, platform: "node", format: "esm", logLevel: "silent", stdin: { contents: `export { registerGitActions } from './apps/vscode/src/gitActions.ts'; export { registerInlineCompletion } from './apps/vscode/src/inlineCompletion.ts'; export { control } from 'vscode';`, resolveDir: root }, plugins: [{ name: "fixture", setup(b) {
+  await build({ outfile, bundle: true, platform: "node", format: "esm", logLevel: "silent", stdin: { contents: `export { registerGitActions } from './apps/vscode/src/integrations/gitActions.ts'; export { registerInlineCompletion } from './apps/vscode/src/integrations/inlineCompletion.ts'; export { control } from 'vscode';`, resolveDir: root }, plugins: [{ name: "fixture", setup(b) {
     b.onResolve({ filter: /^vscode$/ }, () => ({ path: "vscode", namespace: "fixture" }))
     b.onResolve({ filter: /runtimeSession\.ts$/ }, () => ({ path: "runtime", namespace: "fixture" }))
     b.onLoad({ filter: /.*/, namespace: "fixture" }, args => ({ contents: args.path === "runtime" ? "export function assertTrusted(){}" : `

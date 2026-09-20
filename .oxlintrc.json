@@ -64,8 +64,34 @@
     },
     {
       "files": [
-        "apps/vscode/webview/composerState.ts",
-        "apps/vscode/webview/composerSubmission.ts"
+        "apps/vscode/webview/**/*.ts",
+        "apps/vscode/webview/**/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/src/**",
+                  "!**/src/shared/**"
+                ],
+                "message": "Webview may import only shared Host contracts, never Host implementations."
+              },
+              {
+                "regex": "(^|/)history(/|$)",
+                "message": "Active code must not import archived source."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/vscode/webview/composer/composerState.ts",
+        "apps/vscode/webview/composer/composerSubmission.ts"
       ],
       "rules": {
         "no-restricted-imports": [
@@ -77,11 +103,48 @@
                 "group": [
                   "**",
                   "!./composerSubmission.ts",
-                  "!../src/editorContext.ts",
-                  "!../src/messages.ts",
-                  "!../src/sessionCommands.ts"
+                  "!../../src/shared/editorContext.ts",
+                  "!../../src/shared/messages.ts",
+                  "!../../src/shared/sessionCommands.ts"
                 ],
                 "caseSensitive": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/vscode/src/shared/**/*.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(\\.\\./|[^.])",
+                "message": "Shared application contracts use only sibling pure modules; no platform or feature dependencies."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/vscode/webview/components/**/*.ts",
+        "apps/vscode/webview/components/**/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(^|/)(src|composer|transcript|sessionHistory|panels|resources|status|history)(/|$)",
+                "message": "Base UI components cannot depend on application features or Host contracts."
               }
             ]
           }

@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "webview/shadcnStyles.css",
+    "css": "webview/styles/shadcnStyles.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
@@ -13,9 +13,9 @@
   "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components",
-    "lib": "@/lib",
+    "utils": "@/components/utils",
+    "ui": "@/components/ui",
+    "lib": "@/components",
     "hooks": "@/hooks"
   }
 }

@@ -1,4 +1,4 @@
-import { initialSnapshot, type ChatSnapshot } from "../src/messages.ts"
+import { initialSnapshot, type ChatSnapshot } from "../src/shared/messages.ts"
 import { applyPreviewScenario, previewScenarios } from "./previewScenarios.ts"
 import { panelFixtures } from "./panelFixtures.ts"
 import { contentScenario } from "./previewContent.ts"

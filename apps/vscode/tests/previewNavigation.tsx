@@ -4,9 +4,9 @@ import { parsePreviewSearch } from "./previewState.ts"
 import { useEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { MenuIcon } from "lucide-react"
-import { Button } from "../webview/components/button.tsx"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../webview/components/collapsible.tsx"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../webview/components/select.tsx"
+import { Button } from "../webview/components/ui/button.tsx"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../webview/components/ui/collapsible.tsx"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../webview/components/ui/select.tsx"
 import { previewScenarios } from "./previewScenarios.ts"
 
 const runtime = createPreviewRuntime(parsePreviewSearch(Object.fromEntries(new URL(location.href).searchParams)))

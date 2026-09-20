@@ -1,8 +1,8 @@
 import { capabilityHostFixture } from "./capabilityHostFixture.ts"
 import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
-import { ConnectionPreferences } from "../src/connectionPreferences.ts"
+import { ConnectionPreferences } from "../src/connection/connectionPreferences.ts"
 import { createHash } from "node:crypto"
-import { createSessionHistoryReader } from "../src/sessionHistory.ts"
+import { createSessionHistoryReader } from "../src/sessionHistory/sessionHistory.ts"
 import assert from "node:assert/strict"
 import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -10,7 +10,7 @@ import { join } from "node:path"
 import { it } from "node:test"
 import type { AppServerHostEvent, AppServerInteractionResponse } from "@codem/app-server"
 import { parseAppServerItem } from "@codem/app-server"
-import { ChatController, UserVisibleError, type ChatHost, type ChatSession } from "../src/chatController.ts"
+import { ChatController, UserVisibleError, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
 
 function setup() {
   let listener: (event: AppServerHostEvent) => void = () => undefined

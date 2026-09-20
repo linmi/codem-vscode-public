@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
-import { ChatController } from "../src/chatController.ts"
-import { assertTrusted, connectRuntime } from "../src/runtimeSession.ts"
-import type { ChatSnapshot } from "../src/messages.ts"
+import { ChatController } from "../src/chat/chatController.ts"
+import { assertTrusted, connectRuntime } from "../src/connection/runtimeSession.ts"
+import type { ChatSnapshot } from "../src/shared/messages.ts"
 
 /** Opt-in only: uses the real credential broker/Core and consumes a model turn. */
 export async function runLiveChat(extensionRoot: string): Promise<void> {

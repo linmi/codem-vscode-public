@@ -1,9 +1,9 @@
 import assert from "node:assert/strict"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { ChatController, type ChatSession } from "../src/chatController.ts"
-import { assertTrusted, connectRuntime } from "../src/runtimeSession.ts"
-import type { ChatSnapshot } from "../src/messages.ts"
+import { ChatController, type ChatSession } from "../src/chat/chatController.ts"
+import { assertTrusted, connectRuntime } from "../src/connection/runtimeSession.ts"
+import type { ChatSnapshot } from "../src/shared/messages.ts"
 
 /** Opt-in integration on the smoke runner's disposable workspace. Never use real MCP credentials. */
 export async function runLiveFeatures(extensionRoot: string): Promise<void> {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { turnChanges } from "../src/turnChanges.ts"
-import type { ChatMessage, DiffView } from "../src/messages.ts"
+import { turnChanges } from "../src/shared/turnChanges.ts"
+import type { ChatMessage, DiffView } from "../src/shared/messages.ts"
 const diff = (id: string, turnId: string): DiffView => ({ id, turnId, label: "src/main.ts", added: 2, removed: 1, preview: "partial", available: true })
 const message = (id: string, turnId: string, role: "assistant" | "user" = "assistant"): ChatMessage => ({ id, turnId, role, text: id, label: "CodeM" })
 it("anchors each turn's changes after its last message without moving them into a later turn", () => {

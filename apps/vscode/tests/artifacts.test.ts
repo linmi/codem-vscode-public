@@ -3,8 +3,8 @@ import { it } from "node:test"
 import { mkdtemp, writeFile, rm, realpath } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { Artifacts } from "../src/artifacts.ts"
-import { projectToolDetails } from "../src/toolDetails.ts"
+import { Artifacts } from "../src/resources/artifacts.ts"
+import { projectToolDetails } from "../src/chat/toolDetails.ts"
 
 it("projects dedicated tool fields without serializing unknown arguments or credentials", () => {
   const command = projectToolDetails("run_bash", { command: "TOKEN=private echo done", env: { SECRET: "secret" } }, "/workspace")

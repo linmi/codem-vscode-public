@@ -3,7 +3,7 @@ import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { randomBytes } from "node:crypto"
 import { deflateSync } from "node:zlib"
-import { ChatController } from "../src/chatController.ts"
+import { ChatController } from "../src/chat/chatController.ts"
 import { liveRuntime } from "./liveRuntime.ts"
 
 function png(): Buffer {

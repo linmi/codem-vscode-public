@@ -1,8 +1,8 @@
-import type { ChatSnapshot, ViewAction } from "../src/messages.ts"
-import type { PanelReply, PanelView } from "../src/panelTypes.ts"
+import type { ChatSnapshot, ViewAction } from "../src/shared/messages.ts"
+import type { PanelReply, PanelView } from "../src/shared/panelTypes.ts"
 import { createPreviewState, type PreviewSearch } from "./previewState.ts"
 import { applyPreviewCatalog, previewImage, contentScenario } from "./previewContent.ts"
-import { catalogKinds } from "../src/capabilityTypes.ts"
+import { catalogKinds } from "../src/shared/capabilityTypes.ts"
 
 export function createPreviewRuntime(initial: PreviewSearch) {
   let search = initial

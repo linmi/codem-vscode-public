@@ -1,4 +1,4 @@
-import type { PanelView } from "../src/panelTypes.ts"
+import type { PanelView } from "../src/shared/panelTypes.ts"
 const base = { backChoiceId: null, initialText: "", description: "", detail: null, multiple: false, allowText: false, confirmLabel: null }
 export const panelFixtures: Record<string, PanelView> = {
   workMode: { ...base, id: "workModeFixture", kind: "workMode", title: "工作模式", choices: [{ id: "default", label: "Agent", description: "执行任务", selected: true }, { id: "plan", label: "Plan", description: "先制定计划", selected: false }] },

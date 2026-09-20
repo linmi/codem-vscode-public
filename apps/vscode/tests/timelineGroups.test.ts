@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { timelineGroups } from "../src/timelineGroups.ts"
-import type { ChatMessage } from "../src/messages.ts"
+import { timelineGroups } from "../src/shared/timelineGroups.ts"
+import type { ChatMessage } from "../src/shared/messages.ts"
 const user = (id: string): ChatMessage => ({ id, role: "user", label: "你", text: "问题" })
 const answer = (id: string): ChatMessage => ({ id, role: "assistant", label: "CodeM", text: id })
 const tool = (id: string): ChatMessage => ({ id, role: "tool", label: "搜索", text: "结果", summary: "", status: "completed" })

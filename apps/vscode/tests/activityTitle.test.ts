@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { activityTitle } from "../webview/toolPresentation.ts"
-import type { ActivityMessage } from "../src/messages.ts"
+import { activityTitle } from "../webview/transcript/toolPresentation.ts"
+import type { ActivityMessage } from "../src/shared/messages.ts"
 const tool: ActivityMessage = { id: "t", role: "tool", label: "run_bash", status: "completed", summary: "", text: "private output", details: { kind: "command", code: "pnpm\ncheck", fields: [] } }
 it("summarizes safe input with the real activity status, never tool output", () => {
   assert.equal(activityTitle(tool), "已运行 pnpm check")

@@ -47,6 +47,13 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
       builder.onResolve({ filter: /.*/ }, async args => {
         if (args.pluginData?.architectureResolved) return
         const owner = shared.find(directory => within(args.importer, join(root, directory)))
+        const application = join(root, "apps/vscode")
+        const contracts = join(application, "src/shared")
+        const webview = join(application, "webview")
+        const components = join(webview, "components")
+        const isContract = within(args.importer, contracts)
+        const isView = within(args.importer, webview)
+        const isComponent = within(args.importer, components)
         const problem = (message: string) => ({ errors: [{ text: `${args.importer || args.path}: ${message}: ${args.path}` }] })
         if (historySegment.test(args.path)) return problem("archived imports are forbidden")
         if (owner && platformImport.test(args.path)) return problem("shared source cannot import an editor/UI runtime")
@@ -57,6 +64,7 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
         if (resolved.errors.length) return { errors: resolved.errors }
         if (resolved.external) {
           if (owner === "packages/protocol") return problem("protocol cannot have external runtime imports")
+          if (isContract) return problem("application contracts cannot import external runtimes")
           return { path: resolved.path, external: true }
         }
         const path = await realpath(resolved.path)
@@ -64,6 +72,9 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
         if (owner && !within(path, join(root, owner))) {
           return problem("shared source must use package exports instead of crossing source directories")
         }
+        if (isView && within(path, join(application, "src")) && !within(path, contracts)) return problem("Webview cannot import Host implementation")
+        if (isContract && !within(path, contracts)) return problem("application contracts cannot depend on features")
+        if (isComponent && within(path, application) && !within(path, components)) return problem("base UI cannot depend on application features")
         return { path }
       })
     },

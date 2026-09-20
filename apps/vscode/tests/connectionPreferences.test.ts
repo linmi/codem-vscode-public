@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { ConnectionPreferences, parseSavedSettings } from "../src/connectionPreferences.ts"
+import { ConnectionPreferences, parseSavedSettings } from "../src/connection/connectionPreferences.ts"
 
 it("persists only non-secret settings and isolates workspace and space", async () => {
   const data = new Map<string, unknown>()

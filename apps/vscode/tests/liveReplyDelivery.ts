@@ -6,9 +6,9 @@ import { realpath } from "node:fs/promises"
 import { join } from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 import { resolveSessionsRoot } from "@codem/session-history"
-import { ChatController, type ChatSession } from "../src/chatController.ts"
-import { historyMessages } from "../src/historyMessages.ts"
-import { timelineGroups } from "../src/timelineGroups.ts"
+import { ChatController, type ChatSession } from "../src/chat/chatController.ts"
+import { historyMessages } from "../src/sessionHistory/historyMessages.ts"
+import { timelineGroups } from "../src/shared/timelineGroups.ts"
 import { liveRuntime } from "./liveRuntime.ts"
 
 /** Opt-in real Core regression: concurrent workspace changes must not trigger another answer. */

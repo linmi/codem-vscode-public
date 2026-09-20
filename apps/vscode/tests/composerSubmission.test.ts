@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { ComposerSubmission } from "../webview/composerSubmission.ts"
+import { ComposerSubmission } from "../webview/composer/composerSubmission.ts"
 
 it("consumes a draft only on a matching successful receipt", () => {
   const submission = new ComposerSubmission()

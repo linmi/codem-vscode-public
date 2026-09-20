@@ -2,7 +2,7 @@ import { AppServerHost, resolveBundledAppServerRuntime } from "@codem/app-server
 import assert from "node:assert/strict"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { ChatController, type ChatSession } from "../src/chatController.ts"
+import { ChatController, type ChatSession } from "../src/chat/chatController.ts"
 import { liveRuntime } from "./liveRuntime.ts"
 
 /** Explicit real-model acceptance, confined to a disposable workspace. */

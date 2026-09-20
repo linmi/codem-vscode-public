@@ -19,6 +19,6 @@
     "**/*.ts",
     "**/*.tsx",
     "../tests/previewNavigation.tsx",
-    "../src/messages.ts"
+    "../src/shared/messages.ts"
   ]
 }

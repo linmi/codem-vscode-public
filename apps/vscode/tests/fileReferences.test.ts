@@ -3,8 +3,8 @@ import { it } from "node:test"
 import { realpath, mkdtemp, writeFile, symlink, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { FileReferences } from "../src/fileReferences.ts"
-import { parseViewAction } from "../src/messages.ts"
+import { FileReferences } from "../src/resources/fileReferences.ts"
+import { parseViewAction } from "../src/shared/messages.ts"
 
 it("confines file references to current workspace and rejects stale, forged and escaping handles", async () => {
   const root = await mkdtemp(join(tmpdir(), "codemReferences"))

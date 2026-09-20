@@ -1,7 +1,7 @@
 import { it } from "node:test"
 import assert from "node:assert/strict"
-import { workingStatus } from "../webview/workingStatus.ts"
-import type { ChatMessage } from "../src/messages.ts"
+import { workingStatus } from "../webview/status/workingStatus.ts"
+import type { ChatMessage } from "../src/shared/messages.ts"
 
 const user: ChatMessage = { id: "u", role: "user", label: "你", text: "开始" }
 const reasoning: ChatMessage = { id: "r", role: "reasoning", label: "思考过程", status: "running", text: "", summary: "" }

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { it, type TestContext } from "node:test"
-import type { connectRuntime as ConnectRuntime } from "../src/runtimeSession.ts"
+import type { connectRuntime as ConnectRuntime } from "../src/connection/runtimeSession.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 interface Control {
@@ -22,7 +22,7 @@ async function setup(t: TestContext): Promise<{ connectRuntime: typeof ConnectRu
   const outfile = join(directory, "fixture.mjs")
   await build({
     absWorkingDir: root, outfile, bundle: true, platform: "node", format: "esm", logLevel: "silent",
-    stdin: { contents: 'export { connectRuntime } from "./src/runtimeSession.ts"; export { control } from "startupFixture"', resolveDir: root },
+    stdin: { contents: 'export { connectRuntime } from "./src/connection/runtimeSession.ts"; export { control } from "startupFixture"', resolveDir: root },
     plugins: [{ name: "startupFixture", setup(builder) {
       builder.onResolve({ filter: /^(vscode|startupFixture|@codem\/app-server)$/ }, args => {
         if (args.path === "@codem/app-server" && !args.importer.endsWith("runtimeSession.ts")) return

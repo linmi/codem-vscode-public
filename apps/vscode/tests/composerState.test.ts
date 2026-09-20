@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { ComposerState } from "../webview/composerState.ts"
+import { ComposerState } from "../webview/composer/composerState.ts"
 
 const context = { workspace: "workspace", space: "space", threadId: "thread" }
 const receipt = (requestId: string, accepted = true) => ({ type: "sendResult" as const, requestId, accepted })

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { compareDiff } from "../src/diffComparison.ts"
-import type { FileDiffContent } from "../src/filePresentation.ts"
+import { compareDiff } from "../src/resources/diffComparison.ts"
+import type { FileDiffContent } from "../src/resources/filePresentation.ts"
 const modified: FileDiffContent = { path: "file", changeType: "modified", stats: { linesAdded: 1, linesRemoved: 1 }, preview: { kind: "complete", hunks: [{ oldStart: 2, oldCount: 1, newStart: 2, newCount: 1, lines: [{ kind: "delete", text: "old", oldLine: 2, newLine: null }, { kind: "insert", text: "new", oldLine: null, newLine: 2 }] }] } }
 it("rebuilds before content only when every new hunk matches; compares lines independently of EOL", () => {
   assert.deepEqual(compareDiff(modified, "head\r\nnew\r\ntail\r\n"), { kind: "comparison", before: "head\nold\ntail", after: "head\nnew\ntail" })

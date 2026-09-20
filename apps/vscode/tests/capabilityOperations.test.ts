@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { capabilityFixture } from "./capabilityFixtures.ts"
-import { parseViewAction } from "../src/messages.ts"
+import { parseViewAction } from "../src/shared/messages.ts"
 
 it("validates capability intents and rejects arbitrary paths and stale-shaped actions", () => {
   assert.equal(parseViewAction({ type: "loadCatalog", kind: "skills" }).type, "loadCatalog")

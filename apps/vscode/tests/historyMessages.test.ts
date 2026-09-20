@@ -5,8 +5,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { it } from "node:test"
 import type { SessionHistoryPage } from "@codem/session-history"
-import { historyMessages } from "../src/historyMessages.ts"
-import { createSessionHistoryReader } from "../src/sessionHistory.ts"
+import { historyMessages } from "../src/sessionHistory/historyMessages.ts"
+import { createSessionHistoryReader } from "../src/sessionHistory/sessionHistory.ts"
 
 const at = "2026-09-19T00:00:00Z"
 

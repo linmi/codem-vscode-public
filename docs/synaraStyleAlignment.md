@@ -6,7 +6,7 @@
 
 | 表面 | 上游依据 | CodeM 实现 |
 | --- | --- | --- |
-| 明暗颜色 | `theme/theme.logic.ts` + `theme.seed.generated.ts`，执行默认主题计算得到实际颜色 | `webview/synaraTokens.css`；light/dark 两组固定结果 |
+| 明暗颜色 | `theme/theme.logic.ts` + `theme.seed.generated.ts`，执行默认主题计算得到实际颜色 | `webview/styles/synaraTokens.css`；light/dark 两组固定结果 |
 | 聊天列 | `composerPickerStyles.ts` 的 46rem 最大宽度，12px/20px 响应式边距 | `styles.css` 的 messages/footer |
 | 正文与气泡 | `chatTypography.ts`：12px、1.625 行高、80% 最大气泡宽度、16px 四角圆角、14px/10px 内边距 | `messageView.ts`、`styles.css` |
 | 输入框 | `index.css` 的 1.2rem 圆角、55% 材质透明度、40px blur、150% saturate、55% 边框强度；默认两行输入 | `html.ts`、`styles.css` |

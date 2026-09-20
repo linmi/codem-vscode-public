@@ -1,6 +1,6 @@
-import type { ActivityStatus, ChatSnapshot, ToolDetails } from "../src/messages.ts"
-import type { CatalogKind } from "../src/capabilityTypes.ts"
-import type { PanelView } from "../src/panelTypes.ts"
+import type { ActivityStatus, ChatSnapshot, ToolDetails } from "../src/shared/messages.ts"
+import type { CatalogKind } from "../src/shared/capabilityTypes.ts"
+import type { PanelView } from "../src/shared/panelTypes.ts"
 
 export type PreviewSurface = "files" | "background" | "tools" | "sessionTools" | "capabilities" | "activities"
 interface ContentScenario {
@@ -19,7 +19,7 @@ function answer(state: ChatSnapshot, text: string) {
 const tools: { label: string; details: ToolDetails; text: string }[] = [
   { label: "run_bash", details: { kind: "command", code: "pnpm --filter codem typecheck", fields: [{ label: "工作目录", value: "workspace" }, { label: "退出码", value: "0" }] }, text: "检查 Host、Webview 与共享协议…\n类型检查通过，未产生构建文件。" },
   { label: "read_files", details: { kind: "file", code: null, fields: [{ label: "文件", value: "src/auth.ts" }, { label: "范围", value: "12–48 行" }] }, text: "export async function connectWorkspace() {\n  const account = await readAccount()\n  return connect(account.workspace)\n}" },
-  { label: "grep", details: { kind: "search", code: null, fields: [{ label: "查询", value: "connectWorkspace" }, { label: "目录", value: "apps/vscode/src" }] }, text: "src/extension.ts:28 — connectWorkspace()\nsrc/chatController.ts:114 — connectWorkspace(options)\n共找到 2 处调用。" },
+  { label: "grep", details: { kind: "search", code: null, fields: [{ label: "查询", value: "connectWorkspace" }, { label: "目录", value: "apps/vscode/src" }] }, text: "src/extension.ts:28 — connectWorkspace()\nsrc/chat/chatController.ts:114 — connectWorkspace(options)\n共找到 2 处调用。" },
   { label: "web_fetch", details: { kind: "web", code: null, fields: [{ label: "来源", value: "https://example.com/docs" }, { label: "标题", value: "接口说明（样例）" }] }, text: "已读取公开接口说明。\n## 状态\n请求可以完成、失败或被取消。" },
   { label: "MCP · design.inspect", details: { kind: "mcp", code: null, fields: [{ label: "服务器", value: "design-preview" }, { label: "工具", value: "inspect_component" }] }, text: "组件：LoginPanel\n尺寸：640 × 480\n状态：default / loading / error\n这里只展示允许公开的摘要。" },
   { label: "子代理 · 检查交互", details: { kind: "subagent", code: null, fields: [{ label: "任务", value: "检查键盘导航与焦点恢复" }, { label: "结果", value: "完成" }] }, text: "已检查菜单、审批与历史面板。\n发现 1 项待改进：窄窗口长内容的滚动边界。" },

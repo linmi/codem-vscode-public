@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
-import { connectRuntime } from "../src/runtimeSession.ts"
-import type { ChatSession } from "../src/chatController.ts"
+import { connectRuntime } from "../src/connection/runtimeSession.ts"
+import type { ChatSession } from "../src/chat/chatController.ts"
 // Resolved only by the explicit profiling build adapter.
 import { counts, timings } from "observedAppServer"
 declare const PROFILE_WORKSPACE: string

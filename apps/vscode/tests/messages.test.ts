@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { parseViewAction } from "../src/messages.ts"
-import { chatHtml } from "../src/html.ts"
+import { parseViewAction } from "../src/shared/messages.ts"
+import { chatHtml } from "../src/chat/html.ts"
 
 it("accepts only supported actions and bounded text; refuses raw RPC, paths and extra fields", () => {
   assert.deepEqual(parseViewAction({ type: "send", text: "hello", requestId: "request-1" }), { type: "send", text: "hello", requestId: "request-1" })

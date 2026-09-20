@@ -9,7 +9,7 @@ import { pathToFileURL } from "node:url"
 it("moves one chat surface, preserves draft and pending sends, reuses the editor and rejects old surface messages", async t => {
   const directory = await mkdtemp(join(tmpdir(), "codem-surfaces-")); t.after(() => rm(directory, { recursive: true, force: true }))
   const outfile = join(directory, "fixture.mjs")
-  await build({ outfile, bundle: true, platform: "node", format: "esm", logLevel: "silent", stdin: { contents: `export { ChatSurfaces } from './apps/vscode/src/chatSurfaces.ts'; export { PanelBroker } from './apps/vscode/src/panelBroker.ts'; export { control } from 'vscode';`, resolveDir: process.cwd().endsWith("apps/vscode") ? join(process.cwd(), "../..") : process.cwd() }, plugins: [{ name: "fixture", setup(b) {
+  await build({ outfile, bundle: true, platform: "node", format: "esm", logLevel: "silent", stdin: { contents: `export { ChatSurfaces } from './apps/vscode/src/chat/chatSurfaces.ts'; export { PanelBroker } from './apps/vscode/src/panels/panelBroker.ts'; export { control } from 'vscode';`, resolveDir: process.cwd().endsWith("apps/vscode") ? join(process.cwd(), "../..") : process.cwd() }, plugins: [{ name: "fixture", setup(b) {
     b.onResolve({ filter: /^vscode$/ }, () => ({ path: "vscode", namespace: "fixture" }))
     b.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({ contents: `
       const disposable = {dispose(){}};

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import type { AppServerThreadSummary } from "@codem/app-server"
-import { HistoryListController, type HistoryListContext } from "../src/historyList.ts"
+import { HistoryListController, type HistoryListContext } from "../src/sessionHistory/historyList.ts"
 
 async function readThread(cwd: string, id: string) { return { ...entry(id), cwd, name: id === "a" ? "已保存的名称" : null, status: "idle" } }
 

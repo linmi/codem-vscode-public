@@ -3,7 +3,7 @@ import { it } from "node:test"
 import { mkdtemp, writeFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { attachmentPreview } from "../src/attachmentPreview.ts"
+import { attachmentPreview } from "../src/resources/attachmentPreview.ts"
 
 it("projects only bounded raster bytes, never active SVG or host paths", async () => {
   const directory = await mkdtemp(join(tmpdir(), "codemPreview"))

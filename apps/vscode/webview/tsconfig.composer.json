@@ -2,8 +2,13 @@
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "allowImportingTsExtensions": true,
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "types": []
   },
-  "include": ["composerState.ts", "composerSubmission.ts"]
+  "include": [
+    "composer/composerState.ts",
+    "composer/composerSubmission.ts"
+  ]
 }

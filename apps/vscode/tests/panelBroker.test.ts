@@ -1,10 +1,10 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { PanelBroker } from "../src/panelBroker.ts"
-import type { PanelMessage, PanelView } from "../src/panelTypes.ts"
-import { parseViewAction } from "../src/messages.ts"
-import { selectSettings } from "../src/settingsPanels.ts"
-import { showInteraction } from "../src/interactions.ts"
+import { PanelBroker } from "../src/panels/panelBroker.ts"
+import type { PanelMessage, PanelView } from "../src/shared/panelTypes.ts"
+import { parseViewAction } from "../src/shared/messages.ts"
+import { selectSettings } from "../src/panels/settingsPanels.ts"
+import { showInteraction } from "../src/panels/interactions.ts"
 
 function fixture() {
   const broker = new PanelBroker(); const owner = {}; const messages: PanelMessage[] = []

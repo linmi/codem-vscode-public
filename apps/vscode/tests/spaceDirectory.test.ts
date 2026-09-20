@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { SpaceDirectory } from "../src/spaceDirectory.ts"
+import { SpaceDirectory } from "../src/connection/spaceDirectory.ts"
 import { fixtureIdentity, fixtureSpaces } from "./spaceFixtures.ts"
 it("repeated menu reads perform zero requests; refresh replaces the snapshot", async () => {
   let calls = 0

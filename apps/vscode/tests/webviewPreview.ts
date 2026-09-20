@@ -3,7 +3,7 @@ import { createServer } from "node:http"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { parsePreviewSearch } from "./previewState.ts"
-import { chatHtml } from "../src/html.ts"
+import { chatHtml } from "../src/chat/html.ts"
 
 
 const port = 4318

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { initialSnapshot } from "../src/messages.ts"
-import { commandUnavailable, inputUnavailable, sessionCommands, slashQuery } from "../src/sessionCommands.ts"
+import { initialSnapshot } from "../src/shared/messages.ts"
+import { commandUnavailable, inputUnavailable, sessionCommands, slashQuery } from "../src/shared/sessionCommands.ts"
 it("only allows steering during a live run and rejects destructive commands until idle", () => {
   const running = { ...initialSnapshot(), threadId: "thread", phase: "running" as const }
   assert.equal(commandUnavailable("steer", running), null)

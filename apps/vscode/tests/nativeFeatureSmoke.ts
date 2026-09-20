@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import * as vscode from "vscode"
-import { NativeFeatures } from "../src/nativeFeatures.ts"
+import { NativeFeatures } from "../src/integrations/nativeFeatures.ts"
 
 export async function runNativeFeatureSmoke(): Promise<void> {
   const changed = new vscode.EventEmitter<vscode.SecretStorageChangeEvent>()

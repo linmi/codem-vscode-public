@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { TerminalOutput, terminalPrompt } from "../src/terminalContext.ts"
+import { TerminalOutput, terminalPrompt } from "../src/integrations/terminalContext.ts"
 it("bounds each output stream and removes ANSI sequences including split chunks", () => {
   const output = new TerminalOutput(30)
   output.append("old".repeat(20)); output.append("\u001b["); output.append("31mERROR\u001b[0m")

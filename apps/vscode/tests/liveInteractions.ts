@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
 import { readFile, stat } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { ChatController, type ChatSession } from "../src/chatController.ts"
-import { PanelBroker } from "../src/panelBroker.ts"
-import { showInteraction } from "../src/interactions.ts"
+import { ChatController, type ChatSession } from "../src/chat/chatController.ts"
+import { PanelBroker } from "../src/panels/panelBroker.ts"
+import { showInteraction } from "../src/panels/interactions.ts"
 import type { AppServerInteraction } from "@codem/app-server"
-import type { PanelView } from "../src/panelTypes.ts"
+import type { PanelView } from "../src/shared/panelTypes.ts"
 
 /** Opt-in real Core test, confined to the smoke runner's disposable workspace and its parent. */
 export async function runLiveInteractions(adapter: { connect: (signal: AbortSignal) => Promise<ChatSession>; assertTrusted: () => void }): Promise<void> {

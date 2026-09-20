@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { completionPrompt, commitPrompt, generatedText } from "../src/editorGeneration.ts"
+import { completionPrompt, commitPrompt, generatedText } from "../src/integrations/editorGeneration.ts"
 it("bounds completion context and preserves insertion whitespace", () => {
   const prompt = completionPrompt("typescript", "x".repeat(10000), "y".repeat(10000))
   assert.ok(prompt.length < 13000)

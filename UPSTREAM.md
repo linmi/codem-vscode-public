@@ -61,7 +61,7 @@
 ## Synara chat visual intake — 2026-09-19
 
 - Source: https://github.com/Emanuele-web04/synara/tree/33333439c4b9c74d0097bc01196cccc921f67cf3
-- Default theme tokens extracted by executing upstream `apps/web/src/theme/theme.logic.ts` with `DEFAULT_THEME_STATE` (both variants). Only the used resolved values are retained in `apps/vscode/webview/synaraTokens.css`; no theme engine or runtime dependency was imported.
+- Default theme tokens extracted by executing upstream `apps/web/src/theme/theme.logic.ts` with `DEFAULT_THEME_STATE` (both variants). Only the used resolved values are retained in `apps/vscode/webview/styles/synaraTokens.css`; no theme engine or runtime dependency was imported.
 - Adapted `apps/web/src/components/chat/composerPickerStyles.ts`, `chatTypography.ts`, `ChatComposerFooter.tsx`, `ComposerModelMenuTrigger.tsx`, `MessagesTimeline.tsx`, `TimelineWorkEntryRow.tsx`, `MessageActionButton.tsx`, `apps/web/src/components/ChatView.tsx`, and `apps/web/src/index.css` into the existing Webview. Kept CodeM branding, Host DTOs, Core transport, and native approvals. The preceding T3-only appearance was superseded.
 - Upstream MIT copyright notices for T3 Tools Inc. and Emanuele Di Pietro are retained in `apps/vscode/licenses/synara.txt`.
 - Added exact production dependencies Marked 18.0.13 and DOMPurify 3.4.15 because the prior text/code-fence renderer could not render the reference's headings, lists, inline code and tables. Parsed model output is sanitized with an explicit tag/attribute allowlist before it enters the DOM. No React, Synara backend, provider state, lockfile or build system was imported.
@@ -84,7 +84,7 @@
 ## Beautiful UI loading state intake — 2026-09-20
 
 - Source: https://www.beautifului.dev/ and the LoadingState React example supplied by the user with this request.
-- Adapted the 3×3 pixel grid, staggered chevron animation and shimmer label into `apps/vscode/webview/components/loadingState.tsx` and `loadingState.css`, using existing React dependencies and CodeM theme tokens. No external video, elapsed-time simulation or additional dependency was imported.
+- Adapted the 3×3 pixel grid, staggered chevron animation and shimmer label into `apps/vscode/webview/status/loadingState.tsx` and `loadingState.css`, using existing React dependencies and CodeM theme tokens. No external video, elapsed-time simulation or additional dependency was imported.
 - Applied to the live turn header and initial waiting placeholder. Once the current turn has progress, its bottom thinking placeholder disappears; approval, question, plan and stopping feedback remain. Added reduced-motion and forced-colors behavior. This is an adaptation of the supplied loading design, not an import of the full Beautiful UI component library.
 
 ## 2026-09-20：Core 0.8.44

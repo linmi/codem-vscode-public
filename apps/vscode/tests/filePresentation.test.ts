@@ -3,8 +3,8 @@ import { it } from "node:test"
 import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { changedFilePath, diffText, displayPath, validateAttachment } from "../src/filePresentation.ts"
-import { parseMcpConfiguration } from "../src/mcpConfiguration.ts"
+import { changedFilePath, diffText, displayPath, validateAttachment } from "../src/resources/filePresentation.ts"
+import { parseMcpConfiguration } from "../src/connection/mcpConfiguration.ts"
 import type { AppServerFileDiff } from "@codem/app-server"
 
 it("permits workspace files but rejects traversal, directories, missing files and symlink escapes", async () => {

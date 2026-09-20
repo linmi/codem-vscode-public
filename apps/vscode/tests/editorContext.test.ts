@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { appendContext, codePrompt } from "../src/editorContext.ts"
+import { appendContext, codePrompt } from "../src/shared/editorContext.ts"
 it("captures code whitespace and includes diagnostics only for repair", () => {
   const context = { path: "src/main.ts", language: "typescript", startLine: 2, endLine: 4, text: "  foo()\n", diagnostics: ["unknown foo"] }
   assert.match(codePrompt("fixCode", context), /src\/main.ts:2-4/)

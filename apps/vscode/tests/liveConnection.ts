@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { setTimeout as delay } from "node:timers/promises"
-import { ChatController } from "../src/chatController.ts"
-import { PanelBroker } from "../src/panelBroker.ts"
-import { showInteraction } from "../src/interactions.ts"
+import { ChatController } from "../src/chat/chatController.ts"
+import { PanelBroker } from "../src/panels/panelBroker.ts"
+import { showInteraction } from "../src/panels/interactions.ts"
 import { liveRuntime } from "./liveRuntime.ts"
 
 /** Explicit test:live --headless only; exercises the real Core without opening VS Code. */

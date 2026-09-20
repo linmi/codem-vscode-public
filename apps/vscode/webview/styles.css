@@ -1,11 +1,11 @@
-@import "./toolPanels.css";
-@import "./shadcnStyles.css";
-@import "./synaraTokens.css";
-@import "./history.css";
-@import "./markdown.css";
-@import "./panels.css";
-@import "./loadingState.css";
-@import "./runtimeDetails.css";
+@import "./styles/toolPanels.css";
+@import "./styles/shadcnStyles.css";
+@import "./styles/synaraTokens.css";
+@import "./styles/history.css";
+@import "./styles/markdown.css";
+@import "./styles/panels.css";
+@import "./styles/loadingState.css";
+@import "./styles/runtimeDetails.css";
 * { box-sizing: border-box; }
 html { font-size: 16px; }
 /* Own the page gutters: VS Code injects 20px body padding, which modal scroll locking resets.

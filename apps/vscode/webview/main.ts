@@ -1,18 +1,18 @@
-import { createResourceTools } from "./components/resourceTools.tsx"
-import { createCapabilityStatus } from "./components/capabilityStatus.tsx"
-import { createLoadingStatus } from "./loadingStatusView.ts"
-import { workingStatus } from "./workingStatus.ts"
-import { uiIcon, permissionIcons } from "../src/uiIcons.ts"
-import { attachmentCard, configureImageLoader } from "./attachmentView.ts"
-import { createWorkGroups } from "./workGroups.ts"
-import { createPanelView } from "./panelView.ts"
-import type { PanelMessage } from "../src/panelTypes.ts"
-import { initialSnapshot, isBusy, type ComposerDraft, type EditorMessage, type ImageResult, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
+import { createResourceTools } from "./resources/resourceTools.tsx"
+import { createCapabilityStatus } from "./status/capabilityStatus.tsx"
+import { createLoadingStatus } from "./status/loadingStatusView.ts"
+import { workingStatus } from "./status/workingStatus.ts"
+import { uiIcon, permissionIcons } from "../src/shared/uiIcons.ts"
+import { attachmentCard, configureImageLoader } from "./resources/attachmentView.ts"
+import { createWorkGroups } from "./transcript/workGroups.ts"
+import { createPanelView } from "./panels/panelView.ts"
+import type { PanelMessage } from "../src/shared/panelTypes.ts"
+import { initialSnapshot, isBusy, type ComposerDraft, type EditorMessage, type ImageResult, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/shared/messages.ts"
 
-import { createComposerView } from "./composerView.ts"
+import { createComposerView } from "./composer/composerView.ts"
 
-import { createMessageView } from "./messageView.ts"
-import { createHistoryView } from "./historyView.ts"
+import { createMessageView } from "./transcript/messageView.ts"
+import { createHistoryView } from "./sessionHistory/historyView.ts"
 
 declare function acquireVsCodeApi(): { postMessage(message: ViewAction): void; getState(): Partial<ComposerDraft> | undefined; setState(state: ComposerDraft): void }
 const vscode = acquireVsCodeApi()
@@ -40,7 +40,7 @@ const renderCapabilityStatus = createCapabilityStatus(element("runtimeDetailsHos
 const renderWorkGroups = createWorkGroups(post)
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
-const imageRequests = new Map<string, (preview: import("../src/messages.ts").AttachmentView["preview"]) => void>()
+const imageRequests = new Map<string, (preview: import("../src/shared/messages.ts").AttachmentView["preview"]) => void>()
 configureImageLoader(id => new Promise(resolve => {
   const timer = setTimeout(() => { imageRequests.delete(id); resolve({ kind: "unavailable", reason: "图片加载超时，请重试。" }) }, 30000)
   const existing = imageRequests.get(id)

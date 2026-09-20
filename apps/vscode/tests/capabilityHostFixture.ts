@@ -1,4 +1,4 @@
-import type { ChatHost } from "../src/chatController.ts"
+import type { ChatHost } from "../src/chat/chatController.ts"
 
 /** Explicit fixture capabilities. Unexpected calls fail instead of reporting fake success. */
 export function capabilityHostFixture() {

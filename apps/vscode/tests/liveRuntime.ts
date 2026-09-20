@@ -1,9 +1,9 @@
-import { SpaceDirectory } from "../src/spaceDirectory.ts"
+import { SpaceDirectory } from "../src/connection/spaceDirectory.ts"
 import { realpath } from "node:fs/promises"
 import { AppServerHost, assertAppServerAuthenticated, readAppServerAuthStatus, listAppServerSpaces, prepareAppServerSpace, resolveBundledAppServerRuntime } from "@codem/app-server"
 import { resolveSessionsRoot } from "@codem/session-history"
-import { createSessionHistoryReader } from "../src/sessionHistory.ts"
-import type { ChatSession } from "../src/chatController.ts"
+import { createSessionHistoryReader } from "../src/sessionHistory/sessionHistory.ts"
+import type { ChatSession } from "../src/chat/chatController.ts"
 
 /** Explicit, opt-in headless Core adapter for reusing an already-created acceptance workspace. */
 export async function liveRuntime(extensionRoot: string, workspace: string, signal: AbortSignal): Promise<ChatSession> {

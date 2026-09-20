@@ -1,4 +1,4 @@
-import type { ChatSnapshot } from "../src/messages.ts"
+import type { ChatSnapshot } from "../src/shared/messages.ts"
 import { contentScenarios } from "./previewContent.ts"
 
 export const previewScenarios = [

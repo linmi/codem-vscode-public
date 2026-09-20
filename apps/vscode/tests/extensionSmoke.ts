@@ -1,5 +1,5 @@
 import { waitForTabs } from "./nativeTestWait.ts"
-import { assertTrusted, connectRuntime } from "../src/runtimeSession.ts"
+import { assertTrusted, connectRuntime } from "../src/connection/runtimeSession.ts"
 import { runLiveInteractions } from "./liveInteractions.ts"
 import assert from "node:assert/strict"
 import { writeFileSync } from "node:fs"

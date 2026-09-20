@@ -39,6 +39,47 @@ it("architecture gate: accepts Node services, local protocol code and public pac
   await checkWorkspaceArchitecture(root)
 })
 
+it("application boundaries: accepts shared contracts and UI composition", async t => {
+  const root = await fixture(t)
+  await put(root, "apps/vscode/src/shared/messages.ts", "export const value = 1")
+  await put(root, "apps/vscode/webview/components/ui/button.ts", "export const button = 1")
+  await put(root, "apps/vscode/webview/composer/view.ts", 'export { value } from "../../src/shared/messages.ts"; export { button } from "../components/ui/button.ts"')
+  await checkWorkspaceArchitecture(root)
+})
+
+for (const [importer, target, message] of [
+  ["webview/composer/view.ts", "src/chat/controller.ts", "Webview cannot import Host implementation"],
+  ["src/shared/messages.ts", "src/chat/controller.ts", "application contracts cannot depend on features"],
+  ["webview/components/ui/button.ts", "webview/composer/view.ts", "base UI cannot depend on application features"],
+] as const) {
+  it(`application boundaries: rejects ${importer} depending on ${target}, including aliases`, async t => {
+    const root = await fixture(t)
+    await put(root, `apps/vscode/${target}`, "export const value = 1")
+    await put(root, "apps/vscode/tsconfig.json", JSON.stringify({ compilerOptions: { paths: { "@forbidden": [`./${target}`] } } }))
+    await put(root, `apps/vscode/${importer}`, 'export { value } from "@forbidden"')
+    await assert.rejects(checkWorkspaceArchitecture(root), new RegExp(message))
+  })
+}
+
+it("application boundaries: lint rejects erased Host and feature type dependencies", async t => {
+  const root = await fixture(t)
+  await put(root, ".oxlintrc.json", await readFile(join(workspace, ".oxlintrc.json"), "utf8"))
+  for (const [path, source] of [
+    ["webview/panels/panel.ts", 'export type { ChatController } from "../../src/chat/chatController.ts"'],
+    ["src/shared/messages.ts", 'export type { ChatController } from "../chat/chatController.ts"'],
+    ["webview/components/ui/button.ts", 'export type { ComposerState } from "../../composer/composerState.ts"'],
+  ]) {
+    const file = `apps/vscode/${path}`
+    await put(root, file, source!)
+    assert.throws(() => execFileSync(join(workspace, "node_modules/.bin/oxlint"), ["--deny-warnings", file], { cwd: root, encoding: "utf8", stdio: "pipe" }), error => {
+      const failure = error as Error & { status: number; stdout: string }
+      assert.equal(failure.status, 1)
+      assert.match(failure.stdout, /no-restricted-imports/)
+      return true
+    })
+  }
+})
+
 for (const source of [
   'import "../../../history/old.ts"',
   'export { value } from "../../../history/old.ts"',
@@ -111,14 +152,14 @@ it("architecture gate: lint rejects even erased editor type imports", async t =>
 it("structure gate: composer state accepts its contracts and rejects UI, Host, entrypoint and arbitrary helper imports", async t => {
   const root = await fixture(t)
   await put(root, ".oxlintrc.json", await readFile(join(workspace, ".oxlintrc.json"), "utf8"))
-  const path = "apps/vscode/webview/composerState.ts"
+  const path = "apps/vscode/webview/composer/composerState.ts"
   const lint = () => execFileSync(join(workspace, "node_modules/.bin/oxlint"), ["--deny-warnings", path], { cwd: root, encoding: "utf8", stdio: "pipe" })
-  await put(root, path, 'export type { ComposerDraft } from "../src/messages.ts"; export { ComposerSubmission } from "./composerSubmission.ts"')
+  await put(root, path, 'export type { ComposerDraft } from "../../src/shared/messages.ts"; export { ComposerSubmission } from "./composerSubmission.ts"')
   lint()
   for (const source of [
     'export { createComposerView } from "./composerView.ts"',
-    'export type { ChatController } from "../src/chatController.ts"',
-    'import "./main.ts"',
+    'export type { ChatController } from "../../src/chat/chatController.ts"',
+    'import "../main.ts"',
     'export type { ReactNode } from "react"',
     'export { readFile } from "node:fs/promises"',
     'export { draft } from "./helpers.ts"',
@@ -140,7 +181,7 @@ it("structure gate: composer type environment accepts plain state and rejects DO
   const config = JSON.parse(await readFile(join(workspace, directory, "tsconfig.composer.json"), "utf8"))
   config.extends = join(workspace, "tsconfig.json")
   await put(root, `${directory}/tsconfig.composer.json`, JSON.stringify(config))
-  const path = `${directory}/composerState.ts`
+  const path = `${directory}/composer/composerState.ts`
   const check = () => execFileSync(join(workspace, "apps/vscode/node_modules/.bin/tsc"), ["--noEmit", "-p", `${directory}/tsconfig.composer.json`], { cwd: root, encoding: "utf8", stdio: "pipe" })
   await put(root, path, 'export const drafts = new Map<string, string>()')
   check()

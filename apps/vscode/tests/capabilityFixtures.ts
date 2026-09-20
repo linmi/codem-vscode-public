@@ -1,6 +1,6 @@
 import { capabilityHostFixture } from "./capabilityHostFixture.ts"
 import type { AppServerHostEvent } from "@codem/app-server"
-import { ChatController, type ChatHost, type ChatSession } from "../src/chatController.ts"
+import { ChatController, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
 import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
 
 export function capabilityFixture() {

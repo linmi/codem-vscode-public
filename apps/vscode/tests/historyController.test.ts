@@ -4,7 +4,7 @@ import assert from "node:assert/strict"
 import { it } from "node:test"
 import type { AppServerHostEvent } from "@codem/app-server"
 import type { SessionHistoryPage } from "@codem/session-history"
-import { ChatController, type ChatHost, type ChatSession } from "../src/chatController.ts"
+import { ChatController, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
 
 const at = "2026-09-19T00:00:00Z"
 function page(index: number, nextCursor: string | null): SessionHistoryPage {

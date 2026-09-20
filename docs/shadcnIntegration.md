@@ -6,7 +6,7 @@
 
 - 官方源码：https://ui.shadcn.com/r/styles/new-york-v4/select.json
 - 官方安装说明：https://ui.shadcn.com/docs/installation/manual
-- 组件源码：apps/vscode/webview/components/select.tsx；MIT 许可证随源码保留在 shadcnLicense.md。
+- 组件源码：apps/vscode/webview/components/ui/select.tsx；MIT 许可证随源码保留在 shadcnLicense.md。
 - 保留官方 Radix 结构、键盘和焦点行为；cn 改用本地 clsx/tailwind-merge，添加 Webview CSP nonce，字号和颜色由 CodeM 主题适配。
 - React / ReactDOM 19.3.0、radix-ui 1.6.7、Tailwind 4.3.3；精确版本及完整依赖以 package.json / pnpm-lock.yaml 为准。
 - components.json 与 TypeScript 路径已配置。后续组件沿用这个入口，不新增另一套组件库。
@@ -66,7 +66,7 @@
 
 命令菜单使用官方 shadcn Command（https://ui.shadcn.com/r/styles/new-york-v4/command.json ，MIT），搜索和键盘选择依赖其要求的 `cmdk` 1.1.1；现有 Select / Button 不提供该命令搜索交互，因此新增此单一生产依赖，精确锁定并复用已有 Radix/React。`cn` 和 Dialog imports 适配本地组件；菜单在输入框上方，按实际剩余高度约束滚动区，匹配已有主题和 CSP。未使用 `CommandDialog` 创建额外顶层入口。
 
-会话命令可用性由 `src/sessionCommands.ts` 统一计算并在选择时再次检查。输入模式共用主输入框及 `ComposerSubmission` 的 requestId / 编辑修订收据；普通消息草稿与能力输入草稿分开保存。`/skills`、`/catalog`、`/directories` 只打开详情，目录仍需显式刷新。测试脚本由 `sessionToolsChecks.mjs` 迁移为 `sessionCommandsChecks.mjs`，旧入口命中仅保留在迁移文档和负向断言中。
+会话命令可用性由 `src/shared/sessionCommands.ts` 统一计算并在选择时再次检查。输入模式共用主输入框及 `ComposerSubmission` 的 requestId / 编辑修订收据；普通消息草稿与能力输入草稿分开保存。`/skills`、`/catalog`、`/directories` 只打开详情，目录仍需显式刷新。测试脚本由 `sessionToolsChecks.mjs` 迁移为 `sessionCommandsChecks.mjs`，旧入口命中仅保留在迁移文档和负向断言中。
 
 本 Cycle 的实际验证与未执行层次见 `sessionCommandsAndChanges.md`；独立浏览器脚本未通过 CLI 执行。
 

@@ -2,6 +2,10 @@
 
 第一版独立客户端，使用现有 `@codem/app-server` 连接已发布的 Core。新写的 Host 和 TypeScript Webview 不依赖历史插件、旧 SDK 或旧 UI。
 
+## 代码组织
+
+Host 按 `chat`、`connection`、`sessionHistory`、`resources`、`integrations`、`panels`、`nativeChat` 分组，Host/Webview 共用代码位于 `src/shared/`。Webview 按功能组织，shadcn 基础组件独立位于 `webview/components/ui/`。目录职责、依赖门禁和迁移验证见[源码组织](../../docs/sourceOrganization.md)。
+
 ## 当前功能
 
 - CodeM 活动栏入口、原生标题工具栏与品牌 Logo。
