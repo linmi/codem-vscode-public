@@ -51,17 +51,16 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .activityMessage summary:hover { color: var(--ink); }
 .activityIcon { display: flex; align-items: center; width: 16px; flex-shrink: 0; }
 .activityIcon svg { width: 14px; height: 14px; }
-.activityChevron { display: flex; margin-left: 2px; opacity: 0; }
+.activityChevron { display: flex; flex-shrink: 0; margin-left: 2px; opacity: .7; }
 .activityChevron svg { width: 12px; height: 12px; }
 .activityMessage summary:hover .activityChevron, .activityMessage summary:focus-visible .activityChevron, .activityMessage details[open] .activityChevron { opacity: 1; }
 .activityMessage details[open] .activityChevron { transform: rotate(90deg); }
 .activityTitle { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .activityStatus { margin-left: auto; font-size: 10px; flex-shrink: 0; }
 .activityMessage[data-status="completed"] .activityStatus { display: none; }
-.activityPreview { display: none; }
-.activityMessage .messageBody { margin: 4px 0 10px 22px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--codeSurface); max-height: 280px; overflow: auto; font-size: 11px; }
-.activityMessage[data-role="tool"] .messageBody { font-family: var(--codeFont); }
-.activityNote { margin-left: 22px; font-size: 11px; color: var(--muted); white-space: pre-wrap; padding: 2px 0 6px; }
+.activityMessage .messageBody { max-height: 280px; overflow: auto; }
+.activityMessage[data-role="tool"] .messageBody { padding: 10px 12px 12px; font: 11px/1.625 var(--codeFont); white-space: pre-wrap; overflow-wrap: anywhere; }
+.activityNote { margin: 6px 0; font-size: var(--chatFont); color: var(--ink); white-space: pre-wrap; }
 .activityMessage[data-status="running"] .activityIcon { animation: workingPulse 1.6s ease-in-out infinite; }
 .activityMessage[data-status="failed"] .activityStatus { color: var(--vscode-errorForeground, #e02e2a); }
 .activityMessage[data-status="incomplete"] .activityStatus, .activityMessage[data-status="declined"] .activityStatus { color: var(--vscode-editorWarning-foreground, #d97706); }
@@ -148,16 +147,14 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .workGroup[data-state="failed"] > summary { color: var(--vscode-errorForeground, #e02e2a); }
 @media (prefers-reduced-motion: reduce) { .workGroup > summary svg { transition: none; } }
 
-.toolMeta { margin: 6px 0 4px 22px; font: 10px/1.5 var(--codeFont); color: var(--muted); overflow-wrap: anywhere; }
-.activityMessage[data-tool="command"] .messageBody { border-radius: 6px; background: var(--codeSurface); font: 11px/1.625 var(--codeFont); }
+.toolOutput { margin: 6px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--codeSurface); overflow: hidden; min-width: 0; }
+.toolOutputHeading { padding: 8px 12px 4px; color: var(--muted); font: 12px/20px var(--uiFont); }
 .activityMessage[data-tool="write"] .activityIcon { color: var(--vscode-gitDecoration-modifiedResourceForeground, #b08432); }
 .activityMessage[data-tool="mcp"] .activityIcon { color: var(--vscode-symbolIcon-interfaceForeground, #9670d7); }
 
-.activityMessage[data-role="reasoning"] .messageBody { padding: 8px 10px; background: transparent; border: 0; border-left: 1px solid var(--line); border-radius: 0; }
+.activityMessage[data-role="reasoning"] .messageBody { margin: 8px 0 14px; padding: 0; color: var(--ink); font-size: var(--chatFont); line-height: var(--chatLeading); }
 .activityMessage[data-role="reasoning"] .activityTitle { font-weight: 400; }
-.activityMessage[data-role="reasoning"][data-status="running"] .activityTitle { animation: thinkingFade 1.6s ease-in-out infinite; }
 @keyframes thinkingFade { 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .activityMessage[data-role="reasoning"] .activityTitle { animation: none; } }
 
 .transcriptLoading { width: 100%; max-width: var(--chatWidth); margin: auto; padding: 40px 16px; color: var(--muted); font-size: 12px; text-align: center; }
 .loadingSpinner { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--line); border-top-color: var(--muted); border-radius: 50%; animation: loadingSpin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
@@ -213,7 +210,7 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .imagePreviewActions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 8px; }
 .imagePreviewActions button { margin: 0; padding: 6px 10px; }
 
-.toolInputCard { margin: 6px 0 8px 22px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--codeSurface); }
+.toolInputCard { padding: 6px 12px; }
 .toolInputCard:empty { display: none; }
 .toolCommand { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.6 var(--codeFont); }
 .toolInputField { display: flex; gap: 10px; padding: 3px 0; font-size: 11px; }

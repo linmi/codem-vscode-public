@@ -17,9 +17,9 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
   if (initial.role === "assistant" || initial.role === "reasoning") body.classList.add("chatMarkdown")
   const label = document.createElement("span")
   const badge = document.createElement("span"); badge.className = "activityStatus"
-  const preview = document.createElement("span"); preview.className = "activityPreview"
   const note = document.createElement("div"); note.className = "activityNote"
-  const toolMeta = document.createElement("div"); toolMeta.className = "toolMeta"
+  const toolOutput = document.createElement("section"); toolOutput.className = "toolOutput"
+  const toolHeading = document.createElement("div"); toolHeading.className = "toolOutputHeading"
   const inputDetails = document.createElement("div"); inputDetails.className = "toolInputCard"
   let inputKey = ""
   let activityIcon: HTMLElement | null = null
@@ -36,9 +36,14 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
     activityIcon = icon
     icon.innerHTML = uiIcon(initial.role === "reasoning" ? "thought" : "terminal")
     const chevron = document.createElement("span"); chevron.className = "activityChevron"; chevron.innerHTML = uiIcon("chevron")
-    summary.append(icon, label, chevron, badge, preview)
+    summary.append(icon, label, chevron, badge)
     summary.addEventListener("click", (event) => { event.preventDefault(); userToggled = true; details!.open = !details!.open })
-    details.append(summary, note, inputDetails, toolMeta, body); root.append(details)
+    details.append(summary, note)
+    if (initial.role === "tool") {
+      toolOutput.append(toolHeading, inputDetails, body)
+      details.append(toolOutput)
+    } else details.append(body)
+    root.append(details)
   } else {
     const heading = document.createElement("h2"); heading.className = "messageLabel"
     heading.append(label); root.append(heading, body)
@@ -95,19 +100,19 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
         root.dataset.tool = presentation.kind
         label.textContent = activityTitle(message)
         activityIcon!.innerHTML = presentation.icon
-        toolMeta.textContent = `${message.label} · ${statusLabels[message.status]}`
+        toolHeading.textContent = message.details?.kind === "command" ? "Shell" : `${presentation.title}输出`
+        toolOutput.setAttribute("aria-label", toolHeading.textContent)
         body.setAttribute("aria-label", `${presentation.title}输出`)
-      } else { toolMeta.hidden = true; label.textContent = activityTitle(message) }
+      } else label.textContent = activityTitle(message)
       label.title = label.textContent ?? ""
       if (!userToggled && details) details.open = message.status === "failed"
       badge.textContent = message.role === "reasoning" ? ({ running: "思考中", completed: "思考完成", interrupted: "思考已停止", incomplete: "思考未完成", failed: "思考失败", declined: "已拒绝" } as const)[message.status] : statusLabels[message.status]
       badge.hidden = message.role === "reasoning" && message.status === "running"
       note.textContent = message.summary
-      note.hidden = !message.summary || message.summary === message.text
+      note.hidden = !message.summary.trim() || message.summary.trim() === message.text.trim() || message.summary.trim() === label.textContent?.trim()
       const empty = message.status === "running" ? (message.role === "reasoning" ? "正在思考…" : "等待工具输出…") : message.status === "incomplete" ? "未收到完成结果。" : message.role === "reasoning" ? "Core 未提供可显示的思考内容。" : "无文本输出。"
       text ||= empty
       body.classList.toggle("emptyOutput", !message.text)
-      preview.textContent = (message.summary || message.text || empty).replace(/\s+/g, " ").slice(0, 180)
     }
     if (text !== previousText) {
       const top = body.scrollTop

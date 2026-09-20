@@ -36,7 +36,7 @@ export function applyPreviewScenario(state: ChatSnapshot, scenario: string): str
     if (activity.role === "reasoning" || activity.role === "tool") {
       activity.status = scenario === "failed" ? "failed" : "running"
       activity.summary = scenario === "failed" ? "类型检查失败" : scenario === "thinking" ? "正在分析实现方案" : "正在运行类型检查"
-      if (activity.role === "tool") { activity.label = "运行命令"; activity.details = { kind: "command", fields: [{ label: "工作目录", value: "workspace" }], code: "pnpm typecheck" }; activity.text = scenario === "failed" ? "src/main.ts:12 — 类型不匹配，请检查参数。" : "正在检查项目类型…" }
+      if (activity.role === "tool") { activity.label = "run_bash"; activity.details = { kind: "command", fields: [{ label: "工作目录", value: "workspace" }], code: "pnpm typecheck" }; activity.text = scenario === "failed" ? "src/main.ts:12 — 类型不匹配，请检查参数。" : "正在检查项目类型…" }
     }
     if (scenario === "failed") state.notice = "本轮任务失败，可以继续发送消息。"
   }
