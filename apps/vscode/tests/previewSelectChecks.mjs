@@ -46,5 +46,8 @@ export default async function previewSelectChecks(page) {
     return 'SHADCN_SELECT_OK: mouse, keyboard, Escape/focus, scroll, theme, reload, narrow layout and CSP'
   } finally {
     page.off('console', capture)
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Emulation.clearDeviceMetricsOverride')
+    await cdp.detach()
   }
 }
