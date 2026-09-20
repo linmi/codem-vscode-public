@@ -21,7 +21,7 @@ svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width:
 .sessionHeader { min-height: 44px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
 .sessionTitle { display: flex; gap: 8px; align-items: center; min-width: 0; font-size: 12px; font-weight: 500; }
 #sessionTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.projectIcon { display: flex; color: var(--muted); }
+.sessionIcon { display: flex; color: var(--muted); }
 .statusDot { width: 4px; height: 4px; border-radius: 50%; background: var(--tertiary); flex-shrink: 0; }
 .statusDot[data-connected="true"] { background: #00a240; }
 .headerActions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }

@@ -14,7 +14,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
 <link rel="stylesheet" href="${escapeHtml(resources.style)}"><title>CodeM</title></head>
 <body>
 <div class="app" data-phase="initializing">
-  <header class="sessionHeader"><span class="sessionTitle"><span class="projectIcon">${uiIcon("folder")}</span><span id="sessionTitle">新会话</span><span class="statusDot" id="statusDot" title="连接状态"></span></span><div class="headerActions">
+  <header class="sessionHeader"><span class="sessionTitle"><span class="sessionIcon">${uiIcon("chat")}</span><span id="sessionTitle">新会话</span><span class="statusDot" id="statusDot" title="连接状态"></span></span><div class="headerActions">
     <div id="resourceToolsHost"></div>
     ${resources.surface === "editor" ? `<div class="headerActions" id="standaloneActions"><button class="iconButton" id="newChat" title="新建会话" aria-label="新建会话">${uiIcon("plus")}</button>
     <button class="iconButton" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志">${uiIcon("terminal")}</button></div>` : ""}
