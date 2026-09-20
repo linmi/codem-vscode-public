@@ -41,7 +41,7 @@
 | 中断：`turns.interrupt=true` | `interruptTurn` | 已接入停止；回执不代表结束，等待 `turn/completed` |
 | 执行中追加指令：`turns.steer=true` | `steerTurn`，带 `expectedTurnId` 和 submissionId；当前只发纯文本 | 未接入。`send()` 仅允许 ready 阶段，不会自动走 steer |
 | 旁路提问及取消：`threads.sideQuestion/sideQuestionCancel=true` | `startSideQuestion`、`cancelSideQuestion`、独立事件 | 未接入。现有 Host 禁止与主轮次并发；不能直接设计成运行中随时旁问 |
-| 附件：`turns.attachments=true` | `AppServerPromptAttachment`；图片走 localImage，文件 / 目录走 CodeM 扩展字段 | 已接入文件、目录和图片选择、校验与预览。图片发送仍取决于实际模型的 supportsVision |
+| 附件：`turns.attachments=true` | `AppServerPromptAttachment`；图片走 localImage，文件 / 目录走 CodeM 扩展字段 | 基线客户端以 supportsVision 拦截图片；后续实测证实 Core 可通过图片工具处理，原判断过严，修正见 [图片验收记录](interactionAcceptance.md) |
 | 显式 Skill 输入：`turns.skillInput=true` | **未封装**；基线 `startTurn` 输入只有 text / attachments，序列化没有 skill 分支 | 未接入。必须核实该版本结构化输入格式，不能以普通文本或 slash 文本冒充 |
 | 模型选择：`threads.modelSelection=true` | settings.model / intelligence；start / resume | 已接入模型与强度；范围来自 Core 模型目录及共享类型 |
 | 初始计划 / 会话模式：`threads.initialPlanMode/sessionModes=true` | 新会话 executionMode；`readModes`、`setModes` | 已接入 Agent / Plan、权限模式及 revision 冲突处理；运行中锁定设置 |

@@ -20,6 +20,8 @@
 
 已有附件、模型/权限/计划模式、审批/问答、MCP stdio、工具目录、后台终端与后台任务取消继续沿用既有链路。Core 声明 configWrite=false、mcp.http=false，不提供无效编辑或 HTTP 入口。CLI 全局空间写入和退出登录不是 App Server 本轮接入范围；空间切换继续只影响本连接。
 
+图片输入补充核实：Core 0.8.44 在模型目录 supportsVision=false 时仍能接受 localImage，通过 describe_image 识图并保存可恢复的历史图片。客户端不再以该字段拦截图片发送；使用 `test:live --images` 验证实际内容识别和重连恢复，详见 [图片验收记录](interactionAcceptance.md)。
+
 ## 操作、状态与生命周期
 
 - 首次打开面板不发 RPC；显式刷新目录才读取。目录归当前连接，实时快照归当前线程；每次刷新重新认证，不缓存认证结果。重复写入由 Host phase/busy 状态阻止，不自动重试。

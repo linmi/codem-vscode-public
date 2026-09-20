@@ -42,9 +42,8 @@ export class ConversationResources {
   contains(path: string): boolean { return this.selected().some(item => item.path === path) }
   remove(id: string): void { this.attachments.delete(id) }
 
-  async validateSelection(supportsVision: boolean): Promise<void> {
+  async validateSelection(): Promise<void> {
     for (const item of this.attachments.values()) await validateAttachment(item)
-    if (this.selected().some(item => item.kind === "image") && !supportsVision) throw new UserVisibleError("当前模型不支持图片，请切换模型或移除图片。")
   }
 
   async add(cwd: string | null, chosen: readonly AppServerPromptAttachment[], assertCurrent: () => void): Promise<AttachmentView[]> {

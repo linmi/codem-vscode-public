@@ -5,7 +5,7 @@ import { ConnectionPreferences } from "../src/connection/connectionPreferences.t
 import { createHash } from "node:crypto"
 import { createSessionHistoryReader } from "../src/sessionHistory/sessionHistory.ts"
 import assert from "node:assert/strict"
-import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises"
+import { mkdtemp, writeFile, rm, mkdir, truncate } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { it } from "node:test"
@@ -341,24 +341,28 @@ it("MCP settings reach Core but credentials never enter the snapshot; tools use 
   await fixture.controller.dispose()
 })
 
-it("sends native attachments without exposing paths, deduplicates and keeps them on failure", async () => {
+for (const supportsVision of [true, false]) it(`sends native attachments with supportsVision=${supportsVision}, deduplicates and keeps them on failure`, async () => {
   const root = await mkdtemp(join(tmpdir(), "codemAttachments"))
   const fixture = setup()
   try {
     const file = join(root, "notes.txt"); const image = join(root, "photo.png"); const directory = join(root, "folder")
     await writeFile(file, "hello"); await writeFile(image, "image fixture"); await mkdir(directory)
+    fixture.session.models = fixture.session.models.map(model => ({ ...model, supportsVision }))
     await fixture.controller.connect()
     const attachments = [{ kind: "file" as const, path: file }, { kind: "image" as const, path: image }, { kind: "directory" as const, path: directory }]
     await fixture.controller.addAttachments(async () => [...attachments, attachments[0]!])
     await fixture.controller.addAttachments(async () => attachments)
     assert.equal(fixture.controller.snapshot().attachments.length, 3)
     assert.doesNotMatch(JSON.stringify(fixture.controller.snapshot()), new RegExp(root))
-    fixture.host.startTurn = async (input) => { assert.deepEqual(input.attachments, attachments); throw new Error("failed") }
-    await fixture.controller.send("describe")
+    let submissions = 0
+    fixture.host.startTurn = async (input) => { submissions++; assert.deepEqual(input.attachments, attachments); throw new Error("failed") }
+    assert.equal(await fixture.controller.send("describe"), false)
+    assert.equal(submissions, 1, "Valid attachments reach Core even when native model vision is false")
     assert.equal(fixture.controller.snapshot().attachments.length, 3)
     assert.equal(fixture.controller.snapshot().phase, "ready")
-    fixture.host.startTurn = async (input) => { assert.deepEqual(input.attachments, attachments); return "turn-2" }
-    await fixture.controller.send("retry")
+    fixture.host.startTurn = async (input) => { submissions++; assert.deepEqual(input.attachments, attachments); return "turn-2" }
+    assert.equal(await fixture.controller.send("retry"), true)
+    assert.equal(submissions, 2)
     assert.equal(fixture.controller.snapshot().attachments.length, 0)
     const sent = fixture.controller.snapshot().messages.at(-1)
     assert.ok(sent && "attachments" in sent)
@@ -366,7 +370,7 @@ it("sends native attachments without exposing paths, deduplicates and keeps them
   } finally { await fixture.controller.dispose(); await rm(root, { recursive: true, force: true }) }
 })
 
-it("rejects images for non-vision models and revalidates files removed after picking", async () => {
+it("rejects images removed or enlarged after picking without consuming the selection", async () => {
   const root = await mkdtemp(join(tmpdir(), "codemAttachments"))
   const fixture = setup()
   try {
@@ -374,12 +378,15 @@ it("rejects images for non-vision models and revalidates files removed after pic
     await fixture.controller.connect()
     await fixture.controller.addAttachments(async () => [{ kind: "image", path: image }])
     await fixture.controller.configure(async (settings) => ({ ...settings, model: "other-model" }))
-    await fixture.controller.send("describe")
-    assert.equal(fixture.counts().turns, 0)
-    assert.match(fixture.controller.snapshot().notice!, /不支持图片/)
     await rm(image)
-    await fixture.controller.send("describe again")
+    assert.equal(await fixture.controller.send("describe"), false)
     assert.equal(fixture.counts().turns, 0)
+    assert.equal(fixture.controller.snapshot().attachments.length, 1)
+    await writeFile(image, "fixture")
+    await truncate(image, 20 * 1024 * 1024 + 1)
+    assert.equal(await fixture.controller.send("describe enlarged image"), false)
+    assert.equal(fixture.counts().turns, 0)
+    assert.equal(fixture.controller.snapshot().attachments.length, 1)
     fixture.controller.removeAttachment(fixture.controller.snapshot().attachments[0]!.id)
     assert.deepEqual(fixture.controller.snapshot().attachments, [])
   } finally { await fixture.controller.dispose(); await rm(root, { recursive: true, force: true }) }

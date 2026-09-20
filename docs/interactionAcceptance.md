@@ -8,7 +8,7 @@
 | 产物 | final_answer 文件/图片/链接/图表卡片；点击交给 Host 校验；晚到回复保留卡片；切换会话后旧句柄失效 | 图表为只读 JSON，非图表绘制 |
 | @ 文件 | VS Code 原生查找、键盘选择、引用附件、过期搜索和越界路径拒绝 | 文件名查询，最多 50 条；排除 history、node_modules、dist、.git |
 | 大图 | 按需加载、20 MiB 上限、适应窗口/原始尺寸、解码失败提示 | png/jpeg/gif/webp，不加载 SVG |
-| 历史图片 | 实际 schema 13 读取器 + 临时附件 fixture，验证路径、摘要、尺寸、修改与过期句柄 | 不是本次真实模型写入图片后恢复的证据 |
+| 历史图片 | schema 13 fixture 验证路径、摘要、尺寸、修改与过期句柄；真实图片发送后重连并恢复字节也已通过，见下文 | 无界面控制器验收，不代替 VS Code 图片按钮操作 |
 | 允许审批 | 真实 Core 发出权限请求，PanelBroker 回答 allow_once，测试文件内容验证成功 | 通过调用 broker 模拟按钮提交 |
 | 拒绝审批 | 真实 Core 发出权限请求，回答 reject_once，测试文件不存在 | 同上 |
 | 多题问答 | 真实 ask_user 两题，返回上一题、恢复选择与文字、修改并提交，最终 ready | 同上 |
@@ -41,7 +41,27 @@ CODEM_LIVE_INTERACTIONS_OK
 ## 未完成与阻塞
 
 1. **已有 VS Code 窗口中的真实按钮操作全流程**：自动化目前只能定位仓库主窗口，不能稳定控制现有扩展开发宿主。已停止新增窗口，待可定位已有宿主后补验；不得将以上分层测试标成完整 UI 端到端通过。
-2. **图片真实发送后恢复**：当前 Core 模型目录只有 `codem-router/auto`，`supportsVision: false`。`test:acceptance --workspace <path> --images` 会明确失败，不绕过该能力校验；模型支持图片后可重复执行该项。现有历史图片 fixture 测试不受此限制。
+2. **图片真实发送后恢复**：此前以 `supportsVision=false` 判定受阻的结论已撤回。Core 能通过 `describe_image` 识别 localImage；客户端及验收的错误拦截已移除，验证结果见下文。真实 VS Code 图片选择与发送按钮仍需单独验收。
+
+## 图片发送判定修正
+
+问题：`ConversationResources.validateSelection` 将模型目录的 supportsVision 用作整个 Agent 图片输入的准入条件。Core 0.8.44 的 `codem-router/auto` 虽返回 false，仍接受 localImage，并能通过 describe_image 正确识图；旧测试同时要求 supportsVision=true 和禁止调用工具，固化了错误模型。
+
+目标边界：资源模块只负责本地附件有效性，Core 负责图片处理。移除模型能力参数及发送前的布尔拦截，保留真实文件、绝对路径、类型、20 MiB 上限以及技能与附件组合限制；保留协议目录的原始 supportsVision 值，不篡改为 true，不新增能力缓存或第二条发送通路。
+
+状态与交互：首次选择、取消选择和预览沿用资源模块；重复发送仍受当前轮次约束。发送失败保留选中附件，Core 确认接收后消费附件；连接重建与会话切换撤销旧句柄，已发送图片继续由 Core JSONL 恢复。此修复不新增认证、RPC 或子进程；沿用既有连接、必要的 thread/start 和一次 turn/start。没有新增可变状态或反向依赖。
+
+验证入口：`pnpm --filter codem test:live --images`。该分支无界面运行，不启动 VS Code；仅创建临时工作区、独立历史根目录及 Core/CLI 子进程，结束后关闭连接并清理。旧的 `test:acceptance --workspace <临时路径> --images` 复用同一验收实现。
+
+真实验收使用随机排列、带轻微噪声的 1024×1024 四色 PNG（大于 512 KiB），验证实际颜色顺序而非仅回答固定成功标记；允许图片识别工具，保留默认审批边界。发送后关闭控制器和 Core，删除原图片文件，再建立连接、恢复会话并逐字节验证 Core 保存的图片，确认旧连接句柄失效。颜色断言接受等义中英文名称，仍严格比较四个位置的顺序。
+
+本轮结果：
+
+- **单元 / 集成**：新增 supportsVision=false 场景在修复前因 0 次发送而失败，修复后与 true 场景均通过；同时验证 Core 拒绝后保留附件、重试成功后清空，以及文件被删除或增大到超过 20 MiB 时仍不发送。`pnpm check` 通过 lint、类型检查及全部默认测试；构建通过。
+- **真实 Core**：`pnpm --filter codem test:live --images` 返回 CODEM_LIVE_IMAGES_OK。Core 0.8.44 / CLI 0.1.208，目录原值 supportsVision=false；本次 2,363,141 字节 PNG 的蓝、黄、绿、红四个区块经 describe_image 全部识别正确，发送至完成约 24.76 秒（单次采样，不是性能承诺）。重连、历史选择、原图已删除后的恢复及逐字节校验通过。
+- **模拟界面**：本轮未运行；没有修改 Webview 结构、样式或交互消息。
+- **真实 VS Code 操作**：本轮未执行原生图片选择和发送按钮操作，仍作为独立未验收项；未创建 GUI 窗口。验收创建的临时图片、历史目录、工作区及连接均已清理。
+- **收敛检查**：生产中不再存在带 supportsVision 参数的 validateSelection 或「当前模型不支持图片」拒绝。supportsVision 在协议、目录显示和 fixture 中继续保留；文档中的旧判定只作为固定基线及本轮修正原因记录，不是兼容路径。
 
 ## 思考加载与整轮计时（2026-09-20）
 

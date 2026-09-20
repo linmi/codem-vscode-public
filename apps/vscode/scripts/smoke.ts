@@ -5,7 +5,13 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-if (process.argv.includes("--commit-messages")) {
+if (process.argv.includes("--images")) {
+  if (!process.argv.includes("--live")) throw new Error("Image acceptance requires explicit test:live")
+  const { runLiveImages } = await import("../tests/liveImages.ts")
+  const temporary = await mkdtemp(join(tmpdir(), "codemImages"))
+  try { await runLiveImages(root, temporary) }
+  finally { await rm(temporary, { recursive: true, force: true }) }
+} else if (process.argv.includes("--commit-messages")) {
   if (!process.argv.includes("--live")) throw new Error("Commit generation acceptance requires explicit test:live")
   const { runLiveCommitMessages } = await import("../tests/liveCommitMessages.ts")
   const temporary = await mkdtemp(join(tmpdir(), "codemCommitMessages"))

@@ -349,7 +349,8 @@ export class ChatController {
     this.update({ phase: "sending", notice: null, capabilities: { ...this.state.capabilities, plan: [], changes: [], guards: [], hooks: [] } })
     try {
       this.options.assertTrusted()
-      await this.resources.validateSelection(session.models.find(model => model.id === this.settings.model)?.supportsVision ?? false)
+      // Core accepts localImage independently of native model vision (e.g. describe_image).
+      await this.resources.validateSelection()
       const threadId = await this.ensureThread(session)
       this.options.assertTrusted()
       const attachments = this.resources.selected()

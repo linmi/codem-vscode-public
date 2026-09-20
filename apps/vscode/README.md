@@ -21,7 +21,7 @@ Host 按 `chat`、`connection`、`sessionHistory`、`resources`、`integrations`
 - 输入框上方的权限审批、问答及计划确认卡片；审批结果必须仍属于当前运行中的请求。
 - VS Code 主题变量、键盘发送、中文输入法保护、窄侧栏、可见焦点与高对比度样式。
 - 输入区支持模型、思考强度（low / medium / high / xhigh）、Agent / Plan、默认权限 / 自动审批 / 完全访问切换。选择来自 Webview 内的菜单，模型来自 Core 目录；运行中锁定设置。模型、强度、MCP 通过同一 thread 的 resume 应用于下一轮；权限及计划模式使用 Core revision 校验，失败不会伪装成已生效。
-- 附件支持原生选择文件、图片和目录，移除、去重、最多 20 项；发送前重新校验文件，图片最多 20 MiB，不支持图片的模型会明确拒绝。发送失败保留附件，确认发送后清空。
+- 附件支持原生选择文件、图片和目录，移除、去重、最多 20 项；发送前重新校验文件，图片最多 20 MiB。图片通过 Core localImage 提交，由 Core 选择直接视觉或图片工具处理；模型目录的 supportsVision=false 不阻止发送。发送失败保留附件，确认发送后清空。
 - 资源面板显示文件修改统计，点击可打开只读补丁预览或工作区文件；明确标注部分差异、二进制和缺失预览。打开文件校验真实路径，拒绝越出工作区的符号链接和路径穿越。
 - 后台进程每 3 秒刷新，也可手动刷新、查看日志尾部快照、终止进程和清理终端。后台任务唤醒通知单独展示并支持取消；任务 ID 与进程 ID 不混用。Core 发起的后续轮次按正常流式、审批和完成事件展示。
 - MCP 支持添加、启用、停用和移除 stdio 服务器，使用绝对可执行文件路径；参数与环境变量通过原生输入收集，配置保存在 VS Code SecretStorage。界面只展示名称。Core 的 `tools/list` 提供基础目录，MCP 工具由模型通过 `tool_search` 按需发现；列表不冒充健康检查，也不支持 Core 尚未提供的 HTTP transport。
@@ -67,6 +67,8 @@ pnpm --filter codem test:live --features
 pnpm --filter codem test:live --capabilities
 # 单独回归文件差异与后台进程（一轮模型请求）
 pnpm --filter codem test:live --features --resources
+# 无界面图片验收：随机色块识别、重连后历史恢复及图片字节校验（一轮模型请求）
+pnpm --filter codem test:live --images
 ```
 
 先执行构建。常规 smoke 和未带 `--capabilities` / `--headless` 的 live 验证启动真实 VS Code Extension Host，在隔离的临时工作区和用户配置下运行；常规 smoke 不启动 Core，live 模式额外运行应用的连接与聊天控制器。测试工作区的信任开关仅影响该隔离进程，不修改用户设置。macOS 默认定位 `/Applications/Visual Studio Code.app`，其他安装位置或系统设置 `CODEM_VSCODE_EXECUTABLE` 为应用可执行文件路径。
