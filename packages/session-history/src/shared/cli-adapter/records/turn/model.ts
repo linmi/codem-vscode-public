@@ -10,6 +10,7 @@ import type { ParsedHookExecution } from "../hook-execution.ts"
 import type { CodeMTurnInitialSubmission } from "../projection-port.ts"
 import { sessionFileError } from "../jsonl.ts"
 import {
+  appendConversationAssistantText,
   activeTurnLifecycle,
   addConversationUsage,
   terminalTurnLifecycle,
@@ -59,9 +60,9 @@ export interface MutableConversationTurn {
   readonly pendingFinalAnswers: Map<string, FinalAnswerStructured>
   readonly pendingBackgroundDispatches: PendingBackgroundDispatch[]
   // CodeM writes provider response_json before its canonical assistant_text.
-  // A stop can land between those records, so retain the recovered item identity
-  // until assistant_text either replaces it or the engine turn ends.
-  pendingResponseAssistantItemId: string | null
+  // Keep recovery text separate until canonical records establish its position.
+  // EOF/stop can still expose it without inserting it ahead of later reasoning.
+  pendingResponseAssistant: { readonly text: string; readonly at: string } | null
   // An engine turn ended, so the next assistant/reasoning record opens its own
   // segment instead of extending the one the previous engine turn produced.
   segmentBoundaryPending: boolean
@@ -112,7 +113,7 @@ export function createMutableTurn(
     pendingToolDeclarations: new Map(),
     pendingFinalAnswers: new Map(),
     pendingBackgroundDispatches: [],
-    pendingResponseAssistantItemId: null,
+    pendingResponseAssistant: null,
     segmentBoundaryPending: false,
     usage: null,
   }
@@ -154,10 +155,27 @@ export function freezeTurn(
     model: turn.model,
     provider: turn.provider,
     startedAt: turn.startedAt,
-    items: turn.items,
+    items: projectedTurnItems(turn),
     usage: turn.usage,
     ...turn.lifecycle,
   }
+}
+
+/** Projection-only recovery at EOF must not consume the incremental reducer state. */
+export function projectedTurnItems(turn: MutableConversationTurn): readonly ConversationItem[] {
+  const pending = turn.pendingResponseAssistant
+  return pending
+    ? appendConversationAssistantText(turn.items, turn.id, pending.text, pending.at, turn.segmentBoundaryPending)
+    : turn.items
+}
+
+/** Once execution or a terminal record follows, missing canonical text is recovered here. */
+export function commitResponseAssistant(turn: MutableConversationTurn): void {
+  if (!turn.pendingResponseAssistant) return
+  const items = projectedTurnItems(turn)
+  turn.items.splice(0, turn.items.length, ...items)
+  turn.pendingResponseAssistant = null
+  turn.segmentBoundaryPending = false
 }
 
 export function registerEngineTurnIndex(
@@ -230,6 +248,7 @@ export function applyError(
   { path, lineNumber }: TurnRecordContext,
 ): void {
   const at = requireTimestamp(record.at, path, lineNumber, 'at')
+  commitResponseAssistant(turn)
   turn.lifecycle = terminalTurnLifecycle('failed', at)
   turn.items.push({
     id: `${turn.id}:error:${lineNumber}`,
@@ -298,7 +317,7 @@ export function applyTurnEnd(
   }
   const persisted = decodePersistedTurnStopReason(record.stop_reason, path, lineNumber)
   endCurrentEngineTurn(turn, lineNumber, durableTurnStopReason(persisted))
-  turn.pendingResponseAssistantItemId = null
+  commitResponseAssistant(turn)
   turn.segmentBoundaryPending = true
   const stopReason = canonicalTurnStopReason(persisted)
   switch (stopReason.kind) {
@@ -376,7 +395,7 @@ export interface SerializedMutableTurn {
     FinalAnswerStructured,
   ])[]
   readonly pendingBackgroundDispatches: readonly PendingBackgroundDispatch[]
-  readonly pendingResponseAssistantItemId: string | null
+  readonly pendingResponseAssistant: MutableConversationTurn['pendingResponseAssistant']
   readonly segmentBoundaryPending: boolean
   readonly usage: ConversationUsage | null
 }
@@ -404,7 +423,7 @@ export function serializeMutableTurn(
     pendingBackgroundDispatches: turn.pendingBackgroundDispatches.map(
       (dispatch) => ({ ...dispatch }),
     ),
-    pendingResponseAssistantItemId: turn.pendingResponseAssistantItemId,
+    pendingResponseAssistant: turn.pendingResponseAssistant ? { ...turn.pendingResponseAssistant } : null,
     segmentBoundaryPending: turn.segmentBoundaryPending,
     usage: turn.usage ? { ...turn.usage } : null,
   }
@@ -430,7 +449,7 @@ export function restoreMutableTurn(
       ),
     ),
     pendingFinalAnswers: new Map(serialized.pendingFinalAnswers),
-    pendingResponseAssistantItemId: serialized.pendingResponseAssistantItemId,
+    pendingResponseAssistant: serialized.pendingResponseAssistant ? { ...serialized.pendingResponseAssistant } : null,
     segmentBoundaryPending: serialized.segmentBoundaryPending,
     pendingBackgroundDispatches: serialized.pendingBackgroundDispatches.map(
       (dispatch) => ({ ...dispatch }),

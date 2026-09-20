@@ -50,6 +50,7 @@ import {
   summarize,
 } from "../fields.ts"
 import {
+  commitResponseAssistant,
   applyError,
   applyTurnEnd,
   applyUsage,
@@ -204,26 +205,8 @@ function applyAssistantText(
 ): void {
   const text = requireNonEmptyString(record.text, path, lineNumber, 'text')
   const at = requireTimestamp(record.at, path, lineNumber, 'at')
-  const recoveredItemId = turn.pendingResponseAssistantItemId
-  if (recoveredItemId !== null) {
-    const recoveredIndex = turn.items.findIndex((item) => item.id === recoveredItemId)
-    const recovered = turn.items[recoveredIndex]
-    if (
-      recoveredIndex < 0 ||
-      recovered?.kind !== 'message' ||
-      recovered.role !== 'assistant'
-    ) {
-      throw sessionFileError(
-        path,
-        lineNumber,
-        `recovered assistant response ${recoveredItemId} is missing`,
-      )
-    }
-    turn.items[recoveredIndex] = { ...recovered, text, at }
-    turn.pendingResponseAssistantItemId = null
-    turn.segmentBoundaryPending = false
-    return
-  }
+  // Canonical text owns both content and position; discard the audit recovery candidate.
+  turn.pendingResponseAssistant = null
   appendDecodedAssistantText(turn, text, at)
 }
 
@@ -274,11 +257,10 @@ function applyTurnResponse(
     )]
   }).join('\n\n')
   if (responseText) {
-    if (turn.pendingResponseAssistantItemId !== null) {
+    if (turn.pendingResponseAssistant !== null) {
       throw sessionFileError(path, lineNumber, 'duplicate pending assistant response')
     }
-    appendDecodedAssistantText(turn, responseText, at)
-    turn.pendingResponseAssistantItemId = turn.items.at(-1)?.id ?? null
+    turn.pendingResponseAssistant = { text: responseText, at }
   }
   response.content.forEach((value, contentIndex) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return
@@ -363,6 +345,7 @@ function applyToolCall(
       parsePersistedFinalAnswer(record.input, toolCallId, path, lineNumber),
     )
   }
+  commitResponseAssistant(turn)
   turn.items.push({
     id,
     kind: 'tool-execution',

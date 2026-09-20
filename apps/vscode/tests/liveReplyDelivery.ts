@@ -84,6 +84,11 @@ export async function runLiveReplyDelivery(extensionRoot: string, workspace: str
     assert.equal(finishedRecords.filter(record => record.type === "user_message" && record.origin === "synthetic" && record.content.includes("自检")).length, 0, "Follow-up requests must also finish without synthetic self-checks")
     const page = await connected.readHistory(threadId, undefined, new AbortController().signal)
     const restored = timelineGroups(historyMessages(threadId, page))
+    const live = timelineGroups(controller.snapshot().messages)
+    for (const [source, groups] of [["live", live], ["history", restored]] as const) {
+      const last = groups.at(-1)
+      assert.ok(last?.kind === "message" && last.message.role === "assistant" && last.message.text.includes("CODEM_FOLLOWUP_OK"), `${source}: reasoning must not trail the completed answer`)
+    }
     for (const marker of ["CODEM_OVERVIEW_OK", "CODEM_FOLLOWUP_OK"]) {
       assert.ok(restored.some(group => group.kind === "message" && group.message.role === "assistant" && group.message.text.includes(marker)), `History must retain ${marker} as a visible answer`)
     }
