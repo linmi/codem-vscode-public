@@ -2,6 +2,7 @@ import { createResourceTools } from "./resources/resourceTools.tsx"
 import { createCapabilityStatus } from "./status/capabilityStatus.tsx"
 import { createLoadingStatus } from "./status/loadingStatusView.ts"
 import { workingStatus } from "./status/workingStatus.ts"
+import { createWelcomeView } from "./status/welcomeView.tsx"
 import { attachmentCard, configureImageLoader } from "./resources/attachmentView.ts"
 import { createWorkGroups } from "./transcript/workGroups.ts"
 import { createPanelView } from "./panels/panelView.ts"
@@ -49,6 +50,7 @@ configureImageLoader(id => new Promise(resolve => {
   if (!existing) post({ type: "loadImage", id })
 }))
 const workingIndicator = createLoadingStatus(element("workingLabel"))
+const renderWelcome = createWelcomeView(element("welcome"))
 const panels = createPanelView(post, () => composer.refresh())
 const composer = createComposerView({ form: element<HTMLFormElement>("composer"), prompt, send, attachments: element("attachments") }, vscode, () => panels.locked(), renderWorkingStatus, menu => {
   const trigger = element(({ files: "addAttachment", model: "selectModel", mode: "selectWorkMode" })[menu])
@@ -59,9 +61,9 @@ const composer = createComposerView({ form: element<HTMLFormElement>("composer")
 function post(action: ViewAction): void { vscode.postMessage(action) }
 function renderWorkingStatus(): void {
   const status = workingStatus(state, panels.kind(), composer.pendingMessage && state.messages.at(-1)?.role === "user")
-  element("welcome").hidden = status !== null || ["connecting", "loadingHistory", "sending", "running", "stopping"].includes(state.phase) || state.messages.length > 0
-  element("workingRow").hidden = status === null
-  workingIndicator.set(status?.label ?? null, status?.animate)
+  const initializingWelcome = renderWelcome(state.phase, state.messages.length > 0, status !== null)
+  element("workingRow").hidden = initializingWelcome || status === null
+  workingIndicator.set(initializingWelcome ? null : status?.label ?? null, status?.animate)
 }
 connect.addEventListener("click", () => post({ type: "connect" }))
 signIn.addEventListener("click", () => post({ type: "signIn" }))

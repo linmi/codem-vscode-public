@@ -32,14 +32,14 @@ export default async function lifecycleViewChecks(page) {
   for(const phase of ['connecting','loadingHistory']) {
     await page.evaluate(phase=>window.postMessage({...demo,phase},'*'),phase);
     if(phase === 'connecting') {
-      await page.locator('#workingRow').waitFor();
-      if(await page.locator('#workingRow').textContent() !== '正在思考与处理…') throw new Error('Connection must use the processing indicator');
+      await page.locator('#welcome[data-motion="initializing"]').waitFor();
+      if(await page.locator('#workingRow').isVisible()) throw new Error('Welcome initialization duplicated processing feedback');
       if(await page.locator('#transcriptLoading').isVisible()) throw new Error('Connection shows a separate initialization screen');
     } else {
       await page.locator('#transcriptLoading').waitFor();
       if(await page.locator('#workingRow').isVisible()) throw new Error('History replay shows processing feedback');
     }
-    if(await page.locator('#welcome').isVisible()) throw new Error('Loading flashed welcome');
+    if(phase === 'loadingHistory' && await page.locator('#welcome').isVisible()) throw new Error('History loading flashed welcome');
     if(await page.locator('#connection').isVisible()) throw new Error('Connection actions duplicate loading feedback');
     if(await page.locator('.modelLoading').count() || (await page.locator('#status').textContent()).trim()) throw new Error('Duplicate connection/history loading announcement');
   }

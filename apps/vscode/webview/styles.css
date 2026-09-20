@@ -6,6 +6,7 @@
 @import "./styles/panels.css";
 @import "./styles/loadingState.css";
 @import "./styles/runtimeDetails.css";
+@import "./status/welcome.css";
 * { box-sizing: border-box; }
 html { font-size: 16px; }
 /* Own the page gutters: VS Code injects 20px body padding, which modal scroll locking resets.
