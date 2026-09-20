@@ -30,48 +30,84 @@ it("observes selections locally, preserves chat focus, and sends exactly the dis
   const selection = new EditorSelection((view: unknown) => views.push(view))
   t.after(() => selection.dispose())
   const editor = window.activeTextEditor
-  const first = selection.state.snapshot()
+  const first = selection.state.snapshot().current
   assert.equal(first.startLine, 10)
   assert.equal(first.endLine, 15, "An exclusive endpoint at column zero excludes that line")
   window.activeTextEditor = undefined
   control.events.active(undefined)
-  assert.deepEqual(selection.state.snapshot(), first, "Focusing the Webview preserves the selection")
+  assert.deepEqual(selection.state.snapshot().current, first, "Focusing the Webview preserves the selection")
   await selection.reveal(first.id)
   assert.equal(control.revealed.selection.endLine, 15)
   const sent: string[] = []
   const validated: string[] = []
   const validate = async (path: string) => { validated.push(path) }
-  assert.equal(await selection.send("explain", first.id, async (text: string) => { sent.push(text); return false }, validate), false)
-  assert.equal(selection.state.snapshot().id, first.id, "Failure retains the reference")
+  assert.equal(await selection.send("explain", [first.id], async (text: string) => { sent.push(text); return false }, validate), false)
+  assert.equal(selection.state.snapshot().current.id, first.id, "Failure retains the reference")
   assert.match(sent[0]!, /src\/code.ts:10-15[\s\S]*const a = 1\n/)
   assert.deepEqual(validated, ["/workspace/code.ts"])
   window.activeTextEditor = editor
   control.events.active(editor)
   assert.equal(views.length, 1, "Repeated focus does not create a new reference")
   let finish!: (accepted: boolean) => void
-  const sending = selection.send("next", first.id, () => new Promise<boolean>(resolve => { finish = resolve }), validate)
+  const sending = selection.send("next", [first.id], () => new Promise<boolean>(resolve => { finish = resolve }), validate)
   await new Promise(resolve => setImmediate(resolve))
   editor.selection.end.character = 2
   control.events.selection({ textEditor: editor })
-  const newer = selection.state.snapshot()
+  const newer = selection.state.snapshot().current
   assert.equal(newer.endLine, 16)
   finish(true)
   await sending
-  assert.equal(selection.state.snapshot().id, newer.id, "The old receipt must not remove a newer selection")
-  await assert.rejects(selection.send("stale", first.id, async () => { throw Error("must not send") }, validate), /选区已变化/)
-  assert.equal(await selection.send("ok", newer.id, async () => true, validate), true)
-  assert.equal(selection.state.snapshot(), null)
+  assert.equal(selection.state.snapshot().current.id, newer.id, "The old receipt must not remove a newer selection")
+  await assert.rejects(selection.send("stale", [first.id], async () => { throw Error("must not send") }, validate), /选区已变化/)
+  assert.equal(await selection.send("ok", [newer.id], async () => true, validate), true)
+  assert.equal(selection.state.snapshot().current, null)
   control.events.active(editor)
-  assert.equal(selection.state.snapshot(), null, "Successful send does not reattach on focus")
+  assert.equal(selection.state.snapshot().current, null, "Successful send does not reattach on focus")
   editor.document.version++
   control.events.selection({ textEditor: editor })
   control.events.change({ document: editor.document, contentChanges: [{}] })
-  assert.equal(selection.state.snapshot(), null, "Source edits invalidate a stale selection")
+  assert.equal(selection.state.snapshot().current, null, "Source edits invalidate a stale selection")
   editor.document.version++
   control.events.selection({ textEditor: editor })
   control.events.close(editor.document)
-  assert.equal(selection.state.snapshot(), null)
+  assert.equal(selection.state.snapshot().current, null)
+  editor.document.version++
+  control.events.selection({ textEditor: editor })
+  const pinnedId = selection.state.snapshot().current.id
+  selection.state.pin(pinnedId)
+  editor.document.version++
+  control.events.change({ document: editor.document, contentChanges: [{}] })
+  control.events.close(editor.document)
+  assert.equal(selection.state.snapshot().pinned.length, 1, "Fixed snapshots survive document edits and close")
+  await assert.rejects(selection.reveal(pinnedId), /源文件已变化/)
+  assert.equal(selection.state.snapshot().pinned.length, 1, "Failed navigation must retain the fixed snapshot")
+  editor.document.version++
+  control.events.selection({ textEditor: editor })
+  const liveId = selection.state.snapshot().current.id
+  await assert.rejects(selection.reveal(pinnedId), /源文件已变化/)
+  assert.equal(selection.state.snapshot().current.id, liveId, "An old pinned reference cannot invalidate the newer live selection")
+  const beforeValidation = validated.length
+  assert.equal(await selection.send("compare", [pinnedId, liveId], async () => false, validate), false)
+  assert.equal(validated.length - beforeValidation, 1, "Validate a shared source path only once")
+  assert.equal(selection.state.snapshot().pinned.length, 1)
+  assert.equal(selection.state.snapshot().current.id, liveId)
+  await assert.rejects(selection.send("failure", [pinnedId, liveId], async () => { throw Error("offline") }, validate), /offline/)
+  assert.equal(selection.state.snapshot().pinned.length, 1)
+  await assert.rejects(selection.send("workspace", [pinnedId], async () => { throw Error("must not send") }, async () => { throw Error("outside workspace") }), /outside workspace/)
+  assert.equal(selection.state.snapshot().pinned.length, 1)
+  let finishPinned!: (accepted: boolean) => void
+  const pending = selection.send("both", [pinnedId, liveId], () => new Promise<boolean>(resolve => { finishPinned = resolve }), validate)
+  await new Promise(resolve => setImmediate(resolve))
+  editor.document.version++
+  control.events.selection({ textEditor: editor })
+  const laterId = selection.state.snapshot().current.id
+  selection.state.pin(laterId)
+  finishPinned(true)
+  await pending
+  assert.deepEqual(selection.state.snapshot().pinned.map((item: { id: string }) => item.id), [laterId], "Receipt only consumes submitted references")
+  await assert.rejects(selection.send("removed while validating", [laterId], async () => { throw Error("must not send") }, async () => { selection.state.remove(laterId) }), /选区已变化/)
+  selection.state.clear()
   control.trusted = false
   control.events.active(editor)
-  assert.equal(selection.state.snapshot(), null, "Untrusted source is not attached")
+  assert.equal(selection.state.snapshot().current, null, "Untrusted source is not attached")
 })

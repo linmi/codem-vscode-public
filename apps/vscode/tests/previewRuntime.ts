@@ -1,4 +1,5 @@
-import type { ChatSnapshot, CodeSelectionView, ViewAction } from "../src/shared/messages.ts"
+import { appendContext, codePrompt } from "../src/shared/editorContext.ts"
+import type { ChatSnapshot, CodeSelectionsView, ViewAction } from "../src/shared/messages.ts"
 import type { AccountState } from "../src/shared/accountTypes.ts"
 import type { PanelReply } from "../src/shared/panelTypes.ts"
 import { createPreviewState, type PreviewSearch } from "./previewState.ts"
@@ -8,7 +9,7 @@ import { catalogKinds } from "../src/shared/capabilityTypes.ts"
 export function createPreviewRuntime(initial: PreviewSearch) {
   let search = initial
   let { demo, panels, activePanel, surface } = createPreviewState(initial)
-  const selectionFixture = (): CodeSelectionView | null => ["codeSelection", "codeSelectionFailure"].includes(search.scenario) ? { id: "selected-code", label: "connectionPreferences.ts", path: "src/connection/connectionPreferences.ts", startLine: 10, endLine: 15, error: null } : null
+  const selectionFixture = (): CodeSelectionsView => ({ current: ["codeSelection", "codeSelectionFailure"].includes(search.scenario) ? { id: "selected-code", label: "connectionPreferences.ts", path: "src/connection/connectionPreferences.ts", startLine: 10, endLine: 15, error: null } : null, pinned: [] })
   let selectedCode = selectionFixture()
   const signedIn = (): AccountState => ({ status: "signedIn", profile: { displayName: "林晓", userId: "preview-user", tenantId: "preview-team", authMethod: "browser" }, refreshing: false, notice: null })
   const accountFixture = (): AccountState => search.scenario === "accountSignedOut" ? { status: "signedOut", notice: null } : search.scenario === "accountSigningIn" ? { status: "signingIn", progress: "waiting" } : search.scenario === "accountFailure" ? { status: "error", message: "登录未完成，请重试。" } : signedIn()
@@ -143,13 +144,24 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     }
     if (action.type === "cancelSignIn") { clearTimeout(loginTimer); account = { status: "signedOut", notice: "已取消登录，可随时重试。" }; publish(); return }
     if (action.type === "refreshAccount") { if (account.status === "error") account = { status: "signedOut", notice: null }; publish(); return }
-    if (action.type === "removeCodeSelection") { if (action.id === selectedCode?.id) selectedCode = null; publish(); return }
+    if (action.type === "pinCodeSelection") {
+      if (selectedCode.current?.id === action.id) {
+        selectedCode.pinned = [...selectedCode.pinned, selectedCode.current]
+        selectedCode.current = action.id === "selected-code" ? { id: "second-code", label: "accountController.ts", path: "src/connection/accountController.ts", startLine: 17, endLine: 19, error: null } : null
+        demo.notice = "已固定引用；模拟切换文件，当前选区已更新。"
+      }
+      publish(); return
+    }
+    if (action.type === "removeCodeSelection") { if (action.id === selectedCode.current?.id) selectedCode.current = null; selectedCode.pinned = selectedCode.pinned.filter(item => item.id !== action.id); publish(); return }
     if (action.type === "revealCodeSelection") { demo.notice = "模拟预览已收到定位请求；不会访问真实文件。"; publish(); return }
     if (action.type === "send" && ["codeSelection", "codeSelectionFailure"].includes(search.scenario)) {
       const accepted = search.scenario === "codeSelection"
       if (accepted) {
-        demo.messages = [...demo.messages, { id: action.requestId, role: "user", label: "你", text: action.text }]
-        if (action.selectionId === selectedCode?.id) selectedCode = null
+        const references = [...selectedCode.pinned, ...(selectedCode.current ? [selectedCode.current] : [])].filter(item => action.selectionIds?.includes(item.id))
+        const text = references.reduce((draft, reference) => appendContext(draft, codePrompt("addToContext", { ...reference, language: "typescript", text: reference.id === "selected-code" ? "export interface SettingsPersistence {\n  pendingSettings(): Settings\n  savePendingSettings(value: Settings): Promise<void>\n  load(): Promise<Settings | null>\n  save(value: Settings): Promise<void>\n}" : "constructor(operations: AccountOperations) {\n  this.operations = operations\n}", diagnostics: [] })), action.text)
+        demo.messages = [...demo.messages, { id: action.requestId, role: "user", label: "你", text }]
+        if (action.selectionIds?.includes(selectedCode.current?.id ?? "")) selectedCode.current = null
+        selectedCode.pinned = selectedCode.pinned.filter(item => !action.selectionIds?.includes(item.id))
       }
       demo.notice = accepted ? "模拟发送成功，已附带选中代码。" : "模拟发送失败，草稿和代码选区已保留。"
       emit({ type: "sendResult", requestId: action.requestId, accepted }); publish(); return
@@ -214,7 +226,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "showHistory") demo.history = {...demo.history, open:true, entries:[{id:"preview",title:"整理登录页面",startedAt:"2026-09-19T12:00:00Z",turnCount:1,archived:false}]}
     if (action.type === "closeHistory") demo.history.open = false
     if (action.type === "removeAttachment") demo.attachments = demo.attachments.filter(item => item.id !== action.id)
-    if (action.type === "newChat") { demo.messages = []; demo.attachments = []; demo.turnTimings = []; demo.threadId = null; demo.notice = null; activePanel = null; demo.phase = "ready" }
+    if (action.type === "newChat") { selectedCode = { current: null, pinned: [] }; demo.messages = []; demo.attachments = []; demo.turnTimings = []; demo.threadId = null; demo.notice = null; activePanel = null; demo.phase = "ready" }
     if (action.type === "stop") { demo.messages = demo.messages.map(item => (item.role === "tool" || item.role === "reasoning") && item.status === "running" ? { ...item, status: "interrupted" } : item); demo.turnTimings = demo.turnTimings.map(item => ({ ...item, finishedAt: item.finishedAt ?? Date.now() })); demo.phase = "ready"; activePanel = null; demo.notice = "已停止（模拟）。" }
     if (action.type === "connect") { demo.phase = "ready"; demo.space = "研发团队"; demo.workspace = "codem-plugin"; demo.model = "Auto"; demo.notice = "已恢复连接（模拟），未启动 Core。" }
     if (action.type === "refreshHistory") { demo.history = { ...demo.history, loading: false, error: null }; demo.notice = "已刷新当前样例的历史列表。" }

@@ -1,10 +1,12 @@
-.codeSelection { padding: 10px 12px 0; min-width: 0; }
+.codeSelection { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 0; min-width: 0; max-height: 140px; overflow-y: auto; }
+.codeSelectionItem { min-width: 0; max-width: 100%; }
+.codeSelectionChip[data-pinned="false"] { outline: 1px dashed var(--line); outline-offset: -1px; }
 .codeSelectionChip { display: inline-flex; align-items: center; max-width: 100%; background: var(--soft); border-radius: 8px; color: var(--ink); }
 .codeSelectionChip [data-slot="button"] { height: 28px; font: 12px/20px var(--uiFont); border-radius: 8px; }
 .codeSelectionSource[data-slot="button"] { flex-shrink: 1; min-width: 0; padding: 4px 6px 4px 8px; gap: 7px; }
 .codeSelectionSource svg { width: 14px; height: 14px; color: var(--muted); }
 .codeSelectionName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .codeSelectionRange { flex-shrink: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
-.codeSelectionRemove[data-slot="button"] { flex-shrink: 0; width: 26px; padding: 6px; color: var(--muted); }
-.codeSelectionRemove svg { width: 13px; height: 13px; }
+.codeSelectionPin[data-slot="button"], .codeSelectionRemove[data-slot="button"] { flex-shrink: 0; width: 26px; padding: 6px; color: var(--muted); }
+.codeSelectionPin svg, .codeSelectionRemove svg { width: 13px; height: 13px; }
 .codeSelectionError { display: block; margin-top: 4px; font-size: 11px; color: var(--vscode-errorForeground, #d54040); }

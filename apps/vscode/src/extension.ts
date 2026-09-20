@@ -110,12 +110,13 @@ export function activate(context: vscode.ExtensionContext): void {
       case "olderMessages": await chat.loadOlderMessages(); break
       case "reloadHistory": await chat.reloadHistory(); break
       case "newChat": await chat.newChat(); selection!.state.clear(); break
+      case "pinCodeSelection": selection!.state.pin(action.id); break
       case "removeCodeSelection": selection!.state.remove(action.id); break
       case "revealCodeSelection": await selection!.reveal(action.id); break
       case "send": {
         if (!account.signedIn) { account.publish(); reply({ type: "sendResult", requestId: action.requestId, accepted: false }); break }
         let accepted = false
-        try { accepted = await selection!.send(action.text, action.selectionId, text => chat.send(text), path => chat.assertContextWorkspace(path)) }
+        try { accepted = await selection!.send(action.text, action.selectionIds, text => chat.send(text), path => chat.assertContextWorkspace(path)) }
         catch (error) { void vscode.window.showErrorMessage(error instanceof Error ? error.message : "无法附带选中代码，请重新选择后重试。") }
         reply({ type: "sendResult", requestId: action.requestId, accepted }); break
       }
@@ -182,10 +183,10 @@ export function activate(context: vscode.ExtensionContext): void {
   })
   const addContext = async (text: string, uri?: vscode.Uri) => {
     assertTrusted()
-    const selectionId = uri ? selection!.state.snapshot()?.id : undefined
+    const selectionIds = uri ? selection!.state.matchingIds(uri.toString(), text) : []
     if (uri?.scheme === "file") await chat.assertContextWorkspace(uri.fsPath)
     await surfaces!.addContext(text)
-    if (selectionId) selection!.state.remove(selectionId)
+    selection!.state.consume(selectionIds)
   }
   context.subscriptions.push(output, surfaces, registerGitActions(chat, message => output.appendLine(message)), registerInlineCompletion(chat, message => output.appendLine(message)), registerEditorActions(addContext), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration("codem.chat.sendKey")) surfaces?.postSettings()

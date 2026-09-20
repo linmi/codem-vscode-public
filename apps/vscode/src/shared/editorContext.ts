@@ -1,3 +1,4 @@
+export const MAX_PINNED_CODE_SELECTIONS = 20
 export type EditorAction = "addToContext" | "explainCode" | "fixCode" | "improveCode"
 export interface CodeContext { path: string; language: string; startLine: number; endLine: number; text: string; diagnostics: readonly string[] }
 const codeInstructions = { addToContext: "参考以下代码：", explainCode: "请解释以下代码：", fixCode: "请检查并修复以下代码的问题：", improveCode: "请在保持行为不变的前提下改进以下代码：" } as const

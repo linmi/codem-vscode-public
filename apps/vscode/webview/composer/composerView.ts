@@ -1,4 +1,4 @@
-import type { ChatSnapshot, CodeSelectionView, ComposerDraft, EditorMessage, FileSearchResult, FileSelected, SendResult, ViewAction } from "../../src/shared/messages.ts"
+import type { ChatSnapshot, CodeSelectionsView, ComposerDraft, EditorMessage, FileSearchResult, FileSelected, SendResult, ViewAction } from "../../src/shared/messages.ts"
 import { initialSnapshot } from "../../src/shared/messages.ts"
 import { commandUnavailable, inputUnavailable, inputModes, slashQuery, type ComposerMode, type SessionCommandId, type SessionPanelCommand } from "../../src/shared/sessionCommands.ts"
 import { createComposerMode, modeLabels } from "./composerMode.tsx"
@@ -30,7 +30,8 @@ export function createComposerView(elements: ComposerElements, transport: Compos
   let lastDraft = ""
   let measuredPrompt = ""
   let measuredWidth = -1
-  let selection: CodeSelectionView | null = null
+  let selection: CodeSelectionsView = { current: null, pinned: [] }
+  const selectedReferences = () => [...selection.pinned, ...(selection.current ? [selection.current] : [])]
   const post = (action: ViewAction) => transport.postMessage(action)
   const selectionHost = document.createElement("div"); selectionHost.className = "codeSelection"; selectionHost.hidden = true; form.prepend(selectionHost)
   const renderSelection = createCodeSelection(selectionHost, post)
@@ -68,14 +69,14 @@ export function createComposerView(elements: ComposerElements, transport: Compos
     if (prompt.value !== draft.text) prompt.value = draft.text
     fitPrompt()
     prompt.disabled = locked()
-    send.disabled = (!isSlashInput() && Boolean(inputUnavailable(draft.mode, state))) || !draft.text.trim() || draft.busy || locked() || (draft.mode === "message" && Boolean(selection?.error))
+    send.disabled = (!isSlashInput() && Boolean(inputUnavailable(draft.mode, state))) || !draft.text.trim() || draft.busy || locked() || (draft.mode === "message" && selectedReferences().some(item => Boolean(item.error)))
     send.hidden = (state.phase === "running" || state.phase === "stopping") && draft.mode !== "steer"
     send.setAttribute("aria-label", draft.mode === "message" ? "发送消息" : draft.mode === "shellCommand" ? "检查命令" : `发送${modeLabels[draft.mode]}`)
     prompt.setAttribute("aria-label", draft.mode === "message" ? "发送给 CodeM 的消息" : `${modeLabels[draft.mode]}输入`)
     prompt.placeholder = draft.mode === "message" ? "提出问题，或输入 / 选择会话操作…" : draft.mode === "shellCommand" ? "输入要执行的命令…" : `输入${modeLabels[draft.mode]}…`
     attachments.hidden = draft.mode !== "message"
     renderMode(draft.mode, state)
-    renderSelection(draft.mode === "message" ? selection : null, draft.busy || locked())
+    renderSelection(draft.mode === "message" ? selection : { current: null, pinned: [] }, draft.busy || locked())
     fileMentions.refresh()
     changed()
   }
@@ -103,7 +104,7 @@ export function createComposerView(elements: ComposerElements, transport: Compos
     const threadId = state.threadId
     const submitInput = () => {
       if (draft.mode !== mode || state.threadId !== threadId || inputUnavailable(mode, state) || !draft.begin(requestId)) return
-      if (mode === "message") post({ type: "send", text, requestId, ...(selection ? { selectionId: selection.id } : {}) })
+      if (mode === "message") post({ type: "send", text, requestId, ...(selectedReferences().length ? { selectionIds: selectedReferences().map(item => item.id) } : {}) })
       else if (threadId) post({ type: mode, threadId, text, requestId })
       refresh()
     }

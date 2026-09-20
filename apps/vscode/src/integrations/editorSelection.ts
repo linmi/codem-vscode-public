@@ -1,13 +1,13 @@
 import * as vscode from "vscode"
 import { SelectedCodeState } from "../resources/selectedCode.ts"
-import type { CodeSelectionView } from "../shared/messages.ts"
+import type { CodeSelectionsView } from "../shared/messages.ts"
 import { assertTrusted } from "../connection/runtimeSession.ts"
 
 /** Observes local editor events only; focusing the chat retains the last selected source. */
 export class EditorSelection implements vscode.Disposable {
   readonly state: SelectedCodeState
   private readonly subscriptions: vscode.Disposable[]
-  constructor(changed: (view: CodeSelectionView | null) => void) {
+  constructor(changed: (view: CodeSelectionsView) => void) {
     this.state = new SelectedCodeState(changed)
     this.subscriptions = [
       vscode.window.onDidChangeTextEditorSelection(event => { if (event.textEditor === vscode.window.activeTextEditor) this.capture(event.textEditor) }),
@@ -32,18 +32,22 @@ export class EditorSelection implements vscode.Disposable {
   async reveal(id: string): Promise<void> {
     const source = this.state.read(id)
     const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(source.uri))
-    if (document.version !== source.version) { this.state.invalidate(source.uri); throw new Error("代码已变化，请重新选择。") }
+    this.state.read(id)
     const selection = new vscode.Range(source.start.line, source.start.character, source.end.line, source.end.character)
+    if (document.version !== source.version || document.getText(selection) !== source.context.text) {
+      if (this.state.snapshot().current?.id === id) this.state.remove(id)
+      throw new Error("源文件已变化，请重新选择以定位。已固定的代码内容仍然保留。")
+    }
     await vscode.window.showTextDocument(document, { selection, preview: true })
   }
-  async send(text: string, id: string | undefined, send: (text: string) => Promise<boolean>, validate: (path: string) => Promise<void>): Promise<boolean> {
-    if (!id) return send(text)
+  async send(text: string, ids: readonly string[] | undefined, send: (text: string) => Promise<boolean>, validate: (path: string) => Promise<void>): Promise<boolean> {
+    if (!ids?.length) return send(text)
     assertTrusted()
-    const source = this.state.read(id)
-    const uri = vscode.Uri.parse(source.uri)
-    if (uri.scheme === "file") await validate(uri.fsPath)
-    const accepted = await send(this.state.prompt(id, text))
-    if (accepted) this.state.remove(id)
+    this.state.prompt(ids, text) // Reject oversized or stale submissions before workspace I/O.
+    const paths = new Set(ids.map(id => vscode.Uri.parse(this.state.read(id).uri)).filter(uri => uri.scheme === "file").map(uri => uri.fsPath))
+    for (const path of paths) await validate(path)
+    const accepted = await send(this.state.prompt(ids, text))
+    if (accepted) this.state.consume(ids)
     return accepted
   }
   dispose(): void { for (const subscription of this.subscriptions) subscription.dispose(); this.state.clear() }
