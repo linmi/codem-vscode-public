@@ -77,7 +77,7 @@ export function activate(context: vscode.ExtensionContext): void {
   let autoConnectAttempted = false
   const autoConnect = async () => {
     if (autoConnectAttempted || !surfaces?.available || !vscode.workspace.isTrusted || !vscode.workspace.workspaceFolders?.length) return
-    if (!vscode.workspace.getConfiguration("codem").get<boolean>("autoConnect", false)) return
+    if (!vscode.workspace.getConfiguration("codem").get<boolean>("autoConnect", true)) return
     autoConnectAttempted = true
     await chat.connect()
   }
