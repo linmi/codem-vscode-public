@@ -21,11 +21,14 @@ export default async function replyPreservationChecks(page) {
     const group = page.locator('.workGroup');
     await group.locator(':scope > summary').click();
     for (const tool of ['read_files', 'run_bash', 'tool_search']) {
-      await group.getByText(tool, { exact: true }).waitFor();
+      await page.locator('#messages > .message').getByText(tool, { exact: true }).waitFor();
     }
     // A repeated snapshot must neither erase the reply nor reset expansion.
     await page.evaluate(() => window.postMessage(demo, '*'));
-    await group.getByText('read_files', { exact: true }).waitFor();
+    await page.locator('#messages > .message').getByText('read_files', { exact: true }).waitFor();
+    if (await group.locator('.message[data-role="assistant"]').count()) throw new Error('Original answer folded after later delivery');
+    await group.locator(':scope > summary').click();
+    await page.locator('#messages > .message').getByText('read_files', { exact: true }).waitFor();
     if (await page.getByText('已说明可用工具清单。', { exact: true }).count() !== 1) throw new Error('Duplicate structured delivery');
     await page.evaluate(() => {
       demo.messages = [{ id: 'next', role: 'user', label: '你', text: '新会话' }];

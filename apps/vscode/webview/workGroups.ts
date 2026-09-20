@@ -3,14 +3,21 @@ import type { ChatMessage, ChatPhase, TurnTiming } from "../src/messages.ts"
 import { timelineGroups } from "../src/timelineGroups.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 
-/** Keep a response’s execution and progress updates in one disclosure. */
+/** Reuse disclosures for adjacent execution records without moving visible replies. */
 export function createWorkGroups() {
   const groups = new Map<string, { root: HTMLDetailsElement; summary: HTMLElement; content: HTMLElement; touched: boolean; label: HTMLElement; timer: ReturnType<typeof setInterval> | null }>()
   return (messages: readonly ChatMessage[], node: (id: string) => HTMLElement, phase: ChatPhase, timings: readonly TurnTiming[]): HTMLElement[] => {
     const result: HTMLElement[] = []
     const alive = new Set<string>()
-    let lastUserIndex = -1
-    messages.forEach((message, index) => { if (message.role === "user") lastUserIndex = index })
+    let lastActivityId: string | null = null
+    const lastActivityByTurn = new Map<string, string>()
+    for (const message of messages) {
+      if (message.role === "user") lastActivityId = null
+      else if (message.role === "tool" || message.role === "reasoning") {
+        lastActivityId = message.id
+        if (message.turnId) lastActivityByTurn.set(message.turnId, message.id)
+      }
+    }
     for (const item of timelineGroups(messages)) {
       if (item.kind === "message") { result.push(node(item.message.id)); continue }
       const work = item.messages
@@ -31,7 +38,7 @@ export function createWorkGroups() {
         summary.addEventListener("click", event => { event.preventDefault(); current.touched = true; root.open = !root.open })
         groups.set(id, group)
       }
-      const latestResponse = messages.slice(lastUserIndex + 1).some(m => m.id === id)
+      const latestResponse = work.some(message => message.id === lastActivityId)
       const running = (latestResponse && (phase === "running" || phase === "stopping")) || work.some(m => "status" in m && (m.status === "running"))
       const failed = work.some(m => "status" in m && (m.status === "failed" || m.status === "incomplete"))
       const interrupted = work.some(m => "status" in m && (m.status === "interrupted" || m.status === "declined"))
@@ -40,7 +47,8 @@ export function createWorkGroups() {
       const label = running ? (phase === "stopping" ? "正在停止" : "正在处理") : failed ? "处理需要关注" : interrupted ? "已停止或拒绝" : "已处理"
       if (group.timer) clearInterval(group.timer)
       group.timer = null
-      const timing = timings.find(timing => work.some(message => message.turnId === timing.turnId))
+      // A split response still has one Core turn duration, shown only on its last execution group.
+      const timing = timings.find(timing => work.some(message => message.id === lastActivityByTurn.get(timing.turnId)))
       const heading = group.label
       const updateElapsed = () => {
         const status = failed ? "处理需要关注 · " : phase === "stopping" && latestResponse ? "正在停止 · " : interrupted ? "已停止或拒绝 · " : ""
