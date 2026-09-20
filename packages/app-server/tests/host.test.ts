@@ -420,7 +420,7 @@ describe("AppServerHost", () => {
       .map((line) => JSON.parse(line) as Record<string, unknown>)
     const launch = captured[0]
     assert.ok(launch, "Core launch must be captured")
-    assert.deepEqual(launch.argv, ["app-server"])
+    assert.deepEqual(launch.argv, ["--no-self-check", "app-server"])
     assert.deepEqual((launch.environment as Record<string, unknown>).credentialHost, [
       "/bin/true",
       "__host-serve",
@@ -596,7 +596,7 @@ describe("AppServerHost", () => {
     try {
       await host.prepareConnection(fixture.root)
       const capture = JSON.parse(readFileSync(fixture.capturePath, "utf8").split("\n")[0])
-      assert.deepEqual(capture.argv, ["--project-key", "proj_test", "app-server"])
+      assert.deepEqual(capture.argv, ["--no-self-check", "--project-key", "proj_test", "app-server"])
       assert.equal(capture.environment.managedDirectory, fixture.root)
     } finally {
       await host.close()

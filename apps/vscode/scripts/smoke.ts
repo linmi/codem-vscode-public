@@ -5,7 +5,13 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-if (process.argv.includes("--capabilities")) {
+if (process.argv.includes("--reply-delivery")) {
+  if (!process.argv.includes("--live")) throw new Error("Reply delivery acceptance requires explicit --live")
+  const { runLiveReplyDelivery } = await import("../tests/liveReplyDelivery.ts")
+  const temporary = await mkdtemp(join(tmpdir(), "codemReplyDelivery"))
+  try { await runLiveReplyDelivery(root, temporary) }
+  finally { await rm(temporary, { recursive: true, force: true }) }
+} else if (process.argv.includes("--capabilities")) {
   if (!process.argv.includes("--live")) throw new Error("Capabilities acceptance requires explicit --live")
   const { runLiveCapabilities } = await import("../tests/liveCapabilities.ts")
   const temporary = await mkdtemp(join(tmpdir(), "codemCapabilities"))

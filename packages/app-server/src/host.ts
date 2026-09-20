@@ -1116,7 +1116,9 @@ export class AppServerHost {
       runtime: this.options.runtime,
       workingDirectory: cwd,
       clientInfo: this.options.clientInfo,
-      arguments: space?.arguments ?? [],
+      // Core's optional completion self-check injects extra model turns after
+      // the answer, displacing it with audit prose in the chat timeline.
+      arguments: ["--no-self-check", ...(space?.arguments ?? [])],
       environment: {
         ...appServerHostEnvironment(this.options.runtime, this.options.environment),
         ...space?.environment,
