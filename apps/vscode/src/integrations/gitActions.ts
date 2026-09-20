@@ -11,7 +11,7 @@ interface Repository {
   diff(cached?: boolean): Promise<string>
   log(options: { maxEntries: number; maxParents: number; range: string }): Promise<{ message: string }[]>
 }
-interface GitApi { repositories: Repository[] }
+interface GitApi { repositories: Repository[]; onDidCloseRepository: vscode.Event<Repository> }
 interface GitExtension { enabled: boolean; getAPI(version: 1): GitApi }
 
 export function registerGitActions(chat: ChatController, log: (message: string) => void): vscode.Disposable {
@@ -20,6 +20,7 @@ export function registerGitActions(chat: ChatController, log: (message: string) 
     if (active) { void vscode.window.showInformationMessage("正在生成提交说明，可在进度通知中取消。"); return }
     const abort = new AbortController(); active = abort
     const scope = chat.contextKey()
+    let closedSubscription: vscode.Disposable | undefined
     const started = performance.now()
     try {
       assertTrusted()
@@ -27,13 +28,16 @@ export function registerGitActions(chat: ChatController, log: (message: string) 
       if (!extension) throw new Error("请启用 VS Code 内置 Git 扩展。")
       const git = extension.isActive ? extension.exports : await extension.activate()
       if (!git.enabled) throw new Error("VS Code Git 功能已禁用。")
-      const repositories = git.getAPI(1).repositories.filter(repo => vscode.workspace.getWorkspaceFolder(repo.rootUri))
+      const api = git.getAPI(1)
+      const repositories = api.repositories.filter(repo => vscode.workspace.getWorkspaceFolder(repo.rootUri))
       const target = source?.rootUri?.toString()
       let repository = target ? repositories.find(repo => repo.rootUri.toString() === target) : undefined
       if (target && !repository) throw new Error("所选 Git 仓库已关闭。")
       if (!repository) repository = repositories.length === 1 ? repositories[0] : (await vscode.window.showQuickPick(repositories.map(repo => ({ label: vscode.workspace.asRelativePath(repo.rootUri, true), repository: repo })), { title: "选择生成提交说明的仓库" }))?.repository
       if (!repository) { if (!repositories.length) throw new Error("当前工作区没有 Git 仓库。"); return }
       const repo = repository
+      const root = repo.rootUri.toString()
+      closedSubscription = api.onDidCloseRepository(closed => { if (closed.rootUri.toString() === root) abort.abort() })
       await chat.assertContextDirectory(repo.rootUri.fsPath)
       const previous = repo.inputBox.value
       if (previous.trim() && await vscode.window.showWarningMessage("生成成功后替换当前提交说明？", { modal: true }, "替换") !== "替换") return
@@ -57,7 +61,7 @@ export function registerGitActions(chat: ChatController, log: (message: string) 
           // Generation may legitimately create the first thread. Guard switches during verification.
           const generatedContext = chat.contextKey()
           const message = commitMessage(response)
-          if (!git.getAPI(1).repositories.includes(repo) || !vscode.workspace.getWorkspaceFolder(repo.rootUri)) throw new Error("仓库已关闭，未写入提交说明。")
+          if (!api.repositories.some(current => current.rootUri.toString() === root) || !vscode.workspace.getWorkspaceFolder(repo.rootUri)) throw new Error("仓库已关闭，未写入提交说明。")
           if (repo.inputBox.value !== previous) throw new Error("提交说明已被编辑，生成结果未覆盖你的内容。")
           const current = await repo.diff(true)
           abort.signal.throwIfAborted(); assertTrusted()
@@ -67,7 +71,7 @@ export function registerGitActions(chat: ChatController, log: (message: string) 
       })
     } catch (error) {
       if (!abort.signal.aborted) void vscode.window.showErrorMessage(error instanceof Error ? error.message : "提交说明生成失败，请重试。")
-    } finally { log(`Commit message: ${Math.round(performance.now() - started)}ms`); if (active === abort) active = null }
+    } finally { closedSubscription?.dispose(); log(`Commit message: ${Math.round(performance.now() - started)}ms`); if (active === abort) active = null }
   })
   return vscode.Disposable.from(command, { dispose() { active?.abort() } })
 }

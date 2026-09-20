@@ -15,7 +15,7 @@ it("native generators reject disabled automatic completions, stale documents, ch
     b.onResolve({ filter: /runtimeSession\.ts$/ }, () => ({ path: "runtime", namespace: "fixture" }))
     b.onLoad({ filter: /.*/, namespace: "fixture" }, args => ({ contents: args.path === "runtime" ? "export function assertTrusted(){}" : `
       const disposable={dispose(){}};const event=()=>disposable;
-      export const control={commands:{}, errors:[], provider:null, diff:'+new', editor:null, changes:0, historyCalls:0, historyError:false, historyWait:null, cancel:null};
+      export const control={commands:{}, errors:[], provider:null, diff:'+new', editor:null, changes:0, historyCalls:0, historyError:false, historyWait:null, cancel:null, repositoryOpen:true, closeRepository:null};
       const uri={scheme:'file',fsPath:'/workspace/file.ts',toString:()=>'/workspace'};
       const position={line:0,character:3,isEqual(other){return other.line===0&&other.character===3}};
       const document={uri,version:1,isClosed:false,languageId:'typescript',offsetAt:()=>3,positionAt:n=>({line:0,character:n}),getText:()=> 'foo'};
@@ -25,7 +25,7 @@ it("native generators reject disabled automatic completions, stale documents, ch
       export const workspace={isTrusted:true,getWorkspaceFolder:()=>({}),getConfiguration:()=>({get:key=>key!=="completion.autoTrigger"}),onDidChangeTextDocument:event,onDidChangeConfiguration:event};
       export const window={get activeTextEditor(){return control.editor},onDidChangeActiveTextEditor:event,onDidChangeTextEditorSelection:event,showQuickPick:async items=>items[0],showWarningMessage:async()=> '替换',showInformationMessage(){},showErrorMessage:m=>control.errors.push(m),async withProgress(opts,callback){return callback({}, {onCancellationRequested:callback=>{control.cancel=callback;return disposable}})},createStatusBarItem:()=>({show(){},hide(){},dispose(){}})};
       export const commands={registerCommand(name,fn){control.commands[name]=fn;return disposable},executeCommand:async()=>{}};
-      export const extensions={getExtension:()=>({isActive:true,exports:{enabled:true,getAPI:()=>({repositories:[control.repo]})}})};
+      export const extensions={getExtension:()=>({isActive:true,exports:{enabled:true,getAPI:()=>({get repositories(){return control.repositoryOpen?[{...control.repo}]:[]},onDidCloseRepository(fn){control.closeRepository=fn;return {dispose(){control.closeRepository=null}}}})}})};
       export const languages={registerInlineCompletionItemProvider(filter,p){control.provider=p;return disposable}};
       export const Disposable={from(){return disposable}};
       export class ThemeIcon{constructor(id){this.id=id}};export const env={language:'zh-cn'};export const ProgressLocation={Notification:1};export const StatusBarAlignment={Right:1};export const InlineCompletionTriggerKind={Invoke:0,Automatic:1};
@@ -74,6 +74,16 @@ it("native generators reject disabled automatic completions, stale documents, ch
   await new Promise(done => setImmediate(done)); scope = "another-thread"; releaseDiff(); await verifying
   assert.equal(control.repo.inputBox.value, "generated")
   control.diffWait = null
+  // Real vscode.git returns fresh wrappers on every repository read. Closing and reopening
+  // the same URI must still cancel the request that belonged to the old repository.
+  const reopened = control.commands['codem.generateCommitMessage']()
+  await new Promise(done => setImmediate(done))
+  control.closeRepository({ ...control.repo }); resolve('{"message":"closed repository result"}')
+  await reopened; assert.equal(control.repo.inputBox.value, "generated"); assert.equal(control.closeRepository, null)
+  const removed = control.commands['codem.generateCommitMessage']()
+  await new Promise(done => setImmediate(done)); control.repositoryOpen = false; resolve('{"message":"removed repository result"}')
+  await removed; assert.equal(control.repo.inputBox.value, "generated")
+  control.repositoryOpen = true
   const beforeEmpty = calls, historyBeforeEmpty = control.historyCalls
   control.diff = ""
   await control.commands['codem.generateCommitMessage']()
