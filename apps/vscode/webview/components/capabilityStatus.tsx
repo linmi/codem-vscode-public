@@ -1,32 +1,42 @@
 import { createRoot } from "react-dom/client"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./collapsible.tsx"
+import { InfoIcon, KeyboardIcon } from "lucide-react"
 import { Button } from "./button.tsx"
-import type { CapabilityState } from "../../src/capabilityTypes.ts"
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./dialog.tsx"
+import type { ChatSnapshot } from "../../src/messages.ts"
 
-function CapabilityStatus({ state }: { state: CapabilityState }) {
-  const visible = state.activity || state.usage || state.plan.length || state.hooks.length || state.guards.length || state.changes.length || state.threadStatus
-  if (!visible) return null
-  return <Collapsible className="capabilityStatus">
-    <CollapsibleTrigger asChild><Button variant="ghost" size="sm">运行详情{state.plan.length ? ` · ${state.plan.filter(step => step.status === "completed").length}/${state.plan.length} 步` : ""}</Button></CollapsibleTrigger>
-    <CollapsibleContent className="capabilityStatusContent">
-      {state.activity && <p role="status">{state.activity}</p>}
-      {state.threadStatus && <p>会话状态：{state.threadStatus}</p>}
-      {state.usage && <p>Token · 输入 {state.usage.input ?? "未知"} · 输出 {state.usage.output ?? "未知"} · 缓存读取 {state.usage.cacheRead ?? "未知"} · 缓存创建 {state.usage.cacheWrite ?? "未知"}</p>}
-      {state.plan.length > 0 && <ol aria-label="执行计划">{state.plan.map((step, i) => <li key={i}><span>{step.status === "completed" ? "✓" : step.status === "in_progress" ? "进行中" : step.status}</span> {step.content}</li>)}</ol>}
-      {state.changes.length > 0 && <ul aria-label="轮次修改汇总">{state.changes.map((file, i) => <li key={i}>{file.label} +{file.added} −{file.removed}</li>)}</ul>}
-      {state.guards.map(guard => <p key={guard.id}>工具输出保护 · {guard.tool} · {guard.status} · 返回 {guard.returnedBytes} B / 原始 {guard.rawBytes ?? "未知"} B{guard.capped ? " · 已限制输出" : ""}</p>)}
-      {state.hooks.map(hook => <p key={hook.id}>Hook · {hook.event}{hook.tool ? ` · ${hook.tool}` : ""} · {hook.outcome} · {hook.elapsedMs} ms</p>)}
-    </CollapsibleContent>
-  </Collapsible>
+const labels: Record<string, string> = { idle: "空闲", running: "运行中", completed: "已完成", in_progress: "进行中", pending: "待执行", failed: "失败", success: "成功", allow: "允许", deny: "拒绝", skipped: "已跳过", interrupted: "已中断" }
+const phaseLabels: Record<ChatSnapshot["phase"], string> = {
+  disconnected: "未连接", connecting: "连接中", configuring: "配置中", ready: "就绪", loadingHistory: "读取历史", sending: "发送中", running: "运行中", stopping: "停止中", sideQuestion: "旁路提问中",
+}
+const format = (value: number | null) => value === null ? "未知" : value.toLocaleString("zh-CN")
+
+function CapabilityStatus({ snapshot, sendKey }: { snapshot: ChatSnapshot; sendKey: string }) {
+  const state = snapshot.capabilities
+  const status = state.threadStatus ? labels[state.threadStatus] ?? state.threadStatus : "尚未开始"
+  return <Dialog>
+    <DialogTrigger asChild><Button id="runtimeDetails" data-thread-id={snapshot.threadId ?? ""} className="runtimeDetailsTrigger" variant="ghost" size="icon" title="运行详情与快捷键" aria-label="运行详情与快捷键"><InfoIcon aria-hidden="true" /></Button></DialogTrigger>
+    <DialogContent className="runtimeDetailsDialog">
+      <header className="runtimeDetailsHeading"><DialogTitle>运行详情</DialogTitle><DialogDescription className="visuallyHidden">当前会话的状态、用量与操作提示</DialogDescription></header>
+      <div className="runtimeDetailsBody">
+        <section className="runtimeSection" aria-label="会话状态">
+          <div className="runtimeSectionHeading"><h3>会话状态</h3><span className="runtimeBadge">{phaseLabels[snapshot.phase]}</span></div>
+          <dl className="runtimeRows"><div><dt>运行状态</dt><dd>{status}</dd></div></dl>
+          {state.activity && <p className="runtimeActivity" role="status">{state.activity}</p>}
+        </section>
+        <section className="runtimeSection" aria-label="Token 用量"><h3>Token 用量</h3>
+          {state.usage ? <dl className="runtimeMetrics">{([ ["输入", state.usage.input], ["输出", state.usage.output], ["缓存读取", state.usage.cacheRead], ["缓存创建", state.usage.cacheWrite] ] as const).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{format(value)}</dd></div>)}</dl> : <p className="runtimeEmpty">暂无用量数据</p>}
+        </section>
+        {state.plan.length > 0 && <section className="runtimeSection"><div className="runtimeSectionHeading"><h3>执行计划</h3><span>{state.plan.filter(step => step.status === "completed").length} / {state.plan.length}</span></div><ol className="runtimeList" aria-label="执行计划">{state.plan.map((step, i) => <li key={i}><span className="runtimeBadge" data-status={step.status}>{labels[step.status] ?? step.status}</span><span>{step.content}</span></li>)}</ol></section>}
+        {state.changes.length > 0 && <section className="runtimeSection"><h3>文件修改</h3><ul className="runtimeList" aria-label="轮次修改汇总">{state.changes.map((file, i) => <li key={i}><span className="runtimeFile">{file.label}</span><span className="runtimeDelta"><span className="diffAdded">+{file.added}</span><span className="diffRemoved">−{file.removed}</span></span></li>)}</ul></section>}
+        {state.guards.length > 0 && <section className="runtimeSection"><h3>工具输出保护</h3><ul className="runtimeRecords">{state.guards.map(guard => <li key={guard.id}><div><strong>{guard.tool}</strong><span className="runtimeBadge">{labels[guard.status] ?? guard.status}</span></div><p>返回 {format(guard.returnedBytes)} B / 原始 {format(guard.rawBytes)} B</p>{guard.capped && <p>已限制输出</p>}</li>)}</ul></section>}
+        {state.hooks.length > 0 && <section className="runtimeSection"><h3>Hooks</h3><ul className="runtimeRecords">{state.hooks.map(hook => <li key={hook.id}><div><strong>{hook.event}</strong><span className="runtimeBadge">{labels[hook.outcome] ?? hook.outcome}</span></div><p>{hook.tool && <span>{hook.tool} · </span>}{format(hook.elapsedMs)} ms</p></li>)}</ul></section>}
+        <section className="runtimeSection" aria-label="快捷键"><h3 className="runtimeKeyboardHeading"><KeyboardIcon aria-hidden="true" />快捷键</h3><dl className="runtimeRows runtimeShortcuts"><div><dt>发送消息</dt><dd><kbd>{sendKey === "enter" ? "Enter" : "Ctrl / Cmd + Enter"}</kbd></dd></div><div><dt>换行</dt><dd><kbd>{sendKey === "enter" ? "Shift + Enter" : "Enter"}</kbd></dd></div></dl></section>
+      </div>
+    </DialogContent>
+  </Dialog>
 }
 
 export function createCapabilityStatus(host: HTMLElement) {
   const root = createRoot(host)
-  let previous = ""
-  return (state: CapabilityState) => {
-    const key = JSON.stringify(state)
-    if (previous === key) return
-    previous = key
-    root.render(<CapabilityStatus state={state} />)
-  }
+  return (snapshot: ChatSnapshot, sendKey: string) => root.render(<CapabilityStatus key={JSON.stringify([snapshot.workspace, snapshot.space, snapshot.threadId])} snapshot={snapshot} sendKey={sendKey} />)
 }

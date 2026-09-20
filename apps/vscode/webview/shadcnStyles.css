@@ -28,9 +28,6 @@
   [data-slot="select-trigger"], [data-slot="select-content"] { animation: none; transition: none; }
 }
 
-.capabilityStatusHost { width: min(100%, 736px); margin: 0 auto; flex-shrink: 0; }
-.capabilityStatus { border-top: 1px solid var(--line); font: 12px/1.6 var(--uiFont); }
-.capabilityStatusContent { padding: 0 12px 8px; max-height: 180px; overflow: auto; overflow-wrap: anywhere; }
 
 [data-slot="dialog-overlay"] { z-index: 90; }
 [data-slot="dialog-content"] { z-index: 91; background: var(--surface); color: var(--ink); border: 1px solid var(--line); font: 12px/1.6 var(--uiFont); box-sizing: border-box; }

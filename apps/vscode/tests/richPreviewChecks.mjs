@@ -17,8 +17,28 @@ export default async function richPreviewChecks(page) {
       await page.screenshot({animations:'disabled',path:`output/playwright/richArtifacts-${theme}.png`})
       await page.goto(`http://127.0.0.1:4318/?scenario=runtimeDetails&theme=${theme}`)
       await page.getByRole('list',{name:'执行计划',exact:true}).waitFor()
-      await page.getByText('Token · 输入 18240', {exact:false}).waitFor()
+      await page.getByRole('region', {name:'Token 用量',exact:true}).getByText('18,240', {exact:true}).waitFor()
+      await page.getByRole('region', {name:'快捷键',exact:true}).getByText('Shift + Enter', {exact:true}).waitFor()
       await page.screenshot({animations:'disabled',path:`output/playwright/richRuntime-${theme}.png`})
+      const runtimeLayout = await page.locator('.runtimeDetailsDialog').evaluate(dialog => ({
+        headerHeight: dialog.querySelector('.runtimeDetailsHeading').getBoundingClientRect().height,
+        width: dialog.getBoundingClientRect().width,
+        viewportWidth: window.innerWidth,
+      }))
+      if (runtimeLayout.headerHeight > 48 || runtimeLayout.width > runtimeLayout.viewportWidth - 24) throw Error('Runtime dialog header or width exceeds compact layout')
+      await page.getByRole('button', {name:'关闭', exact:true}).click()
+      await page.locator('.runtimeDetailsDialog').waitFor({state:'hidden'})
+      if (await page.locator('.capabilityStatus, .keyboardHint').count()) throw Error('Legacy runtime row or shortcut text still mounted')
+      if (!await page.locator('#runtimeDetails').evaluate(node => node === document.activeElement)) throw Error('Runtime dialog did not restore trigger focus')
+      await page.locator('#runtimeDetails').press('Enter')
+      await page.locator('.runtimeDetailsDialog').waitFor({state:'visible'})
+      await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', {data:{type:'editorSettings',sendKey:'modEnter'}})))
+      await page.getByRole('region', {name:'快捷键',exact:true}).getByText('Ctrl / Cmd + Enter', {exact:true}).waitFor()
+      // Same-session snapshots must update usage without dismissing the dialog.
+      await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', {data:{...window.demo,capabilities:{...window.demo.capabilities,usage:{input:0,output:79,cacheRead:null,cacheWrite:0}}}})))
+      await page.getByRole('region', {name:'Token 用量',exact:true}).getByText('79', {exact:true}).waitFor()
+      await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', {data:{...window.demo,threadId:'next-runtime-thread'}})))
+      await page.locator('.runtimeDetailsDialog').waitFor({state:'hidden'})
       for (const [scenario, selector] of [['resourceFiles','[data-resource-section="files"]'],['resourceTools','[data-resource-section="tools"]'],['resourceBackground','[data-resource-section="background"]']]) {
         await page.goto(`http://127.0.0.1:4318/?scenario=${scenario}&theme=${theme}`)
         await page.locator(selector).waitFor()

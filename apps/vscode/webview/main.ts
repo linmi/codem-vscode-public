@@ -54,10 +54,7 @@ const modeHost = document.createElement("div"); element("composer").prepend(mode
 const renderComposerMode = createComposerMode(modeHost, () => setInputMode("message"), post)
 const renderResourceTools = createResourceTools(element("resourceToolsHost"), post)
 const renderHistory = createHistoryView(standaloneActions, scroller, post, prompt)
-const statusHost = document.createElement("div")
-statusHost.className = "capabilityStatusHost"
-element("composer").before(statusHost)
-const renderCapabilityStatus = createCapabilityStatus(statusHost)
+const renderCapabilityStatus = createCapabilityStatus(element("runtimeDetailsHost"))
 const renderWorkGroups = createWorkGroups(post)
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
@@ -212,7 +209,7 @@ function render(next: ChatSnapshot): void {
   }
   while (position) { const next = position.nextSibling; position.remove(); position = next }
   renderHistory(state)
-  renderCapabilityStatus(state.capabilities)
+  renderCapabilityStatus(state, sendKey)
   const initializing = state.phase === "connecting"
   const restoring = state.phase === "loadingHistory"
   element("transcriptLoading").hidden = !restoring && (!initializing || state.messages.length > 0)
@@ -234,8 +231,7 @@ function render(next: ChatSnapshot): void {
   element("model").title = state.model ?? "连接后使用 Core 当前模型"
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
-  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : sendKey === "enter" ? "Enter 发送 · Shift + Enter 换行" : "Ctrl / Cmd + Enter 发送 · Enter 换行"
-  element("status").title = element("status").textContent ?? ""
+  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : ""
   fileMentions.refresh()
   renderResources()
   saveDraft()

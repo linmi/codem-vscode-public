@@ -62,7 +62,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
           })
         })
       } else if (surface === "capabilities") {
-        whenRendered('.capabilityStatus button[aria-expanded="false"]', node => node.click())
+        whenRendered(`#runtimeDetails[data-state="closed"][data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, node => node.click())
       } else if (surface === "activities") {
         for (const detail of document.querySelectorAll<HTMLDetailsElement>(".workGroup, .activityMessage details")) {
           if (!detail.open) detail.querySelector<HTMLElement>(":scope > summary")?.click()
@@ -86,6 +86,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     for (const cancel of pendingElements) cancel()
     document.querySelector<HTMLButtonElement>("#closeResources")?.click()
     document.querySelector<HTMLButtonElement>('.sessionCommandDialog [data-slot="dialog-close"]')?.click()
+    document.querySelector<HTMLButtonElement>('.runtimeDetailsDialog [data-slot="dialog-close"]')?.click()
     document.querySelector<HTMLButtonElement>('[aria-label="返回普通对话"]')?.click()
     generation++
     const next = createPreviewState(search)

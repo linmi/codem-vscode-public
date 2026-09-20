@@ -5,6 +5,7 @@
 @import "./markdown.css";
 @import "./panels.css";
 @import "./loadingState.css";
+@import "./runtimeDetails.css";
 * { box-sizing: border-box; }
 html { font-size: 16px; }
 /* Own the page gutters: VS Code injects 20px body padding, which modal scroll locking resets.
@@ -101,7 +102,6 @@ textarea::placeholder { color: color-mix(in srgb, var(--muted) 40%, transparent)
 #workspace { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .environment { flex-shrink: 0; }
 .workspaceLabel { flex: 1; }
-.keyboardHint { margin-left: auto; max-width: 60%; font-size: 10px; line-height: 24px; color: var(--muted); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .app[data-phase="configuring"] .composerToolbar .optionButton:disabled, .app[data-phase="configuring"] .composerToolbar .iconButton:disabled { opacity: 1; }
 .connection { padding: 10px 12px; width: calc(100% * 14 / 15); margin: 0 auto -1px; border: 1px solid var(--surfaceBorder); border-radius: 18.2px 18.2px 0 0; background: color-mix(in srgb, var(--popover) 27.5%, transparent); font-size: 11px; }
 .connection p { margin: 0 0 6px; color: var(--muted); }
