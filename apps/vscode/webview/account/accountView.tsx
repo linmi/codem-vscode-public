@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { createRoot } from "react-dom/client"
 import { ArrowLeftIcon, ArrowUpRightIcon, LogOutIcon, RefreshCwIcon, UserRoundIcon } from "lucide-react"
@@ -13,9 +13,9 @@ function AccountAvatarView({ name, avatar, large = false }: { name: string | nul
     <AvatarFallback>{initial ?? <UserRoundIcon />}</AvatarFallback>
   </Avatar>
 }
-function Profile({ profile, avatarAttempt, refreshing, notice, back, refresh, logout }: { profile: AccountProfile; avatarAttempt: number; refreshing: boolean; notice: string | null; back: () => void; refresh: () => void; logout: () => void }) {
+function Profile({ profile, focusRequest, avatarAttempt, refreshing, notice, back, refresh, logout }: { profile: AccountProfile; focusRequest: number; avatarAttempt: number; refreshing: boolean; notice: string | null; back: () => void; refresh: () => void; logout: () => void }) {
   const backButton = useRef<HTMLButtonElement>(null)
-  useLayoutEffect(() => { backButton.current?.focus() }, [])
+  useLayoutEffect(() => { backButton.current?.focus() }, [focusRequest])
   const fields = [["用户 ID", profile.userId], ["租户 ID", profile.tenantId], ["登录方式", profile.authMethod]] as const
   return <section className="accountPage" aria-labelledby="accountTitle" onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); back() } }}>
     <header className="accountHeader"><Button ref={backButton} variant="ghost" size="icon" aria-label="返回聊天" onClick={back}><ArrowLeftIcon aria-hidden="true" /></Button><h1 id="accountTitle">个人账户</h1><Button variant="ghost" size="icon" aria-label="刷新账户信息" title="刷新账户信息" disabled={refreshing} onClick={refresh}><RefreshCwIcon aria-hidden="true" /></Button></header>
@@ -30,10 +30,7 @@ function Profile({ profile, avatarAttempt, refreshing, notice, back, refresh, lo
   </section>
 }
 
-function AccountView({ state, avatarHost, chat, logo, post }: { state: AccountState; avatarHost: HTMLElement; chat: HTMLElement; logo: string; post: (action: AccountAction) => void }) {
-  const [profileOpen, setProfileOpen] = useState(false)
-  const [avatarAttempt, setAvatarAttempt] = useState(0)
-  const refreshAccount = () => { setAvatarAttempt(value => value + 1); post({ type: "refreshAccount" }) }
+function AccountView({ state, profileOpen, focusRequest, avatarAttempt, open, back, refresh, avatarHost, chat, logo, post }: { state: AccountState; profileOpen: boolean; focusRequest: number; avatarAttempt: number; open: () => void; back: () => void; refresh: () => void; avatarHost: HTMLElement; chat: HTMLElement; logo: string; post: (action: AccountAction) => void }) {
   const authenticated = state.status === "signedIn"
   const avatarButton = useRef<HTMLButtonElement>(null)
   const wasProfileOpen = useRef(false)
@@ -43,7 +40,6 @@ function AccountView({ state, avatarHost, chat, logo, post }: { state: AccountSt
     chat.hidden = !authenticated || profileOpen
     if (authenticated && !profileOpen && wasProfileOpen.current) avatarButton.current?.focus()
     wasProfileOpen.current = profileOpen
-    if (!authenticated) setProfileOpen(false)
     if ((previousStatus.current === "signingIn" && state.status !== "signingIn") || (previousStatus.current === "signingOut" && state.status !== "signingOut")) {
       if (authenticated) chat.querySelector<HTMLTextAreaElement>("textarea")?.focus()
       else loginButton.current?.focus()
@@ -51,8 +47,8 @@ function AccountView({ state, avatarHost, chat, logo, post }: { state: AccountSt
     previousStatus.current = state.status
   }, [authenticated, profileOpen, chat, state.status])
   if (state.status === "signedIn") return <>
-    {createPortal(<Button ref={avatarButton} className="accountTrigger" variant="ghost" size="icon" aria-label={`个人账户：${state.profile.displayName || "CodeM 用户"}`} title="个人账户" onClick={() => { setProfileOpen(true); refreshAccount() }}><AccountAvatarView key={avatarAttempt} name={state.profile.displayName} avatar={state.profile.avatar} /></Button>, avatarHost)}
-    {profileOpen && <Profile profile={state.profile} avatarAttempt={avatarAttempt} refreshing={state.refreshing} notice={state.notice} back={() => setProfileOpen(false)} refresh={refreshAccount} logout={() => post({ type: "signOut" })} />}
+    {createPortal(<Button ref={avatarButton} className="accountTrigger" variant="ghost" size="icon" aria-label={`个人账户：${state.profile.displayName || "CodeM 用户"}`} title="个人账户" onClick={open}><AccountAvatarView key={avatarAttempt} name={state.profile.displayName} avatar={state.profile.avatar} /></Button>, avatarHost)}
+    {profileOpen && <Profile profile={state.profile} focusRequest={focusRequest} avatarAttempt={avatarAttempt} refreshing={state.refreshing} notice={state.notice} back={back} refresh={refresh} logout={() => post({ type: "signOut" })} />}
   </>
   if (state.status === "signingOut" || state.status === "signOutFailed") return <section className="accountPage accountLogin" aria-label="退出 CodeM">
     <div className="accountLoginContent"><img src={logo} alt="CodeM" width="44" height="44" /><h1>{state.status === "signingOut" ? "正在退出登录…" : "退出未完成"}</h1>
@@ -83,7 +79,22 @@ function AccountView({ state, avatarHost, chat, logo, post }: { state: AccountSt
 
 export function createAccountView(host: HTMLElement, avatarHost: HTMLElement, chat: HTMLElement, logo: string, post: (action: AccountAction) => void) {
   const root = createRoot(host)
-  const render = (state: AccountState) => root.render(<AccountView state={state} avatarHost={avatarHost} chat={chat} logo={logo} post={post} />)
-  render({ status: "checking" })
-  return render
+  let state: AccountState = { status: "checking" }
+  let profileOpen = false
+  let avatarAttempt = 0
+  let focusRequest = 0
+  const render = () => root.render(<AccountView state={state} profileOpen={profileOpen} focusRequest={focusRequest} avatarAttempt={avatarAttempt} open={open} back={back} refresh={refresh} avatarHost={avatarHost} chat={chat} logo={logo} post={post} />)
+  const refresh = () => { avatarAttempt++; render(); post({ type: "refreshAccount" }) }
+  const open = () => {
+    if (state.status !== "signedIn") return
+    focusRequest++
+    if (profileOpen) { render(); return }
+    profileOpen = true; refresh()
+  }
+  const back = () => { profileOpen = false; render() }
+  render()
+  return {
+    update(next: AccountState) { state = next; if (state.status !== "signedIn") profileOpen = false; render() },
+    open,
+  }
 }

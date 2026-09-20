@@ -41,7 +41,7 @@ const renderResourceTools = createResourceTools(element("resourceToolsHost"), po
 const renderHistory = createHistoryView(standaloneActions, scroller, post, prompt)
 const renderCapabilityStatus = createCapabilityStatus(element("runtimeDetailsHost"))
 const renderWorkGroups = createWorkGroups(post)
-const renderAccount = createAccountView(element("accountRoot"), element("accountMenu"), document.querySelector<HTMLElement>(".app")!, element("accountRoot").dataset.logo!, post)
+const accountView = createAccountView(element("accountRoot"), element("accountMenu"), document.querySelector<HTMLElement>(".app")!, element("accountRoot").dataset.logo!, post)
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
 const imageRequests = new Map<string, (preview: import("../src/shared/messages.ts").AttachmentView["preview"]) => void>()
@@ -142,7 +142,8 @@ window.addEventListener("message", (event: MessageEvent<AccountMessage | EditorM
   }
   else if (event.data?.type === "imageResult") { imageRequests.get(event.data.id)?.(event.data.preview); imageRequests.delete(event.data.id) }
   else if (event.data?.type === "panel") panels.render(event.data.panel)
-  else if (event.data?.type === "account") renderAccount(event.data.state)
+  else if (event.data?.type === "account") accountView.update(event.data.state)
+  else if (event.data?.type === "showAccount") accountView.open()
   else if (event.data?.type === "state") render(event.data)
 })
 composer.update(state)

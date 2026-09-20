@@ -20,7 +20,7 @@ it("initializes on opening chat by default, once per activation, with explicit r
     b.onResolve({ filter: /^\.\// }, args => args.importer.endsWith("/src/extension.ts") && !args.path.endsWith("accountController.ts") ? { path: "dependencies", namespace: "fixture" } : undefined)
     b.onLoad({ filter: /.*/, namespace: "fixture" }, args => ({ contents: args.path === "vscode" ? `
       const disposable = {dispose(){}};
-      export const control = {available:false, trusted:true, folders:[{}], setting:undefined, calls:0, authReads:0, logins:0, logouts:0, resets:0, draftsCleared:0, selectionsCleared:0, signedIn:true, commands:{}, pending:Promise.resolve()};
+      export const control = {available:false, trusted:true, folders:[{}], setting:undefined, calls:0, authReads:0, logins:0, logouts:0, resets:0, draftsCleared:0, selectionsCleared:0, signedIn:true, accountPages:0, focusCalls:0, loginPending:Promise.resolve(), contexts:{}, commands:{}, pending:Promise.resolve()};
       export const workspace = {
         get isTrusted(){return control.trusted}, get workspaceFolders(){return control.folders},
         getConfiguration(){return {get:(key,fallback)=>control.setting ?? fallback}},
@@ -28,12 +28,12 @@ it("initializes on opening chat by default, once per activation, with explicit r
         onDidChangeConfiguration(fn){control.configuration=fn;return disposable},
       };
       export const window = {createOutputChannel(){return {appendLine(){},dispose(){}}}};
-      export const commands = {registerCommand(name,fn){control.commands[name]=fn;return disposable}};
+      export const commands = {async executeCommand(name,key,value){if(name!=="setContext")throw new Error(name);control.contexts[key]=value},registerCommand(name,fn){control.commands[name]=fn;return disposable}};
     ` : `
       import {control} from 'vscode';
-      export function accountOperations(){return {logout:async()=>{control.logouts++;control.signedIn=false;return {loggedIn:false,routerCredential:false}},read:async()=>{control.authReads++;return {avatar:{kind:"none"},loggedIn:control.signedIn,routerCredential:control.signedIn,displayName:null,userId:null,tenantId:null,authMethod:null}},login:async()=>{control.logins++;control.signedIn=true;return {avatar:{kind:"none"},loggedIn:true,routerCredential:true,displayName:null,userId:null,tenantId:null,authMethod:null}}}}
+      export function accountOperations(){return {logout:async()=>{control.logouts++;control.signedIn=false;return {loggedIn:false,routerCredential:false}},read:async()=>{control.authReads++;return {avatar:{kind:"none"},loggedIn:control.signedIn,routerCredential:control.signedIn,displayName:null,userId:null,tenantId:null,authMethod:null}},login:async()=>{control.logins++;await control.loginPending;control.signedIn=true;return {avatar:{kind:"none"},loggedIn:true,routerCredential:true,displayName:null,userId:null,tenantId:null,authMethod:null}}}}
       export class ChatController { async connect(){control.calls++;await control.pending} async dispose(){} async resetAccount(){control.resets++} publish(){} }
-      export class ChatSurfaces {constructor(context,panels,dispatch){control.dispatch=dispatch} get available(){return control.available} post(){} resetDraft(){control.draftsCleared++} async focus(){} dispose(){} }
+      export class ChatSurfaces {constructor(context,panels,dispatch){control.dispatch=dispatch} get available(){return control.available} post(){} resetDraft(){control.draftsCleared++} async focus(){control.focusCalls++} async openAccount(){control.accountPages++} dispose(){} }
       export class ConnectionPreferences {}
       export class EditorSelection {state={snapshot(){return null},setContext(){},clear(){control.selectionsCleared++}};dispose(){}}
       export class ActiveConversation {}
@@ -51,9 +51,11 @@ it("initializes on opening chat by default, once per activation, with explicit r
   t.after(deactivate)
   const context = { subscriptions: [], workspaceState: {}, secrets: {} }
   activate(context)
+  assert.equal(control.contexts["codem.accountStatus"], "checking")
   const ready = () => control.dispatch({ type: "ready" }, () => {})
   await ready()
   assert.equal(control.calls, 0, "Activation without a visible chat must not connect")
+  assert.equal(control.contexts["codem.accountStatus"], "signedIn")
   control.available = true
   control.trusted = false
   await ready()
@@ -91,12 +93,22 @@ it("initializes on opening chat by default, once per activation, with explicit r
   control.signedIn = false; control.folders = []; control.trusted = false
   activate(context); await ready()
   assert.equal(control.calls, 3, "Signed-out account never connects Core")
-  await control.dispatch({ type: "signIn" }, () => {})
+  assert.equal(control.contexts["codem.accountStatus"], "signedOut")
+  await control.commands["codem.signIn"]()
   assert.equal(control.logins, 1)
   assert.equal(control.calls, 3, "Login is independent of Core, folders and trust")
+  const focusCalls = control.focusCalls
+  const reads = control.authReads
   await control.commands["codem.signIn"]()
+  assert.equal(control.accountPages, 1, "A stale Login command opens the signed-in account instead of silently returning")
+  await control.commands["codem.account"]()
+  assert.equal(control.accountPages, 2)
+  assert.equal(control.focusCalls, focusCalls, "Account navigation must not also focus the composer and steal keyboard focus")
+  assert.equal(control.authReads, reads, "Commands reuse known identity; the account page owns its refresh")
+  assert.equal(control.calls, 3, "Opening account must not connect Core")
   assert.equal(control.logins, 1, "An already signed-in account must not launch login again")
   await Promise.all([control.dispatch({ type: "signOut" }, () => {}), control.dispatch({ type: "signOut" }, () => {})])
+  assert.equal(control.contexts["codem.accountStatus"], "signedOut")
   assert.equal(control.logouts, 1)
   assert.equal(control.resets, 1); assert.equal(control.draftsCleared, 1); assert.equal(control.selectionsCleared, 1)
   await ready()
@@ -104,6 +116,29 @@ it("initializes on opening chat by default, once per activation, with explicit r
   let receipt: unknown
   await control.dispatch({ type: "send", text: "stale request", requestId: "old" }, (value: unknown) => { receipt = value })
   assert.deepEqual(receipt, { type: "sendResult", requestId: "old", accepted: false })
-  await control.dispatch({ type: "signIn" }, () => {})
-  assert.equal(control.logins, 2)
+  let finishLogin!: () => void
+  control.loginPending = new Promise<void>(resolve => { finishLogin = resolve })
+  const login = control.commands["codem.signIn"]()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(control.contexts["codem.accountStatus"], "signingIn")
+  await control.commands["codem.signIn"]()
+  assert.equal(control.logins, 2, "Repeated native login shows the pending operation without starting another")
+  finishLogin(); await login
+  assert.equal(control.contexts["codem.accountStatus"], "signedIn")
+})
+
+it("native account menus follow the authoritative account state", async () => {
+  const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"))
+  for (const menu of ["view/title", "commandPalette"]) {
+    const entries = manifest.contributes.menus[menu].filter((item: { command: string }) => ["codem.signIn", "codem.account"].includes(item.command))
+    assert.equal(entries.length, 2)
+    for (const status of ["checking", "signedOut", "error", "signingIn", "signedIn", "signingOut", "signOutFailed"]) {
+      const visible = entries.filter((item: { when: string }) => {
+        const expression = item.when.replace(/view == codem.chat/g, "true").replace(/codem.accountStatus (!=|==) (\w+)/g, (_: string, operator: string, value: string) => String(operator === "==" ? status === value : status !== value))
+        assert.match(expression, /^[truefals&| ()]+$/)
+        return new Function(`return (${expression})`)()
+      })
+      assert.deepEqual(visible.map((item: { command: string }) => item.command), [["signedIn", "signingOut", "signOutFailed"].includes(status) ? "codem.account" : "codem.signIn"], `${menu}: ${status}`)
+    }
+  }
 })

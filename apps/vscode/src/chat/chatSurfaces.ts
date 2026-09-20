@@ -14,6 +14,7 @@ export class ChatSurfaces implements vscode.Disposable {
   private ready = false
   private restored = false
   private pendingFocus = false
+  private pendingAccount = false
   private readonly restoredWaiters = new Set<(error?: Error) => void>()
   private draft: ComposerDraft | null = null
   private draftRevision = 0
@@ -41,10 +42,25 @@ export class ChatSurfaces implements vscode.Disposable {
     this.post({ type: "composerDraft", value: this.draft, focus: false, pendingRequestId: null })
   }
   async focus(): Promise<void> {
+    this.pendingAccount = false
     this.pendingFocus = true
     if (this.editor) this.editor.reveal(undefined, false)
     else await vscode.commands.executeCommand("codem.chat.focus")
     if (this.ready) { this.post({ type: "focusComposer" }); this.pendingFocus = false }
+  }
+  async openAccount(): Promise<void> {
+    this.pendingFocus = false
+    // Reveal without native iframe focus overriding the destination's button focus.
+    if (this.editor) this.editor.reveal(undefined, true)
+    else if (this.sidebar) this.sidebar.show(true)
+    else await vscode.commands.executeCommand("codem.chat.focus")
+    this.pendingAccount = true
+    this.showPendingAccount()
+  }
+  private showPendingAccount(): void {
+    if (!this.ready || !this.pendingAccount) return
+    this.pendingAccount = false; this.pendingFocus = false
+    this.post({ type: "showAccount" })
   }
   async addContext(text: string): Promise<void> {
     const generation = this.contextGeneration
@@ -93,7 +109,7 @@ export class ChatSurfaces implements vscode.Disposable {
   }
   private synchronize(): void {
     if (this.disposed || !this.ready || !this.active) return
-    this.publish(); this.panels.replay(); this.postSettings()
+    this.publish(); this.panels.replay(); this.postSettings(); this.showPendingAccount()
   }
   private mount(surface: Surface): void {
     if (this.disposed || this.active === surface) return

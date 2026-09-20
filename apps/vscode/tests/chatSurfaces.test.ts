@@ -20,7 +20,7 @@ async function fixture(t: TestContext) {
           webview:{get html(){return html},set html(value){html=value;htmlWrites++},cspSource:'fixture',postMessage(m){this.owner.messages.push(m);return Promise.resolve(true)},asWebviewUri(){return {toString:()=>''}},onDidReceiveMessage(fn){listener=fn;return {dispose(){listener=undefined}}}},
           onDidChangeVisibility:onVisibility,onDidChangeViewState:onVisibility,
           setVisible(value){this.visible=value;for(const fn of visibilityListeners)fn({webviewPanel:this})},
-          onDidDispose(fn){closed=fn;return disposable},reveal(){this.setVisible(true)},dispose(){closed?.()},receive(m){listener?.(m)}
+          onDidDispose(fn){closed=fn;return disposable},show(preserveFocus){this.preserveFocus=preserveFocus;this.setVisible(true)},reveal(column,preserveFocus){this.preserveFocus=preserveFocus;this.setVisible(true)},dispose(){closed?.()},receive(m){listener?.(m)}
         }
       }
       function make(){const s=surface();s.webview.owner=s;return s}
@@ -185,4 +185,33 @@ it("logout cancels context insertion waiting for Webview restoration", async t =
   control.sidebar.receive({ type: "ready" }); control.sidebar.receive({ type: "composerRestore", value: { draft: "stale" } })
   assert.equal(control.sidebar.messages.some((message: { type: string }) => message.type === "appendContext"), false)
   assert.equal(control.sidebar.messages.at(-1).value.draft, "")
+})
+
+it("opens account after readiness, once, without stealing focus when the draft restores", async t => {
+  const { ChatSurfaces, PanelBroker, control } = await fixture(t)
+  const surfaces = new ChatSurfaces({ extensionUri: {} }, new PanelBroker(), async () => {}, () => surfaces.post({ type: "account", state: { status: "signedIn" } }))
+  t.after(() => surfaces.dispose())
+  await surfaces.focus()
+  await surfaces.openAccount(); await surfaces.openAccount()
+  assert.equal(control.sidebar.messages.length, 0)
+  assert.equal(control.sidebar.preserveFocus, true)
+  control.sidebar.receive({ type: "ready" })
+  assert.equal(control.sidebar.messages.at(-1).type, "showAccount")
+  assert.equal(control.sidebar.messages.filter((message: { type: string }) => message.type === "showAccount").length, 1)
+  control.sidebar.receive({ type: "composerRestore", value: { draft: "keep this" } })
+  assert.equal(control.sidebar.messages.at(-1).focus, false)
+  assert.equal(control.sidebar.messages.at(-1).value.draft, "keep this")
+  control.sidebar.setVisible(false); control.sidebar.setVisible(true)
+  assert.equal(control.sidebar.messages.filter((message: { type: string }) => message.type === "showAccount").length, 1, "Revealing the surface must not reopen a closed account page")
+  surfaces.openInTab()
+  await surfaces.openAccount()
+  const editor = control.editors[0]
+  editor.receive({ type: "ready" })
+  assert.equal(editor.messages.at(-1).type, "showAccount")
+  editor.receive({ type: "composerRestore", value: { draft: "stale" } })
+  assert.equal(editor.messages.at(-1).focus, false)
+  assert.equal(editor.messages.at(-1).value.draft, "keep this")
+  await surfaces.openAccount()
+  assert.equal(editor.preserveFocus, true)
+  assert.equal(editor.messages.at(-1).type, "showAccount")
 })

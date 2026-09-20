@@ -91,7 +91,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
           whenRendered(`[data-resource-tab="${surface}"]`, node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })))
         })
       }
-      if (["accountProfile", "accountAvatar", "accountAvatarFailure", "accountSignOutFailure"].includes(search.scenario)) whenRendered(".accountTrigger", node => node.click())
+      if (["accountProfile", "accountAvatar", "accountAvatarFailure", "accountSignOutFailure"].includes(search.scenario)) emit({ type: "showAccount" })
       if (search.scenario === "sendFailure") {
         const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
         prompt.value = "继续检查错误恢复，并保留这段草稿。"; prompt.dispatchEvent(new Event("input", { bubbles: true }))

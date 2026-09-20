@@ -60,6 +60,11 @@
         "category": "CodeM"
       },
       {
+        "command": "codem.account",
+        "title": "个人账户",
+        "category": "CodeM"
+      },
+      {
         "command": "codem.showOutput",
         "title": "查看日志",
         "category": "CodeM"
@@ -183,7 +188,11 @@
         },
         {
           "command": "codem.signIn",
-          "when": "view == codem.chat"
+          "when": "view == codem.chat && codem.accountStatus != signedIn && codem.accountStatus != signingOut && codem.accountStatus != signOutFailed"
+        },
+        {
+          "command": "codem.account",
+          "when": "view == codem.chat && (codem.accountStatus == signedIn || codem.accountStatus == signingOut || codem.accountStatus == signOutFailed)"
         },
         {
           "command": "codem.showOutput",
@@ -264,6 +273,16 @@
           "command": "codem.generateCommitMessage",
           "when": "scmProvider == git && isWorkspaceTrusted",
           "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "codem.signIn",
+          "when": "codem.accountStatus != signedIn && codem.accountStatus != signingOut && codem.accountStatus != signOutFailed"
+        },
+        {
+          "command": "codem.account",
+          "when": "codem.accountStatus == signedIn || codem.accountStatus == signingOut || codem.accountStatus == signOutFailed"
         }
       ]
     },

@@ -14,5 +14,5 @@ export type AccountState =
   | { status: "signingIn"; progress: "opening" | "waiting" | "binding" | "cancelling" }
   | { status: "signedIn"; profile: AccountProfile; refreshing: boolean; notice: string | null }
   | { status: "error"; message: string }
-export interface AccountMessage { type: "account"; state: AccountState }
+export type AccountMessage = { type: "account"; state: AccountState } | { type: "showAccount" }
 export type AccountAction = { type: "signIn" | "cancelSignIn" | "refreshAccount" | "signOut" }

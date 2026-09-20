@@ -31,7 +31,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const panels = new PanelBroker()
   let settingsAbort: AbortController | null = null
   let surfaces: ChatSurfaces | undefined
-  const account = new AccountController(accountOperations(context.extensionPath, (stage, ms) => output.appendLine(`Account ${stage}: ${ms}ms`)), state => surfaces?.post({ type: "account", state }))
+  const account = new AccountController(accountOperations(context.extensionPath, (stage, ms) => output.appendLine(`Account ${stage}: ${ms}ms`)), state => {
+    void vscode.commands.executeCommand("setContext", "codem.accountStatus", state.status)
+    surfaces?.post({ type: "account", state })
+  })
+  account.publish()
   accountController = account
   let selection: EditorSelection | undefined
   let connectingAt: number | null = null
@@ -213,7 +217,15 @@ export function activate(context: vscode.ExtensionContext): void {
     "codem.history": async () => { await surfaces?.focus(); await chat.toggleHistory() },
     "codem.newChat": async () => { await surfaces?.focus(); await chat.newChat(); selection!.state.clear() },
     "codem.connect": async () => { await account.initialize(); if (account.signedIn) await chat.connect(); else await surfaces?.focus() },
-    "codem.signIn": async () => { await surfaces?.focus(); await account.initialize(); await account.login() },
+    "codem.account": async () => { if (account.snapshot().status === "checking") await account.initialize(); await surfaces?.openAccount() },
+    "codem.signIn": async () => {
+      if (account.snapshot().status === "checking") await account.initialize()
+      if (account.signedIn) await surfaces?.openAccount()
+      else {
+        await surfaces?.focus()
+        if (account.snapshot().status === "signedOut" || account.snapshot().status === "error") await account.login()
+      }
+    },
     "codem.showOutput": () => output.show(),
   }
   for (const [name, run] of Object.entries(commands)) context.subscriptions.push(vscode.commands.registerCommand(name, run))
