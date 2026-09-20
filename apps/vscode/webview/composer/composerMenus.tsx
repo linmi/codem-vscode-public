@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 import { createPortal } from "react-dom"
 import { CheckIcon } from "lucide-react"
@@ -10,27 +10,30 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover.tsx"
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "../components/ui/command.tsx"
 import { Button } from "../components/ui/button.tsx"
+import { ComposerMenuHeading } from "./composerMenuHeading.tsx"
 
 type MenuName = "permission" | "workMode" | "model" | "space" | "attachment"
 const icon = (name: Parameters<typeof uiIcon>[0]) => <span className="composerMenuIcon" dangerouslySetInnerHTML={{ __html: uiIcon(name) }} />
 function FixedMenu({ id, title, label, value, choices, children, enabled, open, onOpenChange, select, className, scope }: { scope: string; id: string; title: string; label: string; value: string; choices: readonly { value: string; label: string; description: string }[]; children: ReactNode; enabled: boolean; open: boolean; onOpenChange: (open: boolean) => void; select: (value: string) => void; className?: string }) {
   return <Select value={value} open={open} onOpenChange={onOpenChange} disabled={!enabled} onValueChange={select}>
     <SelectTrigger id={id} data-menu-scope={scope} data-mode={id === "selectPermission" ? value : undefined} className={`composerMenuTrigger ${className ?? "optionButton"}`} aria-label={label} title={label}>{children}</SelectTrigger>
-    <SelectContent className="composerChoiceMenu" position="popper" side="top" align="end" sideOffset={8} collisionPadding={12}>
-      <SelectGroup><SelectLabel>{title}</SelectLabel>{choices.map(choice => <SelectItem key={choice.value} className={id === "selectPermission" && choice.value === "yolo" ? "composerPermissionWarning" : undefined} value={choice.value} textValue={choice.label}><span className="composerChoiceText"><span>{choice.label}</span><small>{choice.description}</small></span></SelectItem>)}</SelectGroup>
+    <SelectContent className={`composerPickerMenu composerChoiceMenu${id === "selectWorkMode" ? " composerWorkModeMenu" : ""}`} position="popper" side="top" align="end" sideOffset={8} collisionPadding={12}>
+      <SelectGroup><ComposerMenuHeading close={() => onOpenChange(false)}><SelectLabel>{title}</SelectLabel></ComposerMenuHeading>{choices.map(choice => <SelectItem key={choice.value} className={id === "selectPermission" && choice.value === "yolo" ? "composerPermissionWarning" : undefined} value={choice.value} textValue={choice.label}>{id === "selectPermission" && icon(permissionIcons[parseCodemPermissionMode(choice.value)])}<span className="composerChoiceText"><span>{choice.label}</span><small>{choice.description}</small></span></SelectItem>)}</SelectGroup>
     </SelectContent>
   </Select>
 }
 function CatalogMenu({ id, title, choices, children, enabled, open, onOpenChange, select, connect, refresh, scope }: { scope: string; id: string; title: string; choices: readonly ComposerChoice[]; children: ReactNode; enabled: boolean; open: boolean; onOpenChange: (open: boolean) => void; select: (id: string) => void; connect: (() => void) | null; refresh?: () => void }) {
+  const search = useRef<HTMLInputElement>(null)
   return <Popover open={open} onOpenChange={onOpenChange}>
     <PopoverTrigger asChild><Button id={id} data-menu-scope={scope} variant="ghost" className={`composerMenuTrigger ${id === "selectSpace" ? "spaceButton" : "optionButton"}`} disabled={!enabled} aria-busy={!enabled} aria-label={`选择${title}`} title={`选择${title}`}>{children}</Button></PopoverTrigger>
-    <PopoverContent className="composerCatalogMenu" side="top" align="end" sideOffset={8} collisionPadding={12} aria-label={title}>
-      <Command><CommandInput placeholder={`搜索${title}…`} aria-label={`搜索${title}`} /><CommandList>
+    <PopoverContent className="composerPickerMenu composerCatalogMenu" side="top" align="end" sideOffset={8} collisionPadding={12} aria-label={title} onOpenAutoFocus={event => { event.preventDefault(); search.current?.focus() }}>
+      <ComposerMenuHeading close={() => onOpenChange(false)}><h2>{title}</h2></ComposerMenuHeading>
+      <Command defaultValue={choices.find(choice => choice.selected)?.label}><CommandInput ref={search} placeholder={`搜索${title}…`} aria-label={`搜索${title}`} /><CommandList>
         <CommandEmpty>{choices.length ? "没有匹配的选项" : `尚未加载${title}，连接或发送消息后可用。`}</CommandEmpty>
-        {choices.map(choice => <CommandItem key={choice.id} value={choice.label} onSelect={() => select(choice.id)}><span className="composerChoiceText"><span>{choice.label}</span><small>{choice.description}</small></span>{choice.selected && <CheckIcon aria-label="当前选项" />}</CommandItem>)}
+        {choices.map(choice => <CommandItem key={choice.id} value={choice.label} data-current={choice.selected} onSelect={() => select(choice.id)}><span className="composerChoiceText"><span>{choice.label}</span>{choice.description && <small>{choice.description}</small>}</span>{choice.selected && <CheckIcon aria-label="当前选项" />}</CommandItem>)}
       </CommandList></Command>
-      {connect && <Button type="button" variant="ghost" onClick={connect}>连接并加载{title}</Button>}
-      {refresh && <Button type="button" variant="ghost" onClick={refresh}>刷新空间列表</Button>}
+      {connect && <Button type="button" variant="ghost" className="composerCatalogAction" onClick={connect}>连接并加载{title}</Button>}
+      {refresh && <Button type="button" variant="ghost" className="composerCatalogAction" onClick={refresh}>刷新空间列表</Button>}
     </PopoverContent>
   </Popover>
 }

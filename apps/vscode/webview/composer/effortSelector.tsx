@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { CODEM_BUILTIN_INTELLIGENCE_TIERS, CODEM_DEFAULT_INTELLIGENCE, parseCodemIntelligence } from "@codem/protocol"
 import { initialSnapshot, isBusy, type ChatSnapshot, type ViewAction } from "../../src/shared/messages.ts"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger } from "../components/ui/select.tsx"
+import { ComposerMenuHeading } from "./composerMenuHeading.tsx"
 
 function EffortSelector({ state, post }: { state: ChatSnapshot; post: (action: ViewAction) => void }) {
   const [open, setOpen] = useState(false)
@@ -15,8 +16,8 @@ function EffortSelector({ state, post }: { state: ChatSnapshot; post: (action: V
         {CODEM_BUILTIN_INTELLIGENCE_TIERS.map((tier, index) => <path key={tier} data-active={index <= level} opacity={index <= level ? 1 : 0.2} d={`M${5 + index * 5} 19V${16 - index * 4}`} />)}
       </svg></span>
     </SelectTrigger>
-    <SelectContent className="effortMenu" position="popper" side="top" align="end" sideOffset={8} collisionPadding={12}>
-      <SelectGroup><SelectLabel>思考强度</SelectLabel>
+    <SelectContent className="composerPickerMenu effortMenu" position="popper" side="top" align="end" sideOffset={8} collisionPadding={12}>
+      <SelectGroup><ComposerMenuHeading close={() => setOpen(false)}><SelectLabel>思考强度</SelectLabel></ComposerMenuHeading>
         {CODEM_BUILTIN_INTELLIGENCE_TIERS.map(tier => <SelectItem key={tier} value={tier} textValue={tier}>{tier}{tier === CODEM_DEFAULT_INTELLIGENCE && <span className="effortDefault">默认</span>}</SelectItem>)}
       </SelectGroup>
     </SelectContent>

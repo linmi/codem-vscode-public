@@ -1,5 +1,6 @@
 export default async function composerMenuChecks(page) {
   await catalogStyleChecks(page)
+  await fixedMenuStyleChecks(page)
   await page.goto('http://127.0.0.1:4318/?scenario=disconnected')
   for (const [id, menu] of [['addAttachment', '.composerChoiceMenu'], ['selectPermission', '.composerChoiceMenu'], ['selectWorkMode', '.composerChoiceMenu'], ['selectModel', '.composerCatalogMenu'], ['selectSpace', '.composerCatalogMenu']]) {
     const before = await page.evaluate(() => window.viewActions.length)
@@ -52,17 +53,21 @@ async function catalogStyleChecks(page) {
           const focus = getComputedStyle(probe).color
           probe.remove()
           return [
-            ['native input border', ['Top', 'Right', 'Bottom', 'Left'].some(side => style[`border${side}Width`] !== '0px')],
+            ['native input border', ['Top', 'Right', 'Bottom', 'Left'].some(side => style[`border${side}Width`] !== '1px' || style[`border${side}Style`] !== 'solid')],
+            ['missing separate rounded search field', style.borderRadius !== '8px' || rowStyle.borderBottomWidth !== '0px' || getComputedStyle(row.querySelector('svg')).display !== 'none'],
             ['input font or theme', style.fontFamily !== menuStyle.fontFamily || style.fontSize !== '12px' || style.color !== ink],
             ['input exceeds search row', rect.top < rowRect.top || rect.bottom > rowRect.bottom || rect.right > rowRect.right],
             ['menu border ignores theme', menuStyle.borderTopColor !== line],
-            ['missing search focus indicator', rowStyle.borderBottomColor !== focus],
+            ['missing search focus indicator', style.borderColor !== focus],
+            ['picker shell differs from original', menuStyle.borderRadius !== '14px' || menuStyle.padding !== '8px' || !menuStyle.backdropFilter.includes('blur(40px)')],
+            ['opaque command covers translucent shell', getComputedStyle(el.closest('[cmdk-root]')).backgroundColor !== 'rgba(0, 0, 0, 0)'],
             ['menu exceeds viewport', menuRect.left < 0 || menuRect.right > innerWidth || menuRect.top < 0 || menuRect.bottom > innerHeight],
           ].filter(([, failed]) => failed).map(([label]) => label)
         })
         if (errors.length) throw new Error(`${theme} ${title}: ${errors.join(', ')}`)
       }
       await checkStyle()
+      await page.locator('.composerCatalogMenu').getByRole('heading', { name: title, exact: true }).waitFor()
       await input.fill(query)
       await page.waitForFunction(() => document.querySelectorAll('.composerCatalogMenu [cmdk-item]').length === 1)
       await checkStyle()
@@ -73,6 +78,16 @@ async function catalogStyleChecks(page) {
       await page.waitForFunction(title => document.activeElement?.getAttribute('aria-label') === `选择${title}`, title)
       await trigger.click()
       if (await input.inputValue() !== '') throw new Error('Reopened catalog retained old search')
+      await page.getByRole('button', { name: '关闭菜单', exact: true }).click()
+      await page.waitForFunction(title => document.activeElement?.getAttribute('aria-label') === `选择${title}`, title)
+      await trigger.click()
+      await input.fill(query)
+      await page.waitForFunction(() => document.querySelectorAll('.composerCatalogMenu [cmdk-item]').length === 1)
+      await input.press('Enter')
+      await page.locator('.composerCatalogMenu').waitFor({ state: 'hidden' })
+      await page.waitForFunction(title => window.viewActions.some(action => action.type === (title === '空间' ? 'chooseSpace' : 'chooseModel') && action.id === (title === '空间' ? 'personal' : 'model-two')), title)
+      await trigger.click()
+      await page.locator('.composerCatalogMenu [cmdk-item][data-current="true"][data-selected="true"]').waitFor()
       await page.keyboard.press('Escape')
     }
     await page.reload()
@@ -87,5 +102,28 @@ async function catalogStyleChecks(page) {
     })) throw new Error('Slash command search retained a separate broken input style')
     await commandSearch.press('Escape')
     if (await page.locator('#prompt').inputValue() !== '/') throw new Error('Slash search cancellation lost draft')
+  }
+}
+
+async function fixedMenuStyleChecks(page) {
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 380, height: 700 })
+    await page.goto(`http://127.0.0.1:4318/?scenario=welcome&theme=${theme}`)
+    for (const [id, width] of [['selectWorkMode', 180], ['selectPermission', 280], ['selectEffort', 180], ['addAttachment', 280]]) {
+      const before = await page.evaluate(() => window.viewActions.length)
+      await page.locator(`#${id}`).click()
+      const menu = page.locator('.composerPickerMenu')
+      await menu.waitFor()
+      const geometry = await menu.evaluate(el => {
+        const style = getComputedStyle(el), item = getComputedStyle(el.querySelector('[data-slot="select-item"]'))
+        return { width: parseFloat(style.width), radius: style.borderRadius, padding: style.padding, itemRadius: item.borderRadius }
+      })
+      if (geometry.width !== width || geometry.radius !== '14px' || geometry.padding !== '8px' || geometry.itemRadius !== '10px') throw new Error(`${id}: original picker dimensions lost ${JSON.stringify(geometry)}`)
+      if (id === 'selectPermission' && await menu.locator('.composerMenuIcon').count() !== 3) throw new Error('Permission row icons missing')
+      await menu.getByRole('button', { name: '关闭菜单', exact: true }).click()
+      await menu.waitFor({ state: 'hidden' })
+      await page.waitForFunction(id => document.activeElement?.id === id, id)
+      if (await page.evaluate(() => window.viewActions.length) !== before) throw new Error(`${id} sent Host action on close`)
+    }
   }
 }

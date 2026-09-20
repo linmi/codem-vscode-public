@@ -123,3 +123,15 @@
 验证：`pnpm build:vscode`、定向 Oxlint、`git diff --check` 通过；`composerMenuChecks.mjs` 返回 `LOCAL_COMPOSER_MENUS_OK`，新增浅色 900px / 深色 380px 下实际展开后的边框、字体、焦点指示、输入框与视口边界、过滤/无结果、重复打开、Escape 焦点恢复、重载默认关闭及 `/` 搜索取消保留草稿检查。440px 深浅主题截图已检查。复用 4318 预览服务，仅创建一个 `codem-menu-style` 测试浏览器并在结束后关闭；浏览器无 error 日志。
 
 真实 VS Code：复用空闲开发宿主，执行 Reload Webviews，展开空间和模型菜单确认样式与 Escape 焦点恢复，没有改变实际选择。单元/集成测试本轮未重跑（变更仅限 CSS 与浏览器回归），未调用真实 Core 模型。
+
+## 恢复输入栏旧菜单外观（2026-09-20）
+
+按用户要求恢复迁移前的完整菜单呈现，参考来源为 `276d653920124a4a8f5200999a55c7f0b83ee7aa^` 的 `apps/vscode/webview/styles/panels.css`（pickerPanel、modelSearch 和 choice 样式）及 `webview/panels/panelView.ts` 的标题/关闭结构。既有 Synara 来源说明与版权记录仍见 `UPSTREAM.md`。不恢复旧 PanelBroker picker 或任何历史运行依赖。
+
+空间、模型、工作模式、权限、附件和思考强度继续使用 shadcn Popover / Command / Select / Button。业务菜单共用 `composerPickerMenu`：14px 圆角、8px 留白、70% popover 背景、40px blur / 150% saturation、原 composer 阴影；工作模式与思考强度宽 180px，其余宽 280px。恢复 11px 标题与 22px 关闭按钮、10px 圆角选项、12px 主文字 / 10px 说明、权限图标及当前项标记。空间与模型搜索框恢复独立 8px 圆角、1px 主题边框和实色背景，取消搜索图标与整行底部分隔线；保留后来新增的空间搜索及离线连接入口。
+
+`composerMenuHeading.tsx` 是输入栏各菜单共用的无状态标题组件；关闭直接通知原打开状态所有者。目录菜单打开时聚焦搜索框，键盘候选初始定位到当前选择，避免首项与当前项同时被高亮。搜索条件仍随菜单关闭卸载清理，状态不跨重载保存；会话身份切换、忙碌关闭、选择消息与失败反馈仍走原调用链。没有新状态缓存、RPC、子进程、生产依赖或反向依赖；`/` 命令菜单及预览导航 Select 保持自己的样式边界。
+
+验证：构建与 `pnpm check`（lint、类型和单元/集成）通过。`composerMenuChecks.mjs` 的浅/深主题展开验收返回 `LOCAL_COMPOSER_MENUS_OK`，覆盖旧尺寸/字体/边框/圆角、权限图标、搜索及无结果、键盘选择非首项后重开、关闭按钮/Escape 焦点恢复、离线打开/取消不发 Host 消息和重载默认关闭。单个 `codem-restore-menus` 浏览器复用 4318 服务，检查 440×700 五类菜单的深浅截图，并验证 320×480 下 50 个空间内部滚动与视口边界；控制台无 error。结束后关闭本次测试浏览器，保留其他项目测试会话和原预览服务。
+
+真实 VS Code：复用空闲开发宿主 Reload Webviews，实际展开空间和权限菜单核验，并检查关闭/取消焦点恢复；没有改变实际空间、权限或调用真实 Core 模型。

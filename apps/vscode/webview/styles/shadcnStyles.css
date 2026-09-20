@@ -47,8 +47,7 @@
 #selectEffort.effortTrigger:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
 #selectEffort.effortTrigger > svg { display: none; }
 #selectEffort .effortSignal { width: 20px; height: 20px; }
-.effortMenu { width: 180px; font-family: var(--vscode-font-family); }
-.effortMenu [data-slot="select-item"] { min-height: 34px; }
+.effortMenu [data-slot="select-item"] { min-height: 34px; padding: 8px 26px 8px 8px; border-radius: 10px; }
 .effortDefault { padding: 1px 5px; border-radius: 4px; color: var(--vscode-descriptionForeground); background: var(--vscode-toolbar-hoverBackground); font-size: 11px; }
 
 #attachmentMenu, #permissionMenu { display: inline-flex; width: 28px; height: 28px; }
@@ -60,14 +59,33 @@
 .composerMenuTrigger.composerIconTrigger { width: 28px; padding: 4px; }
 .composerMenuIcon { display: inline-flex; }
 .composerMenuIcon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.composerChoiceMenu { width: 224px; max-width: calc(100vw - 24px); }
-.composerChoiceText { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
-.composerChoiceText small { font-size: 11px; color: var(--muted); white-space: normal; }
-.composerCatalogMenu { width: 280px; max-width: calc(100vw - 24px); padding: 4px; }
-.composerCatalogMenu [cmdk-item] { justify-content: space-between; font-size: 12px; }
-.composerCatalogMenu [cmdk-list] { max-height: min(280px, 45vh); }
-.composerCatalogMenu [cmdk-empty] { padding: 12px; font-size: 12px; color: var(--muted); }
-.composerCatalogMenu [data-slot="button"] { width: 100%; justify-content: flex-start; font-size: 12px; }
+/* Restore picker presentation from panels.css at 276d653^; behavior remains shadcn. */
+.composerPickerMenu { width: 280px; max-width: calc(100vw - 24px); padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--popover) 70%, transparent); backdrop-filter: blur(40px) saturate(150%); box-shadow: var(--composerShadow); color: var(--ink); font: 12px/1.5 var(--uiFont); scrollbar-width: thin; }
+.composerWorkModeMenu, .effortMenu { width: 180px; }
+.composerPickerMenu[data-slot="select-content"] { max-height: min(420px, var(--radix-select-content-available-height)); translate: none; }
+.composerPickerMenu [data-radix-select-viewport] { padding: 0; }
+.composerMenuHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 3px 6px; margin-bottom: 6px; flex-shrink: 0; }
+.composerMenuHeading h2, .composerMenuHeading [data-slot="select-label"] { margin: 0; padding: 0; font: 400 11px/1.375 var(--uiFont); color: var(--muted); }
+.composerMenuHeading .composerMenuClose { width: 22px; height: 22px; padding: 4px; margin: -3px -5px 0 0; border-radius: 8px; color: var(--muted); flex-shrink: 0; }
+.composerChoiceText { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; line-height: 1.375; overflow-wrap: anywhere; }
+.composerChoiceText small { font-size: 10px; color: var(--muted); white-space: normal; }
+.composerChoiceMenu [data-slot="select-item"] { padding: 7px 26px 7px 8px; border-radius: 10px; font-weight: 400; }
+.composerChoiceMenu [data-slot="select-item"] + [data-slot="select-item"], .effortMenu [data-slot="select-item"] + [data-slot="select-item"] { margin-top: 2px; }
+.composerChoiceMenu [data-slot="select-item"] > span:last-child { flex: 1; min-width: 0; }
+.composerChoiceMenu [data-slot="select-item"][data-state="checked"] { background: var(--soft); }
+.composerPickerMenu [data-slot="select-item-indicator"] svg, .composerCatalogMenu [cmdk-item] > svg { width: 12px; height: 12px; color: var(--ink); }
+.composerCatalogMenu { display: flex; flex-direction: column; max-height: min(420px, var(--radix-popover-content-available-height)); }
+.composerCatalogMenu [data-slot="command"] { height: auto; min-height: 0; background: transparent; border-radius: 0; }
+.composerCatalogMenu [data-slot="command-input-wrapper"] { height: auto; padding: 0; border: 0; }
+.composerCatalogMenu [data-slot="command-input-wrapper"] > svg { display: none; }
+.composerCatalogMenu [data-slot="command-input"] { height: 32px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font: 12px var(--uiFont); }
+.composerCatalogMenu [data-slot="command-input"]:focus-visible { border-color: var(--vscode-focusBorder, #0169cc); }
+.composerCatalogMenu [cmdk-item] { justify-content: space-between; gap: 6px; padding: 7px 8px; border-radius: 10px; font-size: 12px; font-weight: 400; }
+.composerCatalogMenu [cmdk-item] + [cmdk-item] { margin-top: 2px; }
+.composerCatalogMenu [cmdk-item][data-current="true"] { background: var(--soft); }
+.composerCatalogMenu [cmdk-list] { max-height: 260px; margin-top: 6px; scrollbar-width: thin; }
+.composerCatalogMenu [cmdk-empty] { margin: 10px 8px; padding: 0; font-size: 11px; color: var(--muted); }
+.composerCatalogMenu .composerCatalogAction { width: 100%; height: auto; min-height: 32px; justify-content: flex-start; padding: 7px 8px; margin-top: 2px; border-radius: 10px; font: inherit; flex-shrink: 0; }
 #model { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 #selectSpace .composerMenuIcon:first-child svg { width: 14px; height: 14px; }
 .composerPermissionWarning, .composerPermissionWarning .composerChoiceText small { color: var(--vscode-editorWarning-foreground, #e47140); }
