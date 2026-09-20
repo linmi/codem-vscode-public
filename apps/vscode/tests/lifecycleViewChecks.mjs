@@ -1,4 +1,15 @@
 export default async function lifecycleViewChecks(page) {
+  // No Host snapshot is delivered: initial controls must already be correct.
+  await page.goto('http://127.0.0.1:4318/?scenario=waitingForHost');
+  await page.locator('.historyPaging').waitFor({state:'attached'});
+  if(await page.locator('.historyPaging').isVisible() || await page.getByRole('button',{name:'加载更早消息',exact:true}).isVisible()) throw new Error('History paging flashed before Host state');
+  await page.reload();
+  await page.locator('.historyPaging').waitFor({state:'attached'});
+  if(await page.locator('.historyPaging').isVisible()) throw new Error('Reload exposed paging without Host state');
+  await page.goto('http://127.0.0.1:4318/?scenario=historyPaging');
+  await page.getByRole('button',{name:'加载更早消息',exact:true}).waitFor();
+  await page.goto('http://127.0.0.1:4318/?scenario=disconnected');
+  await page.locator('.historyPaging').waitFor({state:'hidden'});
   await page.goto('http://127.0.0.1:4318/?scenario=firstSend');
   await page.locator('#prompt').fill('Immediate outgoing bubble');
   await page.locator('#send').click();

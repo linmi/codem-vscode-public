@@ -5,6 +5,7 @@ export const previewScenarios = [
   ["conversation", "对话", "完成回复"], ["progressUpdates", "对话", "多次搜索与进度说明"], ["welcome", "对话", "新会话"],
   ["disconnected", "状态", "未连接"], ["connecting", "状态", "首次发送 · 连接准备"],
   ["firstSend", "状态", "首次发送 · 慢连接交互"],
+  ["waitingForHost", "状态", "首屏 · 宿主尚未响应"],
   ["thinking", "状态", "思考中"], ["tools", "状态", "工具执行中"],
   ["failed", "状态", "工具失败"], ["stopping", "状态", "正在停止"],
   ["historyLoading", "状态", "历史恢复中"], ["history", "对话", "历史会话列表"],

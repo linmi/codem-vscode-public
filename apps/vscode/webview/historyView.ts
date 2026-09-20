@@ -1,4 +1,4 @@
-import { isBusy, type ChatPhase } from "../src/messages.ts"
+import { initialSnapshot, isBusy, type ChatPhase } from "../src/messages.ts"
 import type { HistoryAction, HistoryList } from "../src/historyTypes.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 
@@ -45,7 +45,7 @@ export function createHistoryView(header: HTMLElement | null, scroller: HTMLElem
   const reload = button("重新加载记录", { type: "reloadHistory" })
   const hint = document.createElement("span")
   toolbar.append(reload)
-  paging.append(older, hint); scroller.prepend(paging)
+  paging.append(older, hint)
   let previousEntries = ""
   let wasOpen = false
   panel.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.stopPropagation(); post({ type: "closeHistory" }) } })
@@ -100,5 +100,8 @@ export function createHistoryView(header: HTMLElement | null, scroller: HTMLElem
     older.disabled = reload.disabled = switchingDisabled
     hint.textContent = state.historyNeedsRefresh ? "记录已变化，重新加载后可继续翻页。" : ""
   }
+  // Apply the same state rules before mounting; Host delivery may be delayed or fail.
+  render(initialSnapshot())
+  scroller.prepend(paging)
   return render
 }

@@ -20,7 +20,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     window.dispatchEvent(new MessageEvent("message", { data: structuredClone(data) }))
   }
   function publish() {
-    if (!ready) return
+    if (!ready || search.scenario === "waitingForHost") return
     emit(demo)
     emit({ type: "panel", panel: activePanel })
   }
