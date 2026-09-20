@@ -62,6 +62,7 @@ export class ChatController {
   private generation = 0
   private readonly retiringHosts = new Set<Promise<void>>()
   private disposed = false
+  private disposePromise: Promise<void> | null = null
   private readonly lifetime = new AbortController()
   private state: ChatSnapshot = initialSnapshot()
   private settings: AppServerThreadSettings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" }
@@ -162,8 +163,7 @@ export class ChatController {
       if (this.disposed || this.session !== previous || this.active) { await next.host.close(); next = null; return }
       this.options.assertTrusted()
       const retiring = this.retire()
-      this.retiringHosts.add(retiring)
-      void retiring.catch(error => this.options.report("retireSpace", error)).finally(() => this.retiringHosts.delete(retiring))
+      void retiring.catch(error => this.options.report("retireSpace", error))
       this.bindSession(next, this.generation, restored)
       const connected = next
       next = null
@@ -389,14 +389,22 @@ export class ChatController {
     this.update({ hasOlderMessages: false, historyNeedsRefresh })
   }
 
-  async dispose(): Promise<void> {
+  dispose(): Promise<void> {
+    if (this.disposePromise) return this.disposePromise
     this.disposed = true
     this.lifetime.abort()
-    try { await this.retire() }
-    finally { await Promise.allSettled(this.retiringHosts) }
+    this.disposePromise = this.disposeResources()
+    return this.disposePromise
   }
 
-  private async retire(): Promise<void> {
+  private async disposeResources(): Promise<void> {
+    const current = this.retire()
+    const results = await Promise.allSettled(new Set([current, ...this.retiringHosts]))
+    const failures = results.flatMap(result => result.status === "rejected" ? [result.reason] : [])
+    if (failures.length) throw new AggregateError(failures, "CodeM host cleanup failed")
+  }
+
+  private retire(): Promise<void> {
     const session = this.session
     this.historyRead?.abort()
     this.historyRead = null
@@ -415,7 +423,13 @@ export class ChatController {
     this.unsubscribe = null
     this.threadId = null
     this.update({ hasOlderMessages: false, historyNeedsRefresh: false })
-    await session?.host.close()
+    // Register every retirement here, including disconnect events, before callers
+    // can begin another disposal. Event authority is revoked synchronously above.
+    const retiring = Promise.resolve().then(() => session?.host.close())
+    this.retiringHosts.add(retiring)
+    const settled = () => { this.retiringHosts.delete(retiring) }
+    void retiring.then(settled, settled)
+    return retiring
   }
 
   private onEvent(event: AppServerHostEvent): void {

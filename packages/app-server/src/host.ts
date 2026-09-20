@@ -1015,25 +1015,42 @@ export class AppServerHost {
 
   private async closeResources(): Promise<void> {
     const connections = await Promise.allSettled(this.connections.values())
-    for (const result of connections) {
-      if (result.status !== "fulfilled") continue
-      for (const threadId of result.value.threads) {
-        const thread = this.threads.get(threadId)
-        if (thread?.activeTurn) {
-          await this.interruptTurn(thread.cwd, thread.id).catch(() => undefined)
-        }
-        if (thread?.sideQuestion?.id) {
-          await this.cancelSideQuestion(thread.cwd, thread.id, thread.sideQuestion.id).catch(() => undefined)
-        }
-        await result.value.connection.request("thread/unsubscribe", { threadId }).catch(() => undefined)
-      }
-    }
-    await Promise.all(
-      connections.flatMap((result) => (result.status === "fulfilled" ? [result.value.connection.close()] : [])),
+    // Each process has its own shutdown budget; a stalled peer must not hold up others.
+    const closed = await Promise.allSettled(
+      connections.flatMap((result) => (result.status === "fulfilled" ? [this.closeConnection(result.value)] : [])),
     )
     this.connections.clear()
     this.threads.clear()
     this.pendingInteractions.clear()
+    const failures = closed.flatMap(result => result.status === "rejected" ? [result.reason] : [])
+    if (failures.length) throw new AggregateError(failures, "CodeM App Server process cleanup failed")
+  }
+
+  private async closeConnection(state: ConnectionState): Promise<void> {
+    // Preserve graceful interrupt/cancel/unsubscribe, but spend at most one second
+    // on the entire sequence. Transport close rejects pending RPCs and owns reaping.
+    let transportClosing = false
+    const release = async () => {
+      for (const threadId of state.threads) {
+        if (transportClosing) return
+        const thread = this.threads.get(threadId)
+        if (thread?.activeTurn) await this.interruptTurn(thread.cwd, thread.id).catch(() => undefined)
+        if (transportClosing) return
+        if (thread?.sideQuestion?.id) await this.cancelSideQuestion(thread.cwd, thread.id, thread.sideQuestion.id).catch(() => undefined)
+        if (transportClosing) return
+        await state.connection.request("thread/unsubscribe", { threadId }).catch(() => undefined)
+      }
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const deadline = new Promise<void>(resolve => { timer = setTimeout(resolve, 1_000) })
+    const releasing = release()
+    try { await Promise.race([releasing, deadline]) }
+    finally {
+      clearTimeout(timer)
+      transportClosing = true
+      try { await state.connection.close() }
+      finally { await releasing }
+    }
   }
 
   private async startControlTurn(
