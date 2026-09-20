@@ -13,7 +13,9 @@
     "lint:fix": "pnpm lint --fix",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "check": "pnpm lint && pnpm typecheck && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "test:architecture": "pnpm --filter codem exec node --test --experimental-strip-types tests/architecture.test.ts",
+    "test:shutdown": "node --test --experimental-strip-types --test-name-pattern=\"shutdown gate\" apps/vscode/tests/chatController.test.ts packages/app-server/tests/host.test.ts"
   },
   "devDependencies": {
     "oxlint": "1.83.0"

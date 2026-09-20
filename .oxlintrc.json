@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc"],
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc"
+  ],
   "categories": {
     "correctness": "error"
   },
@@ -11,5 +15,65 @@
     "**/build/**",
     "**/out/**",
     "**/coverage/**"
-  ]
+  ],
+  "overrides": [
+    {
+      "files": [
+        "packages/app-server/src/**/*.ts",
+        "packages/session-history/src/**/*.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(vscode|electron|react|react-dom)(/|$)",
+                "message": "Shared services must not depend on editor or UI runtimes."
+              },
+              {
+                "regex": "(^|/)(history|apps)(/|$)",
+                "message": "Shared services must not depend on archived or application code."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/protocol/src/**/*.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^[^.]",
+                "message": "Protocol source must be portable and use only local modules."
+              },
+              {
+                "regex": "(^|/)(history|apps)(/|$)",
+                "message": "Protocol source must not depend on archived or application code."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "regex": "(^|/)(history)(/|$)",
+            "message": "Active code must not import archived source."
+          }
+        ]
+      }
+    ]
+  }
 }
