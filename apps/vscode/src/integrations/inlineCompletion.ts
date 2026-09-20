@@ -1,4 +1,5 @@
 import * as vscode from "vscode"
+import { InlineCompletionStatus } from "./inlineCompletionStatus.ts"
 import { completionPrompt, generatedText } from "./editorGeneration.ts"
 import type { ChatController } from "../chat/chatController.ts"
 import { assertTrusted } from "../connection/runtimeSession.ts"
@@ -11,8 +12,7 @@ const automaticDelayMs = 600
 export function registerInlineCompletion(chat: CompletionChat, log: (message: string) => void): vscode.Disposable {
   let active: Request | null = null
   let disposed = false
-  const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10)
-  status.command = "codem.cancelCompletion"
+  const status = new InlineCompletionStatus()
   const cancel = () => active?.abort.abort()
   const enabled = (document: vscode.TextDocument) => vscode.workspace.getConfiguration("codem", document.uri).get<boolean>("completion.enabled", true)
   const idle = () => { const state = chat.snapshot(); return state.phase === "ready" && !state.backgroundBusy && !state.sessionTools.busy }
@@ -31,17 +31,20 @@ export function registerInlineCompletion(chat: CompletionChat, log: (message: st
       let settle!: () => void
       const request: Request = { abort, document, settled: new Promise<void>(resolve => { settle = resolve }) }
       active = request
+      status.setActivity("waiting")
+      abort.signal.addEventListener("abort", () => { if (active === request) status.setActivity("cancelling") }, { once: true })
       const subscription = token.onCancellationRequested(() => abort.abort())
       if (token.isCancellationRequested) abort.abort()
       const scope = chat.contextKey(), version = document.version
       const valid = () => !disposed && !abort.signal.aborted && !token.isCancellationRequested && !document.isClosed && document.version === version && vscode.workspace.isTrusted && enabled(document) && vscode.window.activeTextEditor === editor && editor.selection.isEmpty && editor.selection.active.isEqual(position)
       const started = performance.now()
       let generationCalls = 0
+      let failed = false
       try {
         if (automatic) await delay(automaticDelayMs, abort.signal)
         if (previous) await previous.settled
         if (!valid() || scope !== chat.contextKey() || !idle()) return []
-        status.text = "$(loading~spin) CodeM 补全"; status.tooltip = "点击取消补全"; status.show()
+        status.setActivity("generating")
         assertTrusted(); await chat.assertContextWorkspace(document.uri.fsPath)
         if (!valid() || scope !== chat.contextKey()) return []
         // VS Code only displays a suggestion-widget preview when range and prefix match.
@@ -57,6 +60,7 @@ export function registerInlineCompletion(chat: CompletionChat, log: (message: st
         return [new vscode.InlineCompletionItem(insertion, range)]
       } catch (error) {
         if (!abort.signal.aborted && !token.isCancellationRequested) {
+          failed = true
           log(`Inline completion failed (${automatic ? "automatic" : "manual"}): ${error instanceof Error ? error.message : "unknown error"}`)
           if (!automatic) void vscode.window.showWarningMessage(error instanceof Error ? error.message : "CodeM 补全失败，请重试。")
         }
@@ -64,7 +68,7 @@ export function registerInlineCompletion(chat: CompletionChat, log: (message: st
       } finally {
         log(`Inline completion (${automatic ? "automatic" : "manual"}): ${Math.round(performance.now() - started)}ms, generationCalls=${generationCalls}`)
         subscription.dispose()
-        if (active === request) { active = null; status.hide() }
+        if (active === request) { active = null; status.setActivity(failed ? "failed" : "idle") }
         settle()
       }
     },

@@ -28,7 +28,7 @@ it("native generators reject disabled automatic completions, stale documents, ch
       export const extensions={getExtension:()=>({isActive:true,exports:{enabled:true,getAPI:()=>({repositories:[control.repo]})}})};
       export const languages={registerInlineCompletionItemProvider(filter,p){control.provider=p;return disposable}};
       export const Disposable={from(){return disposable}};
-      export const env={language:'zh-cn'};export const ProgressLocation={Notification:1};export const StatusBarAlignment={Right:1};export const InlineCompletionTriggerKind={Invoke:0,Automatic:1};
+      export class ThemeIcon{constructor(id){this.id=id}};export const env={language:'zh-cn'};export const ProgressLocation={Notification:1};export const StatusBarAlignment={Right:1};export const InlineCompletionTriggerKind={Invoke:0,Automatic:1};
       export class Range{constructor(start,end){this.start=start;this.end=end}}
       export class InlineCompletionItem{constructor(insertText,range){this.insertText=insertText;this.range=range}}
     ` }))

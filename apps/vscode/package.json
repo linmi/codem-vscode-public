@@ -141,6 +141,11 @@
         "icon": "$(sparkle)"
       },
       {
+        "command": "codem.completionMenu",
+        "title": "管理行内补全",
+        "category": "CodeM"
+      },
+      {
         "command": "codem.generateCompletion",
         "title": "生成行内补全",
         "category": "CodeM"
