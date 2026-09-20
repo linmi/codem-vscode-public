@@ -1,3 +1,4 @@
+import { EditorSelection } from "./integrations/editorSelection.ts"
 import { registerGitActions } from "./integrations/gitActions.ts"
 import { registerInlineCompletion } from "./integrations/inlineCompletion.ts"
 import { registerTerminalActions } from "./integrations/terminalActions.ts"
@@ -27,6 +28,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const panels = new PanelBroker()
   let settingsAbort: AbortController | null = null
   let surfaces: ChatSurfaces | undefined
+  let selection: EditorSelection | undefined
   let connectingAt: number | null = null
   let previousPhase: string | null = null
   const openSession = async (signIn: boolean, signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
@@ -68,6 +70,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         output.appendLine(`UI phase: ${state.phase}`); previousPhase = state.phase
       }
+      selection?.state.setContext(state)
       surfaces?.post(state)
     },
     report: (operation, error) => {
@@ -98,8 +101,15 @@ export function activate(context: vscode.ExtensionContext): void {
       case "resumeThread": await chat.resumeThread(action.threadId); break
       case "olderMessages": await chat.loadOlderMessages(); break
       case "reloadHistory": await chat.reloadHistory(); break
-      case "newChat": await chat.newChat(); break
-      case "send": reply({ type: "sendResult", requestId: action.requestId, accepted: await chat.send(action.text) }); break
+      case "newChat": await chat.newChat(); selection!.state.clear(); break
+      case "removeCodeSelection": selection!.state.remove(action.id); break
+      case "revealCodeSelection": await selection!.reveal(action.id); break
+      case "send": {
+        let accepted = false
+        try { accepted = await selection!.send(action.text, action.selectionId, text => chat.send(text), path => chat.assertContextWorkspace(path)) }
+        catch (error) { void vscode.window.showErrorMessage(error instanceof Error ? error.message : "无法附带选中代码，请重新选择后重试。") }
+        reply({ type: "sendResult", requestId: action.requestId, accepted }); break
+      }
       case "stop": await chat.stop(); break
       case "loadCatalog": await chat.loadCatalog(action.kind); break
       case "selectSkill": chat.selectSkill(action.id); break
@@ -154,11 +164,18 @@ export function activate(context: vscode.ExtensionContext): void {
       case "showOutput": output.show(); break
     }
   }
-  surfaces = new ChatSurfaces(context, panels, dispatch, () => chat.publish())
+  selection = new EditorSelection(value => surfaces?.post({ type: "codeSelection", value }))
+  context.subscriptions.push(selection)
+  surfaces = new ChatSurfaces(context, panels, dispatch, () => {
+    chat.publish()
+    surfaces?.post({ type: "codeSelection", value: selection!.state.snapshot() })
+  })
   const addContext = async (text: string, uri?: vscode.Uri) => {
     assertTrusted()
+    const selectionId = uri ? selection!.state.snapshot()?.id : undefined
     if (uri?.scheme === "file") await chat.assertContextWorkspace(uri.fsPath)
     await surfaces!.addContext(text)
+    if (selectionId) selection!.state.remove(selectionId)
   }
   context.subscriptions.push(output, surfaces, registerGitActions(chat, message => output.appendLine(message)), registerInlineCompletion(chat, message => output.appendLine(message)), registerEditorActions(addContext), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration("codem.chat.sendKey")) surfaces?.postSettings()
@@ -172,7 +189,7 @@ export function activate(context: vscode.ExtensionContext): void {
     "codem.settings": () => vscode.commands.executeCommand("workbench.action.openSettings", "@ext:codem.codem"),
     "codem.stop": () => chat.stop(),
     "codem.history": async () => { await surfaces?.focus(); await chat.toggleHistory() },
-    "codem.newChat": async () => { await surfaces?.focus(); await chat.newChat() },
+    "codem.newChat": async () => { await surfaces?.focus(); await chat.newChat(); selection!.state.clear() },
     "codem.connect": () => chat.connect(),
     "codem.signIn": () => chat.connect(true),
     "codem.showOutput": () => output.show(),

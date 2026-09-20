@@ -1,4 +1,4 @@
-import type { ChatSnapshot, ViewAction } from "../src/shared/messages.ts"
+import type { ChatSnapshot, CodeSelectionView, ViewAction } from "../src/shared/messages.ts"
 import type { PanelReply } from "../src/shared/panelTypes.ts"
 import { createPreviewState, type PreviewSearch } from "./previewState.ts"
 import { applyPreviewCatalog, previewImage, contentScenario } from "./previewContent.ts"
@@ -7,6 +7,8 @@ import { catalogKinds } from "../src/shared/capabilityTypes.ts"
 export function createPreviewRuntime(initial: PreviewSearch) {
   let search = initial
   let { demo, panels, activePanel, surface } = createPreviewState(initial)
+  const selectionFixture = (): CodeSelectionView | null => ["codeSelection", "codeSelectionFailure"].includes(search.scenario) ? { id: "selected-code", label: "connectionPreferences.ts", path: "src/connection/connectionPreferences.ts", startLine: 10, endLine: 15, error: null } : null
+  let selectedCode = selectionFixture()
   let ready = false
   let generation = 0
   let refreshTimer: ReturnType<typeof setTimeout> | undefined
@@ -23,6 +25,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   function publish() {
     if (!ready || search.scenario === "waitingForHost") return
     emit(demo)
+    emit({ type: "codeSelection", value: selectedCode })
     emit({ type: "panel", panel: activePanel })
   }
   function nextFrame(callback: () => void) {
@@ -97,6 +100,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     document.querySelector<HTMLButtonElement>('#runtimeDetails[data-state="open"]')?.click()
     document.querySelector<HTMLButtonElement>('[aria-label="返回普通对话"]')?.click()
     generation++
+    selectedCode = selectionFixture()
     const next = createPreviewState(search)
     demo = next.demo; panels = next.panels; activePanel = next.activePanel; surface = next.surface
     // New fixture identity clears previous disclosure/input state without a blank frame.
@@ -121,6 +125,17 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "composerRestore") { emit({ type: "composerDraft", value: action.value, focus: false, pendingRequestId: null }); return }
     if (action.type === "composerChanged" || action.type === "contextAdded") return
     if (action.type === "ready") { ready = true; publish(); showSurface(); return }
+    if (action.type === "removeCodeSelection") { if (action.id === selectedCode?.id) selectedCode = null; publish(); return }
+    if (action.type === "revealCodeSelection") { demo.notice = "模拟预览已收到定位请求；不会访问真实文件。"; publish(); return }
+    if (action.type === "send" && ["codeSelection", "codeSelectionFailure"].includes(search.scenario)) {
+      const accepted = search.scenario === "codeSelection"
+      if (accepted) {
+        demo.messages = [...demo.messages, { id: action.requestId, role: "user", label: "你", text: action.text }]
+        if (action.selectionId === selectedCode?.id) selectedCode = null
+      }
+      demo.notice = accepted ? "模拟发送成功，已附带选中代码。" : "模拟发送失败，草稿和代码选区已保留。"
+      emit({ type: "sendResult", requestId: action.requestId, accepted }); publish(); return
+    }
     if (action.type === "send") {
       if (search.scenario !== "firstSend" || demo.phase !== "disconnected") { emit({type:"sendResult",requestId:action.requestId,accepted:false}); return }
       // Slow connection fixture: the outgoing bubble must precede any async completion.

@@ -2,7 +2,7 @@ import type { ChatSnapshot } from "../src/shared/messages.ts"
 import { contentScenarios } from "./previewContent.ts"
 
 export const previewScenarios = [
-  ["conversation", "对话", "完成回复"], ["progressUpdates", "对话", "多次搜索与进度说明"], ["welcome", "对话", "新会话"],
+  ["conversation", "对话", "完成回复"], ["progressUpdates", "对话", "多次搜索与进度说明"], ["welcome", "对话", "新会话"], ["codeSelection", "输入", "代码选区"], ["codeSelectionFailure", "输入", "代码选区 · 发送失败"],
   ["disconnected", "状态", "未连接"], ["connecting", "状态", "首次发送 · 连接准备"],
   ["firstSend", "状态", "首次发送 · 慢连接交互"],
   ["waitingForHost", "状态", "首屏 · 宿主尚未响应"],

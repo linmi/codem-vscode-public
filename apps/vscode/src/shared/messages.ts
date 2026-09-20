@@ -6,9 +6,10 @@ import { emptyHistoryList, type HistoryAction, type HistoryList } from "./histor
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
 const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
-const handleActions = ["chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
+const handleActions = ["chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask", "removeCodeSelection", "revealCodeSelection"] as const
 export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" } }
-export type EditorMessage = { type: "composerDraft"; value: ComposerDraft; focus: boolean; pendingRequestId: string | null } | { type: "appendContext"; id: string; text: string } | { type: "focusComposer" } | { type: "editorSettings"; sendKey: string }
+export interface CodeSelectionView { id: string; label: string; path: string; startLine: number; endLine: number; error: string | null }
+export type EditorMessage = { type: "codeSelection"; value: CodeSelectionView | null } | { type: "composerDraft"; value: ComposerDraft; focus: boolean; pendingRequestId: string | null } | { type: "appendContext"; id: string; text: string } | { type: "focusComposer" } | { type: "editorSettings"; sendKey: string }
 export type ViewAction =
   | ComposerSettingAction
   | { type: "pickAttachment"; kind: "file" | "directory" }
@@ -21,7 +22,7 @@ export type ViewAction =
   | { type: typeof handleActions[number]; id: string }
   | { type: "searchFiles"; query: string; requestId: string }
   | { type: "selectFile"; id: string; requestId: string }
-  | { type: "send"; text: string; requestId: string }
+  | { type: "send"; text: string; requestId: string; selectionId?: string }
 
 export interface ImageResult { type: "imageResult"; id: string; preview: AttachmentView["preview"] }
 export interface FileSearchResult { type: "fileSearchResult"; requestId: string; files: readonly { id: string; label: string }[]; error: string | null }
@@ -56,7 +57,7 @@ export function parseViewAction(value: unknown): ViewAction {
     if (record.type === "searchFiles" && typeof record.query === "string" && record.query.length <= 200 && ![...record.query].some(character => character.charCodeAt(0) < 32)) return { type: "searchFiles", query: record.query, requestId: record.requestId }
     if (record.type === "selectFile" && typeof record.id === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.id)) return { type: "selectFile", id: record.id, requestId: record.requestId }
   }
-  if (record.type === "send" && keys.length === 3 && typeof record.requestId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.requestId) && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return { type: "send", text: record.text, requestId: record.requestId }
+  if (record.type === "send" && (keys.length === 3 && record.selectionId === undefined || keys.length === 4 && typeof record.selectionId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.selectionId)) && typeof record.requestId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.requestId) && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return { type: "send", text: record.text, requestId: record.requestId, ...(typeof record.selectionId === "string" ? { selectionId: record.selectionId } : {}) }
   if (record.type === "resumeThread" && keys.length === 2 && typeof record.threadId === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(record.threadId)) return { type: "resumeThread", threadId: record.threadId }
   if (keys.length === 1 && simpleActions.some((type) => type === record.type)) return record as ViewAction
   if (keys.length === 2 && handleActions.some((type) => type === record.type) && typeof record.id === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.id)) return record as ViewAction

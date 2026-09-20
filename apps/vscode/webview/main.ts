@@ -135,7 +135,7 @@ function render(next: ChatSnapshot): void {
 }
 
 window.addEventListener("message", (event: MessageEvent<EditorMessage | ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected | ImageResult>) => {
-  if (event.data?.type === "composerDraft" || event.data?.type === "appendContext" || event.data?.type === "focusComposer" || event.data?.type === "editorSettings" || event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected" || event.data?.type === "sendResult") {
+  if (event.data?.type === "codeSelection" || event.data?.type === "composerDraft" || event.data?.type === "appendContext" || event.data?.type === "focusComposer" || event.data?.type === "editorSettings" || event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected" || event.data?.type === "sendResult") {
     composer.receive(event.data)
     if (event.data.type === "editorSettings") renderCapabilityStatus(state, composer.sendKey)
   }
