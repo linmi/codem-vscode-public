@@ -13,6 +13,7 @@
     "lint:fix": "pnpm lint --fix",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "test:windows": "node --test --experimental-strip-types packages/app-server/tests/runtime.test.ts packages/app-server/tests/rpc.test.ts packages/app-server/tests/threadWorkspace.test.ts apps/vscode/tests/vscodeExecutable.test.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "test:architecture": "pnpm --filter codem exec node --test --experimental-strip-types tests/architecture.test.ts tests/sourceLayout.test.ts",
     "test:shutdown": "node --test --experimental-strip-types --test-name-pattern=\"shutdown gate\" apps/vscode/tests/chatController.test.ts packages/app-server/tests/host.test.ts"

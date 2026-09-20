@@ -55,6 +55,12 @@ pnpm build:vscode
 
 `pnpm --filter codem watch` 持续构建；代码更新后使用开发宿主的 Reload Window 重新加载。构建产物在 `dist/`，匹配当前平台的 Core 与认证代理在 `bin/app-server/`，均不提交。此阶段尚未提供 VSIX 打包或发布命令。
 
+### Windows
+
+Windows x64 和 ARM64 使用原生 VS Code Extension Host，无需 WSL。使用与 VS Code 架构一致的 Node.js（>=22.23.2）和 pnpm 12.4.1，在 PowerShell 中执行上述安装、构建命令，再按 F5 启动 **CodeM VS Code**。Windows 构建自动携带 `codem-core.exe` 和 `codem-auth.exe`；不要复制 macOS/Linux 的 `bin/app-server/`，切换系统或 Node 架构后重新安装依赖并构建。
+
+`pnpm test:windows` 验证运行包、路径和进程生命周期；构建后 `pnpm --filter codem test:runtime` 启动真实二进制检查 CLI 版本及 Core 初始化，不登录、不请求模型。`test:extension` 自动查找 Windows 用户安装和系统安装的 VS Code；便携版或非默认安装位置先设置 `$env:CODEM_VSCODE_EXECUTABLE = 'D:\VS Code\Code.exe'`，不要指定 `bin\code.cmd`。当前交付仍为开发宿主方式，未提供 Windows VSIX 安装包。验证范围见 [Windows 支持](../../docs/windowsSupport.md)。
+
 ## 验证
 
 ```bash

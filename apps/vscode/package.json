@@ -360,6 +360,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p webview/tsconfig.json && tsc --noEmit -p webview/tsconfig.composer.json",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "test:extension": "node --experimental-strip-types scripts/smoke.ts",
+    "test:runtime": "node --experimental-strip-types scripts/runtimeSmoke.ts",
     "test:live": "node --experimental-strip-types scripts/smoke.ts --live",
     "test:acceptance": "node --experimental-strip-types scripts/acceptance.ts"
   },

@@ -123,8 +123,33 @@ describe("bundled App Server runtime", () => {
   })
 })
 
+for (const arch of ["x64", "arm64"] as const) {
+  it(`bundles Windows ${arch} EXEs and rejects wrong architecture, missing files and tampering`, () => {
+    const fixture = createRuntimeFixture({ target: `win32-${arch}` })
+    const extensionRoot = createTemporaryDirectory("codem Windows 中文 ")
+    const options = { packageRoot: fixture.root, extensionRoot, platform: "win32" as const, arch }
+    const runtime = stageAppServerRuntime(options)
+    assert.equal(runtime.target, `win32-${arch}`)
+    assert.equal(runtime.executablePath, join(extensionRoot, "bin", "app-server", "codem-core.exe"))
+    assert.equal(runtime.authExecutablePath, join(extensionRoot, "bin", "app-server", "codem-auth.exe"))
+    assert.deepEqual(resolveBundledAppServerRuntime(options), runtime)
+    assert.throws(() => resolveBundledAppServerRuntime({ ...options, arch: arch === "x64" ? "arm64" : "x64" }), /this host requires/)
+    writeFileSync(runtime.authExecutablePath, "tampered")
+    assert.throws(() => resolveBundledAppServerRuntime(options), /auth bundle SHA-256 mismatch/)
+    stageAppServerRuntime(options)
+    writeFileSync(runtime.executablePath, "tampered")
+    assert.throws(() => resolveBundledAppServerRuntime(options), /bundle SHA-256 mismatch/)
+    stageAppServerRuntime(options)
+    rmSync(runtime.authExecutablePath)
+    assert.throws(() => resolveBundledAppServerRuntime(options), /authentication executable is missing/)
+    rmSync(fixture.executablePath)
+    assert.throws(() => resolveAppServerRuntime(options), /executable is missing/)
+  })
+}
+
 function createRuntimeFixture(
   options: {
+    readonly target?: "darwin-arm64" | "win32-x64" | "win32-arm64"
     readonly platformVersion?: string
     readonly coreVersion?: string
     readonly authPlatformVersion?: string
@@ -139,11 +164,14 @@ function createRuntimeFixture(
   const root = createTemporaryDirectory("codem-app-server-")
   writeJson(join(root, "package.json"), { private: true })
 
+  const target = options.target ?? "darwin-arm64"
+  const coreTarget = target === "win32-x64" ? "win32-x64-msvc" : target === "win32-arm64" ? "win32-arm64-gnu" : target
+  const windows = target.startsWith("win32-")
   const scope = join(root, "node_modules", "@lark-codem")
   const core = join(scope, "codem-core")
-  const platform = join(scope, "codem-core-darwin-arm64")
+  const platform = join(scope, `codem-core-${coreTarget}`)
   const cli = join(scope, "codem-cli")
-  const authPlatform = join(scope, "codem-cli-darwin-arm64")
+  const authPlatform = join(scope, `codem-cli-${target}`)
   mkdirSync(core, { recursive: true })
   mkdirSync(platform, { recursive: true })
   mkdirSync(cli, { recursive: true })
@@ -153,7 +181,7 @@ function createRuntimeFixture(
     version: options.coreVersion ?? APP_SERVER_CORE_VERSION,
   })
   writeJson(join(platform, "package.json"), {
-    name: "@lark-codem/codem-core-darwin-arm64",
+    name: `@lark-codem/codem-core-${coreTarget}`,
     version: options.platformVersion ?? APP_SERVER_CORE_VERSION,
   })
   writeJson(join(cli, "package.json"), {
@@ -161,19 +189,19 @@ function createRuntimeFixture(
     version: APP_SERVER_CLI_VERSION,
   })
   writeJson(join(authPlatform, "package.json"), {
-    name: "@lark-codem/codem-cli-darwin-arm64",
+    name: `@lark-codem/codem-cli-${target}`,
     version: options.authPlatformVersion ?? APP_SERVER_CLI_VERSION,
   })
 
-  const executablePath = join(platform, "codem-core")
+  const executablePath = join(platform, windows ? "codem-core.exe" : "codem-core")
   writeFileSync(executablePath, "#!/bin/sh\nexit 0\n")
-  chmodSync(executablePath, 0o755)
+  chmodSync(executablePath, windows ? 0o644 : 0o755)
   const licensePath = join(platform, "LICENSE")
   writeFileSync(licensePath, "fixture license\n")
-  const authExecutablePath = join(authPlatform, "bin", "codem")
+  const authExecutablePath = join(authPlatform, "bin", windows ? "codem.exe" : "codem")
   mkdirSync(dirname(authExecutablePath), { recursive: true })
   writeFileSync(authExecutablePath, "#!/bin/sh\nexit 0\n")
-  chmodSync(authExecutablePath, 0o755)
+  chmodSync(authExecutablePath, windows ? 0o644 : 0o755)
   const authLicensePath = join(authPlatform, "LICENSE")
   writeFileSync(authLicensePath, "fixture auth license\n")
   return {

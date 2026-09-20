@@ -1,4 +1,5 @@
 import { isAbsolute } from "node:path"
+import { threadWorkspace } from "./threadWorkspace.ts"
 import { startAppServerConnection, type AppServerConnection, type AppServerProcessExit } from "./connection.ts"
 import {
   mergeAppServerItems,
@@ -766,8 +767,7 @@ export class AppServerHost {
       status: nonBlankString(thread.status, "thread/read thread.status"),
     }
     if (detail.id !== threadId) throw new Error(`CodeM thread/read returned ${detail.id}, expected ${threadId}`)
-    if (detail.cwd !== cwd) throw new Error(`CodeM thread ${threadId} belongs to another workspace`)
-    return detail
+    return { ...detail, cwd: await threadWorkspace(detail.cwd, cwd, threadId) }
   }
 
   async listModels(cwd: string): Promise<CodemModelCatalog> {

@@ -33,3 +33,32 @@ jobs:
         run: pnpm check
       - name: Build VS Code extension
         run: pnpm build:vscode
+
+  windows:
+    name: Windows (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.23.2
+          package-manager-cache: false
+      - name: Install pinned pnpm
+        run: npm install --global pnpm@12.4.1
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint and types
+        run: pnpm lint && pnpm typecheck
+      - name: Windows runtime, paths and process lifecycle regressions
+        run: pnpm test:windows
+      - name: Build native Windows extension
+        run: pnpm build:vscode
+      - name: Initialize bundled Core and check authentication executable
+        run: pnpm --filter codem test:runtime

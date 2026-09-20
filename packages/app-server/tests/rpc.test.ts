@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createInterface } from "node:readline"
@@ -119,7 +119,6 @@ describe("AppServerConnection", () => {
     const root = createTemporaryDirectory()
     const executablePath = join(root, "fake-codem-core")
     writeFileSync(executablePath, fakeCoreSource())
-    chmodSync(executablePath, 0o755)
     const notifications: AppServerNotification[] = []
     const stderr: string[] = []
     const exits: Array<{ readonly expected: boolean }> = []
@@ -128,13 +127,14 @@ describe("AppServerConnection", () => {
         target: "darwin-arm64",
         packageName: "fixture",
         coreVersion: APP_SERVER_CORE_VERSION,
-        executablePath,
+        executablePath: process.execPath,
         licensePath: join(root, "LICENSE"),
         authPackageName: "fixture-auth",
         cliVersion: "0.1.208",
         authExecutablePath: executablePath,
         authLicensePath: join(root, "LICENSE.auth"),
       },
+      arguments: [executablePath],
       workingDirectory: root,
       clientInfo: { name: "codem-vscode", version: "0.1.0" },
       environment: { PATH: process.env.PATH },
@@ -157,20 +157,20 @@ describe("AppServerConnection", () => {
     const root = createTemporaryDirectory()
     const executablePath = join(root, "stuck-codem-core")
     writeFileSync(executablePath, stuckCoreSource())
-    chmodSync(executablePath, 0o755)
     const exits: Array<{ readonly expected: boolean }> = []
     const connection = await startAppServerConnection({
       runtime: {
         target: "darwin-arm64",
         packageName: "fixture",
         coreVersion: APP_SERVER_CORE_VERSION,
-        executablePath,
+        executablePath: process.execPath,
         licensePath: join(root, "LICENSE"),
         authPackageName: "fixture-auth",
         cliVersion: "0.1.208",
         authExecutablePath: executablePath,
         authLicensePath: join(root, "LICENSE.auth"),
       },
+      arguments: [executablePath],
       workingDirectory: root,
       clientInfo: { name: "codem-vscode", version: "0.1.0" },
       environment: { PATH: process.env.PATH },
@@ -194,7 +194,6 @@ process.on("SIGTERM", () => undefined)
 process.stdin.resume()
 `,
     )
-    chmodSync(executablePath, 0o755)
     const exits: Array<{ readonly expected: boolean }> = []
 
     await assert.rejects(
@@ -203,13 +202,14 @@ process.stdin.resume()
           target: "darwin-arm64",
           packageName: "fixture",
           coreVersion: APP_SERVER_CORE_VERSION,
-          executablePath,
+          executablePath: process.execPath,
           licensePath: join(root, "LICENSE"),
           authPackageName: "fixture-auth",
           cliVersion: "0.1.208",
           authExecutablePath: executablePath,
           authLicensePath: join(root, "LICENSE.auth"),
         },
+        arguments: [executablePath],
         workingDirectory: root,
         clientInfo: { name: "codem-vscode", version: "0.1.0" },
         environment: { PATH: process.env.PATH },
@@ -325,7 +325,7 @@ async function waitFor(predicate: () => boolean): Promise<void> {
 }
 
 function createTemporaryDirectory(): string {
-  const directory = mkdtempSync(join(tmpdir(), "codem-app-server-connection-"))
+  const directory = mkdtempSync(join(tmpdir(), "codem connection 中文 -"))
   temporaryDirectories.push(directory)
   return directory
 }
