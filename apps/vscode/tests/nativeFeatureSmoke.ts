@@ -1,3 +1,4 @@
+import { waitForTabs } from "./nativeTestWait.ts"
 import assert from "node:assert/strict"
 import { mkdtemp, writeFile, rm } from "node:fs/promises"
 import { join } from "node:path"
@@ -22,6 +23,14 @@ export async function runNativeFeatureSmoke(): Promise<void> {
     await native.showDiff({ path: join(root, "file.txt"), changeType: "new", stats: { linesAdded: 1, linesRemoved: 0 }, preview: { kind: "complete", hunks: [{ oldStart: 0, oldCount: 0, newStart: 1, newCount: 1, lines: [{ kind: "insert", oldLine: null, newLine: 1, text: "fixture diff" }] }] } }, root)
     assert.equal(vscode.window.activeTextEditor?.document.uri.scheme, "codem-preview")
     assert.match(vscode.window.activeTextEditor!.document.getText(), /\+fixture diff/)
+    const changedFile = join(workspace, "nativeDiffFixture.ts")
+    await writeFile(changedFile, "const after = true\n")
+    await native.showDiff({ path: changedFile, changeType: "modified", stats: { linesAdded: 1, linesRemoved: 1 }, preview: { kind: "complete", hunks: [{ oldStart: 1, oldCount: 1, newStart: 1, newCount: 1, lines: [{ kind: "delete", oldLine: 1, newLine: null, text: "const before = true" }, { kind: "insert", oldLine: null, newLine: 1, text: "const after = true" }] }] } }, workspace)
+    await waitForTabs(() => vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputTextDiff, "native diff did not open")
+    const diffTab = vscode.window.tabGroups.activeTabGroup.activeTab?.input
+    assert.ok(diffTab instanceof vscode.TabInputTextDiff)
+    assert.equal((await vscode.workspace.openTextDocument(diffTab.original)).getText(), "const before = true")
+    assert.equal((await vscode.workspace.openTextDocument(diffTab.modified)).getText(), "const after = true")
     const log = join(root, "log.txt")
     await writeFile(log, "x".repeat(300_000) + "TAIL_MARKER")
     await native.showLog(log)

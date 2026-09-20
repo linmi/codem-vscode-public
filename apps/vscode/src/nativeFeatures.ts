@@ -1,3 +1,4 @@
+import { compareDiff } from "./diffComparison.ts"
 import type { FileDiffContent } from "./filePresentation.ts"
 import type { ArtifactSource } from "./artifacts.ts"
 import * as vscode from "vscode"
@@ -104,7 +105,33 @@ export class NativeFeatures implements vscode.Disposable {
   }
 
   async showDiff(diff: FileDiffContent, cwd: string): Promise<void> {
-    await this.preview(diffText(diff, displayPath(cwd, diff.path)), "diff", "文件差异")
+    assertTrusted()
+    let current: string | null = null
+    if (diff.preview.kind === "complete" && diff.changeType !== "deleted") {
+      try {
+        const path = await changedFilePath(cwd, diff.path)
+        const file = await open(path, "r")
+        try {
+          if ((await file.stat()).size <= 1024 * 1024) {
+            const bytes = await file.readFile()
+            current = bytes.includes(0) ? null : new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+          }
+        } finally { await file.close() }
+      } catch { current = null }
+    }
+    assertTrusted()
+    const comparison = compareDiff(diff, current)
+    const label = displayPath(cwd, diff.path)
+    if (comparison.kind === "patch") {
+      await this.preview(`${comparison.reason}\n\n${diffText(diff, label)}`, "diff", "文件差异")
+      return
+    }
+    const id = randomUUID()
+    const left = vscode.Uri.from({ scheme: "codem-preview", path: `/${id}/before/${label}` })
+    const right = vscode.Uri.from({ scheme: "codem-preview", path: `/${id}/after/${label}` })
+    this.documents.set(left.toString(), comparison.before); this.documents.set(right.toString(), comparison.after)
+    try { await vscode.commands.executeCommand("vscode.diff", left, right, `${label} · 补丁重建的行内容对比`, { preview: true }) }
+    catch (error) { this.documents.delete(left.toString()); this.documents.delete(right.toString()); throw error }
   }
   async showChangedFile(diff: FileDiffContent, cwd: string): Promise<void> {
     assertTrusted()
