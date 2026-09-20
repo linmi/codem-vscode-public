@@ -8,9 +8,16 @@ export function projectToolDetails(name: string, input: unknown, cwd: string): T
   const text = (key: string) => typeof value[key] === "string" ? (value[key] as string).slice(0, 8000) : ""
   if (name === "run_bash") return { kind: "command", fields: [], code: text("command").replace(/((?:token|password|api_key|authorization)\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^\s;]+)/gi, "$1[已隐藏]") }
   if (["read_files", "write_file", "edit_file"].includes(name)) {
-    const paths = Array.isArray(value.paths) ? value.paths.filter((path): path is string => typeof path === "string") : [text("path")].filter(Boolean)
+    // Core 0.8.44: read_files accepts files:[{path,...}] or one flat path, never paths:[].
+    if (name === "read_files" && value.files !== undefined && value.path !== undefined) return null
+    const paths = name === "read_files" && Array.isArray(value.files)
+      ? value.files.flatMap(file => file && typeof file === "object" && typeof file.path === "string" ? [file.path] : [])
+      : [text("path")].filter(Boolean)
+    if (!paths.length) return null
     return { kind: "file", fields: paths.slice(0, 50).map(path => ({ label: "文件", value: displayPath(cwd, path) })), code: null }
   }
+  if (name === "grep") return { kind: "search", fields: [{ label: "查询", value: text("pattern") }, { label: "范围", value: text("path") ? displayPath(cwd, text("path")) : "" }, { label: "匹配文件", value: text("glob") }].filter(field => field.value), code: null }
+  if (name === "list_dir") return { kind: "file", fields: text("path") ? [{ label: "目录", value: displayPath(cwd, text("path")) }] : [], code: null }
   if (["web_search", "tool_search"].includes(name)) return { kind: "search", fields: [{ label: "查询", value: text("query") }], code: null }
   if (name === "web_fetch") {
     let url = ""

@@ -44,7 +44,7 @@ for (const [label, tail, state] of [
 })
 it("keeps commentary before tools and the next response reasoning before its answer", async () => {
   const turn = await read([request, response("commentary"), thinking, answer("commentary"),
-    { type: "tool_call", at, id: "read", name: "read_files", input: { paths: ["README.md"] } },
+    { type: "tool_call", at, id: "read", name: "read_files", input: { files: [{ path: "README.md" }] } },
     { type: "tool_result", at, id: "read", status: "completed", content: "read" }, end("ToolUse"),
     request, response("final"), thinking, answer("final"), end(),
   ])

@@ -10,7 +10,7 @@ it("projects dedicated tool fields without serializing unknown arguments or cred
   const command = projectToolDetails("run_bash", { command: "TOKEN=private echo done", env: { SECRET: "secret" } }, "/workspace")
   assert.match(command!.code!, /已隐藏/); assert.doesNotMatch(JSON.stringify(command), /private|secret|SECRET/)
   assert.equal(projectToolDetails("unknown", { secret: "value" }, "/workspace"), null)
-  assert.equal(projectToolDetails("read_files", { paths: ["/workspace/src/main.ts", "/private/outside"] }, "/workspace")!.fields[0]!.value, "src/main.ts")
+  assert.equal(projectToolDetails("read_files", { files: [{ path: "/workspace/src/main.ts" }, { path: "/private/outside" }] }, "/workspace")!.fields[0]!.value, "src/main.ts")
   assert.equal(projectToolDetails("web_fetch", { url: "javascript:alert(1)" }, "/workspace")!.fields[0]!.value, "")
   assert.doesNotMatch(JSON.stringify(projectToolDetails("mcp__test__echo", { token: "secret" }, "/workspace")), /secret/)
 })

@@ -39,5 +39,7 @@ export function activityTitle(message: ActivityMessage): string {
   const action = verb && (message.status === "running" || message.status === "completed")
     ? verb[message.status === "running" ? 0 : 1] : title
   const context = message.details?.code || message.details?.fields.map(field => field.value).filter(Boolean).join("、") || ""
-  return [action, context.replace(/\s+/g, " ").trim()].filter(Boolean).join(" ")
+  const subject = context.replace(/\s+/g, " ").trim()
+  if (!subject && message.label === "read_files" && verb && ["running", "completed"].includes(message.status)) return `${action}文件`
+  return [action, subject].filter(Boolean).join(" ")
 }
