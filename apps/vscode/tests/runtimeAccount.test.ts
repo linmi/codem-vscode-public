@@ -23,6 +23,7 @@ async function setup(t: TestContext): Promise<{ accountOperations: typeof Operat
     ` : `
       import {control} from 'accountFixture';
       const status=()=>({loggedIn:control.loggedIn,routerCredential:control.loggedIn,displayName:null,userId:'u',tenantId:'t',authMethod:'browser',serverUrl:null});
+      export const signOutAppServer=async options=>{control.calls.push('logout');control.cwd=options.workingDirectory;options.signal.throwIfAborted();control.loggedIn=false;return status()};
       export const resolveBundledAppServerRuntime=()=>({});
       export const readAppServerAuthStatus=async options=>{control.calls.push('status');control.cwd=options.workingDirectory;options.signal.throwIfAborted();return status()};
       export function startAppServerLogin(options){
@@ -61,4 +62,18 @@ it("browser failure and unsafe URLs reject; cancellation reaps login and a retry
   assert.deepEqual(f.control.calls, ["status", "login", "browser", "cancel"])
   const retry = operations.login(new AbortController().signal, () => {})
   await new Promise(resolve => setImmediate(resolve)); f.control.finish(); await retry
+})
+
+it("logout uses the credential broker independently of workspace/Core and respects cancellation", async t => {
+  const f = await setup(t)
+  f.control.loggedIn = true
+  const timings: string[] = []
+  const operations = f.accountOperations("/extension", stage => timings.push(stage))
+  const status = await operations.logout(new AbortController().signal)
+  assert.equal(status.loggedIn, false)
+  assert.deepEqual(f.control.calls, ["logout"])
+  assert.deepEqual(timings, ["logout"])
+  assert.equal(f.control.cwd, homedir())
+  const abort = new AbortController(); abort.abort()
+  await assert.rejects(operations.logout(abort.signal))
 })

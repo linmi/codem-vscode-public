@@ -14,6 +14,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   const signedIn = (): AccountState => ({ status: "signedIn", profile: { avatar: search.scenario === "accountAvatar" ? {kind:"image",url:"/logo.svg"} : search.scenario === "accountAvatarFailure" ? {kind:"image",url:"/missing-avatar.jpg"} : {kind:"none"}, displayName: "林晓", userId: "preview-user", tenantId: "preview-team", authMethod: "browser" }, refreshing: false, notice: null })
   const accountFixture = (): AccountState => search.scenario === "accountSignedOut" ? { status: "signedOut", notice: null } : search.scenario === "accountSigningIn" ? { status: "signingIn", progress: "waiting" } : search.scenario === "accountFailure" ? { status: "error", message: "登录未完成，请重试。" } : signedIn()
   let account = accountFixture()
+  let logoutAttempts = 0
   let loginTimer: ReturnType<typeof setTimeout> | undefined
   let ready = false
   let generation = 0
@@ -90,7 +91,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
           whenRendered(`[data-resource-tab="${surface}"]`, node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })))
         })
       }
-      if (["accountProfile", "accountAvatar", "accountAvatarFailure"].includes(search.scenario)) whenRendered(".accountTrigger", node => node.click())
+      if (["accountProfile", "accountAvatar", "accountAvatarFailure", "accountSignOutFailure"].includes(search.scenario)) whenRendered(".accountTrigger", node => node.click())
       if (search.scenario === "sendFailure") {
         const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
         prompt.value = "继续检查错误恢复，并保留这段草稿。"; prompt.dispatchEvent(new Event("input", { bubbles: true }))
@@ -111,7 +112,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     document.querySelector<HTMLButtonElement>('#runtimeDetails[data-state="open"]')?.click()
     document.querySelector<HTMLButtonElement>('[aria-label="返回普通对话"]')?.click()
     generation++
-    selectedCode = selectionFixture()
+    selectedCode = selectionFixture(); logoutAttempts = 0
     const next = createPreviewState(search)
     demo = next.demo; panels = next.panels; activePanel = next.activePanel; surface = next.surface
     // New fixture identity clears previous disclosure/input state without a blank frame.
@@ -136,6 +137,15 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "composerRestore") { emit({ type: "composerDraft", value: action.value, focus: false, pendingRequestId: null }); return }
     if (action.type === "composerChanged" || action.type === "contextAdded") return
     if (action.type === "ready") { ready = true; publish(); showSurface(); return }
+    if (action.type === "signOut") {
+      if (account.status !== "signedIn" && account.status !== "signOutFailed") return
+      clearTimeout(loginTimer)
+      account = { status: "signingOut" }; logoutAttempts++
+      selectedCode = { current: null, pinned: [] }; demo.messages = []; demo.attachments = []; demo.phase = "disconnected"; demo.threadId = null
+      emit({ type: "composerDraft", value: { draft: "" }, focus: false, pendingRequestId: null }); publish()
+      loginTimer = setTimeout(() => { account = search.scenario === "accountSignOutFailure" && logoutAttempts === 1 ? { status: "signOutFailed", message: "退出登录未完成，连接已停用。请重试退出。" } : { status: "signedOut", notice: "已退出登录。" }; publish() }, 600)
+      return
+    }
     if (action.type === "signIn") {
       if (account.status === "signingIn" || account.status === "signedIn") return
       account = { status: "signingIn", progress: "waiting" }; publish()

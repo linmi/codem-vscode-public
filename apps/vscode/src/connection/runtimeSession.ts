@@ -17,7 +17,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   if (folders.length === 0) throw new UserVisibleError("请先打开一个项目文件夹。")
   const canonicalFolders = target ? await Promise.all(folders.map(async folder => ({ folder, cwd: folder.uri.scheme === "file" ? await realpath(folder.uri.fsPath) : null }))) : []
   const remembered = canonicalFolders.find(entry => entry.cwd === target?.cwd)?.folder
-  const folder = remembered ?? (folders.length === 1 && !target ? folders[0] : await vscode.window.showWorkspaceFolderPick({ placeHolder: target ? "上次工作区已不可用，请重新选择" : "选择本次 CodeM 会话的工作区" }))
+  const folder = remembered ?? (folders.length === 1 && !target ? folders[0] : (await pickForConnection(folders.map(folder => ({ label: folder.name, description: folder.uri.fsPath, folder })), target ? "上次工作区已不可用，请重新选择" : "选择本次 CodeM 会话的工作区", signal))?.folder)
   if (!folder) throw new UserVisibleError("已取消选择工作区。")
   if (folder.uri.scheme !== "file") throw new UserVisibleError("此工作区不提供可用的文件系统，请在本地或远程 Extension Host 中打开项目。")
   assertTrusted()
@@ -42,7 +42,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   let prepared = initial?.kind === "prepared" ? initial.space : null
   const requestedKey = target?.key ?? spaces.current
   const needsSelection = !spaces.spaces.some(space => space.projectKey === requestedKey)
-  const key = !needsSelection ? requestedKey : (await vscode.window.showQuickPick(spaces.spaces.map((space) => ({ label: space.displayName, key: space.projectKey })), { title: requestedKey ? "上次空间已不可用，请重新选择 CodeM 空间" : "选择本次连接使用的 CodeM 空间" }))?.key
+  const key = !needsSelection ? requestedKey : (await pickForConnection(spaces.spaces.map((space) => ({ label: space.displayName, key: space.projectKey })), requestedKey ? "上次空间已不可用，请重新选择 CodeM 空间" : "选择本次连接使用的 CodeM 空间", signal))?.key
   if (!key) throw new UserVisibleError("未选择可用空间，请先在 CodeM 账户中加入空间后重试。")
   const space = spaces.spaces.find(space => space.projectKey === key)
   if (!space) throw new UserVisibleError("所选空间已不可用，请重新选择。")
@@ -89,4 +89,13 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
     await host.close()
     throw error
   } finally { starting = false }
+}
+
+async function pickForConnection<T extends vscode.QuickPickItem>(items: T[], title: string, signal: AbortSignal): Promise<T | undefined> {
+  signal.throwIfAborted()
+  const cancellation = new vscode.CancellationTokenSource()
+  const cancel = () => cancellation.cancel()
+  signal.addEventListener("abort", cancel, { once: true })
+  try { return await vscode.window.showQuickPick(items, { title }, cancellation.token) }
+  finally { signal.removeEventListener("abort", cancel); cancellation.dispose() }
 }

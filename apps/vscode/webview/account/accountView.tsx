@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { createRoot } from "react-dom/client"
-import { ArrowLeftIcon, ArrowUpRightIcon, RefreshCwIcon, UserRoundIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowUpRightIcon, LogOutIcon, RefreshCwIcon, UserRoundIcon } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar.tsx"
 import { Button } from "../components/ui/button.tsx"
 import type { AccountAction, AccountAvatar, AccountProfile, AccountState } from "../../src/shared/accountTypes.ts"
@@ -13,7 +13,7 @@ function AccountAvatarView({ name, avatar, large = false }: { name: string | nul
     <AvatarFallback>{initial ?? <UserRoundIcon />}</AvatarFallback>
   </Avatar>
 }
-function Profile({ profile, avatarAttempt, refreshing, notice, back, refresh }: { profile: AccountProfile; avatarAttempt: number; refreshing: boolean; notice: string | null; back: () => void; refresh: () => void }) {
+function Profile({ profile, avatarAttempt, refreshing, notice, back, refresh, logout }: { profile: AccountProfile; avatarAttempt: number; refreshing: boolean; notice: string | null; back: () => void; refresh: () => void; logout: () => void }) {
   const backButton = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => { backButton.current?.focus() }, [])
   const fields = [["用户 ID", profile.userId], ["租户 ID", profile.tenantId], ["登录方式", profile.authMethod]] as const
@@ -25,6 +25,7 @@ function Profile({ profile, avatarAttempt, refreshing, notice, back, refresh }: 
       <p className="accountConnected"><span aria-hidden="true" />已登录</p>
       <dl className="accountFields">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "未提供"}</dd></div>)}</dl>
       <p className="accountFootnote" role="status">{refreshing ? "正在刷新账户信息…" : notice || (profile.avatar.kind === "unavailable" ? "暂时无法读取头像，可刷新重试。" : "账户信息由登录服务提供。")}</p>
+      <div className="accountLogout"><Button type="button" variant="outline" onClick={logout}><LogOutIcon aria-hidden="true" />退出登录</Button><p className="accountFootnote">将结束当前连接并清空草稿，已保存的聊天记录保留。</p></div>
     </div>
   </section>
 }
@@ -43,7 +44,7 @@ function AccountView({ state, avatarHost, chat, logo, post }: { state: AccountSt
     if (authenticated && !profileOpen && wasProfileOpen.current) avatarButton.current?.focus()
     wasProfileOpen.current = profileOpen
     if (!authenticated) setProfileOpen(false)
-    if (previousStatus.current === "signingIn" && state.status !== "signingIn") {
+    if ((previousStatus.current === "signingIn" && state.status !== "signingIn") || (previousStatus.current === "signingOut" && state.status !== "signingOut")) {
       if (authenticated) chat.querySelector<HTMLTextAreaElement>("textarea")?.focus()
       else loginButton.current?.focus()
     }
@@ -51,8 +52,14 @@ function AccountView({ state, avatarHost, chat, logo, post }: { state: AccountSt
   }, [authenticated, profileOpen, chat, state.status])
   if (state.status === "signedIn") return <>
     {createPortal(<Button ref={avatarButton} className="accountTrigger" variant="ghost" size="icon" aria-label={`个人账户：${state.profile.displayName || "CodeM 用户"}`} title="个人账户" onClick={() => { setProfileOpen(true); refreshAccount() }}><AccountAvatarView key={avatarAttempt} name={state.profile.displayName} avatar={state.profile.avatar} /></Button>, avatarHost)}
-    {profileOpen && <Profile profile={state.profile} avatarAttempt={avatarAttempt} refreshing={state.refreshing} notice={state.notice} back={() => setProfileOpen(false)} refresh={refreshAccount} />}
+    {profileOpen && <Profile profile={state.profile} avatarAttempt={avatarAttempt} refreshing={state.refreshing} notice={state.notice} back={() => setProfileOpen(false)} refresh={refreshAccount} logout={() => post({ type: "signOut" })} />}
   </>
+  if (state.status === "signingOut" || state.status === "signOutFailed") return <section className="accountPage accountLogin" aria-label="退出 CodeM">
+    <div className="accountLoginContent"><img src={logo} alt="CodeM" width="44" height="44" /><h1>{state.status === "signingOut" ? "正在退出登录…" : "退出未完成"}</h1>
+      <p role={state.status === "signingOut" ? "status" : "alert"}>{state.status === "signingOut" ? "正在关闭连接并退出账户。" : state.message}</p>
+      {state.status === "signOutFailed" && <Button ref={loginButton} type="button" variant="outline" onClick={() => post({ type: "signOut" })}>重试退出</Button>}
+    </div>
+  </section>
   const signingIn = state.status === "signingIn"
   const progress = signingIn ? ({ opening: "正在打开登录页面…", waiting: "请在浏览器中完成登录", binding: "正在确认登录…", cancelling: "正在取消登录…" } as const)[state.progress] : null
   return <section className="accountPage accountLogin" aria-label="登录 CodeM">

@@ -4,6 +4,7 @@ import type { AccountAvatar, AccountState } from "../shared/accountTypes.ts"
 export interface AccountIdentity extends AppServerAuthStatus { avatar: AccountAvatar }
 
 export interface AccountOperations {
+  logout: (signal: AbortSignal) => Promise<AppServerAuthStatus>
   read: (signal: AbortSignal) => Promise<AccountIdentity>
   login: (signal: AbortSignal, progress: (stage: "opening" | "waiting" | "binding") => void) => Promise<AccountIdentity>
 }
@@ -36,13 +37,41 @@ export class AccountController {
     if (this.signedIn) return Promise.resolve()
     return this.run(true)
   }
+  logout(endSession: () => Promise<void>): Promise<void> {
+    if (this.disposed) return Promise.resolve()
+    if (this.state.status === "signingOut") return this.operation!.promise
+    if (this.state.status !== "signedIn" && this.state.status !== "signOutFailed") return Promise.resolve()
+    const previous = this.operation
+    previous?.abort.abort()
+    const operation = { abort: new AbortController(), promise: Promise.resolve() }
+    this.operation = operation
+    this.avatarOwner = null
+    operation.promise = Promise.resolve().then(async () => {
+      try {
+        // Revoke session authority immediately, then await both cleanup and a retiring read.
+        const results = await Promise.allSettled([endSession(), previous?.promise])
+        if (results.some(result => result.status === "rejected")) {
+          if (!operation.abort.signal.aborted && !this.disposed) this.set({ status: "signOutFailed", message: "连接清理未完成，请重载窗口后重试退出。" })
+          return
+        }
+        operation.abort.signal.throwIfAborted()
+        const status = await this.operations.logout(operation.abort.signal)
+        if (status.loggedIn || status.routerCredential) throw new Error("Logout not confirmed")
+        if (!operation.abort.signal.aborted && !this.disposed) this.set({ status: "signedOut", notice: "已退出登录。" })
+      } catch {
+        if (!operation.abort.signal.aborted && !this.disposed) this.set({ status: "signOutFailed", message: "退出登录未完成，连接已停用。请重试退出。" })
+      } finally { if (this.operation === operation) this.operation = null }
+    })
+    this.set({ status: "signingOut" })
+    return operation.promise
+  }
   cancel(): void {
     if (this.state.status !== "signingIn") return
     this.operation?.abort.abort()
     this.set({ status: "signingIn", progress: "cancelling" })
   }
   observe(status: AppServerAuthStatus): void {
-    if (this.disposed) return
+    if (this.disposed || this.state.status === "signingOut" || this.state.status === "signOutFailed") return
     this.operation?.abort.abort()
     const owner = accountKey(status)
     const avatar: AccountAvatar = owner && owner === this.avatarOwner && this.state.status === "signedIn" ? this.state.profile.avatar : { kind: "none" }
@@ -55,6 +84,7 @@ export class AccountController {
       : { status: "signedOut", notice: status.loggedIn ? "登录已失效，请重新登录。" : null })
   }
   invalidate(): void {
+    if (this.state.status === "signingOut" || this.state.status === "signOutFailed") return
     this.avatarOwner = null
     this.operation?.abort.abort()
     this.set({ status: "signedOut", notice: "登录已失效，请重新登录。" })
@@ -66,7 +96,7 @@ export class AccountController {
   }
 
   private run(login: boolean): Promise<void> {
-    if (this.disposed) return Promise.resolve()
+    if (this.disposed || this.state.status === "signOutFailed") return Promise.resolve()
     if (this.operation) return this.operation.promise
     const operation = { abort: new AbortController(), promise: Promise.resolve() }
     this.operation = operation

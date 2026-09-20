@@ -84,7 +84,9 @@ export class ChatController {
   private readonly retiringHosts = new Set<Promise<void>>()
   private disposed = false
   private disposePromise: Promise<void> | null = null
-  private readonly lifetime = new AbortController()
+  private lifetime = new AbortController()
+  private accountReset: Promise<void> | null = null
+  private readonly connectionTasks = new Set<Promise<void>>()
   private state: ChatSnapshot = initialSnapshot()
   private settings: AppServerThreadSettings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" }
   private readonly resources = new ConversationResources()
@@ -122,7 +124,19 @@ export class ChatController {
 
   publish(): void { if (!this.disposed) this.options.publish(this.snapshot()) }
 
-  async connect(): Promise<void> {
+  connect(): Promise<void> {
+    if (this.accountReset) return Promise.resolve()
+    return this.trackConnection(this.connectCurrent())
+  }
+
+  private trackConnection(task: Promise<void>): Promise<void> {
+    this.connectionTasks.add(task)
+    const settled = () => { this.connectionTasks.delete(task) }
+    void task.then(settled, settled)
+    return task
+  }
+
+  private async connectCurrent(): Promise<void> {
     if (this.disposed || this.state.phase !== "disconnected") return
     const generation = ++this.generation
     let acquired: ChatSession | null = null
@@ -234,7 +248,12 @@ export class ChatController {
     }
   }
 
-  async selectSpace(pick: (session: ChatSession, signal: AbortSignal) => Promise<ChatSession | null>): Promise<void> {
+  selectSpace(pick: (session: ChatSession, signal: AbortSignal) => Promise<ChatSession | null>): Promise<void> {
+    if (this.accountReset) return Promise.resolve()
+    return this.trackConnection(this.selectSpaceCurrent(pick))
+  }
+
+  private async selectSpaceCurrent(pick: (session: ChatSession, signal: AbortSignal) => Promise<ChatSession | null>): Promise<void> {
     if (this.state.phase === "disconnected") await this.connect()
     const previous = this.session
     if (!previous || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
@@ -259,7 +278,7 @@ export class ChatController {
     } catch (error) {
       if (next) await next.host.close()
       this.options.report("selectSpace", error)
-      if (!this.disposed) this.update({ notice: "空间切换失败，请重试或查看 CodeM 日志。" })
+      if (!this.disposed && this.session === previous) this.update({ notice: "空间切换失败，请重试或查看 CodeM 日志。" })
     } finally {
       if (!this.disposed && this.snapshot().phase === "configuring") this.update({ phase: this.session ? "ready" : "disconnected" })
     }
@@ -772,6 +791,26 @@ export class ChatController {
     const historyNeedsRefresh = this.state.historyNeedsRefresh || this.conversationHistory.hasOlder || this.state.messages.some(message => message.id.startsWith("history:"))
     this.conversationHistory.invalidate()
     this.update({ hasOlderMessages: false, historyNeedsRefresh })
+  }
+
+  resetAccount(): Promise<void> {
+    if (this.accountReset) return this.accountReset
+    this.lifetime.abort()
+    this.pendingSend = null
+    const closing = this.retire()
+    this.state = initialSnapshot()
+    this.settings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default", ...this.pendingSettings }
+    this.updateSettings()
+    const task = Promise.allSettled([closing, ...this.retiringHosts, ...this.connectionTasks]).then(results => {
+      const failures = results.flatMap(result => result.status === "rejected" ? [result.reason] : [])
+      if (failures.length) throw new AggregateError(failures, "Account session cleanup failed")
+    })
+    this.accountReset = task
+    void task.then(() => {
+      this.lifetime = new AbortController()
+      this.accountReset = null
+    }, () => { /* Failed cleanup remains a barrier; restarting the Host is required. */ })
+    return task
   }
 
   dispose(): Promise<void> {

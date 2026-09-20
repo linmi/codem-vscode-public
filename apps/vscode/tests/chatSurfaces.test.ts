@@ -155,3 +155,34 @@ it("replays an explicit page reload from Host without changing its connection or
   assert.equal(publications, 2)
   assert.equal(sidebar.messages.at(-1).value.draft, "current draft")
 })
+
+it("logout clears pending context and saved drafts so surface reload cannot restore old account input", async t => {
+  const { ChatSurfaces, PanelBroker, control } = await fixture(t)
+  const surfaces = new ChatSurfaces({ extensionUri: {} }, new PanelBroker(), async () => {}, () => {})
+  t.after(() => surfaces.dispose())
+  await surfaces.focus(); control.sidebar.receive({ type: "ready" }); control.sidebar.receive({ type: "composerRestore", value: { draft: "old account draft" } })
+  const insertion = surfaces.addContext("old context")
+  const rejected = assert.rejects(insertion, /无法加入上下文/)
+  await new Promise(resolve => setImmediate(resolve))
+  const oldInsertion = control.sidebar.messages.at(-1)
+  surfaces.resetDraft(); await rejected
+  control.sidebar.receive({ type: "contextAdded", id: oldInsertion.id, accepted: true, value: { draft: "late old content" } })
+  surfaces.openInTab()
+  const editor = control.editors[0]
+  editor.receive({ type: "ready" }); editor.receive({ type: "composerRestore", value: { draft: "stale persisted content" } })
+  assert.equal(editor.messages.at(-1).value.draft, "")
+  assert.equal(editor.messages.at(-1).pendingRequestId, null)
+})
+
+it("logout cancels context insertion waiting for Webview restoration", async t => {
+  const { ChatSurfaces, PanelBroker, control } = await fixture(t)
+  const surfaces = new ChatSurfaces({ extensionUri: {} }, new PanelBroker(), async () => {}, () => {})
+  t.after(() => surfaces.dispose())
+  const insertion = surfaces.addContext("previous account code")
+  const rejected = assert.rejects(insertion, /上下文已取消/)
+  await new Promise(resolve => setImmediate(resolve))
+  surfaces.resetDraft(); await rejected
+  control.sidebar.receive({ type: "ready" }); control.sidebar.receive({ type: "composerRestore", value: { draft: "stale" } })
+  assert.equal(control.sidebar.messages.some((message: { type: string }) => message.type === "appendContext"), false)
+  assert.equal(control.sidebar.messages.at(-1).value.draft, "")
+})

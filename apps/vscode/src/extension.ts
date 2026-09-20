@@ -38,7 +38,7 @@ export function activate(context: vscode.ExtensionContext): void {
   let previousPhase: string | null = null
   const openSession = async (signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
     const runtimeStarted = performance.now()
-    const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signal, target, directory, status => account.observe(status))
+    const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signal, target, directory, status => { if (!signal.aborted) account.observe(status) })
     output.appendLine(`Connection runtime: ${Math.round(performance.now() - runtimeStarted)}ms`)
     try {
       const mcpStarted = performance.now()
@@ -60,7 +60,7 @@ export function activate(context: vscode.ExtensionContext): void {
       })
       return session
     },
-    assertTrusted,
+    assertTrusted: () => { assertTrusted(); if (!account.signedIn) throw new UserVisibleError("请先登录 CodeM。") },
     interact: async (request, signal, cwd) => {
       await surfaces?.focus()
       return showInteraction(request, signal, panels, cwd)
@@ -94,11 +94,22 @@ export function activate(context: vscode.ExtensionContext): void {
   }
   context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => { void autoConnect() }))
   const dispatch = async (action: ViewAction, reply: (result: SendResult | FileSearchResult | FileSelected | ImageResult) => void): Promise<void> => {
+    if (!account.signedIn && !["ready", "signIn", "signOut", "cancelSignIn", "refreshAccount", "showOutput"].includes(action.type)) {
+      if (action.type === "send") reply({ type: "sendResult", requestId: action.requestId, accepted: false })
+      account.publish(); return
+    }
     switch (action.type) {
       case "ready": await account.initialize(); account.publish(); await autoConnect(); break
       case "composerChanged": case "composerRestore": case "contextAdded": break
       case "panelReply": break
       case "connect": await account.initialize(); if (account.signedIn) await chat.connect(); else account.publish(); break
+      case "signOut": await account.logout(async () => {
+        panels.cancel(); settingsAbort?.abort(); selection!.state.clear(); surfaces?.resetDraft()
+        autoConnectAttempted = false
+        const started = performance.now()
+        try { await chat.resetAccount() }
+        finally { output.appendLine(`Account disconnect: ${Math.round(performance.now() - started)}ms`) }
+      }); break
       case "signIn": await account.login(); break
       case "cancelSignIn": account.cancel(); break
       case "refreshAccount": await account.refresh(); break

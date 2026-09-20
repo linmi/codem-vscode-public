@@ -27,3 +27,6 @@
 .accountFields > div { padding: 14px 0; border-bottom: 1px solid var(--line); }
 .accountFields dt { color: var(--muted); font-size: 11px; margin-bottom: 5px; }
 .accountFields dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; user-select: text; }
+
+.accountLogout { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); }
+.accountLogout button { width: 100%; min-height: 36px; color: var(--vscode-errorForeground, #c63737); border: 1px solid var(--line); border-radius: 8px; }

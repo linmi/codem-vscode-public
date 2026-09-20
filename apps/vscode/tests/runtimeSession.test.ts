@@ -15,6 +15,8 @@ interface Control {
   cancelPick: boolean
   failModels: boolean
   afterInitial: () => void
+  waitPick: boolean
+  picked: () => void
 }
 
 async function setup(t: TestContext): Promise<{ connectRuntime: typeof ConnectRuntime; control: Control }> {
@@ -30,11 +32,12 @@ async function setup(t: TestContext): Promise<{ connectRuntime: typeof ConnectRu
         return { path: args.path, namespace: "startupFixture" }
       })
       builder.onLoad({ filter: /.*/, namespace: "startupFixture" }, args => ({ resolveDir: root, contents: args.path === "startupFixture" ? `
-        export const control = {calls:[], loggedIn:true, selection:false, cancelPick:false, failModels:false, afterInitial:()=>{}};
+        export const control = {calls:[], loggedIn:true, selection:false, cancelPick:false, failModels:false,waitPick:false,picked:()=>{}, afterInitial:()=>{}};
       ` : args.path === "vscode" ? `
         import { control } from 'startupFixture';
+        export class CancellationTokenSource {token={onCancellationRequested:fn=>{this.cancelListener=fn}};cancel(){this.cancelListener?.()}dispose(){}}
         export const workspace = {isTrusted:true, workspaceFolders:[{name:'test',uri:{scheme:'file',fsPath:${JSON.stringify(root)}}}]};
-        export const window = {showQuickPick:async items=>{control.calls.push('pick'); return control.cancelPick ? undefined : items[0]}};
+        export const window = {showQuickPick:async (items,options,token)=>{control.calls.push('pick'); if(control.waitPick){control.picked();return new Promise(resolve=>token.onCancellationRequested(()=>resolve(undefined)))} return control.cancelPick ? undefined : items[0]}};
       ` : `
         import { control } from 'startupFixture';
         export { assertAppServerAuthenticated } from '../../packages/app-server/src/authentication.ts';
@@ -116,4 +119,14 @@ it("connection reports signed-out state without launching a login or Core", asyn
   const observed: boolean[] = []
   await assert.rejects(f.connectRuntime(root, "test", new AbortController().signal, undefined, undefined, status => observed.push(status.loggedIn)), /尚未登录/)
   assert.deepEqual(f.control.calls, ["auth"]); assert.deepEqual(observed, [false])
+})
+
+it("logout cancellation closes an open space picker before starting Core", async t => {
+  const f = await setup(t); f.control.selection = true; f.control.waitPick = true
+  const picked = new Promise<void>(resolve => { f.control.picked = resolve })
+  const abort = new AbortController()
+  const connection = f.connectRuntime(root, "test", abort.signal)
+  const rejected = assert.rejects(connection, /未选择/)
+  await picked; abort.abort(); await rejected
+  assert.equal(f.control.calls.includes("core"), false)
 })

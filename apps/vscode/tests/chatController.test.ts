@@ -1232,3 +1232,50 @@ it("previews and removes local images offline and clears draft attachments on ne
     assert.equal(f.counts().connections, 0)
   } finally { await f.controller.dispose(); await rm(cwd, { recursive: true, force: true }) }
 })
+
+it("account logout retires active authority, clears private view state and permits a fresh connection", async () => {
+  const f = setup()
+  await f.controller.send("old account question")
+  await f.controller.resetAccount()
+  const state = f.controller.snapshot()
+  assert.equal(state.phase, "disconnected")
+  assert.equal(state.threadId, null)
+  assert.deepEqual(state.messages, [])
+  assert.deepEqual(state.attachments, [])
+  assert.deepEqual(state.history.entries, [])
+  f.emit({ type: "text-delta", threadId: "thread-1", turnId: "turn-1", itemId: "old", delta: "private old response" })
+  assert.deepEqual(f.controller.snapshot().messages, [])
+  assert.equal(f.counts().closed, 1)
+  await f.controller.connect()
+  assert.equal(f.controller.snapshot().phase, "ready")
+  assert.equal(f.counts().connections, 2)
+  await f.controller.dispose()
+})
+it("logout cancels and waits for a pending connection and never binds its late session", async () => {
+  const f = setup()
+  let release!: () => void, signal!: AbortSignal
+  const pending = new Promise<void>(resolve => { release = resolve })
+  const controller = new ChatController({ connect: async s => { signal = s; await pending; return f.session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const connecting = controller.connect()
+  let finished = false
+  const reset = controller.resetAccount().then(() => { finished = true })
+  assert.equal(signal.aborted, true)
+  await Promise.resolve(); assert.equal(finished, false)
+  release(); await Promise.all([connecting, reset])
+  assert.equal(f.counts().closed, 1)
+  assert.equal(controller.snapshot().phase, "disconnected")
+  assert.equal(controller.snapshot().workspace, null)
+  await controller.dispose(); await f.controller.dispose()
+})
+
+it("failed account cleanup cannot be bypassed by retrying or reconnecting", async () => {
+  const f = setup()
+  await f.controller.connect()
+  f.host.close = async () => { throw Error("unconfirmed child exit") }
+  await assert.rejects(f.controller.resetAccount(), /cleanup failed/)
+  await assert.rejects(f.controller.resetAccount(), /cleanup failed/)
+  await f.controller.connect()
+  assert.equal(f.counts().connections, 1)
+  assert.equal(f.controller.snapshot().phase, "disconnected")
+  await f.controller.dispose()
+})

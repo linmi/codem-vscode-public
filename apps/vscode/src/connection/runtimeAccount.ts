@@ -1,12 +1,12 @@
 import { accountProfilePath, readAccountAvatar } from "./accountAvatar.ts"
 import { homedir } from "node:os"
 import * as vscode from "vscode"
-import { type AppServerAuthStatus, readAppServerAuthStatus, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
+import { type AppServerAuthStatus, readAppServerAuthStatus, signOutAppServer, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
 import type { AccountIdentity, AccountOperations } from "./accountController.ts"
 
 /** Auth runs in the user's home, independent of workspace trust, selection and Core. */
-export function accountOperations(extensionRoot: string, timing?: (stage: "status" | "login", durationMs: number) => void): AccountOperations {
+export function accountOperations(extensionRoot: string, timing?: (stage: "status" | "login" | "logout", durationMs: number) => void): AccountOperations {
   const options = () => ({ runtime: resolveBundledAppServerRuntime({ extensionRoot }), workingDirectory: homedir() })
   const identity = async (status: AppServerAuthStatus, signal: AbortSignal): Promise<AccountIdentity> => ({ ...status, avatar: await readAccountAvatar(status, accountProfilePath(process.env, homedir()), signal) })
   const read = async (authentication: ReturnType<typeof options>, signal: AbortSignal) => {
@@ -15,6 +15,11 @@ export function accountOperations(extensionRoot: string, timing?: (stage: "statu
     finally { timing?.("status", Math.round(performance.now() - started)) }
   }
   return {
+    logout: async signal => {
+      const started = performance.now()
+      try { return await signOutAppServer({ ...options(), signal }) }
+      finally { timing?.("logout", Math.round(performance.now() - started)) }
+    },
     read: async signal => identity(await read(options(), signal), signal),
     login: async (signal, progress) => {
       const authentication = options()

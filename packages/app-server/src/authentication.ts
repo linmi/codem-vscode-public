@@ -215,7 +215,7 @@ export function startAppServerLogin(options: StartAppServerLoginOptions): AppSer
   }
 }
 
-export async function signOutAppServer(options: AppServerAuthenticationOptions): Promise<AppServerAuthStatus> {
+export async function signOutAppServer(options: AppServerAuthenticationOptions & { readonly signal?: AbortSignal }): Promise<AppServerAuthStatus> {
   validateOptions(options)
   const result = await runCapturedAuthCommand(options, ["auth", "logout"], {
     timeoutMs: options.statusTimeoutMs ?? DEFAULT_AUTH_STATUS_TIMEOUT_MS,

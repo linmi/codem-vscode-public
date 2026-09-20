@@ -154,6 +154,22 @@ describe("App Server authentication", () => {
     await assert.rejects(operation.completed, AppServerLoginCancelledError)
   })
 
+  it("does not launch logout when its owner has already been cancelled", async () => {
+    const fixture = createAuthFixture()
+    const abort = new AbortController(); abort.abort()
+    await assert.rejects(signOutAppServer({ ...fixture.options(), signal: abort.signal }))
+    assert.equal((await readAppServerAuthStatus(fixture.options())).loggedIn, true)
+  })
+
+  it("cancels an in-flight logout child and waits for its exit", async () => {
+    const fixture = createAuthFixture()
+    const abort = new AbortController()
+    const logout = signOutAppServer({ ...fixture.options({ CODEM_FIXTURE_LOGOUT: "wait" }), signal: abort.signal })
+    const timer = setTimeout(() => abort.abort(), 30)
+    try { await assert.rejects(logout, /cancelled/); assert.equal((await readAppServerAuthStatus(fixture.options())).loggedIn, true) }
+    finally { clearTimeout(timer) }
+  })
+
   it("signs out through the broker and verifies the signed-out state", async () => {
     const fixture = createAuthFixture()
     const status = await signOutAppServer(fixture.options())
@@ -221,6 +237,7 @@ if (command !== "auth") process.exit(9)
   process.exit(0)
 }
 if (action === "logout") {
+  if (process.env.CODEM_FIXTURE_LOGOUT === "wait") { setInterval(() => {}, 1000); return }
   fs.writeFileSync(statePath, "signed-out")
   process.exit(0)
 }

@@ -17,6 +17,7 @@ export class ChatSurfaces implements vscode.Disposable {
   private readonly restoredWaiters = new Set<(error?: Error) => void>()
   private draft: ComposerDraft | null = null
   private draftRevision = 0
+  private contextGeneration = 0
   private pendingSend: { id: string; revision: number } | null = null
   private readonly contexts = new Map<string, { text: string; finish: (accepted: boolean) => void }>()
   private surfaceSubscriptions: vscode.Disposable[] = []
@@ -31,6 +32,14 @@ export class ChatSurfaces implements vscode.Disposable {
   }
   get available(): boolean { return Boolean(this.active) }
   post(message: unknown): void { if (!this.disposed && this.ready) void this.active?.webview.postMessage(message) }
+  resetDraft(): void {
+    this.contextGeneration++
+    for (const done of this.restoredWaiters) done(new Error("账户已退出，上下文已取消。"))
+    for (const pending of this.contexts.values()) pending.finish(false)
+    this.contexts.clear()
+    this.draft = { draft: "" }; this.draftRevision++; this.pendingSend = null; this.pendingFocus = false
+    this.post({ type: "composerDraft", value: this.draft, focus: false, pendingRequestId: null })
+  }
   async focus(): Promise<void> {
     this.pendingFocus = true
     if (this.editor) this.editor.reveal(undefined, false)
@@ -38,12 +47,15 @@ export class ChatSurfaces implements vscode.Disposable {
     if (this.ready) { this.post({ type: "focusComposer" }); this.pendingFocus = false }
   }
   async addContext(text: string): Promise<void> {
+    const generation = this.contextGeneration
     await this.focus()
+    if (generation !== this.contextGeneration) throw new Error("账户已退出，上下文已取消。")
     if (!this.restored) await new Promise<void>((resolve, reject) => {
       const done = (error?: Error) => { clearTimeout(timer); this.restoredWaiters.delete(done); if (error) reject(error); else resolve() }
       const timer = setTimeout(() => { this.restoredWaiters.delete(done); reject(new Error("聊天界面未就绪，请重新打开后重试。")) }, 10000)
       this.restoredWaiters.add(done)
     })
+    if (generation !== this.contextGeneration) throw new Error("账户已退出，上下文已取消。")
     await new Promise<void>((resolve, reject) => {
       const id = randomUUID()
       const timer = setTimeout(() => { this.contexts.delete(id); reject(new Error("加入上下文未确认，请检查草稿后重试。")) }, 10000)
