@@ -12,7 +12,7 @@ import {
   redactAppServerSecrets,
 } from "../src/index.ts"
 
-import { parseAppServerBackgroundTerminalList } from "../src/control-plane.ts"
+import { parseAppServerLiveTurns, parseAppServerBackgroundTerminalList } from "../src/control-plane.ts"
 
 describe("App Server control-plane projection", () => {
   it("projects Core alive into terminal state and rejects the obsolete wire inProgress field", () => {
@@ -122,4 +122,11 @@ describe("App Server control-plane projection", () => {
     assert.equal(isAppServerKnownNotification("turn/activity"), true)
     assert.equal(isAppServerKnownNotification("future/unknown"), false)
   })
+})
+
+it("uses numeric live snapshot offsets and rejects obsolete string cursors", () => {
+  for (const [parse, field] of [[parseAppServerLiveTurns, "turns"], [parseAppServerLiveItems, "items"]] as const) {
+    assert.equal(parse({ [field]: [], nextCursor: 50, total: 100 }, "live").nextCursor, 50)
+    for (const nextCursor of ["50", -1, 1.5, Number.MAX_SAFE_INTEGER + 1, undefined]) assert.throws(() => parse({ [field]: [], nextCursor, total: 100 }, "live"))
+  }
 })

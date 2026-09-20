@@ -185,7 +185,7 @@ export type AppServerLiveItem = AppServerItem | AppServerSteerAcceptedItem
 
 export interface AppServerLivePage<T> {
   readonly entries: readonly T[]
-  readonly nextCursor: string | null
+  readonly nextCursor: number | null
   readonly total: number
 }
 
@@ -329,6 +329,13 @@ export function parseAppServerBackgroundTerminalClean(
   }
 }
 
+function liveSnapshotCursor(value: unknown, label: string): number | null {
+  if (value === null) return null
+  const cursor = nonNegativeInteger(value, label)
+  if (!Number.isSafeInteger(cursor)) throw new Error(`CodeM ${label} must be a safe integer`)
+  return cursor
+}
+
 export function parseAppServerLiveTurns(value: unknown, label: string): AppServerLivePage<AppServerLiveTurn> {
   const result = objectValue(value, label)
   return {
@@ -340,7 +347,7 @@ export function parseAppServerLiveTurns(value: unknown, label: string): AppServe
         startedAt: nullableString(turn.startedAt, `${label} turns[${index}].startedAt`),
       }
     }),
-    nextCursor: nullableString(result.nextCursor, `${label} nextCursor`),
+    nextCursor: liveSnapshotCursor(result.nextCursor, `${label} nextCursor`),
     total: nonNegativeInteger(result.total, `${label} total`),
   }
 }
@@ -355,7 +362,7 @@ export function parseAppServerLiveItems(value: unknown, label: string): AppServe
       if (item.status !== "completed") throw new Error(`Invalid ${itemLabel} steerAccepted status`)
       return { id: exactNonBlankString(item.id, `${itemLabel}.id`), type: "steerAccepted", status: "completed", mode: exactNonBlankString(item.mode, `${itemLabel}.mode`), recordSeq: nonNegativeInteger(item.recordSeq, `${itemLabel}.recordSeq`), text: stringValue(item.text, `${itemLabel}.text`) }
     }),
-    nextCursor: nullableString(result.nextCursor, `${label} nextCursor`),
+    nextCursor: liveSnapshotCursor(result.nextCursor, `${label} nextCursor`),
     total: nonNegativeInteger(result.total, `${label} total`),
   }
 }

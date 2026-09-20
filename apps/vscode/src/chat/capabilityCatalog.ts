@@ -1,9 +1,9 @@
 import type { AppServerHost } from "@codem/app-server"
 import type { CatalogKind, CatalogRow } from "../shared/capabilityTypes.ts"
 
-type CatalogHost = Pick<AppServerHost, "readEnvironmentInfo" | "readConfigSnapshot" | "listHooks" | "listPlugins" | "listPermissionProfiles" | "readCoreSpaceSnapshot" | "readModelProviderCapabilities" | "listLoadedThreadIds" | "listLiveThreadTurns" | "listLiveThreadItems">
+type CatalogHost = Pick<AppServerHost, "readEnvironmentInfo" | "readConfigSnapshot" | "listHooks" | "listPlugins" | "listPermissionProfiles" | "readCoreSpaceSnapshot" | "readModelProviderCapabilities">
 /** Copy approved fields only; never serialize a Core object into the Webview. */
-export async function projectCatalog(host: CatalogHost, cwd: string, threadId: string | null, kind: Exclude<CatalogKind, "skills">): Promise<readonly CatalogRow[]> {
+export async function projectCatalog(host: CatalogHost, cwd: string, kind: Exclude<CatalogKind, "skills" | "live">): Promise<readonly CatalogRow[]> {
   switch (kind) {
     case "environment": {
       const info = await host.readEnvironmentInfo(cwd)
@@ -29,14 +29,6 @@ export async function projectCatalog(host: CatalogHost, cwd: string, threadId: s
     case "provider": {
       const info = await host.readModelProviderCapabilities(cwd)
       return [{ label: "Core", detail: info.version }, ...Object.entries(info.askUser).map(([label, value]) => ({ label: `问答 · ${label}`, detail: value ? "支持" : "不支持" })), ...Object.entries(info.custom).map(([label, value]) => ({ label: `模型 · ${label}`, detail: value ? "支持" : "不支持" }))]
-    }
-    case "live": {
-      const loaded = await host.listLoadedThreadIds(cwd)
-      const rows: CatalogRow[] = [{ label: "已加载会话", detail: `${loaded.threadIds.length} 个；当前会话${threadId && loaded.threadIds.includes(threadId) ? "已加载" : "未加载"}` }]
-      if (!threadId) return rows
-      const [turns, items] = await Promise.all([host.listLiveThreadTurns(cwd, threadId), host.listLiveThreadItems(cwd, threadId)])
-      rows.push({ label: "实时轮次", detail: `总计 ${turns.total}；本页 ${turns.entries.length}${turns.nextCursor ? "（还有后续页）" : ""}` }, ...turns.entries.map((turn, index) => ({ label: `轮次 ${index + 1}`, detail: `${turn.status ?? "状态未知"} · ${turn.startedAt ?? "时间未知"}` })), { label: "实时项目", detail: `总计 ${items.total}；本页 ${items.entries.length}${items.nextCursor ? "（还有后续页）" : ""}；持久消息仍以 JSONL 为准` }, ...items.entries.map((item, index) => ({ label: `项目 ${index + 1} · ${item.type}`, detail: item.status })))
-      return rows
     }
   }
 }

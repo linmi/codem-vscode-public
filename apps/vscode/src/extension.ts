@@ -137,6 +137,8 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       case "stop": await chat.stop(); break
       case "loadCatalog": await chat.loadCatalog(action.kind); break
+      case "loadMoreLiveSnapshot": await chat.loadMoreLiveSnapshot(action.snapshotId, action.kind); break
+      case "cancelLiveSnapshot": chat.cancelLiveSnapshot(action.snapshotId); break
       case "selectSkill": chat.selectSkill(action.id); break
       case "steer": if (action.threadId === chat.snapshot().threadId) await chat.steer(action.text, action.requestId); break
       case "askSideQuestion": if (action.threadId === chat.snapshot().threadId) await chat.askSideQuestion(action.text, action.requestId); break

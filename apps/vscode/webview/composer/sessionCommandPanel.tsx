@@ -1,3 +1,4 @@
+import { LiveSnapshotView } from "./liveSnapshotView.tsx"
 import { useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { SlidersHorizontalIcon } from "lucide-react"
@@ -48,9 +49,9 @@ function SessionCommandPanel({ state, request, post, close, focus }: Props) {
       <div className="sessionCommandBody" aria-busy={Boolean(tools.busy)}>
         {detailPanel && state.notice && <p role="status">{state.notice}</p>}{tools.busy && <p role="status">正在处理…</p>}
         {catalogPanel ? <div className="sessionToolSection">
-            <div className="sessionToolActions"><Select value={catalog} onValueChange={value => setCatalog(value as CatalogKind)}><SelectTrigger aria-label="目录类型"><SelectValue /></SelectTrigger><SelectContent>{catalogKinds.map(kind => <SelectItem key={kind} value={kind}>{catalogLabels[kind]}</SelectItem>)}</SelectContent></Select><Button variant="outline" size="sm" disabled={(!ready && !running) || Boolean(tools.busy)} onClick={() => post({ type: "loadCatalog", kind: catalog })}>刷新目录</Button></div>
+            <div className="sessionToolActions"><Select value={catalog} onValueChange={value => { if (tools.catalog?.kind === "live" && tools.catalog.loading) post({ type: "cancelLiveSnapshot", snapshotId: tools.catalog.snapshotId }); setCatalog(value as CatalogKind) }}><SelectTrigger aria-label="目录类型"><SelectValue /></SelectTrigger><SelectContent>{catalogKinds.map(kind => <SelectItem key={kind} value={kind}>{catalogLabels[kind]}</SelectItem>)}</SelectContent></Select><Button variant="outline" size="sm" disabled={(!ready && !running) || Boolean(tools.busy)} onClick={() => post({ type: "loadCatalog", kind: catalog })}>刷新目录</Button></div>
             {catalog === "skills" && <><Select value={tools.selectedSkill ?? "none"} onValueChange={id => post({ type: "selectSkill", id: id === "none" ? null : id })} disabled={!ready}><SelectTrigger aria-label="下一条消息使用的技能"><SelectValue placeholder="不指定技能" /></SelectTrigger><SelectContent><SelectItem value="none">不指定技能</SelectItem>{tools.skills.map(skill => <SelectItem key={skill.id} value={skill.id}>{skill.name}</SelectItem>)}</SelectContent></Select><p>{chosenSkill ? `下一条消息作为 ${chosenSkill.name} 的参数发送；请移除附件。` : "刷新技能目录后，可选择下一条消息使用的技能。"}</p></>}
-            {tools.catalog?.kind === catalog ? <><p>{tools.catalog.stale ? "结果已过期，请刷新。" : `${tools.catalog.rows.length} 项`}</p><dl className="catalogRows">{tools.catalog.rows.map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.detail}</dd></div>)}</dl></> : <p>按需加载，不在打开面板时自动请求。</p>}
+            {tools.catalog?.kind === catalog ? tools.catalog.kind === "live" ? <LiveSnapshotView view={tools.catalog} disabled={!ready && !running} post={post} /> : <><p>{tools.catalog.stale ? "结果已过期，请刷新。" : `${tools.catalog.rows.length} 项`}</p><dl className="catalogRows">{tools.catalog.rows.map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.detail}</dd></div>)}</dl></> : <p>按需加载，不在打开面板时自动请求。</p>}
         </div> : command === "directories" ? <div className="sessionToolSection">
             <p>仅作用于当前连接，重载后重新选择。目录附件不授予此范围。</p>
             <Button variant="outline" size="sm" disabled={!ready} onClick={() => post({ type: "addDirectory" })}>添加工作目录</Button>
@@ -80,7 +81,11 @@ export function createSessionCommandPanel(host: HTMLElement, post: Props["post"]
   let request: Request | null = null
   let sequence = 0
   let scope = ""
-  function close() { request = null; render() }
+  function close() {
+    const catalog = state.sessionTools.catalog
+    if (catalog?.kind === "live" && catalog.loading) post({ type: "cancelLiveSnapshot", snapshotId: catalog.snapshotId })
+    request = null; render()
+  }
   function render() { root.render(request ? <SessionCommandPanel key={`${scope}:${sequence}`} state={state} request={request} post={post} close={close} focus={focus} /> : null) }
   return {
     open(command: SessionPanelCommand) { request = { kind: "command", command }; sequence++; render() },

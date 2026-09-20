@@ -8,8 +8,9 @@ import type { FileDiffContent } from "../resources/filePresentation.ts"
 import { parseCodemIntelligence } from "@codem/protocol"
 import { realpath, stat } from "node:fs/promises"
 import { basename, relative, isAbsolute, sep } from "node:path"
+import { LiveSnapshotCatalog } from "./liveSnapshotCatalog.ts"
 import { projectCatalog } from "./capabilityCatalog.ts"
-import { emptySessionTools, type CatalogKind, type ThreadOperation, type SessionToolsState, emptyCapabilities } from "../shared/capabilityTypes.ts"
+import { emptySessionTools, type CatalogKind, type LiveSnapshotPageKind, type ThreadOperation, type SessionToolsState, emptyCapabilities } from "../shared/capabilityTypes.ts"
 import type { SpaceDirectory } from "../connection/spaceDirectory.ts"
 import type { SettingsPersistence } from "../connection/connectionPreferences.ts"
 import { projectToolDetails } from "./toolDetails.ts"
@@ -90,6 +91,7 @@ export class ChatController {
   private state: ChatSnapshot = initialSnapshot()
   private settings: AppServerThreadSettings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" }
   private readonly resources = new ConversationResources()
+  private readonly liveSnapshot: LiveSnapshotCatalog
   private readonly background: BackgroundTasks
 
   private readonly historyList: HistoryListController
@@ -97,6 +99,7 @@ export class ChatController {
 
   constructor(options: ChatControllerOptions) {
     this.options = options
+    this.liveSnapshot = new LiveSnapshotCatalog(view => this.updateTools({ catalog: view, ...(view.loading || this.state.sessionTools.busy === "catalog:live" ? { busy: view.loading ? "catalog:live" : null } : {}) }), options.assertTrusted, options.report)
     this.conversationHistory = new ConversationHistory(options.report)
     this.background = new BackgroundTasks((snapshot, notice) => this.update({ ...snapshot, ...(notice ? { notice } : {}) }), options.assertTrusted, options.report)
     this.pendingSettings = options.preferences?.pendingSettings() ?? {}
@@ -395,7 +398,12 @@ export class ChatController {
     const session = this.session
     const threadId = this.threadId
     if (!session || this.disposed || this.state.sessionTools.busy || !["ready", "running"].includes(this.state.phase)) return
-    this.updateTools({ busy: `catalog:${kind}` })
+    if (kind === "live") {
+      await this.liveSnapshot.refresh({ host: session.host, cwd: session.cwd, threadId, authorize: () => session.authorize() })
+      return
+    }
+    this.liveSnapshot.clear()
+    this.updateTools({ busy: `catalog:${kind}`, ...(this.state.sessionTools.catalog?.kind === "live" ? { catalog: null } : {}) })
     try {
       this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted()
       if (this.session !== session || this.threadId !== threadId) return
@@ -408,7 +416,7 @@ export class ChatController {
         const selected = this.state.sessionTools.selectedSkill
         this.updateTools({ skills: rows, selectedSkill: selected && this.skillNames.has(selected) ? selected : null, catalog: { kind, loaded: true, stale: false, rows: rows.map(skill => ({ label: skill.name, detail: skill.description })) } })
       } else {
-        const rows = await projectCatalog(session.host, session.cwd, threadId, kind)
+        const rows = await projectCatalog(session.host, session.cwd, kind)
         if (this.session !== session || this.threadId !== threadId) return
         this.updateTools({ catalog: { kind, rows, loaded: true, stale: false } })
       }
@@ -417,6 +425,13 @@ export class ChatController {
       if (this.session === session && this.threadId === threadId) this.update({ notice: "目录读取失败，已有结果保留；请刷新重试。" })
     } finally { if (this.session === session && this.threadId === threadId) this.updateTools({ busy: null }) }
   }
+
+  async loadMoreLiveSnapshot(snapshotId: string, kind: LiveSnapshotPageKind): Promise<void> {
+    if (!this.session || this.disposed || this.state.sessionTools.busy || !["ready", "running"].includes(this.state.phase)) return
+    await this.liveSnapshot.more(snapshotId, kind)
+  }
+
+  cancelLiveSnapshot(snapshotId: string): void { this.liveSnapshot.cancel(snapshotId) }
 
   selectSkill(id: string | null): void {
     if (this.state.phase !== "ready" || (id !== null && !this.skillNames.has(id))) return
@@ -431,6 +446,7 @@ export class ChatController {
       this.options.assertTrusted()
       await session.host.steerTurn({ cwd: session.cwd, threadId, submissionId: requestId, text })
       if (this.session !== session || this.threadId !== threadId) return
+      this.liveSnapshot.invalidate()
       this.update({ messages: [...this.state.messages, { id: requestId, role: "user", label: "补充指令", text, turnId: active.turnId }] })
       this.updateTools({ result: { requestId, accepted: true } })
     } catch (error) {
@@ -856,9 +872,10 @@ export class ChatController {
   }
 
   private onEvent(event: AppServerHostEvent): void {
+    if ("threadId" in event && event.threadId === this.threadId && ["turn-started", "turn-completed", "item-started", "item-completed", "thread-cleared", "thread-closed", "thread-status-changed"].includes(event.type)) this.liveSnapshot.invalidate()
     if (event.type === "control-changed" && event.method === "skills/changed" && (event.threadId === null || event.threadId === this.threadId)) {
       this.skillNames.clear()
-      this.updateTools({ selectedSkill: null, skills: [], catalog: this.state.sessionTools.catalog ? { ...this.state.sessionTools.catalog, stale: true } : null })
+      this.updateTools({ selectedSkill: null, skills: [], catalog: this.state.sessionTools.catalog?.kind === "skills" ? { ...this.state.sessionTools.catalog, stale: true } : this.state.sessionTools.catalog })
       this.update({ notice: "技能目录已更新，请刷新后重新选择。" })
       return
     }
@@ -1291,6 +1308,7 @@ export class ChatController {
   }
 
   private resetResources(preserveAttachments = false): void {
+    this.liveSnapshot.clear()
     this.side = null; this.controlTurn = null; this.skillNames.clear()
     this.state = { ...this.state, capabilities: emptyCapabilities(), sessionTools: { ...emptySessionTools(), directories: this.state.sessionTools.directories } }
     this.resources.clear(preserveAttachments); this.background.clear()

@@ -15,7 +15,7 @@
 | Shell | 输入命令并确认，经 thread/shellCommand 提交；Core 返回空回执，无输出预览，不把回执当成命令执行成功 |
 | 额外工作目录 | 原生文件夹选择 → realpath/目录校验 → 同一 thread resume；独立于消息目录附件，仅当前连接有效 |
 | 控制面目录 | 环境、配置、Hooks、插件、权限档案、Core 空间、Provider 能力按需读取；配置只展示键名/类型，Hook 只展示事件和处理器数量 |
-| 实时快照 | thread/loaded/list 以及当前线程 turns/items 首分页；标明总数和后续页存在性，不替代 JSONL 历史 |
+| 实时快照 | thread/loaded/list 以及当前线程 turns/items 独立翻页；每页 50 条，显示已加载/总数，不替代 JSONL 历史 |
 | 实时事件 | 计划、用量、差异汇总、工具保护、Hook 结果、线程状态和 activity 显示；警告使用安全文案，不下发原始命令/错误对象 |
 
 已有附件、模型/权限/计划模式、审批/问答、MCP stdio、工具目录、后台终端与后台任务取消继续沿用既有链路。Core 声明 configWrite=false、mcp.http=false，不提供无效编辑或 HTTP 入口。CLI 全局空间写入和退出登录不是 App Server 本轮接入范围；空间切换继续只影响本连接。
@@ -40,7 +40,8 @@
 | --- | --- |
 | 打开面板 / 取消确认 | 0 次 RPC、0 次认证、0 个子进程 |
 | 普通目录刷新 | 1 次认证 → 1 次目录 RPC |
-| 实时快照 | 1 次认证 → 1 次 loaded/list → turns/list 与 items/list 并行，各 1 次 |
+| 实时快照刷新 | 1 次认证 → loaded/list、turns/list、items/list 并行各 1 次；无当前线程时只读 loaded/list |
+| 实时快照翻页 | 1 次认证 → 对应 turns/list 或 items/list 1 次；不重复初始化或读取其他目录 |
 | 会话列表刷新 | 1 次认证 → 1 次 thread/list → 本页每个 thread/read 并行各 1 次。0.8.44 的 list 缺少持久 name，read 提供；无第二份名称缓存 |
 | 会话写入 | 1 次认证 → 1 次 readThread 校验 → 1 次写入 → 列表刷新；清空另读取新线程模式 |
 | 旁问 / 控制轮次 / Shell | 1 次认证 → 1 次对应 RPC；终态依赖事件。控制轮次完成另读取 JSONL（包含历史读取自己的认证检查） |
@@ -74,3 +75,25 @@
 最小复现：构建后运行 `pnpm --filter codem test:live --capabilities --compact-only`。脚本保留失败断言，显式停止以回收资源并继续清理；不会将警告转换为成功。UI 提示正在等待终态，保留停止入口，收到合法终态后重新读取真实历史。
 
 这阻止了“100% 成功验收”的结论。后续 P1 边界是上游 compact 的完成事件；准出标准为同一最小及完整场景在无需 interrupt 时收到关联的正常 turn/completed，客户端读取压缩后的 JSONL 并恢复 ready。仓库是客户端包，不包含 Core 服务端源码。
+
+## 实时快照翻页（2026-09-20）
+
+- 当前问题：原目录把首批 turns/items 合并为扁平行并丢弃游标；旧 Host 没有传 `limit`，真实 Core 默认返回全部记录。真实 0.8.44 在传入 `limit` 后返回数字 `nextCursor`，与此前声明的字符串类型不符。
+- 唯一协议模型：Host 两个快照方法固定每页 50 条，游标为非负安全整数或 null；所有内部调用方原子迁移，不保留字符串兼容路径。类型、解析、出站 RPC、fixture 和 opt-in Core 验证同步覆盖；JSONL 历史的字符串游标不属于此次变更。
+- 状态边界：`src/chat/liveSnapshotCatalog.ts` 独占两组行、总数、数字游标和请求代次；Controller 只组装连接/线程、转发事件和展示投影。Webview 只持有随机 snapshotId、脱敏行及 hasMore，不接收 Core 游标或原始内容。翻页按钮使用现有 shadcn Button。
+- 首次使用：打开 `/catalog` → 选择「实时线程快照」不发 RPC，按「刷新目录」后读取首批；Host 未响应前没有翻页入口。轮次和 Item 各自追加，到末页隐藏对应按钮。重复点击被 loading 和 snapshotId 拦截。
+- 失败/取消：失败保留已有页面及可重试游标；刷新原子替换两组首批。取消、关闭面板或切换目录撤销当前请求的展示权限，丢弃迟到结果；已发出的只读 RPC 仍由原 transport 收尾，不伪称物理取消。取消不启动任何 RPC。
+- 更新/重载：相关 turn/item/线程状态事件以及 steer 接收使快照过期，保留显示但禁止继续混页，需显式刷新；总数变化、重复条目、游标不前进同样拒绝。切换线程/空间、断线及扩展重载清空状态；单独 Webview 重建可从仍存活的 Host 恢复投影。快照不提供跨 RPC 的服务端原子一致性承诺。
+- 边界评审：分页规则与清理集中在独立状态所有者；界面只依赖 shared 展示契约，无 Host 反向引用。默认测试独立覆盖认证次数、取消/失败/旧响应、上下文失效、非法旧字符串协议，现有架构门禁检查依赖方向/平台边界；本次新增模块未引入循环依赖。
+
+验证入口：默认 `pnpm check`；真实 Core 无模型验证 `node --experimental-strip-types apps/vscode/tests/liveSnapshotCore.ts`；模拟界面使用既有预览服务运行 `tests/liveSnapshotChecks.mjs`。
+
+真实 Core 用专用临时 sessionsRoot 的 schema-13 fixture 恢复 105 轮/210 个 Item，再走生产 Host 和分页状态模块：轮次 3 页，Item 5 页，loaded/list 1 次、分页授权回调 7 次，两个列表共 8 次 RPC；没有模型请求，临时进程与目录均清理。实测刷新 2.41ms、后续页 0.91–1.20ms（本机样例，授权回调为 fixture，不含真实登录开销）。实际账户重新认证仍由默认集成测试约束为每次操作一次。
+
+本 Cycle 验证结果：
+- 单元/集成、类型、静态检查：`pnpm check` 全部通过；覆盖首次认证失败、分页重试、重复点击、取消时认证未完成/响应未返回、非法游标、快照变化和上下文切换。旧实时字符串游标只在负向测试/此迁移说明中保留；持久历史的独立字符串游标保持原协议。
+- 构建：`pnpm build:vscode` 通过。
+- 模拟界面：`LIVE_SNAPSHOT_UI_OK`，1440px 浅色、380px 深色；检查真实展开的 Select、独立翻页/末页、加载禁用、取消、失败保留、过期刷新、关闭/重载以及横向溢出；加载/失败状态由模拟 Host 注入。截图人工核对，无 console/CSP error。
+- 真实 Core：上述 `LIVE_SNAPSHOT_CORE_OK` 通过真实 stdio 与固定版本解析；数据来自临时 fixture，不宣称真实模型生成验证。
+- 真实 VS Code：本 Cycle 未执行原生开发宿主按钮操作；浏览器测试不能替代此层。
+- 测试资源：复用端口 4318、PID 58387 的预览服务。原有 Chrome 会话在测试期间关闭；确认无可复用会话后创建唯一专用 `codem-live-pagination`，结束关闭，保留既有服务与用户文件。

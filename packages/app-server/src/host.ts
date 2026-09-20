@@ -966,13 +966,15 @@ export class AppServerHost {
   async listLiveThreadTurns(
     cwd: string,
     threadId: string,
-    cursor?: string,
+    cursor?: number,
   ): Promise<AppServerLivePage<AppServerLiveTurn>> {
+    if (cursor !== undefined && (!Number.isSafeInteger(cursor) || cursor < 0)) throw new Error("Live snapshot cursor must be a non-negative safe integer")
     const thread = this.requireThread(cwd, threadId)
     return parseAppServerLiveTurns(
       await thread.connection.connection.request("thread/turns/list", {
         threadId,
-        ...(cursor ? { cursor } : {}),
+        limit: 50,
+        ...(cursor !== undefined ? { cursor } : {}),
       }),
       "thread/turns/list result",
     )
@@ -984,13 +986,15 @@ export class AppServerHost {
   async listLiveThreadItems(
     cwd: string,
     threadId: string,
-    cursor?: string,
+    cursor?: number,
   ): Promise<AppServerLivePage<AppServerLiveItem>> {
+    if (cursor !== undefined && (!Number.isSafeInteger(cursor) || cursor < 0)) throw new Error("Live snapshot cursor must be a non-negative safe integer")
     const thread = this.requireThread(cwd, threadId)
     return parseAppServerLiveItems(
       await thread.connection.connection.request("thread/items/list", {
         threadId,
-        ...(cursor ? { cursor } : {}),
+        limit: 50,
+        ...(cursor !== undefined ? { cursor } : {}),
       }),
       "thread/items/list result",
     )

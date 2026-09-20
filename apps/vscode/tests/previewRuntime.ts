@@ -257,6 +257,22 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "loadCatalog") {
       applyPreviewCatalog(demo, action.kind); demo.sessionTools.busy = null; demo.notice = null
     }
+    if (action.type === "loadMoreLiveSnapshot") {
+      const catalog = demo.sessionTools.catalog
+      if (catalog?.kind === "live" && catalog.snapshotId === action.snapshotId && catalog.pages && !catalog.loading && !catalog.stale) {
+        const page = catalog.pages[action.kind]
+        if (page.hasMore) {
+          const index = page.rows.length + 1
+          page.rows = [...page.rows, { label: action.kind === "turns" ? `轮次 ${index}` : `项目 ${index} · agentMessage`, detail: "completed" }]
+          page.hasMore = page.rows.length < page.total
+          catalog.snapshotId = crypto.randomUUID()
+        }
+      }
+    }
+    if (action.type === "cancelLiveSnapshot") {
+      const catalog = demo.sessionTools.catalog
+      if (catalog?.kind === "live" && catalog.snapshotId === action.snapshotId) { catalog.loading = null; catalog.snapshotId = crypto.randomUUID(); demo.sessionTools.busy = null }
+    }
     if (action.type === "openArtifact" || action.type === "openDiff" || action.type === "openChangedFile" || action.type === "openBackgroundLog") demo.notice = "模拟预览已收到打开请求；不会访问真实文件或外部链接。"
     publish()
   }

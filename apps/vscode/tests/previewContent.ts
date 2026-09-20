@@ -34,7 +34,7 @@ function historyRows() {
 const longPanel: PanelView = { id: "longQuestion", kind: "question", title: "验证范围 · 1/2", description: "选择需要覆盖的展示能力，可多选并补充说明。", detail: null, backChoiceId: null, initialText: "保留键盘操作和错误恢复。", multiple: true, allowText: true, confirmLabel: "下一题", choices: Array.from({ length: 12 }, (_, i) => ({ id: `scope${i}`, label: ["工具详情", "附件与图片", "产物卡片", "历史与恢复"][i % 4]! + ` ${i + 1}`, description: "分别检查加载、成功、失败、取消以及切换上下文后的状态。", selected: i === 0 })) }
 const rewindPanel: PanelView = { ...longPanel, id: "rewindPreview", kind: "rewind", title: "选择回退检查点", description: "仅演示检查点选择，不执行真实回退。", initialText: "", multiple: false, allowText: false, confirmLabel: "继续", choices: [{ id: "checkpoint1", label: "添加表单校验之前", description: "2 个文件 · 首次实现", selected: true }, { id: "checkpoint2", label: "补充错误提示之前", description: "1 个文件 · 最近一次修改", selected: false }] }
 
-const catalogSamples: Record<CatalogKind, { label: string; detail: string }[]> = {
+const catalogSamples: Record<Exclude<CatalogKind, "live">, { label: string; detail: string }[]> = {
   skills: [{ label: "review-ui", detail: "检查布局、键盘操作与状态反馈" }, { label: "inspect-tests", detail: "整理测试覆盖与未验证项" }],
   environment: [{ label: "Node.js", detail: "22.23.2 · 本地运行环境样例" }, { label: "包管理器", detail: "pnpm 12.4.1" }, { label: "工作区", detail: "codem-plugin · 已信任（模拟）" }],
   config: [{ label: "工作模式", detail: "Agent" }, { label: "权限", detail: "默认审批" }, { label: "思考强度", detail: "medium" }],
@@ -43,10 +43,12 @@ const catalogSamples: Record<CatalogKind, { label: string; detail: string }[]> =
   permissions: [{ label: "默认权限", detail: "由 Core 请求必要批准" }, { label: "完全访问", detail: "跳过工具权限审批；当前未选择" }],
   spaces: [{ label: "研发团队", detail: "当前空间（样例）" }, { label: "个人空间", detail: "可切换；开始新会话" }],
   provider: [{ label: "Auto", detail: "由路由器选择模型（样例）" }, { label: "CodeM Reasoning", detail: "文本与图片 · 200,000 tokens（样例）" }],
-  live: [{ label: "当前会话", detail: "空闲 · 可以继续发送" }, { label: "订阅", detail: "已连接（模拟）" }, { label: "后台资源", detail: "1 个终端 / 2 个唤醒任务（样例）" }],
+
 }
 export function applyPreviewCatalog(state: ChatSnapshot, kind: CatalogKind) {
-  state.sessionTools.catalog = { kind, loaded: true, stale: false, rows: structuredClone(catalogSamples[kind]) }
+  state.sessionTools.catalog = kind === "live"
+    ? { kind, snapshotId: crypto.randomUUID(), loaded: true, stale: false, loading: null, error: null, rows: [{ label: "已加载会话", detail: "1 个；当前会话已加载（模拟）" }], pages: { turns: { rows: [{ label: "轮次 1", detail: "completed · 2026-09-20" }], total: 3, hasMore: true }, items: { rows: [{ label: "项目 1 · userMessage", detail: "completed" }], total: 3, hasMore: true } } }
+    : { kind, loaded: true, stale: false, rows: structuredClone(catalogSamples[kind]) }
   state.sessionTools.skills = [{ id: "reviewUi", name: "review-ui", description: "检查布局与交互" }, { id: "inspectTests", name: "inspect-tests", description: "检查测试覆盖" }]
 }
 const catalogDefinitions = [

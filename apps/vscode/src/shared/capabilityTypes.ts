@@ -17,7 +17,19 @@ export const catalogKinds = ["skills", "environment", "config", "hooks", "plugin
 export type CatalogKind = typeof catalogKinds[number]
 export type ThreadOperation = "rename" | "fork" | "archive" | "unarchive" | "delete"
 export interface CatalogRow { label: string; detail: string }
-export interface CatalogView { kind: CatalogKind; rows: readonly CatalogRow[]; loaded: boolean; stale: boolean }
+export type LiveSnapshotPageKind = "turns" | "items"
+export interface LiveSnapshotPageView { rows: readonly CatalogRow[]; total: number; hasMore: boolean }
+export interface LiveCatalogView {
+  kind: "live"
+  snapshotId: string
+  rows: readonly CatalogRow[]
+  loaded: boolean
+  stale: boolean
+  loading: "refresh" | LiveSnapshotPageKind | null
+  error: string | null
+  pages: { turns: LiveSnapshotPageView; items: LiveSnapshotPageView } | null
+}
+export type CatalogView = { kind: Exclude<CatalogKind, "live">; rows: readonly CatalogRow[]; loaded: boolean; stale: boolean } | LiveCatalogView
 export interface SkillView { id: string; name: string; description: string }
 export interface SessionToolsState {
   busy: string | null
@@ -33,6 +45,8 @@ export function emptySessionTools(): SessionToolsState {
 }
 export type CapabilityAction =
   | { type: "loadCatalog"; kind: CatalogKind }
+  | { type: "loadMoreLiveSnapshot"; snapshotId: string; kind: LiveSnapshotPageKind }
+  | { type: "cancelLiveSnapshot"; snapshotId: string }
   | { type: "selectSkill"; id: string | null }
   | { type: "manageThread"; operation: ThreadOperation; threadId: string; name: string; requestId: string }
   | { type: "steer" | "askSideQuestion" | "shellCommand"; threadId: string; text: string; requestId: string }
@@ -44,6 +58,8 @@ export function parseCapabilityAction(record: Record<string, unknown>): Capabili
   const keys = Object.keys(record).sort().join(",")
   const identifier = (value: unknown) => typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value)
   if (record.type === "loadCatalog" && keys === "kind,type" && catalogKinds.some(kind => kind === record.kind)) return record as CapabilityAction
+  if (record.type === "loadMoreLiveSnapshot" && keys === "kind,snapshotId,type" && identifier(record.snapshotId) && (record.kind === "turns" || record.kind === "items")) return record as CapabilityAction
+  if (record.type === "cancelLiveSnapshot" && keys === "snapshotId,type" && identifier(record.snapshotId)) return record as CapabilityAction
   if (record.type === "selectSkill" && keys === "id,type" && (record.id === null || identifier(record.id))) return record as CapabilityAction
   if (record.type === "removeDirectory" && keys === "id,type" && identifier(record.id)) return record as CapabilityAction
   if ((record.type === "cancelSideQuestion" || record.type === "addDirectory") && keys === "type") return record as CapabilityAction

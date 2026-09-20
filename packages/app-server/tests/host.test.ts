@@ -678,6 +678,12 @@ describe("AppServerHost", () => {
         nextCursor: null,
         total: 0,
       })
+      await host.listLiveThreadTurns(fixture.root, threadId, 50)
+      await host.listLiveThreadItems(fixture.root, threadId, 0)
+      for (const cursor of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+        await assert.rejects(host.listLiveThreadTurns(fixture.root, threadId, cursor), /cursor/)
+        await assert.rejects(host.listLiveThreadItems(fixture.root, threadId, cursor), /cursor/)
+      }
       const terminals = await host.listBackgroundTerminals(fixture.root, threadId)
       assert.equal(terminals.terminals[0]?.processId, 4242)
       await host.terminateBackgroundTerminal(fixture.root, threadId, 4242)
@@ -696,6 +702,8 @@ describe("AppServerHost", () => {
         .trim()
         .split("\n")
         .map((line) => JSON.parse(line) as { method?: string; params?: Record<string, unknown> })
+      assert.deepEqual(captured.filter(entry => entry.method === "thread/turns/list").map(entry => entry.params), [{ threadId, limit: 50 }, { threadId, limit: 50, cursor: 50 }])
+      assert.deepEqual(captured.filter(entry => entry.method === "thread/items/list").map(entry => entry.params), [{ threadId, limit: 50 }, { threadId, limit: 50, cursor: 0 }])
       const clear = captured.find((entry) => entry.method === "thread/clear")
       assert.deepEqual(clear?.params?.model, { id: "codem-router/auto", intelligence: "medium" })
       assert.equal(clear?.params?.executionMode, "default")
