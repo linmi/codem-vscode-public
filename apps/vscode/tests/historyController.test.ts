@@ -293,3 +293,25 @@ it("restores durable diff handles with turn ownership and retires old handles on
     assert.deepEqual(f.chat.snapshot().diffs, [second])
   } finally { await f.chat.dispose() }
 })
+
+it("new chat does not bypass an aborted history read that still owns cleanup", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    let resolve!: (value: SessionHistoryPage) => void
+    f.session.readHistory = () => new Promise(done => { resolve = done })
+    const reading = f.chat.loadOlderMessages()
+    await new Promise(done => setImmediate(done))
+    f.emit({ type: "turn-started", threadId: "history-1", turnId: "background-turn", submissionId: null })
+    f.emit({ type: "turn-completed", threadId: "history-1", turnId: "background-turn", outcome: "completed", stopReason: "end", error: null })
+    await f.chat.newChat()
+    await f.chat.resumeThread("history-2")
+    assert.equal(f.chat.snapshot().threadId, null)
+    assert.deepEqual(f.resumed, ["history-1"])
+    resolve(page(0, null)); await reading
+    f.session.readHistory = async () => page(3, null)
+    await f.chat.resumeThread("history-2")
+    assert.equal(f.chat.snapshot().threadId, "history-2")
+    assert.equal(f.chat.snapshot().messages[0]?.text, "question 3")
+  } finally { await f.chat.dispose() }
+})

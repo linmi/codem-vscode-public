@@ -10,7 +10,8 @@ import { join } from "node:path"
 import { it } from "node:test"
 import type { AppServerHostEvent, AppServerInteractionResponse } from "@codem/app-server"
 import { parseAppServerItem } from "@codem/app-server"
-import { ChatController, UserVisibleError, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
+import { ChatController, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
+import { UserVisibleError } from "../src/shared/userVisibleError.ts"
 
 function setup() {
   let listener: (event: AppServerHostEvent) => void = () => undefined

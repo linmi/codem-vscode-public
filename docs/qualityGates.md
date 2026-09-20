@@ -94,3 +94,9 @@ VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.tes
 - 真实 Core：本轮未运行；进程回收证据来自协议 fixture。
 - 真实 VS Code：本轮未运行；未宣称退出、重载的完整 UI 验收通过。
 - GitHub Actions：本轮仅本地校验工作流与等价命令，未推送或触发远端运行。
+
+## 会话控制器状态边界
+
+资源句柄、后台任务与历史读取分别由 `ConversationResources`、`BackgroundTasks`、`ConversationHistory` 持有。禁止这三个模块反向依赖聊天协调器、聊天界面容器或应用入口；默认架构门禁校验别名解析，Oxlint 校验类型引用，规则有正反向测试。控制器通过有限操作调用模块，不共享可写状态对象。
+
+所有权、保存范围、清理时机及本轮分层验收见 [chatControllerBoundaries.md](chatControllerBoundaries.md)。回归覆盖旧异步操作不得恢复已清理状态、不得释放新操作的互斥，以及历史订阅状态不确定时必须断开。结构准出不使用行数或文件数量作为替代证据。

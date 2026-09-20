@@ -1,4 +1,5 @@
-import { ChatController, UserVisibleError, type ChatControllerOptions } from "../chat/chatController.ts"
+import { ChatController, type ChatControllerOptions } from "../chat/chatController.ts"
+import { UserVisibleError } from "../shared/userVisibleError.ts"
 import { isBusy, type ChatMessage, type ChatSnapshot } from "../shared/messages.ts"
 import type { HistoryEntry } from "../shared/historyTypes.ts"
 

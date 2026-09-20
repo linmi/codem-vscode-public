@@ -154,6 +154,26 @@
           }
         ]
       }
+    },
+    {
+      "files": [
+        "apps/vscode/src/resources/conversationResources.ts",
+        "apps/vscode/src/chat/backgroundTasks.ts",
+        "apps/vscode/src/sessionHistory/conversationHistory.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(^|/)(chatController|chatSurfaces|extension)\\.[cm]?tsx?$",
+                "message": "Conversation state owners cannot depend on the coordinator or application entrypoints."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "rules": {

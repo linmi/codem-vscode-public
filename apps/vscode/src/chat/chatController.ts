@@ -1,3 +1,6 @@
+import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from "../sessionHistory/conversationHistory.ts"
+import { BackgroundTasks, type BackgroundContext } from "./backgroundTasks.ts"
+import { UserVisibleError } from "../shared/userVisibleError.ts"
 import type { FileDiffContent } from "../resources/filePresentation.ts"
 import { parseCodemIntelligence, type CodemBuiltinIntelligence } from "@codem/protocol"
 import { realpath, stat } from "node:fs/promises"
@@ -7,21 +10,19 @@ import { emptySessionTools, type CatalogKind, type ThreadOperation, type Session
 import type { SpaceDirectory } from "../connection/spaceDirectory.ts"
 import type { SettingsPersistence } from "../connection/connectionPreferences.ts"
 import { projectToolDetails } from "./toolDetails.ts"
-import { Artifacts, type ArtifactSource } from "../resources/artifacts.ts"
-import { FileReferences } from "../resources/fileReferences.ts"
-import { readSessionImage, resolveSessionsRoot, type ConversationAttachment, type SessionHistoryPage } from "@codem/session-history"
+import type { ArtifactSource } from "../resources/artifacts.ts"
+import { ConversationResources } from "../resources/conversationResources.ts"
 import { changedFilePath } from "../resources/filePresentation.ts"
-import { attachmentPreview, rasterPreview } from "../resources/attachmentPreview.ts"
 import { terminalReplyLast } from "../shared/timelineOrder.ts"
 import { randomUUID } from "node:crypto"
-import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
+import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
 import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatMessage, type ChatSnapshot } from "../shared/messages.ts"
 
 import { HistoryListController } from "../sessionHistory/historyList.ts"
-import { historyMessages, historyTurnTimings } from "../sessionHistory/historyMessages.ts"
+import { historyTurnTimings } from "../sessionHistory/historyMessages.ts"
 import type { SessionHistoryReader } from "../sessionHistory/sessionHistory.ts"
 
-import { displayPath, validateAttachment } from "../resources/filePresentation.ts"
+import { displayPath } from "../resources/filePresentation.ts"
 
 export type ChatHost = Pick<AppServerHost, "control" | "compactThread" | "rewindThread" | "clearThread" | "steerTurn" | "startSideQuestion" | "cancelSideQuestion" | "runShellCommand" | "listSkills" | "readEnvironmentInfo" | "readConfigSnapshot" | "listHooks" | "listPlugins" | "listPermissionProfiles" | "readCoreSpaceSnapshot" | "readModelProviderCapabilities" | "listLoadedThreadIds" | "listLiveThreadTurns" | "listLiveThreadItems" | "listThreads" | "readThread" | "resumeThread" | "readModes" | "setModes" | "listTools" | "listBackgroundTerminals" | "terminateBackgroundTerminal" | "cleanBackgroundTerminals" | "cancelBackgroundTask" | "onEvent" | "startThread" | "startTurn" | "interruptTurn" | "unsubscribeThread" | "respondToInteraction" | "close">
 export interface ChatSession {
@@ -46,7 +47,6 @@ interface ActiveTurn {
   requests: Map<string, AbortController>
   approvals: Promise<void>
 }
-export class UserVisibleError extends Error {}
 export interface ChatControllerOptions {
   preferences?: SettingsPersistence
   connected?: (session: ChatSession) => Promise<void>
@@ -80,23 +80,16 @@ export class ChatController {
   private readonly lifetime = new AbortController()
   private state: ChatSnapshot = initialSnapshot()
   private settings: AppServerThreadSettings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" }
-  private readonly artifacts = new Artifacts()
-  private readonly images = new Map<string, () => Promise<AttachmentView["preview"]>>()
-  private readonly references = new FileReferences()
-  private readonly attachments = new Map<string, AppServerPromptAttachment>()
-  private readonly diffs = new Map<string, FileDiffContent>()
-  private readonly diffIds = new Map<string, string>()
-  private readonly terminals = new Map<string, AppServerBackgroundTerminal>()
-  private readonly tasks = new Map<string, string>()
-  private poll: ReturnType<typeof setInterval> | null = null
+  private readonly resources = new ConversationResources()
+  private readonly background: BackgroundTasks
 
   private readonly historyList: HistoryListController
-  private historyCursor: string | null = null
-  private historyRead: AbortController | null = null
-  private restoringThreadId: string | null = null
+  private readonly conversationHistory: ConversationHistory
 
   constructor(options: ChatControllerOptions) {
     this.options = options
+    this.conversationHistory = new ConversationHistory(options.report)
+    this.background = new BackgroundTasks((snapshot, notice) => this.update({ ...snapshot, ...(notice ? { notice } : {}) }), options.assertTrusted, options.report)
     this.pendingEffort = options.preferences?.pendingEffort() ?? null
     if (this.pendingEffort !== null) {
       this.settings = { ...this.settings, intelligence: this.pendingEffort }
@@ -152,7 +145,7 @@ export class ChatController {
   private bindSession(session: ChatSession, generation: number, restored: { settings: AppServerThreadSettings; notice: string | null }): void {
     this.session = session
     this.historyList.bind({ host: session.host, cwd: session.cwd, authorize: async () => { this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted() } })
-    this.historyCursor = null
+    this.conversationHistory.reset()
     this.threadId = null
     this.resetResources()
     this.settings = restored.settings
@@ -161,8 +154,7 @@ export class ChatController {
       if (this.session === session && generation === this.generation) this.onEvent(event)
     })
     this.update({ ...initialSnapshot(), phase: "ready", workspace: session.workspace, space: session.space.name, model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name), notice: restored.notice })
-    this.poll = setInterval(() => { void this.refreshBackground() }, 3000)
-    this.poll.unref()
+    this.background.startPolling(() => this.backgroundContext())
   }
 
   private async rememberConnection(session: ChatSession): Promise<void> {
@@ -272,10 +264,10 @@ export class ChatController {
     if (!text.trim() || text.length > 32_000) return false
     const session = this.session
     const active: ActiveTurn = { submissionId: message.id, turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
-    const attachmentIds = [...this.attachments.keys()]
+    const attachmentIds = this.resources.selectedIds()
     const consumeAttachments = () => {
       if (this.session !== session || this.disposed) return
-      for (const id of attachmentIds) this.attachments.delete(id)
+      for (const id of attachmentIds) this.resources.remove(id)
       this.updateTools({ selectedSkill: null })
       this.update({ attachments: this.state.attachments.filter((item) => !attachmentIds.includes(item.id)) })
     }
@@ -284,11 +276,10 @@ export class ChatController {
     this.update({ phase: "sending", notice: null, capabilities: { ...this.state.capabilities, plan: [], changes: [], guards: [], hooks: [] } })
     try {
       this.options.assertTrusted()
-      for (const attachment of this.attachments.values()) await validateAttachment(attachment)
-      if ([...this.attachments.values()].some((attachment) => attachment.kind === "image") && !session.models.find((model) => model.id === this.settings.model)?.supportsVision) throw new UserVisibleError("当前模型不支持图片，请切换模型或移除图片。")
+      await this.resources.validateSelection(session.models.find(model => model.id === this.settings.model)?.supportsVision ?? false)
       const threadId = await this.ensureThread(session)
       this.options.assertTrusted()
-      const attachments = [...this.attachments.values()]
+      const attachments = this.resources.selected()
       this.update({ messages: [...this.state.messages, message] })
       const skillId = this.state.sessionTools.selectedSkill
       const skillName = skillId === null ? undefined : this.skillNames.get(skillId)
@@ -611,7 +602,7 @@ export class ChatController {
       }
     }
     this.threadId = null
-    this.historyCursor = null
+    this.conversationHistory.invalidate()
     this.resetResources()
     this.update({ hasOlderMessages: false, historyNeedsRefresh: false, messages: [], turnTimings: [], attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], notice: null, phase: this.session ? "ready" : "disconnected" })
   }
@@ -634,7 +625,7 @@ export class ChatController {
   async resumeThread(threadId: string): Promise<void> {
     const session = this.session
     if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
-    if (this.historyRead) { this.update({ notice: "正在结束上一次历史读取，请稍后重试。" }); return }
+    if (this.conversationHistory.busy) { this.update({ notice: "正在结束上一次历史读取，请稍后重试。" }); return }
     const entry = this.historyList.snapshot().entries.find((thread) => thread.id === threadId)
     if (!entry || entry.archived) {
       this.update({ notice: "请选择当前工作区列表中可恢复的会话。" })
@@ -645,103 +636,70 @@ export class ChatController {
       if (!this.state.notice) this.historyList.close()
       return
     }
-    const previousThreadId = this.threadId
-    const abort = new AbortController()
-    this.historyRead = abort
-    this.restoringThreadId = threadId
-    let attached = false
-    let releasingPrevious = false
     this.update({ phase: "loadingHistory", notice: null })
     try {
-      this.options.assertTrusted()
-      await session.authorize()
-      this.assertHistoryContext(session, abort)
-      const detail = await session.host.readThread(session.cwd, threadId)
-      this.assertHistoryContext(session, abort)
-      if (detail.archived) throw new UserVisibleError("该会话已归档，无法继续对话。")
-      await session.host.resumeThread(session.cwd, threadId, this.settings)
-      attached = true
-      this.assertHistoryContext(session, abort)
-      const modes = await session.host.readModes(session.cwd, threadId)
-      this.assertHistoryContext(session, abort)
-      const page = await session.readHistory(threadId, undefined, abort.signal)
-      this.assertHistoryContext(session, abort)
-      if (previousThreadId) {
-        releasingPrevious = true
-        await session.host.unsubscribeThread(session.cwd, previousThreadId)
-        this.assertHistoryContext(session, abort)
-      }
-      this.threadId = threadId
-      this.historyCursor = page.nextCursor
-      this.resetResources()
-      const messages = this.projectHistory(threadId, page, session)
-      const diffs = this.restoreDiffs(page, true)
-      this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }
-      this.update({ phase: "ready", messages, turnTimings: historyTurnTimings(page), permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs, background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
-      this.historyList.close()
+      await this.conversationHistory.restore(this.historyContext(session), threadId, this.threadId, this.settings, ({ page, modes }) => {
+        this.threadId = threadId
+        this.resetResources()
+        const messages = this.resources.projectHistory(threadId, page, session.cwd)
+        const diffs = this.resources.restoreDiffs(session.cwd, page, true, this.state.diffs)
+        this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }
+        this.update({ phase: "ready", messages, turnTimings: historyTurnTimings(page), permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs, background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
+        this.historyList.close()
+      })
     } catch (error) {
       if (this.session !== session || this.disposed) return
-      let cleanupFailed = false
-      if (attached) {
-        try { await session.host.unsubscribeThread(session.cwd, threadId) }
-        catch (cleanupError) { cleanupFailed = true; this.options.report("historyCleanup", cleanupError) }
-      }
-      if (this.session !== session || this.disposed) return
-      this.options.report("resumeHistory", error)
-      if (releasingPrevious || cleanupFailed) {
+      if (!(error instanceof HistoryRestoreFailure)) throw error
+      if (error.disconnect) {
         this.update({ phase: "disconnected", notice: "会话切换状态未能确认，已断开连接，请重新连接。" })
         await this.retire()
-      } else if (!abort.signal.aborted) {
-        this.update({ notice: error instanceof UserVisibleError ? error.message : "会话恢复失败，当前记录已保留。请刷新历史后重试。" })
+      } else {
+        this.update({ notice: error.cause instanceof UserVisibleError ? error.cause.message : "会话恢复失败，当前记录已保留。请刷新历史后重试。" })
       }
     } finally {
-      if (this.historyRead === abort) { this.historyRead = null; this.restoringThreadId = null }
       if (this.session === session && !this.disposed && this.snapshot().phase === "loadingHistory") this.update({ phase: "ready" })
     }
   }
 
-  async loadOlderMessages(): Promise<void> { if (this.historyCursor) await this.loadHistoryPage(true) }
+  async loadOlderMessages(): Promise<void> { if (this.conversationHistory.hasOlder) await this.loadHistoryPage(true) }
   async reloadHistory(): Promise<void> { await this.loadHistoryPage(false) }
 
   private async loadHistoryPage(append: boolean): Promise<void> {
     const session = this.session
     const threadId = this.threadId
     if (!session || !threadId || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
-    if (this.historyRead) { this.update({ notice: "正在结束上一次历史读取，请稍后重试。" }); return }
-    const cursor = append ? this.historyCursor ?? undefined : undefined
-    const abort = new AbortController()
-    this.historyRead = abort
+    if (this.conversationHistory.busy) { this.update({ notice: "正在结束上一次历史读取，请稍后重试。" }); return }
     this.update({ phase: "loadingHistory", notice: null })
     try {
-      this.options.assertTrusted()
-      const page = await session.readHistory(threadId, cursor, abort.signal)
-      this.assertHistoryContext(session, abort)
-      const messages = this.projectHistory(threadId, page, session)
-      if (append && (page.nextCursor === cursor || messages.some((message) => this.state.messages.some((old) => old.id === message.id)))) throw new Error("History page overlaps the current snapshot")
-      const diffs = this.restoreDiffs(page, !append)
-      this.historyCursor = page.nextCursor
-      this.update({ diffs, messages: append ? [...messages, ...this.state.messages] : messages, turnTimings: append ? [...historyTurnTimings(page), ...this.state.turnTimings] : historyTurnTimings(page), hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
-    } catch (error) {
-      if (this.session !== session || this.disposed || abort.signal.aborted) return
-      this.options.report("historyPage", error)
-      this.historyCursor = null
+      await this.conversationHistory.load(this.historyContext(session), threadId, append, page => {
+        const messages = this.resources.projectHistory(threadId, page, session.cwd)
+        if (append && messages.some(message => this.state.messages.some(old => old.id === message.id))) throw new Error("History page overlaps the current snapshot")
+        const diffs = this.resources.restoreDiffs(session.cwd, page, !append, this.state.diffs)
+        this.update({ diffs, messages: append ? [...messages, ...this.state.messages] : messages, turnTimings: append ? [...historyTurnTimings(page), ...this.state.turnTimings] : historyTurnTimings(page), hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
+      })
+    } catch {
+      if (this.session !== session || this.disposed) return
       this.update({ hasOlderMessages: false, historyNeedsRefresh: true, notice: "历史记录无法继续读取。当前内容已保留，请点击「重新加载记录」重试。" })
     } finally {
-      if (this.historyRead === abort) this.historyRead = null
       if (this.session === session && !this.disposed && this.snapshot().phase === "loadingHistory") this.update({ phase: "ready" })
     }
   }
 
-  private assertHistoryContext(session: ChatSession, abort: AbortController): void {
-    abort.signal.throwIfAborted()
-    this.options.assertTrusted()
-    if (this.session !== session || this.disposed || this.active) throw new Error("History operation no longer belongs to an idle connection")
+  private historyContext(session: ChatSession): HistoryContext {
+    return {
+      host: session.host, cwd: session.cwd, authorize: () => session.authorize(),
+      readHistory: (...args) => session.readHistory(...args),
+      connected: () => this.session === session && !this.disposed,
+      assertCurrent: () => {
+        this.options.assertTrusted()
+        if (this.session !== session || this.disposed || this.active) throw new Error("History operation no longer belongs to an idle connection")
+      },
+    }
   }
 
   private invalidateHistory(): void {
-    this.historyRead?.abort()
-    const historyNeedsRefresh = this.state.historyNeedsRefresh || this.historyCursor !== null || this.state.messages.some((message) => message.id.startsWith("history:"))
-    this.historyCursor = null
+    const historyNeedsRefresh = this.state.historyNeedsRefresh || this.conversationHistory.hasOlder || this.state.messages.some(message => message.id.startsWith("history:"))
+    this.conversationHistory.invalidate()
     this.update({ hasOlderMessages: false, historyNeedsRefresh })
   }
 
@@ -763,13 +721,9 @@ export class ChatController {
   private retire(): Promise<void> {
     const session = this.session
     this.textGeneration?.finish(new UserVisibleError("连接已关闭，生成结果已取消。"))
-    this.historyRead?.abort()
-    this.historyRead = null
-    this.restoringThreadId = null
-    this.historyCursor = null
+    this.conversationHistory.reset()
     this.historyList.bind(null)
-    if (this.poll) clearInterval(this.poll)
-    this.poll = null
+    this.background.stopPolling()
     this.resetResources()
     this.session = null
     this.directoryPaths.clear()
@@ -829,7 +783,7 @@ export class ChatController {
       void this.retire().catch((error) => this.options.report("close", error))
       return
     }
-    if (event.type === "turn-started" && event.threadId === this.restoringThreadId && event.threadId !== this.threadId) this.historyRead?.abort()
+    if (event.type === "turn-started") this.conversationHistory.turnStarted(event.threadId, this.threadId)
     if ("threadId" in event && event.threadId === this.threadId) {
       if (event.type === "thread-modes-updated") {
         this.settings = { ...this.settings, permissionMode: event.state.permissionMode, workMode: event.state.workMode === "plan" ? "plan" : "default" }
@@ -837,11 +791,7 @@ export class ChatController {
         return
       }
       if (event.type === "background-wake") {
-        const id = [...this.tasks].find(([, taskId]) => taskId === event.taskId)?.[0] ?? randomUUID()
-        this.tasks.set(id, event.taskId)
-        const previous = this.state.backgroundTasks.find((task) => task.id === id)
-        const row = { id, label: previous?.label ?? `后台任务 ${this.tasks.size}`, phase: event.phase }
-        this.update({ backgroundTasks: [...this.state.backgroundTasks.filter((task) => task.id !== id), row] })
+        this.background.wake(event)
         return
       }
       if (event.type === "turn-started" && event.submissionId === null && !this.active) {
@@ -865,7 +815,7 @@ export class ChatController {
         return
       }
       if (event.type === "thread-closed" && event.reason !== "unsubscribed") {
-        this.historyRead?.abort()
+        this.conversationHistory.invalidate()
         this.finishActivities("incomplete")
         this.active?.abort.abort(); this.active = null; this.threadId = null
         this.invalidateHistory(); this.resetResources()
@@ -914,7 +864,7 @@ export class ChatController {
     } else if (event.type === "hook-completed") {
       this.update({ capabilities: { ...this.state.capabilities, hooks: [...this.state.capabilities.hooks, { id: randomUUID(), event: event.eventName, tool: event.toolName, outcome: event.outcome, elapsedMs: event.elapsedMs }] } })
     } else if (event.type === "file-diff") {
-      const row = this.recordDiff(event.turnId, event.itemId, event.diff)
+      const row = this.resources.recordDiff(this.session!.cwd, event.turnId, event.itemId, event.diff)
       this.update({ diffs: [...this.state.diffs.filter(diff => diff.id !== row.id), row] })
     } else if (event.type === "item-output-delta") {
       if (active.finalAnswerCalls.has(event.toolCallId)) return
@@ -940,7 +890,7 @@ export class ChatController {
           if (item.finalAnswer.artifacts.length) {
             const previous = this.state.messages.find(message => message.id === active.finalReplyId)
             if (!previous?.artifacts?.length) {
-              const artifacts = this.artifacts.project(item.finalAnswer.artifacts, this.session!.cwd)
+              const artifacts = this.resources.projectArtifacts(item.finalAnswer.artifacts, this.session!.cwd)
               this.update({ messages: this.state.messages.map(message => message.id === active.finalReplyId ? { ...message, artifacts } : message) })
             }
           }
@@ -1065,42 +1015,11 @@ export class ChatController {
     }
   }
 
-  private recordDiff(turnId: string, itemId: string, diff: FileDiffContent): import("../shared/messages.ts").DiffView {
-    const key = JSON.stringify([turnId, itemId])
-    const id = this.diffIds.get(key) ?? randomUUID()
-    this.diffIds.set(key, id)
-    this.diffs.set(id, diff)
-    return { id, turnId, label: displayPath(this.session!.cwd, diff.path), added: diff.stats.linesAdded, removed: diff.stats.linesRemoved, preview: diff.preview.kind, available: true }
-  }
-
-  private restoreDiffs(page: SessionHistoryPage, replace: boolean): import("../shared/messages.ts").DiffView[] {
-    if (replace) { this.diffs.clear(); this.diffIds.clear() }
-    const restored = page.turns.flatMap(({ turn }) => turn.items.flatMap(item => item.kind === "file-diff" ? [this.recordDiff(turn.id, item.id, item.diff)] : []))
-    return replace ? restored : [...restored, ...this.state.diffs.filter(diff => !restored.some(row => row.id === diff.id))]
-  }
-
-  private projectHistory(threadId: string, page: SessionHistoryPage, session: ChatSession) {
-    return historyMessages(threadId, page, (item: ConversationAttachment): AttachmentView => {
-      const id = randomUUID()
-      const kind = item.kind === "session-image" ? "image" : item.kind
-      if (kind === "image") this.images.set(id, async () => {
-        if (item.kind === "session-image") {
-          const bytes = await readSessionImage({ sessionsRoot: resolveSessionsRoot(process.env), cwd: session.cwd, threadId, attachment: item })
-          const preview = rasterPreview(bytes)
-          if (preview.kind !== "image" || !preview.dataUrl.startsWith(`data:${item.mediaType};`)) throw new Error("Image media type mismatch")
-          return preview
-        }
-        return attachmentPreview({ kind: "image", path: await changedFilePath(session.cwd, item.path) })
-      })
-      return { id, label: item.kind === "session-image" ? item.displayName : displayPath(session.cwd, item.path), kind, preview: kind === "image" ? { kind: "deferred" } : { kind: "none" } }
-    }, items => this.artifacts.project(items, session.cwd), session.cwd)
-  }
-
   async openArtifact(id: string, open: (source: ArtifactSource) => Promise<void>): Promise<void> {
     const session = this.session
     if (!session || this.disposed || !this.state.messages.some(message => message.artifacts?.some(artifact => artifact.id === id))) return
     this.options.assertTrusted()
-    const source = await this.artifacts.resolve(session.cwd, id)
+    const source = await this.resources.resolveArtifact(session.cwd, id)
     this.options.assertTrusted()
     if (this.session !== session || !this.state.messages.some(message => message.artifacts?.some(artifact => artifact.id === id))) return
     await open(source)
@@ -1112,9 +1031,7 @@ export class ChatController {
     if (!session || this.disposed || !visible()) return { kind: "unavailable", reason: "图片引用已过期。" }
     this.options.assertTrusted()
     try {
-      const load = this.images.get(id)
-      if (!load) throw new Error("Unknown image")
-      const preview = await load()
+      const preview = await this.resources.loadImage(id)
       this.options.assertTrusted()
       if (session !== this.session || !visible() || this.disposed) throw new Error("Image no longer belongs to current view")
       return preview
@@ -1125,7 +1042,7 @@ export class ChatController {
     const session = this.session
     if (!session || this.disposed || this.state.phase !== "ready") return []
     this.options.assertTrusted()
-    const files = await this.references.search(session.cwd, query, find)
+    const files = await this.resources.search(session.cwd, query, find)
     this.options.assertTrusted()
     return this.session === session && this.state.phase === "ready" && !this.disposed ? files : []
   }
@@ -1134,10 +1051,10 @@ export class ChatController {
     const session = this.session
     if (!session || this.state.phase !== "ready" || this.disposed) return false
     this.options.assertTrusted()
-    const item = await this.references.resolve(session.cwd, id)
+    const item = await this.resources.resolveFile(session.cwd, id)
     if (this.session !== session) return false
     await this.addAttachments(async () => [item])
-    return this.session === session && [...this.attachments.values()].some(value => value.path === item.path)
+    return this.session === session && this.resources.selected().some(value => value.path === item.path)
   }
 
   async addAttachments(pick: () => Promise<readonly AppServerPromptAttachment[]>): Promise<void> {
@@ -1150,15 +1067,13 @@ export class ChatController {
       const chosen = await pick()
       if (this.session !== session || this.disposed) return
       this.options.assertTrusted()
-      const unique = chosen.filter((item, index) => ![...this.attachments.values()].some((old) => old.path === item.path) && chosen.findIndex((other) => other.path === item.path) === index)
-      if (this.attachments.size + unique.length > 20) throw new UserVisibleError("每条消息最多添加 20 个附件。")
-      for (const item of unique) await validateAttachment(item)
-      if (this.session !== session || this.disposed) return
-      const additions = await Promise.all(unique.map(async item => ({ id: randomUUID(), item, preview: item.kind === "image" ? { kind: "deferred" as const } : { kind: "none" as const } })))
+      const additions = await this.resources.add(session.cwd, chosen, () => {
+        this.options.assertTrusted()
+        if (this.session !== session || this.disposed) throw new Error("Attachment selection expired")
+      })
       if (this.session !== session || this.disposed) return
       this.options.assertTrusted()
-      for (const { id, item } of additions) { this.attachments.set(id, item); if (item.kind === "image") this.images.set(id, () => attachmentPreview(item)) }
-      this.update({ attachments: [...this.state.attachments, ...additions.map(({ id, item, preview }) => ({ id, label: displayPath(session.cwd, item.path), kind: item.kind, preview }))] })
+      this.update({ attachments: [...this.state.attachments, ...additions] })
     } catch (error) {
       this.options.report("attachment", error)
       if (this.session === session) this.update({ notice: error instanceof UserVisibleError ? error.message : "附件不可用，请检查文件是否存在；图片不能超过 20 MiB。" })
@@ -1169,12 +1084,12 @@ export class ChatController {
 
   removeAttachment(id: string): void {
     if (this.state.phase !== "ready") return
-    this.attachments.delete(id)
+    this.resources.remove(id)
     this.update({ attachments: this.state.attachments.filter((item) => item.id !== id) })
   }
 
   async showDiff(id: string, show: (diff: FileDiffContent, cwd: string) => Promise<void>): Promise<void> {
-    const diff = this.diffs.get(id)
+    const diff = this.resources.diff(id)
     if (!this.session || !diff || this.disposed) return
     this.options.assertTrusted()
     await show(diff, this.session.cwd)
@@ -1193,55 +1108,29 @@ export class ChatController {
     })
   }
 
-  async refreshBackground(): Promise<void> { await this.backgroundOperation(async () => undefined) }
+  private backgroundContext(): BackgroundContext | null {
+    if (!this.session || !this.threadId || this.disposed || this.state.phase === "configuring" || this.state.phase === "loadingHistory") return null
+    return { host: this.session.host, cwd: this.session.cwd, threadId: this.threadId }
+  }
 
+  async refreshBackground(): Promise<void> {
+    const context = this.backgroundContext()
+    if (context) await this.background.refresh(context)
+  }
   async terminateBackground(id: string): Promise<void> {
-    const terminal = this.terminals.get(id)
-    if (!terminal) return
-    await this.backgroundOperation(async (session, threadId) => { await session.host.terminateBackgroundTerminal(session.cwd, threadId, terminal.processId) })
+    const context = this.backgroundContext()
+    if (context) await this.background.terminate(context, id)
   }
-
   async cleanBackground(): Promise<void> {
-    await this.backgroundOperation(async (session, threadId) => { await session.host.cleanBackgroundTerminals(session.cwd, threadId) })
+    const context = this.backgroundContext()
+    if (context) await this.background.clean(context)
   }
-
   async cancelTask(id: string): Promise<void> {
-    const taskId = this.tasks.get(id)
-    if (!taskId) return
-    await this.backgroundOperation(async (session, threadId) => {
-      const phase = await session.host.cancelBackgroundTask(session.cwd, threadId, taskId)
-      if (this.session === session && this.threadId === threadId) this.update({ backgroundTasks: this.state.backgroundTasks.map((task) => task.id === id ? { ...task, phase } : task) })
-    })
+    const context = this.backgroundContext()
+    if (context) await this.background.cancel(context, id)
   }
-
   async showBackgroundLog(id: string, show: (path: string) => Promise<void>): Promise<void> {
-    const terminal = this.terminals.get(id)
-    if (!terminal || !this.session || this.disposed) return
-    this.options.assertTrusted()
-    await show(terminal.logPath)
-  }
-
-  private async backgroundOperation(run: (session: ChatSession, threadId: string) => Promise<void>): Promise<void> {
-    const session = this.session
-    const threadId = this.threadId
-    if (!session || !threadId || this.disposed || this.state.backgroundBusy || (this.state.phase === "configuring" || this.state.phase === "loadingHistory")) return
-    this.update({ backgroundBusy: true })
-    try {
-      this.options.assertTrusted()
-      await run(session, threadId)
-      if (this.session !== session || this.threadId !== threadId) return
-      const result = await session.host.listBackgroundTerminals(session.cwd, threadId)
-      if (this.session !== session || this.threadId !== threadId) return
-      const previous = new Map([...this.terminals].map(([id, terminal]) => [terminal.processId, id]))
-      this.terminals.clear()
-      result.terminals.forEach((terminal) => this.terminals.set(previous.get(terminal.processId) ?? randomUUID(), terminal))
-      this.update({ background: [...this.terminals].map(([id, terminal], index) => ({ id, label: `后台进程 ${index + 1}`, inProgress: terminal.inProgress })) })
-    } catch (error) {
-      this.options.report("background", error)
-      if (this.session === session && this.threadId === threadId) this.update({ notice: "后台操作失败，请刷新后重试。" })
-    } finally {
-      if (this.session === session) this.update({ backgroundBusy: false })
-    }
+    if (this.session && !this.disposed) await this.background.showLog(id, show)
   }
 
   private updateSettings(): void {
@@ -1251,7 +1140,8 @@ export class ChatController {
   private resetResources(): void {
     this.side = null; this.controlTurn = null; this.skillNames.clear()
     this.state = { ...this.state, capabilities: emptyCapabilities(), sessionTools: { ...emptySessionTools(), directories: this.state.sessionTools.directories } }
-    this.artifacts.clear(); this.references.clear(); this.attachments.clear(); this.diffs.clear(); this.diffIds.clear(); this.terminals.clear(); this.tasks.clear()
+    this.resources.clear(); this.background.clear()
+    this.state = { ...this.state, ...this.background.snapshot() }
   }
 
   private async respond(request: AppServerInteraction, active: ActiveTurn, abort: AbortController): Promise<void> {
@@ -1332,8 +1222,7 @@ export class ChatController {
   private update(patch: Partial<ChatSnapshot>): void {
     if (this.disposed) return
     this.state = { ...this.state, ...patch }
-    const imageIds = new Set([...this.state.attachments, ...this.state.messages.flatMap(message => "attachments" in message ? message.attachments ?? [] : [])].map(item => item.id))
-    for (const id of this.images.keys()) if (!imageIds.has(id)) this.images.delete(id)
+    this.resources.retainImages(this.state.attachments, this.state.messages)
     this.publish()
   }
 }

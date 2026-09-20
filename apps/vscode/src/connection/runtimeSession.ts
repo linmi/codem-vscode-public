@@ -4,7 +4,8 @@ import { realpath } from "node:fs/promises"
 import { AppServerHost, assertAppServerAuthenticated, listAppServerSpaces, prepareAppServerSpace, prepareInitialAppServerSpace, readAppServerAuthStatus, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
 import { resolveSessionsRoot } from "@codem/session-history"
 import { createSessionHistoryReader } from "../sessionHistory/sessionHistory.ts"
-import { UserVisibleError, type ChatSession } from "../chat/chatController.ts"
+import { type ChatSession } from "../chat/chatController.ts"
+import { UserVisibleError } from "../shared/userVisibleError.ts"
 
 export function assertTrusted(): void {
   if (!vscode.workspace.isTrusted) throw new UserVisibleError("请先通过 VS Code 管理工作区信任，再连接 CodeM。")

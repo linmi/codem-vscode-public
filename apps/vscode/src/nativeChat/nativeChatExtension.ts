@@ -3,7 +3,7 @@ import { NativeChatService } from "./nativeChatService.ts"
 import { nativeSessionType, nativeThreadId, type NativeChatApi, type NativeHistoryApi, type NativeSessionController } from "./nativeChatApi.ts"
 import { NativeChatPanels } from "./nativeChatPanels.ts"
 import { assertTrusted, connectRuntime } from "../connection/runtimeSession.ts"
-import { UserVisibleError } from "../chat/chatController.ts"
+import { UserVisibleError } from "../shared/userVisibleError.ts"
 import { showInteraction } from "../panels/interactions.ts"
 import { isBusy, type ChatMessage } from "../shared/messages.ts"
 

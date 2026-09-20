@@ -195,3 +195,24 @@ it("structure gate: composer type environment accepts plain state and rejects DO
     }, source)
   }
 })
+
+for (const owner of ["src/resources/conversationResources.ts", "src/chat/backgroundTasks.ts", "src/sessionHistory/conversationHistory.ts"]) {
+  it(`conversation boundary rejects reverse coordinator dependencies from ${owner}, including aliases and types`, async t => {
+    const root = await fixture(t)
+    await put(root, "apps/vscode/src/chat/chatController.ts", "export class ChatController {}")
+    await put(root, "apps/vscode/src/shared/messages.ts", "export interface Snapshot { phase: string }")
+    await put(root, `apps/vscode/${owner}`, 'import type { Snapshot } from "../shared/messages.ts"; export const state: Snapshot = { phase: "ready" }')
+    await checkWorkspaceArchitecture(root)
+    await put(root, "apps/vscode/tsconfig.json", JSON.stringify({ compilerOptions: { paths: { "@coordinator": ["./src/chat/chatController.ts"] } } }))
+    await put(root, `apps/vscode/${owner}`, 'export { ChatController } from "@coordinator"')
+    await assert.rejects(checkWorkspaceArchitecture(root), /conversation state owners cannot import the coordinator/)
+    await put(root, ".oxlintrc.json", await readFile(join(workspace, ".oxlintrc.json"), "utf8"))
+    await put(root, `apps/vscode/${owner}`, 'export type { ChatController } from "../chat/chatController.ts"')
+    assert.throws(() => execFileSync(join(workspace, "node_modules/.bin/oxlint"), ["--deny-warnings", `apps/vscode/${owner}`], { cwd: root, encoding: "utf8", stdio: "pipe" }), error => {
+      const failure = error as Error & { status: number; stdout: string }
+      assert.equal(failure.status, 1)
+      assert.match(failure.stdout, /no-restricted-imports/)
+      return true
+    })
+  })
+}

@@ -51,6 +51,8 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
         const contracts = join(application, "src/shared")
         const webview = join(application, "webview")
         const components = join(webview, "components")
+        const conversationOwners = ["src/resources/conversationResources.ts", "src/chat/backgroundTasks.ts", "src/sessionHistory/conversationHistory.ts"]
+        const isConversationOwner = conversationOwners.some(file => args.importer === join(application, file))
         const isContract = within(args.importer, contracts)
         const isView = within(args.importer, webview)
         const isComponent = within(args.importer, components)
@@ -72,6 +74,7 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
         if (owner && !within(path, join(root, owner))) {
           return problem("shared source must use package exports instead of crossing source directories")
         }
+        if (isConversationOwner && ["src/chat/chatController.ts", "src/chat/chatSurfaces.ts", "src/extension.ts"].some(file => path === join(application, file))) return problem("conversation state owners cannot import the coordinator")
         if (isView && within(path, join(application, "src")) && !within(path, contracts)) return problem("Webview cannot import Host implementation")
         if (isContract && !within(path, contracts)) return problem("application contracts cannot depend on features")
         if (isComponent && within(path, application) && !within(path, components)) return problem("base UI cannot depend on application features")
