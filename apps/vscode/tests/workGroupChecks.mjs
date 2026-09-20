@@ -23,13 +23,13 @@ export default async function workGroupChecks(page) {
     ]; window.postMessage(demo,'*');
   });
   await page.getByText('最终答复',{exact:true}).waitFor();
-  if(await page.locator('.workGroup').count() !== 2) throw new Error('Text must separate adjacent tool groups');
+  if(await page.locator('.workGroup').count() !== 1) throw new Error('Progress text split one turn into multiple processing groups');
   const first = page.locator('.workGroup').first();
-  const last = page.locator('.workGroup').last();
   await page.locator('#messages > .message').getByText('调整查询关键词',{exact:true}).waitFor();
   if(await page.locator('.workGroup .message[data-role="assistant"]').count()) throw new Error('Assistant text was folded into execution');
   await first.locator(':scope > summary').click();
-  await first.locator('.activityMessage summary').click();
+  if (await first.locator('.activityMessage').count() !== 2) throw new Error('One turn did not retain both tool records');
+  await first.locator('.activityMessage summary').first().click();
   await first.getByText('第一轮',{exact:true}).waitFor();
   await first.locator(':scope > summary').press('Enter');
   await page.locator('#messages > .message').getByText('调整查询关键词',{exact:true}).waitFor();
@@ -39,13 +39,14 @@ export default async function workGroupChecks(page) {
     demo.messages[3] = {id:'tool2',role:'tool',label:'run_bash',status:'completed',summary:'',text:'Done',details:{kind:'command',code:'pnpm check',fields:[]}};
     window.postMessage(demo,'*');
   });
-  await last.getByText('正在处理',{exact:true}).waitFor();
-  await first.getByText('已处理',{exact:true}).waitFor();
-  await last.getByText('已运行 pnpm check',{exact:true}).waitFor();
-  if (await first.getAttribute('open') !== null) throw new Error('Earlier group reopened for later work');
+  await first.getByText('正在处理',{exact:true}).waitFor();
+  if (await first.getAttribute('open') !== null) throw new Error('Appending work lost the user collapse state');
+  await first.locator(':scope > summary').click();
+  await first.getByText('已运行 pnpm check',{exact:true}).waitFor();
+  await first.locator(':scope > summary').click();
   if (await page.locator('#messages > .message[data-role="assistant"] .messageActions:visible').count() !== 2) throw new Error('Visible replies lost their actions');
   await page.evaluate(() => { demo.phase='ready'; window.postMessage(demo,'*'); });
-  await last.getByText('已处理',{exact:true}).waitFor();
+  await first.getByText('已处理',{exact:true}).waitFor();
   // A new user turn must not reopen or relabel preceding execution groups.
   await page.evaluate(() => {
     demo.messages.push({id:'newUser',role:'user',label:'你',text:'下一轮'});
@@ -54,6 +55,7 @@ export default async function workGroupChecks(page) {
   if (await page.locator('.workGroup[open]').count()) throw new Error('Historical groups reopened for a new turn');
   await page.goto('http://127.0.0.1:4318/?scenario=progressUpdates');
   await page.locator('#messages > .message').getByText('暂未获取城市，先检索国内要闻。',{exact:true}).waitFor();
+  if (await page.locator('.workGroup').count() !== 1) throw new Error('Persisted progress scenario split one processing group');
   if (await page.locator('.workGroup > summary').filter({hasText:/已处理 \d+秒/}).count() !== 1) throw new Error('One turn duration was duplicated across execution groups');
   return 'WORK_GROUP_OK';
 

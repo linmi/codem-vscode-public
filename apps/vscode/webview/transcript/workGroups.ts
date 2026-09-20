@@ -5,7 +5,7 @@ import type { ChatMessage, ChatPhase, TurnTiming, DiffView, ViewAction } from ".
 import { timelineGroups } from "../../src/shared/timelineGroups.ts"
 import { uiIcon } from "../../src/shared/uiIcons.ts"
 
-/** Reuse disclosures for adjacent execution records without moving visible replies. */
+/** Reuse one execution disclosure per turn; assistant replies stay outside in their own order. */
 export function createWorkGroups(post: (action: ViewAction) => void) {
   const changeViews = new Map<string, { root: HTMLElement; view: ReturnType<typeof createTurnChanges> }>()
   const groups = new Map<string, { root: HTMLDetailsElement; summary: HTMLElement; content: HTMLElement; touched: boolean; label: HTMLElement; timer: ReturnType<typeof setInterval> | null }>()
@@ -50,7 +50,7 @@ export function createWorkGroups(post: (action: ViewAction) => void) {
       const label = running ? (phase === "stopping" ? "正在停止" : "正在处理") : failed ? "处理需要关注" : interrupted ? "已停止或拒绝" : "已处理"
       if (group.timer) clearInterval(group.timer)
       group.timer = null
-      // A split response still has one Core turn duration, shown only on its last execution group.
+      // One Core duration belongs to the turn, including work separated by progress replies.
       const timing = timings.find(timing => work.some(message => message.id === lastActivityByTurn.get(timing.turnId)))
       const heading = group.label
       const updateElapsed = () => {
