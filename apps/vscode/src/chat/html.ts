@@ -39,8 +39,8 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
       <label class="visuallyHidden" for="prompt">发送给 CodeM 的消息</label>
       <textarea id="prompt" rows="2" maxlength="32000" placeholder="提出问题，或描述你想实现的功能…" spellcheck="false"></textarea>
       <div class="composerToolbar">
-        <div class="composerLeading"><span id="attachmentMenu"></span><span id="permissionMenu"></span></div>
-        <div class="composerTrailing"><span id="workModeMenu"></span><span id="effortSelector"></span><span id="modelMenu" data-logo="${escapeHtml(resources.logo)}"></span>
+        <div class="composerLeading"><span id="attachmentMenu"></span><span id="workModeMenu"></span></div>
+        <div class="composerTrailing"><span id="permissionMenu"></span><span id="effortSelector"></span><span id="modelMenu" data-logo="${escapeHtml(resources.logo)}"></span>
           <button class="sendButton" id="send" type="submit" title="发送消息 · Enter" aria-label="发送消息" disabled>${uiIcon("arrowUp")}</button>
           <button class="stopButton" id="stop" type="button" title="停止生成" aria-label="停止生成" hidden>${uiIcon("stop")}</button>
         </div>
