@@ -85,6 +85,23 @@ export default async function workGroupChecks(page) {
   if (!await page.evaluate(() => document.querySelector('.workGroup') === window.workNode && window.workNode.contains(window.progressNode) && !window.workNode.open)) throw new Error('Moving progress replaced the group or lost its collapse state');
   await page.locator('.workGroup > summary').click();
   await page.locator('.workGroup').getByText('Wiki 未命中，继续检查代码库。',{exact:true}).waitFor();
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => { document.body.classList.toggle('vscode-dark', dark); document.body.classList.toggle('vscode-light', !dark); }, dark);
+    const presentation = await page.locator('.workGroupContent .message[data-role="assistant"]').evaluate(node => {
+      const style = getComputedStyle(node);
+      const bounds = node.getBoundingClientRect();
+      return {
+        color: getComputedStyle(node.querySelector('.messageBody')).color,
+        bodyColor: getComputedStyle(document.body).color,
+        toolColor: getComputedStyle(node.previousElementSibling.querySelector('summary')).color,
+        top: parseFloat(style.marginTop), bottom: parseFloat(style.marginBottom),
+        before: bounds.top - node.previousElementSibling.getBoundingClientRect().bottom,
+        after: node.nextElementSibling.getBoundingClientRect().top - bounds.bottom,
+      };
+    });
+    if (presentation.color !== presentation.bodyColor || presentation.color === presentation.toolColor) throw new Error('Progress explanation must use the main text color in both themes');
+    if ([presentation.top, presentation.bottom, presentation.before, presentation.after].some(gap => gap < 8)) throw new Error('Progress explanation lost spacing around tool records');
+  }
   return 'WORK_GROUP_OK';
 
 }

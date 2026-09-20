@@ -142,6 +142,7 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .workGroup[open] > summary svg { transform: rotate(90deg); }
 .workGroupContent { padding: 8px 0 2px; display: flex; flex-direction: column; gap: 0; }
 .workGroupContent .message { margin: 0; }
+.workGroupContent .message[data-role="assistant"] { margin: 8px 0; color: var(--ink); }
 .workGroupContent .messageActions { display: none; }
 .workGroupContent .activityMessage summary { padding: 2px 0; }
 .workGroupContent .activityStatus { margin-left: 4px; }
