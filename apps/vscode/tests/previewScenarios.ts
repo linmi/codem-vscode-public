@@ -1,7 +1,9 @@
 import type { ChatSnapshot } from "../src/shared/messages.ts"
 import { contentScenarios } from "./previewContent.ts"
+import { taskProgressScenarios, applyTaskProgressScenario } from "./previewTaskProgress.ts"
 
 export const previewScenarios = [
+  ...taskProgressScenarios,
   ["accountAvatar", "账户", "账户头像"], ["accountAvatarFailure", "账户", "头像加载失败"],
   ["accountSignedOut", "账户", "未登录"], ["accountSigningIn", "账户", "浏览器登录中"], ["accountFailure", "账户", "登录失败"], ["accountSignOutFailure", "账户", "退出失败与重试"], ["accountProfile", "账户", "个人账户"],
   ["conversation", "对话", "完成回复"], ["progressUpdates", "对话", "多次搜索与进度说明"], ["welcome", "对话", "新会话"], ["codeSelection", "输入", "代码选区"], ["codeSelectionFailure", "输入", "代码选区 · 发送失败"],
@@ -63,5 +65,6 @@ export function applyPreviewScenario(state: ChatSnapshot, scenario: string): str
   if (scenario === "effort") { empty(); state.phase = "disconnected"; return "effort" }
   if (["space", "model", "workMode"].includes(scenario)) { empty(); state.phase = "ready"; return scenario }
   if (["approval", "question", "questionBack", "plan"].includes(scenario)) { state.messages = state.messages.slice(0, 1); state.phase = "running"; return scenario }
+  applyTaskProgressScenario(state, scenario)
   return null
 }

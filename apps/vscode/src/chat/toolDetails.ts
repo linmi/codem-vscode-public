@@ -1,10 +1,12 @@
 import { displayPath } from "../resources/filePresentation.ts"
 import type { ToolDetails } from "../shared/messages.ts"
+import { projectTaskDetails } from "./taskDetails.ts"
 
 /** Project known display fields only; never serialize arbitrary tool arguments or environment. */
 export function projectToolDetails(name: string, input: unknown, cwd: string): ToolDetails | null {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null
   const value = input as Record<string, unknown>
+  if (name === "task_create" || name === "task_update") return projectTaskDetails(name, value)
   const text = (key: string) => typeof value[key] === "string" ? (value[key] as string).slice(0, 8000) : ""
   if (name === "skill") {
     // Core 0.8.44 SkillInput and schema 13 calls use {name}, including plugin:skill.

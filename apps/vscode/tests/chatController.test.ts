@@ -1456,3 +1456,25 @@ it("retains a skill's safe identity through separate started and completed resul
   assert.deepEqual(completed.details, started.details)
   assert.doesNotMatch(JSON.stringify(completed), /host-only/)
 })
+
+it("keeps task progress attached to its call across results, failures and session reset", async t => {
+  const f = setup()
+  t.after(() => f.controller.dispose())
+  await f.controller.connect(); await f.controller.send("显示任务进展")
+  const input = { updates: [{ id: "t-check", content: "验证交互", status: "completed" }], secret: "host-only-task-secret" }
+  f.emit({ type: "item-started", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "task-call", type: "toolCall", status: "inProgress", tool: "task_update", callId: "task-id", arguments: input }, "fixture") })
+  const started = f.controller.snapshot().messages.at(-1)!
+  assert.ok("status" in started && started.details?.kind === "task")
+  assert.equal(started.status, "running")
+  assert.equal(started.details.rows[0]!.status, "completed")
+  f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "task-result", type: "toolResult", status: "failed", callId: "task-id", output: "任务不存在" }, "fixture") })
+  const failed = f.controller.snapshot().messages.at(-1)!
+  assert.ok("status" in failed)
+  assert.equal(failed.status, "failed")
+  assert.deepEqual(failed.details, started.details)
+  assert.doesNotMatch(JSON.stringify(failed), /host-only-task-secret/)
+  f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "EndTurn", error: null })
+  assert.equal(f.controller.snapshot().messages.filter(message => message.role === "tool").length, 1)
+  await f.controller.newChat()
+  assert.equal(f.controller.snapshot().messages.length, 0)
+})
