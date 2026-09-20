@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
-import { TerminalIcon, SlidersHorizontalIcon } from "lucide-react"
+import { SlidersHorizontalIcon } from "lucide-react"
 import type { ChatSnapshot, ViewAction } from "../../src/messages.ts"
 import { catalogKinds, type CatalogKind, type ThreadOperation } from "../../src/capabilityTypes.ts"
 import { sessionCommands, type SessionPanelCommand } from "../../src/sessionCommands.ts"
@@ -26,6 +26,7 @@ function SessionCommandPanel({ state, request, post, close, focus }: Props) {
   const chosenSkill = tools.skills.find(skill => skill.id === tools.selectedSkill)
   const manage = ["rename", "fork", "archive", "unarchive", "delete"].includes(command) ? command as ThreadOperation : null
   const catalogPanel = command === "catalog" || command === "skills"
+  const detailPanel = catalogPanel || command === "directories"
   const title = command === "shell" ? "确认执行 Shell 命令" : sessionCommands.find(item => item.id === command)!.label
   function execute() {
     if (!ready || submitted.current) return
@@ -40,8 +41,8 @@ function SessionCommandPanel({ state, request, post, close, focus }: Props) {
     }
   }
   return <Dialog open onOpenChange={value => { if (!value) close() }}>
-    <DialogContent className={`toolDialog sessionCommandDialog ${catalogPanel || command === "directories" ? "sessionCommandCatalog" : ""}`} onCloseAutoFocus={event => { event.preventDefault(); focus() }}>
-      <div className="toolDialogHeading"><span className="toolDialogIcon">{request.kind === "shell" ? <TerminalIcon aria-hidden="true" /> : <SlidersHorizontalIcon aria-hidden="true" />}</span><div><DialogTitle>{title}</DialogTitle><DialogDescription>{state.workspace ?? "未连接工作区"} · {state.space ?? "未选择空间"}</DialogDescription></div></div>
+    <DialogContent className={`toolDialog sessionCommandDialog ${detailPanel ? "sessionCommandCatalog" : `sessionCommandConfirm ${command === "shell" ? "sessionCommandShell" : ""}`}`} onCloseAutoFocus={event => { event.preventDefault(); focus() }}>
+      <div className="toolDialogHeading">{detailPanel && <span className="toolDialogIcon"><SlidersHorizontalIcon aria-hidden="true" /></span>}<div><DialogTitle>{title}</DialogTitle><DialogDescription>{state.workspace ?? "未连接工作区"} · {state.space ?? "未选择空间"}</DialogDescription></div></div>
       <div className="sessionCommandBody" aria-busy={Boolean(tools.busy)}>
         {state.notice && <p role="status">{state.notice}</p>}{tools.busy && <p role="status">正在处理…</p>}
         {catalogPanel ? <div className="sessionToolSection">
@@ -64,7 +65,7 @@ function SessionCommandPanel({ state, request, post, close, focus }: Props) {
           {command === "clear" && <p>开始新上下文，当前附件和资源句柄将被清理。</p>}
           {command === "compact" && <p>整理当前上下文，完成后重新读取会话记录。</p>}
           {command === "rewind" && <p>下一步选择 Core 提供的检查点和回退范围，再确认执行。</p>}
-          <div className="sessionToolActions"><Button type="button" variant="outline" size="sm" onClick={close}>取消</Button><Button type="button" variant={command === "delete" || command === "clear" || command === "shell" ? "destructive" : "outline"} size="sm" disabled={!ready || (manage ? !selected || (manage === "rename" && !name.trim()) : !state.threadId)} onClick={execute}>{command === "rewind" ? "选择检查点" : manage ? `确认${operationLabels[manage]}` : "确认执行"}</Button></div>
+          <div className="sessionToolActions sessionConfirmActions"><Button type="button" variant="outline" size="sm" onClick={close}>取消</Button><Button type="button" variant={command === "delete" || command === "clear" || command === "shell" ? "destructive" : "outline"} size="sm" disabled={!ready || (manage ? !selected || (manage === "rename" && !name.trim()) : !state.threadId)} onClick={execute}>{command === "rewind" ? "选择检查点" : manage ? `确认${operationLabels[manage]}` : "确认执行"}</Button></div>
         </section>}
       </div>
     </DialogContent>

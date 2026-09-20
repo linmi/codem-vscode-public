@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { createRoot } from "react-dom/client"
-import { FileDiffIcon, FolderKanbanIcon, TerminalIcon, WrenchIcon, RefreshCwIcon, Settings2Icon, SearchIcon, XIcon } from "lucide-react"
+import { FileDiffIcon, FolderKanbanIcon, TerminalIcon, WrenchIcon, RefreshCwIcon, Settings2Icon, SearchIcon, XIcon, ExternalLinkIcon } from "lucide-react"
 import type { ChatSnapshot, ViewAction } from "../../src/messages.ts"
 import { Button } from "./button.tsx"
 import { Input } from "./input.tsx"
@@ -35,10 +35,10 @@ function ResourceTools({ state, post }: Props) {
         </TabsList>
         <TabsContent value="files" data-resource-section="files" className="toolTabBody">
           <div className="toolSectionHeading"><h3>文件差异</h3><p>查看修改内容，或在编辑器中打开文件。</p></div>
-          <div id="diffs" className="toolCardList">{state.diffs.map(diff => <article className="toolResourceCard" key={diff.id}>
+          <div id="diffs" className="toolDiffList">{state.diffs.map(diff => <article className="toolDiffRow" key={diff.id}>
             <div className="toolResourceTitle"><FileDiffIcon aria-hidden="true" /><strong>{diff.label}</strong></div>
             <div className="toolResourceMeta"><span className="diffAdded">+{diff.added}</span><span className="diffRemoved">−{diff.removed}</span>{diff.preview !== "complete" && <span>{{ partial: "部分差异", "raw-partial": "部分差异", binary: "二进制", omitted: "无预览" }[diff.preview]}</span>}</div>
-            <div className="sessionToolActions"><Button variant="outline" size="sm" disabled={!diff.available} onClick={() => post({ type: "openDiff", id: diff.id })}>查看差异</Button><Button variant="ghost" size="sm" disabled={!diff.available} onClick={() => post({ type: "openChangedFile", id: diff.id })}>打开文件</Button></div>
+            <div className="sessionToolActions"><Button variant="outline" size="sm" disabled={!diff.available} onClick={() => post({ type: "openDiff", id: diff.id })}>查看差异</Button><Button variant="ghost" size="icon" aria-label={`打开文件 ${diff.label}`} title="在编辑器中打开文件" disabled={!diff.available} onClick={() => post({ type: "openChangedFile", id: diff.id })}><ExternalLinkIcon aria-hidden="true" /></Button></div>
           </article>)}</div>
           {!state.diffs.length && <Empty icon={<FileDiffIcon aria-hidden="true" />} title="尚无文件差异">会话产生的文件变更会显示在这里。</Empty>}
         </TabsContent>

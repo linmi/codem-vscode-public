@@ -1,4 +1,4 @@
-/* Shared layout for the two shadcn Dialog / Tabs surfaces. */
+/* Shared dialog controls; confirmation and resource layouts are sized by content. */
 .toolPanelTrigger[data-slot="button"] { width: 28px; height: 28px; padding: 6px; border-radius: 8px; color: var(--muted); }
 .toolPanelTrigger[data-state="open"] { background: var(--soft); color: var(--ink); }
 .toolPanelTrigger svg { width: 16px; height: 16px; stroke-width: 1.7; }
@@ -38,6 +38,22 @@
 .toolDirectoryRow > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .toolCardList { display: grid; gap: 10px; }
 .toolResourceCard { padding: 14px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 10px; }
+.resourceToolsDialog.toolDialog { width: min(720px, calc(100vw - 24px)); height: auto; max-height: min(680px, calc(100dvh - 32px)); }
+.toolDiffList { container-type: inline-size; }
+.toolDiffRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+.toolDiffRow .toolResourceMeta { align-items: center; flex-wrap: wrap; gap: 8px; }
+.toolDiffRow .sessionToolActions { justify-content: flex-end; flex-wrap: nowrap; gap: 4px; }
+.toolDiffRow [data-slot="button"] { height: 28px; padding: 4px 8px; white-space: nowrap; }
+.toolDiffRow [data-size="icon"] { width: 28px; padding: 6px; }
+@container (max-width: 520px) {
+  .toolDiffRow { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; }
+  .toolDiffRow .toolResourceTitle { grid-column: 1 / -1; }
+}
+@container (max-width: 460px) {
+  .turnChanges li { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; }
+  .turnChangeFile { grid-column: 1 / -1; }
+  .turnChangeActions { gap: 4px; }
+}
 .toolResourceTitle { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .toolResourceTitle > svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--muted); }
 .toolResourceTitle strong { min-width: 0; flex: 1; font-size: 12px; overflow-wrap: anywhere; font-weight: 500; }
@@ -75,18 +91,18 @@
 .toolDialog [data-slot="button"]:hover:not(:disabled) { background: var(--soft); }
 .toolDialog [data-slot="button"]:focus-visible, .toolTabs [data-slot="tabs-trigger"]:focus-visible { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 2px; }
 
-.turnChanges { margin: 12px 0 24px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; font: 12px/1.6 var(--uiFont); }
+.turnChanges { container-type: inline-size; margin: 12px 0 24px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; font: 12px/1.6 var(--uiFont); }
 .turnChangesHeading { display: flex; align-items: center; gap: 8px; }
 .turnChangesHeading > svg { width: 16px; height: 16px; color: var(--muted); }
 .turnChangesHeading > span { color: var(--muted); font-size: 11px; }
 .turnChangesHint { color: var(--muted); margin: 8px 0; font-size: 11px; }
 .turnChanges ul { padding: 0; margin: 10px 0 0; list-style: none; }
-.turnChanges li { border-top: 1px solid var(--line); padding: 10px 0 2px; }
-.turnChangeFile { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
-.turnChangeFile > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.turnChanges li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 16px; border-top: 1px solid var(--line); padding: 8px 0; }
+.turnChanges li:last-child { padding-bottom: 0; }
+.turnChangeFile { min-width: 0; overflow-wrap: anywhere; }
 .turnChangeStats { display: flex; gap: 8px; white-space: nowrap; font-family: var(--codeFont); font-size: 11px; }
-.turnChangeActions { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
-.turnChangeActions [data-slot="button"] { margin-left: auto; height: 28px; padding: 4px 8px; font-size: 11px; }
+.turnChangeActions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+.turnChangeActions [data-slot="button"] { height: 28px; padding: 4px 8px; font-size: 11px; }
 
 .slashMenu { position: fixed; z-index: 30; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--composerShadow); overflow: hidden; background: var(--popover); font: 12px/1.6 var(--uiFont); }
 .slashMenu [data-slot="command-input-wrapper"] { border-bottom: 1px solid var(--line); padding: 8px 12px; height: 40px; }
@@ -102,6 +118,15 @@
 .slashLabel small { display: block; color: var(--muted); font-size: 10px; }
 .slashFooter { border-top: 1px solid var(--line); padding: 6px 12px; color: var(--muted); font-size: 10px; }
 .sessionCommandDialog.toolDialog { height: auto; max-height: calc(100dvh - 32px); }
+.sessionCommandConfirm.toolDialog { width: min(420px, calc(100vw - 24px)); border-radius: 12px; }
+.sessionCommandConfirm .toolDialogHeading { padding: 20px 48px 12px 20px; }
+.sessionCommandConfirm [data-slot="dialog-title"] { font-size: 15px; line-height: 22px; }
+.sessionCommandConfirm .sessionCommandBody { padding: 0 20px 20px; }
+.sessionCommandConfirm .sessionCommandBody > [role="status"] { font-size: 12px; margin: 0 0 12px; max-height: 64px; overflow: auto; }
+.sessionCommandConfirm .sessionToolSection { gap: 12px; }
+.sessionCommandConfirm .sessionConfirmActions { justify-content: flex-end; margin-top: 8px; }
+.sessionCommandConfirm .sessionToolActions > [data-slot="select-trigger"] { flex-basis: 130px; }
+.sessionCommandShell.toolDialog { width: min(520px, calc(100vw - 24px)); }
 .sessionCommandDialog.sessionCommandCatalog { height: min(620px, calc(100dvh - 32px)); }
 .sessionCommandBody { min-height: 0; overflow: auto; padding: 0 24px 24px; }
 .sessionCommandBody > [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
