@@ -90,11 +90,9 @@ export class NativeFeatures implements vscode.Disposable {
     return (selected ?? []).filter(uri => uri.scheme === "file").map(uri => uri.fsPath)
   }
 
-  async pickAttachments(): Promise<readonly AppServerPromptAttachment[]> {
-    const kind = await vscode.window.showQuickPick([{ label: "文件或图片", folder: false }, { label: "文件夹", folder: true }], { title: "添加附件" })
-    if (!kind) return []
-    const selected = await vscode.window.showOpenDialog({ title: "选择要发送给 CodeM 的附件", canSelectFiles: !kind.folder, canSelectFolders: kind.folder, canSelectMany: true })
-    return (selected ?? []).filter((uri) => uri.scheme === "file").map((uri) => ({ kind: kind.folder ? "directory" : [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(extname(uri.fsPath).toLowerCase()) ? "image" : "file", path: uri.fsPath }))
+  async pickAttachments(kind: "file" | "directory"): Promise<readonly AppServerPromptAttachment[]> {
+    const selected = await vscode.window.showOpenDialog({ title: "选择要发送给 CodeM 的附件", canSelectFiles: kind === "file", canSelectFolders: kind === "directory", canSelectMany: true })
+    return (selected ?? []).filter((uri) => uri.scheme === "file").map((uri) => ({ kind: kind === "directory" ? "directory" : [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(extname(uri.fsPath).toLowerCase()) ? "image" : "file", path: uri.fsPath }))
   }
 
   async showArtifact(source: ArtifactSource): Promise<void> {

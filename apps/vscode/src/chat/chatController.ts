@@ -1,8 +1,10 @@
 import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from "../sessionHistory/conversationHistory.ts"
 import { BackgroundTasks, type BackgroundContext } from "./backgroundTasks.ts"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
+import { ComposerCatalogView } from "./composerCatalog.ts"
+import { settingPatch, type ComposerSettingAction, type LocalComposerSettings } from "../shared/composerSettings.ts"
 import type { FileDiffContent } from "../resources/filePresentation.ts"
-import { parseCodemIntelligence, type CodemBuiltinIntelligence } from "@codem/protocol"
+import { parseCodemIntelligence } from "@codem/protocol"
 import { realpath, stat } from "node:fs/promises"
 import { basename, relative, isAbsolute, sep } from "node:path"
 import { projectCatalog } from "./capabilityCatalog.ts"
@@ -60,7 +62,8 @@ export interface ChatControllerOptions {
 
 /** One live conversation. Core owns durable history; these are display-only snapshots. */
 export class ChatController {
-  private pendingEffort: CodemBuiltinIntelligence | null
+  private readonly composerCatalog = new ComposerCatalogView()
+  private pendingSettings: Partial<LocalComposerSettings>
   private pendingSend: { message: ChatMessage & { role: "user" } } | null = null
   private textGeneration: { operationId: string; cancelled: boolean; finish: (error: Error | null, text?: string) => void } | null = null
   private side: { operationId: string; id: string | null } | null = null
@@ -90,11 +93,9 @@ export class ChatController {
     this.options = options
     this.conversationHistory = new ConversationHistory(options.report)
     this.background = new BackgroundTasks((snapshot, notice) => this.update({ ...snapshot, ...(notice ? { notice } : {}) }), options.assertTrusted, options.report)
-    this.pendingEffort = options.preferences?.pendingEffort() ?? null
-    if (this.pendingEffort !== null) {
-      this.settings = { ...this.settings, intelligence: this.pendingEffort }
-      this.state = { ...this.state, effort: this.pendingEffort }
-    }
+    this.pendingSettings = options.preferences?.pendingSettings() ?? {}
+    this.settings = { ...this.settings, ...this.pendingSettings }
+    this.state = { ...this.state, effort: parseCodemIntelligence(this.settings.intelligence), workMode: this.settings.workMode, permission: this.settings.permissionMode }
     this.historyList = new HistoryListController(() => this.publish(), options.report)
   }
 
@@ -102,7 +103,7 @@ export class ChatController {
     const pending = this.pendingSend?.message
     const messages = pending && !this.state.messages.some(message => message.id === pending.id)
       ? [...this.state.messages, pending] : this.state.messages
-    return structuredClone({ ...this.state, messages, threadId: this.threadId, history: this.historyList.snapshot() })
+    return structuredClone({ ...this.state, composerCatalog: this.session && this.state.phase !== "disconnected" ? this.composerCatalog.snapshot(this.settings.model, this.session.space.key) : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot() })
   }
 
   async assertContextWorkspace(path: string): Promise<void> {
@@ -131,7 +132,7 @@ export class ChatController {
       const restored = await this.restoreSettings(session)
       if (this.disposed || generation !== this.generation) { await session.host.close(); return }
       this.options.assertTrusted()
-      this.bindSession(session, generation, restored)
+      this.bindSession(session, generation, restored, true)
       await this.rememberConnection(session)
     } catch (error) {
       if (acquired && this.session !== acquired) await acquired.host.close()
@@ -142,18 +143,19 @@ export class ChatController {
     }
   }
 
-  private bindSession(session: ChatSession, generation: number, restored: { settings: AppServerThreadSettings; notice: string | null }): void {
+  private bindSession(session: ChatSession, generation: number, restored: { settings: AppServerThreadSettings; notice: string | null }, preserveAttachments = false): void {
     this.session = session
+    this.composerCatalog.bind(session.models, session.spaceDirectory.list())
     this.historyList.bind({ host: session.host, cwd: session.cwd, authorize: async () => { this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted() } })
     this.conversationHistory.reset()
     this.threadId = null
-    this.resetResources()
+    this.resetResources(preserveAttachments)
     this.settings = restored.settings
     this.directoryPaths.clear()
     this.unsubscribe = session.host.onEvent((event) => {
       if (this.session === session && generation === this.generation) this.onEvent(event)
     })
-    this.update({ ...initialSnapshot(), phase: "ready", workspace: session.workspace, space: session.space.name, model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name), notice: restored.notice })
+    this.update({ ...initialSnapshot(), attachments: this.resources.attachmentViews(session.cwd), phase: "ready", workspace: session.workspace, space: session.space.name, model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name), notice: restored.notice })
     this.background.startPolling(() => this.backgroundContext())
   }
 
@@ -170,16 +172,16 @@ export class ChatController {
     const available = !saved || session.models.some(model => model.id === saved.model)
     const settings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" as const, ...saved, model: available && saved ? saved.model : session.model, mcpServers: session.mcpServers }
     let notice = available ? null : "已保存的模型当前不可用，暂用 Core 当前模型；原选择仍保留，可重新选择模型。"
-    if (this.pendingEffort !== null) {
-      settings.intelligence = this.pendingEffort
+    if (Object.keys(this.pendingSettings).length) {
+      Object.assign(settings, this.pendingSettings)
       try {
         // Bind the unconnected choice once. Preserve an unavailable saved model preference.
-        await this.options.preferences?.save(session, { ...(saved ?? settings), intelligence: this.pendingEffort })
-        await this.options.preferences?.savePendingEffort(null)
-        this.pendingEffort = null
+        await this.options.preferences?.save(session, { ...(saved ?? settings), ...this.pendingSettings })
+        await this.options.preferences?.savePendingSettings({})
+        this.pendingSettings = {}
       } catch (error) {
-        this.options.report("saveEffort", error)
-        notice = [notice, "思考强度已应用，但保存失败；下次连接会继续尝试保存。"].filter(Boolean).join(" ")
+        this.options.report("saveSettings", error)
+        notice = [notice, "设置已应用，但保存失败；下次连接会继续尝试保存。"].filter(Boolean).join(" ")
       }
     }
     return {
@@ -918,22 +920,61 @@ export class ChatController {
     }
   }
 
-  /** Builtin effort is a local preference before connection, not a request to start Core. */
-  async setEffort(value: CodemBuiltinIntelligence): Promise<void> {
-    const effort = parseCodemIntelligence(value)
+  async chooseModel(id: string): Promise<void> {
+    const model = this.composerCatalog.model(id)
+    if (!this.session || this.state.phase !== "ready" || !model) return
+    if (model === this.settings.model) return
+    await this.configure(async settings => ({ ...settings, model }))
+  }
+
+  async chooseSpace(id: string, open: (session: ChatSession, key: string, signal: AbortSignal) => Promise<ChatSession>): Promise<void> {
+    const key = this.composerCatalog.space(id)
+    if (!this.session || this.state.phase !== "ready" || !key || key === this.session.space.key) return
+    await this.selectSpace((session, signal) => open(session, key, signal))
+  }
+
+  async refreshSpaces(): Promise<void> {
+    const session = this.session
+    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    this.update({ phase: "configuring", notice: null })
+    try {
+      this.options.assertTrusted()
+      await session.spaceDirectory.refresh(this.lifetime.signal)
+      this.options.assertTrusted()
+      if (!this.disposed && this.session === session) this.composerCatalog.updateSpaces(session.spaceDirectory.list())
+    } catch (error) {
+      this.options.report("refreshSpaces", error)
+      if (!this.disposed && this.session === session) this.update({ notice: "空间列表刷新失败，现有列表保留，请重试。" })
+    } finally {
+      if (!this.disposed && this.session === session && this.snapshot().phase === "configuring") this.update({ phase: "ready" })
+    }
+  }
+
+  /** Fixed composer choices are local until a connection exists. */
+  async setComposerSetting(action: ComposerSettingAction, confirmFullAccess: (signal: AbortSignal) => Promise<boolean> = async () => false): Promise<void> {
+    const patch = settingPatch(action)
     if (this.disposed || !["disconnected", "ready"].includes(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return
-    if (this.session) {
-      if (effort === this.settings.intelligence) { this.publish(); return }
-      await this.configure(async settings => ({ ...settings, intelligence: effort }))
+    const session = this.session
+    if (patch.permissionMode === "yolo" && this.settings.permissionMode !== "yolo") {
+      this.options.assertTrusted()
+      this.update({ phase: "configuring", notice: null })
+      let confirmed = false
+      try { confirmed = await confirmFullAccess(this.lifetime.signal) }
+      finally { if (!this.disposed && this.session === session && this.state.phase === "configuring") this.update({ phase: session ? "ready" : "disconnected" }) }
+      if (!confirmed || this.disposed || this.session !== session) return
+    }
+    if (session) {
+      if (Object.entries(patch).every(([key, value]) => this.settings[key as keyof LocalComposerSettings] === value)) { this.publish(); return }
+      await this.configure(async settings => ({ ...settings, ...patch }))
       return
     }
-    this.pendingEffort = effort
-    this.settings = { ...this.settings, intelligence: effort }
-    this.update({ phase: "configuring", effort, notice: null })
-    try { await this.options.preferences?.savePendingEffort(effort) }
+    this.pendingSettings = { ...this.pendingSettings, ...patch }
+    this.settings = { ...this.settings, ...patch }
+    this.update({ phase: "configuring", effort: parseCodemIntelligence(this.settings.intelligence), workMode: this.settings.workMode, permission: this.settings.permissionMode, notice: null })
+    try { await this.options.preferences?.savePendingSettings(this.pendingSettings) }
     catch (error) {
-      this.options.report("saveEffort", error)
-      if (!this.disposed) this.update({ notice: "思考强度已选择，但保存失败；重载后可能无法恢复，请重新选择后重试。" })
+      this.options.report("saveSettings", error)
+      if (!this.disposed) this.update({ notice: "设置已选择，但保存失败；重载后可能无法恢复，请重新选择后重试。" })
     } finally {
       if (!this.disposed) this.update({ phase: "disconnected" })
     }
@@ -978,14 +1019,14 @@ export class ChatController {
       this.update({ tools: [] })
       try {
         // A failed earlier promotion must never overwrite a newer connected choice.
-        if (this.pendingEffort !== null) {
-          this.pendingEffort = parseCodemIntelligence(this.settings.intelligence)
-          await this.options.preferences?.savePendingEffort(this.pendingEffort)
+        if (Object.keys(this.pendingSettings).length) {
+          this.pendingSettings = Object.fromEntries(Object.keys(this.pendingSettings).map(key => [key, this.settings[key as keyof LocalComposerSettings]]))
+          await this.options.preferences?.savePendingSettings(this.pendingSettings)
         }
         await this.options.preferences?.save(session, this.settings)
-        if (this.pendingEffort !== null) {
-          await this.options.preferences?.savePendingEffort(null)
-          this.pendingEffort = null
+        if (Object.keys(this.pendingSettings).length) {
+          await this.options.preferences?.savePendingSettings({})
+          this.pendingSettings = {}
         }
       }
       catch (error) {
@@ -1028,7 +1069,7 @@ export class ChatController {
   async loadImage(id: string): Promise<AttachmentView["preview"]> {
     const session = this.session
     const visible = () => this.state.attachments.some(item => item.id === id) || this.state.messages.some(message => "attachments" in message && message.attachments?.some(item => item.id === id))
-    if (!session || this.disposed || !visible()) return { kind: "unavailable", reason: "图片引用已过期。" }
+    if (this.disposed || !visible()) return { kind: "unavailable", reason: "图片引用已过期。" }
     this.options.assertTrusted()
     try {
       const preview = await this.resources.loadImage(id)
@@ -1058,16 +1099,15 @@ export class ChatController {
   }
 
   async addAttachments(pick: () => Promise<readonly AppServerPromptAttachment[]>): Promise<void> {
-    if (this.state.phase === "disconnected") await this.connect()
     const session = this.session
-    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    if (this.disposed || !["ready", "disconnected"].includes(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return
     this.update({ phase: "configuring", notice: null })
     try {
       this.options.assertTrusted()
       const chosen = await pick()
       if (this.session !== session || this.disposed) return
       this.options.assertTrusted()
-      const additions = await this.resources.add(session.cwd, chosen, () => {
+      const additions = await this.resources.add(session?.cwd ?? null, chosen, () => {
         this.options.assertTrusted()
         if (this.session !== session || this.disposed) throw new Error("Attachment selection expired")
       })
@@ -1078,12 +1118,12 @@ export class ChatController {
       this.options.report("attachment", error)
       if (this.session === session) this.update({ notice: error instanceof UserVisibleError ? error.message : "附件不可用，请检查文件是否存在；图片不能超过 20 MiB。" })
     } finally {
-      if (this.session === session && this.snapshot().phase === "configuring") this.update({ phase: "ready" })
+      if (this.session === session && this.snapshot().phase === "configuring") this.update({ phase: session ? "ready" : "disconnected" })
     }
   }
 
   removeAttachment(id: string): void {
-    if (this.state.phase !== "ready") return
+    if (!["ready", "disconnected"].includes(this.state.phase)) return
     this.resources.remove(id)
     this.update({ attachments: this.state.attachments.filter((item) => item.id !== id) })
   }
@@ -1137,10 +1177,10 @@ export class ChatController {
     this.update({ model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name) })
   }
 
-  private resetResources(): void {
+  private resetResources(preserveAttachments = false): void {
     this.side = null; this.controlTurn = null; this.skillNames.clear()
     this.state = { ...this.state, capabilities: emptyCapabilities(), sessionTools: { ...emptySessionTools(), directories: this.state.sessionTools.directories } }
-    this.resources.clear(); this.background.clear()
+    this.resources.clear(preserveAttachments); this.background.clear()
     this.state = { ...this.state, ...this.background.snapshot() }
   }
 

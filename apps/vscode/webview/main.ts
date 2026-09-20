@@ -2,13 +2,13 @@ import { createResourceTools } from "./resources/resourceTools.tsx"
 import { createCapabilityStatus } from "./status/capabilityStatus.tsx"
 import { createLoadingStatus } from "./status/loadingStatusView.ts"
 import { workingStatus } from "./status/workingStatus.ts"
-import { uiIcon, permissionIcons } from "../src/shared/uiIcons.ts"
 import { attachmentCard, configureImageLoader } from "./resources/attachmentView.ts"
 import { createWorkGroups } from "./transcript/workGroups.ts"
 import { createPanelView } from "./panels/panelView.ts"
 import type { PanelMessage } from "../src/shared/panelTypes.ts"
 import { initialSnapshot, isBusy, type ComposerDraft, type EditorMessage, type ImageResult, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/shared/messages.ts"
 
+import { createComposerMenus } from "./composer/composerMenus.tsx"
 import { createEffortSelector } from "./composer/effortSelector.tsx"
 import { createComposerView } from "./composer/composerView.ts"
 
@@ -50,7 +50,11 @@ configureImageLoader(id => new Promise(resolve => {
 }))
 const workingIndicator = createLoadingStatus(element("workingLabel"))
 const panels = createPanelView(post, () => composer.refresh())
-const composer = createComposerView({ form: element<HTMLFormElement>("composer"), prompt, send, attachments: element("attachments") }, vscode, () => panels.locked(), renderWorkingStatus)
+const composer = createComposerView({ form: element<HTMLFormElement>("composer"), prompt, send, attachments: element("attachments") }, vscode, () => panels.locked(), renderWorkingStatus, menu => {
+  const trigger = element(({ files: "addAttachment", model: "selectModel", mode: "selectWorkMode" })[menu])
+  if (menu === "model") trigger.click()
+  else trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
+})
 
 function post(action: ViewAction): void { vscode.postMessage(action) }
 function renderWorkingStatus(): void {
@@ -66,19 +70,12 @@ stop.addEventListener("click", () => post({ type: "stop" }))
 if (standaloneActions) element("showOutput").addEventListener("click", () => post({ type: "showOutput" }))
 
 const renderEffort = createEffortSelector(element("effortSelector"), post)
-const configurationActions = ["selectSpace", "selectModel", "selectPermission", "selectWorkMode", "addAttachment"] as const
-for (const type of configurationActions) element(type).addEventListener("click", () => post({ type }))
+const renderComposerMenus = createComposerMenus(element("composerMenusHost"), { attachment: element("attachmentMenu"), permission: element("permissionMenu"), workMode: element("workModeMenu"), model: element("modelMenu"), space: element("spaceMenu") }, element("modelMenu").dataset.logo!, post)
 let attachmentsKey = ""
 function renderResources(): void {
   const ready = ["ready", "disconnected"].includes(state.phase) && !state.backgroundBusy && !state.sessionTools.busy
-  for (const type of configurationActions) element<HTMLButtonElement>(type).disabled = !ready
   renderEffort(state)
-  element("selectWorkMode").textContent = state.workMode === "plan" ? "Plan" : "Agent"
-  const permission = element("selectPermission")
-  permission.title = { default: "默认权限", auto: "自动审批", yolo: "完全访问" }[state.permission]
-  permission.setAttribute("aria-label", `权限模式：${permission.title}`)
-  permission.dataset.mode = state.permission
-  permission.innerHTML = uiIcon(permissionIcons[state.permission])
+  renderComposerMenus(state)
   const nextKey = JSON.stringify(state.attachments)
   if (nextKey !== attachmentsKey) {
     attachmentsKey = nextKey
@@ -114,22 +111,16 @@ function render(next: ChatSnapshot): void {
   while (position) { const next = position.nextSibling; position.remove(); position = next }
   renderHistory(state)
   renderCapabilityStatus(state, composer.sendKey)
-  const connecting = state.phase === "connecting"
   const restoring = state.phase === "loadingHistory"
   element("transcriptLoading").hidden = !restoring
   messages.setAttribute("aria-busy", String(restoring))
-  element("selectModel").setAttribute("aria-busy", String(connecting))
   element("connection").hidden = state.phase !== "disconnected" || !state.notice
   connect.disabled = signIn.disabled = state.phase === "connecting"
   if (newChat) newChat.disabled = isBusy(state.phase) || state.backgroundBusy || Boolean(state.sessionTools.busy)
   const generating = state.phase === "running" || state.phase === "stopping"
   stop.hidden = !generating; stop.disabled = state.phase === "stopping"
   element("statusDot").dataset.connected = String(state.phase !== "disconnected" && state.phase !== "connecting")
-  element("space").textContent = state.space ?? "选择空间"
-  element("selectSpace").title = state.space ? `切换空间：${state.space}` : "连接后选择 CodeM 空间"
   element("workspace").textContent = state.workspace ?? "未连接工作区"
-  element("model").textContent = !state.model || state.model === "codem-router/auto" ? "Auto" : state.model
-  element("model").title = state.model ?? "连接后使用 Core 当前模型"
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
   element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : ""

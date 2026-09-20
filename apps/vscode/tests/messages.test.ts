@@ -30,7 +30,7 @@ it("uses a fresh CSP nonce, escapes resources and prohibits inline handlers and 
 })
 
 it("accepts feature intents and opaque handles without accepting executable inputs", () => {
-  for (const type of ["selectModel", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"]) assert.deepEqual(parseViewAction({ type }), { type })
+  for (const type of ["refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"]) assert.deepEqual(parseViewAction({ type }), { type })
   for (const type of ["removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"]) {
     assert.deepEqual(parseViewAction({ type, id: "opaque-id" }), { type, id: "opaque-id" })
     for (const id of ["../secret", "/path", "", 42, "x".repeat(101)]) assert.throws(() => parseViewAction({ type, id }))
@@ -59,4 +59,10 @@ it("accepts bounded drafts and rejects arbitrary properties and malformed tool s
 it("accepts only builtin effort values and rejects the obsolete menu request", () => {
   for (const effort of ["low", "medium", "high", "xhigh"]) assert.deepEqual(parseViewAction({ type: "setEffort", effort }), { type: "setEffort", effort })
   for (const value of [{ type: "selectEffort" }, { type: "setEffort" }, { type: "setEffort", effort: "max" }, { type: "setEffort", effort: null }, { type: "setEffort", effort: "high", model: "injected" }]) assert.throws(() => parseViewAction(value))
+})
+
+it("uses value-bearing composer actions and rejects obsolete menu-opening requests", () => {
+  for (const value of [{ type: "setWorkMode", workMode: "plan" }, { type: "setPermission", permission: "auto" }, { type: "pickAttachment", kind: "file" }, { type: "chooseModel", id: "opaque-model" }, { type: "chooseSpace", id: "opaque-space" }]) assert.deepEqual(parseViewAction(value), value)
+  for (const type of ["selectModel", "selectSpace", "selectWorkMode", "selectPermission", "addAttachment"]) assert.throws(() => parseViewAction({ type }))
+  for (const value of [{ type: "setWorkMode", workMode: "normal" }, { type: "setPermission", permission: "admin" }, { type: "pickAttachment", kind: "remote" }, { type: "chooseModel", id: "path/to/model" }, { type: "chooseSpace", id: "ok", key: "injected" }]) assert.throws(() => parseViewAction(value))
 })

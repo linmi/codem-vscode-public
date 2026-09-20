@@ -308,7 +308,7 @@
         "codem.autoConnect": {
           "type": "boolean",
           "default": false,
-          "description": "在可信工作区打开聊天时提前连接。默认按需连接：首次发送或选择模型、空间、历史及附件时连接。",
+          "description": "在可信工作区打开聊天时提前连接。默认按需连接：首次发送、显式连接或读取历史时连接；打开输入栏菜单和选择本地附件不连接。",
           "scope": "window"
         },
         "codem.chat.sendKey": {

@@ -1,5 +1,6 @@
 import { capabilityHostFixture } from "./capabilityHostFixture.ts"
-import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
+import { SpaceDirectory } from "../src/connection/spaceDirectory.ts"
+import { fixtureIdentity, fixtureSpaces, fixtureSpaceDirectory } from "./spaceFixtures.ts"
 import { ConnectionPreferences } from "../src/connection/connectionPreferences.ts"
 import { createHash } from "node:crypto"
 import { createSessionHistoryReader } from "../src/sessionHistory/sessionHistory.ts"
@@ -666,7 +667,7 @@ it("restores selected settings after controller restart and retains them for new
 it("reports unavailable saved models without overwriting the preference", async () => {
   const fixture = setup()
   let writes = 0
-  const controller = new ChatController({ preferences: { pendingEffort: () => null, savePendingEffort: async () => {}, load: async () => ({ model: "removed-model", intelligence: "high", permissionMode: "default", workMode: "plan" }), save: async () => { writes++ } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const controller = new ChatController({ preferences: { pendingSettings: () => ({}), savePendingSettings: async () => {}, load: async () => ({ model: "removed-model", intelligence: "high", permissionMode: "default", workMode: "plan" }), save: async () => { writes++ } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   await controller.connect()
   assert.equal(controller.snapshot().model, "model-from-core")
   assert.equal(controller.snapshot().effort, "high")
@@ -677,7 +678,7 @@ it("reports unavailable saved models without overwriting the preference", async 
 
 it("a settings persistence failure leaves the applied selection visible with a warning", async () => {
   const fixture = setup()
-  const controller = new ChatController({ preferences: { pendingEffort: () => null, savePendingEffort: async () => {}, load: async () => null, save: async () => { throw new Error("disk full") } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const controller = new ChatController({ preferences: { pendingSettings: () => ({}), savePendingSettings: async () => {}, load: async () => null, save: async () => { throw new Error("disk full") } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   await controller.connect()
   await controller.configure(async settings => ({ ...settings, intelligence: "high" }))
   assert.equal(controller.snapshot().effort, "high")
@@ -997,14 +998,14 @@ it("chooses effort offline without connecting and sends the chosen value on firs
   let submitted = ""
   const start = f.host.startThread
   f.host.startThread = async (cwd, settings) => { submitted = settings.intelligence; return start(cwd, settings) }
-  await f.controller.setEffort("xhigh")
+  await f.controller.setComposerSetting({ type: "setEffort", effort: "xhigh" })
   assert.equal(f.controller.snapshot().phase, "disconnected")
   assert.equal(f.controller.snapshot().effort, "xhigh")
   assert.deepEqual(f.counts(), { connections: 0, starts: 0, turns: 0, closed: 0 })
   await f.controller.send("use my selection")
   assert.equal(submitted, "xhigh")
   assert.equal(f.counts().connections, 1)
-  await f.controller.setEffort("low")
+  await f.controller.setComposerSetting({ type: "setEffort", effort: "low" })
   assert.equal(f.controller.snapshot().effort, "xhigh", "running turns deny changes")
   await f.controller.dispose()
 })
@@ -1020,7 +1021,7 @@ it("restores offline effort, consumes it into the first space and isolates later
   let connections = 0
   const make = () => new ChatController({ preferences, connect: async () => { connections++; return f.session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   const first = make()
-  await first.setEffort("high"); await first.setEffort("xhigh")
+  await first.setComposerSetting({ type: "setEffort", effort: "high" }); await first.setComposerSetting({ type: "setEffort", effort: "xhigh" })
   assert.equal(connections, 0)
   await first.dispose()
   const reopened = make()
@@ -1028,7 +1029,7 @@ it("restores offline effort, consumes it into the first space and isolates later
   await reopened.connect()
   assert.equal(reopened.snapshot().effort, "xhigh")
   assert.equal(reopened.snapshot().permission, "auto")
-  assert.equal(preferences.pendingEffort(), null)
+  assert.equal(preferences.pendingSettings().intelligence, undefined)
   assert.deepEqual(await preferences.load(f.session), { ...saved, intelligence: "xhigh" })
   await reopened.selectSpace(async () => next.session)
   assert.equal(reopened.snapshot().effort, "medium")
@@ -1039,9 +1040,9 @@ it("serializes offline persistence with connection and reports failures without 
   const f = setup()
   let reject!: (error: Error) => void
   let connections = 0
-  const c = new ChatController({ preferences: { pendingEffort: () => null, savePendingEffort: () => new Promise<void>((_resolve, fail) => { reject = fail }), load: async () => null, save: async () => {} }, connect: async () => { connections++; return f.session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
-  const choosing = c.setEffort("high")
-  await c.connect(); await c.setEffort("low")
+  const c = new ChatController({ preferences: { pendingSettings: () => ({}), savePendingSettings: () => new Promise<void>((_resolve, fail) => { reject = fail }), load: async () => null, save: async () => {} }, connect: async () => { connections++; return f.session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const choosing = c.setComposerSetting({ type: "setEffort", effort: "high" })
+  await c.connect(); await c.setComposerSetting({ type: "setEffort", effort: "low" })
   assert.equal(connections, 0)
   assert.equal(c.snapshot().effort, "high")
   reject(new Error("disk full")); await choosing
@@ -1057,16 +1058,16 @@ it("updates connected effort only after Core accepts and preserves it on failed 
   let complete!: () => void
   let calls = 0
   f.host.resumeThread = async (_cwd, _threadId, settings) => { calls++; assert.equal(settings.intelligence, "high"); await new Promise<void>(resolve => { complete = resolve }) }
-  const changing = f.controller.setEffort("high")
+  const changing = f.controller.setComposerSetting({ type: "setEffort", effort: "high" })
   while (!complete) await Promise.resolve()
   assert.equal(f.controller.snapshot().effort, "medium")
   assert.equal(f.controller.snapshot().phase, "configuring")
   complete(); await changing
   assert.equal(f.controller.snapshot().effort, "high")
-  await f.controller.setEffort("high")
+  await f.controller.setComposerSetting({ type: "setEffort", effort: "high" })
   assert.equal(calls, 1, "reselecting current effort requires no Core mutation")
   f.host.resumeThread = async () => { throw new Error("Core rejected setting") }
-  await f.controller.setEffort("low")
+  await f.controller.setComposerSetting({ type: "setEffort", effort: "low" })
   assert.equal(f.controller.snapshot().effort, "high")
   assert.match(f.controller.snapshot().notice!, /设置未应用/)
   await f.controller.dispose()
@@ -1082,17 +1083,146 @@ it("does not replay a stale offline choice after a failed promotion and a newer 
   const f = setup()
   const make = () => new ChatController({ preferences, connect: async () => f.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   const c = make()
-  await c.setEffort("xhigh"); await c.connect()
+  await c.setComposerSetting({ type: "setEffort", effort: "xhigh" }); await c.connect()
   assert.equal(c.snapshot().effort, "xhigh")
   assert.match(c.snapshot().notice!, /保存失败/)
-  assert.equal(preferences.pendingEffort(), "xhigh")
+  assert.equal(preferences.pendingSettings().intelligence, "xhigh")
   rejectClear = false
-  await c.setEffort("low")
-  assert.equal(preferences.pendingEffort(), null)
+  await c.setComposerSetting({ type: "setEffort", effort: "low" })
+  assert.equal(preferences.pendingSettings().intelligence, undefined)
   assert.equal((await preferences.load(f.session))?.intelligence, "low")
   await c.dispose()
   const reopened = make()
   await reopened.connect()
   assert.equal(reopened.snapshot().effort, "low")
   await reopened.dispose(); await f.controller.dispose()
+})
+
+it("preselects work mode and permission offline, confirms full access, and applies them on first send", async () => {
+  const f = setup()
+  let submitted: { permissionMode: string; workMode: string } | undefined
+  f.host.startThread = async (_cwd, settings) => { submitted = settings; return "thread-1" }
+  await f.controller.setComposerSetting({ type: "setWorkMode", workMode: "plan" })
+  await f.controller.setComposerSetting({ type: "setPermission", permission: "auto" })
+  await f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" }, async () => false)
+  assert.equal(f.controller.snapshot().permission, "auto")
+  let confirm!: (value: boolean) => void
+  const pending = f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" }, () => new Promise<boolean>(resolve => { confirm = resolve }))
+  assert.equal(f.controller.snapshot().phase, "configuring")
+  assert.equal(await f.controller.send("cannot race confirmation"), false)
+  confirm(true); await pending
+  assert.equal(f.counts().connections, 0)
+  assert.equal(f.controller.snapshot().permission, "yolo")
+  await f.controller.send("use local choices")
+  assert.equal(submitted?.workMode, "plan")
+  assert.equal(submitted?.permissionMode, "yolo")
+  await f.controller.dispose()
+})
+
+it("shares all pending fixed choices across reload and consumes them into one scoped preference", async () => {
+  const data = new Map<string, unknown>()
+  const preferences = new ConnectionPreferences({ get: <T>(key: string) => data.get(key) as T | undefined, update: async (key, value) => { data.set(key, value) } })
+  const f = setup()
+  const make = () => new ChatController({ preferences, connect: async () => f.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const first = make()
+  await first.setComposerSetting({ type: "setEffort", effort: "high" })
+  await first.setComposerSetting({ type: "setWorkMode", workMode: "plan" })
+  await first.setComposerSetting({ type: "setPermission", permission: "auto" })
+  await first.dispose()
+  const reopened = make()
+  assert.equal(reopened.snapshot().effort, "high"); assert.equal(reopened.snapshot().permission, "auto"); assert.equal(reopened.snapshot().workMode, "plan")
+  await reopened.connect()
+  assert.deepEqual(await preferences.load(f.session), { model: f.session.model, intelligence: "high", permissionMode: "auto", workMode: "plan" })
+  assert.deepEqual(preferences.pendingSettings(), {})
+  await reopened.dispose(); await f.controller.dispose()
+})
+
+it("publishes local catalog handles without Core reads and rejects stale/cross-catalog choices", async () => {
+  const f = setup(), next = setup()
+  let modeReads = 0, changes = 0
+  f.host.readModes = async () => { modeReads++; return { revision: 1, permissionEpoch: 1, permissionMode: "default", workMode: "normal" } }
+  await f.controller.chooseModel("unknown"); await f.controller.chooseSpace("unknown", async () => { changes++; return next.session })
+  assert.equal(f.counts().connections, 0)
+  assert.deepEqual(f.controller.snapshot().composerCatalog, { models: [], spaces: [] })
+  await f.controller.connect()
+  const catalog = f.controller.snapshot().composerCatalog
+  assert.equal(catalog.models.length, 2)
+  for (let i = 0; i < 5; i++) assert.deepEqual(f.controller.snapshot().composerCatalog, catalog)
+  assert.equal(modeReads, 0)
+  await f.controller.chooseModel(catalog.spaces[0]!.id)
+  assert.equal(f.controller.snapshot().model, f.session.model)
+  await f.controller.chooseModel(catalog.models[1]!.id)
+  assert.equal(f.controller.snapshot().model, "other-model")
+  await f.controller.selectSpace(async () => next.session)
+  await f.controller.chooseModel(catalog.models[1]!.id)
+  await f.controller.chooseSpace(catalog.spaces[0]!.id, async () => { changes++; return f.session })
+  assert.equal(f.controller.snapshot().model, next.session.model)
+  assert.equal(changes, 0)
+  await f.controller.dispose(); await next.controller.dispose()
+})
+
+it("selects attachments without connecting, keeps them across connection failure and sends them once", async () => {
+  const f = setup()
+  const cwd = await mkdtemp(join(tmpdir(), "codem-offline-attachments-"))
+  const path = join(cwd, "notes.txt"); await writeFile(path, "local notes")
+  let connections = 0
+  const c = new ChatController({ connect: async () => { if (++connections === 1) throw new Error("offline"); return f.session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  try {
+    await c.addAttachments(async () => [])
+    await c.addAttachments(async () => [{ kind: "file", path }])
+    assert.equal(connections, 0)
+    const id = c.snapshot().attachments[0]!.id
+    assert.equal(c.snapshot().attachments[0]!.label, "notes.txt")
+    assert.equal(await c.send("first try"), false)
+    assert.equal(c.snapshot().attachments[0]!.id, id)
+    const start = f.host.startTurn
+    let received = 0
+    f.host.startTurn = async input => { assert.deepEqual(input.attachments, [{ kind: "file", path }]); received++; return start(input) }
+    assert.equal(await c.send("retry"), true)
+    assert.equal(received, 1)
+    assert.deepEqual(c.snapshot().attachments, [])
+  } finally { await c.dispose(); await f.controller.dispose(); await rm(cwd, { recursive: true, force: true }) }
+})
+
+it("refreshes space choices only explicitly and retires previous handles after successful refresh", async () => {
+  const f = setup(), next = setup()
+  let reads = 0, fail = true, selected = ""
+  f.session.spaceDirectory = new SpaceDirectory(fixtureSpaces, fixtureIdentity, async () => {
+    reads++
+    if (fail) throw new Error("offline")
+    return { current: "next", spaces: [{ projectKey: "next", displayName: "New space" }] }
+  })
+  await f.controller.refreshSpaces(); assert.equal(reads, 0); assert.equal(f.counts().connections, 0)
+  await f.controller.connect()
+  const previous = f.controller.snapshot().composerCatalog.spaces
+  assert.equal(reads, 0)
+  await f.controller.refreshSpaces()
+  assert.deepEqual(f.controller.snapshot().composerCatalog.spaces, previous)
+  assert.match(f.controller.snapshot().notice!, /刷新失败/)
+  fail = false; await f.controller.refreshSpaces()
+  assert.equal(reads, 2)
+  await f.controller.chooseSpace(previous[0]!.id, async (_session, key) => { selected = key; return next.session })
+  assert.equal(selected, "")
+  const id = f.controller.snapshot().composerCatalog.spaces[0]!.id
+  await f.controller.chooseSpace(id, async (_session, key) => { selected = key; return next.session })
+  assert.equal(selected, "next")
+  await f.controller.dispose(); await next.controller.dispose()
+})
+
+it("previews and removes local images offline and clears draft attachments on new chat", async () => {
+  const f = setup()
+  const cwd = await mkdtemp(join(tmpdir(), "codem-offline-image-"))
+  const path = join(cwd, "pixel.png")
+  await writeFile(path, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aV1sAAAAASUVORK5CYII=", "base64"))
+  try {
+    await f.controller.addAttachments(async () => [{ kind: "image", path }])
+    const id = f.controller.snapshot().attachments[0]!.id
+    assert.equal((await f.controller.loadImage(id)).kind, "image")
+    f.controller.removeAttachment(id)
+    assert.equal((await f.controller.loadImage(id)).kind, "unavailable")
+    await f.controller.addAttachments(async () => [{ kind: "image", path }])
+    await f.controller.newChat()
+    assert.deepEqual(f.controller.snapshot().attachments, [])
+    assert.equal(f.counts().connections, 0)
+  } finally { await f.controller.dispose(); await rm(cwd, { recursive: true, force: true }) }
 })

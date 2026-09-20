@@ -39,14 +39,15 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
       <label class="visuallyHidden" for="prompt">发送给 CodeM 的消息</label>
       <textarea id="prompt" rows="2" maxlength="32000" placeholder="提出问题，或描述你想实现的功能…" spellcheck="false"></textarea>
       <div class="composerToolbar">
-        <div class="composerLeading"><button type="button" id="addAttachment" class="iconButton" title="添加文件、图片或文件夹" aria-label="添加附件">${uiIcon("plus")}</button><button type="button" id="selectPermission" class="iconButton permission" title="默认权限" aria-label="权限模式：默认权限">${uiIcon("hand")}</button></div>
-        <div class="composerTrailing"><button type="button" id="selectWorkMode" class="optionButton" title="切换工作模式">Agent</button><span id="effortSelector"></span><button type="button" id="selectModel" class="optionButton" title="选择模型" aria-label="选择模型"><img src="${escapeHtml(resources.logo)}" alt="" width="14" height="14"><span id="model">Auto</span></button>
+        <div class="composerLeading"><span id="attachmentMenu"></span><span id="permissionMenu"></span></div>
+        <div class="composerTrailing"><span id="workModeMenu"></span><span id="effortSelector"></span><span id="modelMenu" data-logo="${escapeHtml(resources.logo)}"></span>
           <button class="sendButton" id="send" type="submit" title="发送消息 · Enter" aria-label="发送消息" disabled>${uiIcon("arrowUp")}</button>
           <button class="stopButton" id="stop" type="button" title="停止生成" aria-label="停止生成" hidden>${uiIcon("stop")}</button>
         </div>
       </div>
     </form>
-    <div class="footerMeta"><span class="environment">${uiIcon("monitor")}<span>本地</span></span><button type="button" id="selectSpace" class="spaceButton" aria-label="选择空间" title="选择 CodeM 空间">${uiIcon("space")}<span id="space">选择空间</span>${uiIcon("chevronDown")}</button><span class="workspaceLabel">${uiIcon("folder")}<span id="workspace">未连接工作区</span></span><span id="runtimeDetailsHost"></span><span class="visuallyHidden" id="status" role="status" aria-live="polite"></span></div>
+    <div class="footerMeta"><span class="environment">${uiIcon("monitor")}<span>本地</span></span><span id="spaceMenu"></span><span class="workspaceLabel">${uiIcon("folder")}<span id="workspace">未连接工作区</span></span><span id="runtimeDetailsHost"></span><span class="visuallyHidden" id="status" role="status" aria-live="polite"></span></div>
   </footer>
+  <span id="composerMenusHost" hidden></span>
 </div><script nonce="${nonce}" src="${escapeHtml(resources.script)}"></script></body></html>`
 }

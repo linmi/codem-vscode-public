@@ -1,15 +1,17 @@
-import { CODEM_DEFAULT_INTELLIGENCE, parseCodemIntelligence, type CodemBuiltinIntelligence } from "@codem/protocol"
+import { CODEM_DEFAULT_INTELLIGENCE, parseCodemIntelligence, parseCodemPermissionMode, type CodemBuiltinIntelligence } from "@codem/protocol"
+import { parseWorkMode, type ComposerSettingAction, type ComposerCatalog } from "./composerSettings.ts"
 import { emptySessionTools, parseCapabilityAction, type CapabilityAction, type SessionToolsState, emptyCapabilities, type CapabilityState } from "./capabilityTypes.ts"
 import { parsePanelReply, type PanelReply } from "./panelTypes.ts"
 import { emptyHistoryList, type HistoryAction, type HistoryList } from "./historyTypes.ts"
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
-const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "selectSpace", "selectModel", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
-const handleActions = ["openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
+const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
+const handleActions = ["chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
 export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" } }
 export type EditorMessage = { type: "composerDraft"; value: ComposerDraft; focus: boolean; pendingRequestId: string | null } | { type: "appendContext"; id: string; text: string } | { type: "focusComposer" } | { type: "editorSettings"; sendKey: string }
 export type ViewAction =
-  | { type: "setEffort"; effort: CodemBuiltinIntelligence }
+  | ComposerSettingAction
+  | { type: "pickAttachment"; kind: "file" | "directory" }
   | { type: "contextAdded"; id: string; accepted: boolean; value: ComposerDraft }
   | { type: "composerChanged" | "composerRestore"; value: ComposerDraft }
   | CapabilityAction
@@ -42,6 +44,9 @@ export function parseViewAction(value: unknown): ViewAction {
     if (t !== undefined && (!t || typeof t !== "object" || Object.keys(t).length !== 3 || typeof t.scope !== "string" || t.scope.length > 1000 || typeof t.text !== "string" || t.text.length > 32_000 || !["askSideQuestion", "steer", "shellCommand"].includes(t.mode))) throw new Error("Invalid tools draft")
     return { type: record.type, value }
   }
+  if (record.type === "setWorkMode" && Object.keys(record).length === 2) return { type: "setWorkMode", workMode: parseWorkMode(record.workMode) }
+  if (record.type === "setPermission" && Object.keys(record).length === 2) return { type: "setPermission", permission: parseCodemPermissionMode(record.permission) }
+  if (record.type === "pickAttachment" && Object.keys(record).length === 2 && (record.kind === "file" || record.kind === "directory")) return { type: "pickAttachment", kind: record.kind }
   if (record.type === "setEffort" && Object.keys(record).length === 2) return { type: "setEffort", effort: parseCodemIntelligence(record.effort) }
   if (record.type === "panelReply") return parsePanelReply(record)
   const capability = parseCapabilityAction(record)
@@ -79,6 +84,7 @@ interface MessageContent {
 export type ActivityMessage = MessageContent & { role: "reasoning" | "tool"; status: ActivityStatus; summary: string; details?: ToolDetails }
 export type ChatMessage = (MessageContent & { role: "user" | "assistant"; attachments?: readonly AttachmentView[] }) | ActivityMessage
 export interface ChatSnapshot {
+  composerCatalog: ComposerCatalog
   capabilities: CapabilityState
   sessionTools: SessionToolsState
   type: "state"
@@ -105,7 +111,7 @@ export interface ChatSnapshot {
   historyNeedsRefresh: boolean
 }
 export function initialSnapshot(): ChatSnapshot {
-  return { capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
+  return { composerCatalog: { models: [], spaces: [] }, capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
 }
 export function isBusy(phase: ChatPhase): boolean {
   return phase !== "ready" && phase !== "disconnected"

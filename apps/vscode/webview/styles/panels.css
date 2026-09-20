@@ -22,41 +22,19 @@
 .decisionAnswer:focus { border-color: var(--vscode-focusBorder, #0169cc); }
 .decisionSubmit { display: block; margin: 10px 0 0 auto; padding: 6px 14px; border-radius: 999px; background: var(--primary); color: var(--onPrimary); font-size: 12px; }
 .decisionSubmit:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 85%, var(--surface)); color: var(--onPrimary); }
-.pickerPanel { position: fixed; z-index: 6; bottom: var(--pickerBottom); left: var(--pickerLeft); max-height: min(420px, var(--pickerMaxHeight)); width: min(280px, calc(100% - 24px)); margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--popover) 70%, transparent); backdrop-filter: blur(40px) saturate(150%); }
-.pickerPanel .decisionHeading { padding: 3px 6px; }
-.pickerPanel .decisionHeading h2 { font-size: 11px; color: var(--muted); font-weight: 400; }
-.pickerPanel .decisionDescription { margin: 3px 6px 6px; font-size: 10px; }
-.pickerPanel .decisionChoices { max-height: 260px; overflow: auto; scrollbar-width: thin; margin-top: 6px; }
-.pickerPanel .decisionChoice { align-items: center; gap: 6px; padding: 7px 8px; border-radius: 10px; }
-.pickerPanel .decisionNumber { display: none; }
-.pickerPanel .decisionLabel { font-size: 12px; font-weight: 400; }
-.pickerPanel .decisionChoiceDescription { display: block; margin: 2px 0 0; font-size: 10px; }
-.modelSearch { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); padding: 7px 8px; font: 12px var(--uiFont); outline: none; }
-.modelSearch:focus-visible { border-color: var(--vscode-focusBorder, #0169cc); }
-.decisionEmpty { margin: 10px 8px; font-size: 11px; color: var(--muted); }
-
-.pickerPanel[data-kind="workMode"],
-.pickerPanel[data-kind="effort"] { width: min(180px, calc(100% - 24px)); }
-.pickerPanel[data-kind="effort"] .decisionChoice { padding: 8px; }
-.pickerPanel[data-kind="effort"] .decisionChoice[data-selected="true"] { background: transparent; }
-.pickerPanel[data-kind="effort"] .decisionChoice:hover { background: var(--soft); }
-.pickerPanel[data-kind="effort"] .decisionChoiceDescription { display: inline-block; margin: 0 0 0 6px; padding: 1px 5px; border-radius: 4px; background: var(--soft); font-weight: 500; }
-.decisionPrevious { margin: 0; padding: 6px 8px; font-size: 12px; color: var(--muted); border-radius: 6px; }
-
-/* Pending interactions use one spacing rhythm instead of stacked child margins. */
-.decisionPanel:not(.pickerPanel) { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; }
-.decisionPanel:not(.pickerPanel) .decisionHeading { align-items: center; }
-.decisionPanel:not(.pickerPanel) .decisionHeading h2 { margin: 0; }
-.decisionPanel:not(.pickerPanel) .decisionHeading .iconButton { margin: 0; }
-.decisionPanel:not(.pickerPanel) .decisionDescription,
-.decisionPanel:not(.pickerPanel) .decisionChoices,
-.decisionPanel:not(.pickerPanel) .decisionAnswer,
-.decisionPanel:not(.pickerPanel) .decisionPrevious { margin: 0; }
-.decisionPanel:not(.pickerPanel) .decisionChoice { align-items: center; min-height: 30px; padding: 5px 8px; }
-.decisionPanel:not(.pickerPanel) .decisionAnswer { flex-shrink: 0; min-height: 52px; padding: 8px 10px; }
+.decisionPanel { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; }
+.decisionPanel .decisionHeading { align-items: center; }
+.decisionPanel .decisionHeading h2 { margin: 0; }
+.decisionPanel .decisionHeading .iconButton { margin: 0; }
+.decisionPanel .decisionDescription,
+.decisionPanel .decisionChoices,
+.decisionPanel .decisionAnswer,
+.decisionPanel .decisionPrevious { margin: 0; }
+.decisionPanel .decisionChoice { align-items: center; min-height: 30px; padding: 5px 8px; }
+.decisionPanel .decisionAnswer { flex-shrink: 0; min-height: 52px; padding: 8px 10px; }
 .decisionActions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.decisionPanel:not(.pickerPanel) .decisionSubmit { flex-shrink: 0; margin: 0 0 0 auto; }
+.decisionPanel .decisionSubmit { flex-shrink: 0; margin: 0 0 0 auto; }
 
 .decisionChoiceIcon { display: inline-flex; flex-shrink: 0; color: var(--muted); margin-right: 2px; }
 .decisionChoiceIcon svg { width: 17px; height: 17px; }
-.pickerPanel .permissionWarning, .permissionWarning .decisionChoiceIcon, .permissionWarning .decisionChoiceDescription, .permissionWarning .decisionCheck { color: var(--vscode-editorWarning-foreground, #e47140); }
+.permissionWarning .decisionChoiceIcon, .permissionWarning .decisionChoiceDescription, .permissionWarning .decisionCheck { color: var(--vscode-editorWarning-foreground, #e47140); }

@@ -103,3 +103,7 @@
 ## 本地思考强度选择
 
 `webview/composer/effortSelector.tsx` 使用现有 shadcn/ui Select，四档和默认值来自无运行时依赖的 `@codem/protocol`。菜单不再经过 PanelBroker；旧 `selectEffort` 消息被值校验严格的 `setEffort` 替代。触发器保留 DOM id 供焦点、预览和布局检查使用，信号格数随已选择值变化。保存范围与失败行为见 `localEffortSelection.md`。
+
+## 输入栏菜单本地化
+
+`webview/composer/composerMenus.tsx` 接管工作模式、权限、附件类型、模型和空间菜单。固定项使用 Select；动态目录使用 Popover + Command，支持搜索、键盘选择、焦点恢复和碰撞边界。模型/空间的空状态也本地展示，只有明确点击连接或刷新才请求服务。`settingsPanels.ts`、Host 的四种 picker 面板和手写模型搜索/弹层定位已删除；审批与问答仍由 PanelBroker 管理。`/files`、`/model`、`/mode` 打开同一组件，行为及验证见 `localComposerMenus.md`。

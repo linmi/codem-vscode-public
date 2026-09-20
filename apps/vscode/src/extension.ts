@@ -13,7 +13,6 @@ import { showInteraction } from "./panels/interactions.ts"
 import { type ImageResult, type FileSearchResult, type FileSelected, type SendResult, type ViewAction } from "./shared/messages.ts"
 
 import { PanelBroker } from "./panels/panelBroker.ts"
-import { selectSettings } from "./panels/settingsPanels.ts"
 
 import { NativeFeatures } from "./integrations/nativeFeatures.ts"
 
@@ -112,45 +111,19 @@ export function activate(context: vscode.ExtensionContext): void {
       case "manageThread": await chat.manageThread(action.operation, action.threadId, action.name, action.requestId); break
       case "addDirectory": await chat.addDirectory(() => features.pickDirectories()); break
       case "removeDirectory": await chat.removeDirectory(action.id); break
-      case "selectSpace": {
-        await chat.selectSpace(async (session, signal) => {
+      case "chooseModel": await chat.chooseModel(action.id); break
+      case "chooseSpace": await chat.chooseSpace(action.id, (session, key, signal) => openSession(false, signal, { cwd: session.cwd, workspace: session.workspace, key }, session.spaceDirectory)); break
+      case "refreshSpaces": await chat.refreshSpaces(); break
+      case "setEffort": case "setWorkMode": case "setPermission": {
+        await chat.setComposerSetting(action, async signal => {
           const abort = new AbortController(); settingsAbort = abort
           const cancel = () => abort.abort()
           signal.addEventListener("abort", cancel, { once: true })
-          if (signal.aborted) abort.abort()
+          if (signal.aborted) cancel()
           try {
-            for (;;) {
-              const selection = await panels.request<{ kind: "space"; key: string } | { kind: "refresh"; key: string }>({ kind: "space", title: "空间", description: "切换后开始新会话，历史记录仍保留。", choices: [
-                ...session.spaceDirectory.list().map(space => ({ label: space.displayName, value: { kind: "space" as const, key: space.projectKey }, selected: space.projectKey === session.space.key })),
-                { label: "刷新空间列表", value: { kind: "refresh" as const, key: "" } },
-              ] }, abort.signal)
-              const choice = selection?.values[0]
-              if (!choice) return null
-              if (choice.kind === "refresh") {
-                let refreshing = true
-                void panels.request({ kind: "space", title: "空间", description: "正在刷新空间列表…", choices: [] }, abort.signal).then(() => { if (refreshing) abort.abort() })
-                try { await session.spaceDirectory.refresh(abort.signal) }
-                catch (error) { if (abort.signal.aborted) return null; throw error }
-                finally { refreshing = false; panels.cancel() }
-                continue
-              }
-              if (choice.key === session.space.key) return null
-              assertTrusted()
-              return await openSession(false, signal, { cwd: session.cwd, workspace: session.workspace, key: choice.key }, session.spaceDirectory)
-            }
-          } finally {
-            signal.removeEventListener("abort", cancel)
-            if (settingsAbort === abort) settingsAbort = null
-          }
-        }); break
-      }
-      case "setEffort": await chat.setEffort(action.effort); return
-      case "selectModel": case "selectPermission": case "selectWorkMode": {
-        const kind = action.type
-        await chat.configure(async (settings, session) => {
-          const abort = new AbortController(); settingsAbort = abort
-          try { return await selectSettings(kind, settings, session, panels, abort.signal) }
-          finally { if (settingsAbort === abort) settingsAbort = null }
+            const answer = await panels.request({ kind: "approval", title: "启用完全访问？", description: "任务将跳过工具权限审批执行操作。仅对你信任的任务启用。", choices: [{ value: false, label: "保持当前权限" }, { value: true, label: "启用完全访问" }] }, abort.signal)
+            return answer?.values[0] === true
+          } finally { signal.removeEventListener("abort", cancel); if (settingsAbort === abort) settingsAbort = null }
         }); break
       }
       case "manageMcp": await chat.configure(settings => features.selectMcp(settings)); break
@@ -164,7 +137,7 @@ export function activate(context: vscode.ExtensionContext): void {
         catch { reply({ type: "fileSelected", requestId: action.requestId, accepted: false }) }
         break
       }
-      case "addAttachment": await chat.addAttachments(() => features.pickAttachments()); break
+      case "pickAttachment": await chat.addAttachments(() => features.pickAttachments(action.kind)); break
       case "openArtifact": await chat.openArtifact(action.id, source => features.showArtifact(source)); break
       case "loadImage": reply({ type: "imageResult", id: action.id, preview: await chat.loadImage(action.id) }); break
       case "removeAttachment": chat.removeAttachment(action.id); break

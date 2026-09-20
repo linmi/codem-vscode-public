@@ -1,5 +1,5 @@
 import type { ChatSnapshot, ViewAction } from "../src/shared/messages.ts"
-import type { PanelReply, PanelView } from "../src/shared/panelTypes.ts"
+import type { PanelReply } from "../src/shared/panelTypes.ts"
 import { createPreviewState, type PreviewSearch } from "./previewState.ts"
 import { applyPreviewCatalog, previewImage, contentScenario } from "./previewContent.ts"
 import { catalogKinds } from "../src/shared/capabilityTypes.ts"
@@ -11,6 +11,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   let generation = 0
   let refreshTimer: ReturnType<typeof setTimeout> | undefined
   let delayedSubmission: string | null = null
+  let permissionReturnPhase: ChatSnapshot["phase"] | null = null
   const frames = new Set<number>()
   const imageAttempts = new Map<string, number>()
   const pendingElements = new Set<() => void>()
@@ -47,8 +48,10 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     // React and the transcript have separate roots. Wait for their actual controls,
     // rather than assuming a fixed number of frames means both roots have committed.
     nextFrame(() => {
-      if (surface === "effort") {
-        whenRendered("#selectEffort:not(:disabled)", node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })))
+      if (surface && ["effort", "workMode", "permissionMode", "model", "space"].includes(surface)) {
+        const ids: Record<string, string> = { effort: "selectEffort", workMode: "selectWorkMode", permissionMode: "selectPermission", model: "selectModel", space: "selectSpace" }
+        const scope = JSON.stringify([demo.workspace, demo.space, demo.threadId])
+        whenRendered(`#${ids[surface]}${surface === "effort" ? "" : `[data-menu-scope=${JSON.stringify(scope)}]`}:not(:disabled)`, node => { if (surface === "model" || surface === "space") node.click(); else node.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })) })
       } else if (surface === "sessionTools") {
         whenRendered(`#slashCommandsHost[data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, () => {
           const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
@@ -144,35 +147,36 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "searchFiles") { emit({type:"fileSearchResult",requestId:action.requestId,files:action.query==="missing"?[]:[{id:"fileFixture",label:"src/main.ts"}],error:null}); return }
     if (action.type === "selectFile") { demo.attachments=[{id:"fileFixture",label:"src/main.ts",kind:"file",preview:{kind:"none"}}]; publish(); emit({type:"fileSelected",requestId:action.requestId,accepted:true}); return }
     if (action.type === "setEffort") { demo.effort = action.effort; publish(); return }
-    const picker: Partial<Record<ViewAction["type"], string>> = { selectPermission: "permissionMode", selectWorkMode:"workMode", selectSpace:"space", selectModel:"model" }
-    const name = picker[action.type]
-    if (name) {
-      activePanel = structuredClone(panels[name]!)
-      demo.phase = "configuring"
-      if (activePanel.kind === "permissionMode") activePanel.choices.forEach(choice => { choice.selected = choice.id === demo.permission })
+    if (action.type === "setWorkMode") { demo.workMode = action.workMode; publish(); return }
+    if (action.type === "setPermission") {
+      if (action.permission !== "yolo" || demo.permission === "yolo") { demo.permission = action.permission; publish(); return }
+      permissionReturnPhase = demo.phase; demo.phase = "configuring"
+      activePanel = { ...panels.approval!, id: "fullAccess", title: "启用完全访问？", description: "任务将跳过工具权限审批执行操作。仅对你信任的任务启用。", detail: null, choices: [{ id: "cancel", label: "保持当前权限", description: "", selected: false }, { id: "confirm", label: "启用完全访问", description: "", selected: false }] }
+      publish(); return
     }
+    if (action.type === "chooseModel" || action.type === "chooseSpace") {
+      const choices = action.type === "chooseModel" ? demo.composerCatalog.models : demo.composerCatalog.spaces
+      const choice = choices.find(item => item.id === action.id)
+      if (choice) { choices.forEach(item => { item.selected = item.id === choice.id }); if (action.type === "chooseModel") demo.model = choice.label; else demo.space = choice.label }
+      publish(); return
+    }
+    if (action.type === "pickAttachment") { demo.notice = "已请求本地文件选择（模拟），未连接 Core。"; publish(); return }
+    if (action.type === "refreshSpaces") { demo.notice = "已刷新空间列表（模拟）。"; publish(); return }
     if (action.type === "panelReply") {
       panelReplies.push(action)
       const choice = !action.cancelled ? activePanel?.choices.find(item => item.id === action.choiceIds[0]) : undefined
-      if (choice && activePanel) applyChoice(demo, activePanel, choice.id, choice.label)
-      if (!action.cancelled && activePanel?.kind === "space" && choice?.id === "refresh") {
-        const owner = generation
-        activePanel = {...panels.space!, id:"spaceRefreshing", description:"正在刷新空间列表…", choices:[]}
-        clearTimeout(refreshTimer)
-        refreshTimer = setTimeout(() => {
-          if (owner === generation && activePanel?.id === "spaceRefreshing") {
-            activePanel = {...panels.space!, id:"spaceRefreshed"}
-            publish()
-          }
-        }, 500)
-      } else if (!action.cancelled && activePanel?.backChoiceId && action.choiceIds.includes(activePanel.backChoiceId)) {
+      if (activePanel?.id === "fullAccess") {
+        if (choice?.id === "confirm") demo.permission = "yolo"
+        activePanel = null; demo.phase = permissionReturnPhase!; permissionReturnPhase = null; publish(); return
+      }
+      if (!action.cancelled && activePanel?.backChoiceId && action.choiceIds.includes(activePanel.backChoiceId)) {
         activePanel = { ...structuredClone(panels.question!), id: `questionPrevious${generation}`, title: "实现方向 · 1/2", confirmLabel: "下一题" }
       } else if (!action.cancelled && activePanel?.kind === "question" && activePanel.confirmLabel === "下一题") {
         activePanel = { ...structuredClone(panels.questionBack!), id: `questionNext${generation}` }
       } else if (!action.cancelled && activePanel?.kind === "rewind" && activePanel.confirmLabel === "继续") {
         activePanel = { ...activePanel, id: `rewindScope${generation}`, title: "确认回退范围", confirmLabel: "确认回退", choices: [{ id: "conversation", label: "只回退对话", description: "保留工作区文件（模拟）", selected: true }, { id: "both", label: "对话与文件", description: "同时恢复检查点（模拟）", selected: false }] }
       } else activePanel = null
-      demo.phase = activePanel ? (["space", "model", "permissionMode", "workMode", "rewind"].includes(activePanel.kind) ? "configuring" : "running") : "ready"
+      demo.phase = activePanel ? (["rewind"].includes(activePanel.kind) ? "configuring" : "running") : "ready"
     }
     if (action.type === "showHistory") demo.history = {...demo.history, open:true, entries:[{id:"preview",title:"整理登录页面",startedAt:"2026-09-19T12:00:00Z",turnCount:1,archived:false}]}
     if (action.type === "closeHistory") demo.history.open = false
@@ -210,11 +214,4 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   })
   Object.assign(window, { acquireVsCodeApi: () => ({ getState: () => null, setState: () => {}, postMessage }) })
   return { select, reset, dispose: () => { generation++; clearTimeout(refreshTimer); for (const id of frames) cancelAnimationFrame(id); frames.clear(); for (const cancel of pendingElements) cancel() } }
-}
-
-function applyChoice(demo: ChatSnapshot, panel: PanelView, id: string, label: string) {
-  if (panel.kind === "permissionMode" && (id === "default" || id === "auto" || id === "yolo")) demo.permission = id
-  if (panel.kind === "workMode" && (id === "default" || id === "plan")) demo.workMode = id
-  if (panel.kind === "space" && id !== "refresh") demo.space = label
-  if (panel.kind === "model") demo.model = label
 }

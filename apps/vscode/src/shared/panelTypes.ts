@@ -1,5 +1,5 @@
 /** Display-only DTOs. Core IDs, option values, credentials and RPC frames remain in Host. */
-export type PanelKind = "rewind" | "space" | "model" | "permissionMode" | "workMode" | "approval" | "question" | "plan"
+export type PanelKind = "rewind" | "approval" | "question" | "plan"
 export type PermissionChoiceIcon = "hand" | "shieldCheck" | "shieldAlert"
 export interface PanelChoice { icon?: PermissionChoiceIcon; id: string; label: string; description: string; selected: boolean }
 export interface PanelView {

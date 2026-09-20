@@ -1,14 +1,14 @@
 // Playwright CLI function, against tests/webviewPreview.ts only.
 export default async function panelViewChecks(page) {
   await page.goto('http://127.0.0.1:4318/?panel=model');
-  await page.getByRole('searchbox',{name:'搜索模型'}).fill('Reasoning');
-  await page.getByRole('searchbox',{name:'搜索模型'}).press('ArrowDown');
+  await page.getByRole('combobox',{name:'搜索模型'}).fill('Reasoning');
+  await page.getByRole('combobox',{name:'搜索模型'}).press('ArrowDown');
   await page.keyboard.press('Enter');
   await page.getByRole('dialog').waitFor({state:'hidden'});
-  const model = await page.evaluate(() => window.panelReplies);
-  if(model.length!==1||model[0].choiceIds[0]!=='model-one') throw new Error('Model selection failed');
+  const model = await page.evaluate(() => window.viewActions.filter(action => action.type === 'chooseModel'));
+  if(model.length!==1||model[0].id!=='model-one') throw new Error('Model selection failed');
   await page.getByRole('button',{name:'选择模型',exact:true}).click();
-  await page.getByRole('searchbox',{name:'搜索模型'}).press('Escape');
+  await page.getByRole('combobox',{name:'搜索模型'}).press('Escape');
   await page.getByRole('dialog').waitFor({state:'hidden'});
   if(!(await page.locator('#selectModel').evaluate(node=>node===document.activeElement))) throw new Error('Picker focus not restored');
   await page.goto('http://127.0.0.1:4318/?panel=question');

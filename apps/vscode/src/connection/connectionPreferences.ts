@@ -1,5 +1,6 @@
+import { parseWorkMode, type LocalComposerSettings } from "../shared/composerSettings.ts"
 import { createHash } from "node:crypto"
-import { parseCodemIntelligence, type CodemBuiltinIntelligence } from "@codem/protocol"
+import { parseCodemIntelligence, parseCodemPermissionMode } from "@codem/protocol"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerThreadSettings } from "@codem/app-server"
 
 export type SavedSettings = Pick<AppServerThreadSettings, "model" | "intelligence" | "permissionMode" | "workMode">
@@ -7,8 +8,8 @@ export interface ConnectionTarget { cwd: string; workspace: string; key: string 
 interface Store { get<T>(key: string): T | undefined; update(key: string, value: unknown): PromiseLike<void> }
 export interface SettingsScope { cwd: string; space: { key: string } }
 export interface SettingsPersistence {
-  pendingEffort(): CodemBuiltinIntelligence | null
-  savePendingEffort(value: CodemBuiltinIntelligence | null): Promise<void>
+  pendingSettings(): Partial<LocalComposerSettings>
+  savePendingSettings(value: Partial<LocalComposerSettings>): Promise<void>
   load(scope: SettingsScope): Promise<SavedSettings | null>
   save(scope: SettingsScope, settings: SavedSettings): Promise<void>
 }
@@ -17,12 +18,16 @@ export interface SettingsPersistence {
 export class ConnectionPreferences implements SettingsPersistence {
   private readonly store: Store
   constructor(store: Store) { this.store = store }
-  pendingEffort(): CodemBuiltinIntelligence | null {
-    const value = this.store.get<unknown>("codem.pendingEffort")
-    return value === undefined ? null : parseCodemIntelligence(value)
+  pendingSettings(): Partial<LocalComposerSettings> {
+    const intelligence = this.store.get<unknown>("codem.pendingEffort")
+    const workMode = this.store.get<unknown>("codem.pendingWorkMode")
+    const permissionMode = this.store.get<unknown>("codem.pendingPermission")
+    return { ...(intelligence === undefined ? {} : { intelligence: parseCodemIntelligence(intelligence) }), ...(workMode === undefined ? {} : { workMode: parseWorkMode(workMode) }), ...(permissionMode === undefined ? {} : { permissionMode: parseCodemPermissionMode(permissionMode) }) }
   }
-  async savePendingEffort(value: CodemBuiltinIntelligence | null): Promise<void> {
-    await this.store.update("codem.pendingEffort", value === null ? undefined : parseCodemIntelligence(value))
+  async savePendingSettings(value: Partial<LocalComposerSettings>): Promise<void> {
+    for (const [key, next] of [["codem.pendingEffort", value.intelligence === undefined ? undefined : parseCodemIntelligence(value.intelligence)], ["codem.pendingWorkMode", value.workMode === undefined ? undefined : parseWorkMode(value.workMode)], ["codem.pendingPermission", value.permissionMode === undefined ? undefined : parseCodemPermissionMode(value.permissionMode)]] as const) {
+      if (this.store.get(key) !== next) await this.store.update(key, next)
+    }
   }
   private key(scope: SettingsScope): string {
     return `codem.settings.${createHash("sha256").update(JSON.stringify([scope.cwd, scope.space.key])).digest("hex")}`

@@ -3,7 +3,7 @@ import type { PanelReply, PanelView } from "../../src/shared/panelTypes.ts"
 import { uiIcon } from "../../src/shared/uiIcons.ts"
 import { renderMarkdown } from "../transcript/markdownView.ts"
 
-const anchorIds = { rewind: "prompt", space: "selectSpace", model: "selectModel", permissionMode: "selectPermission", workMode: "selectWorkMode", approval: "prompt", question: "prompt", plan: "prompt" } as const
+const anchorIds = { rewind: "prompt", approval: "prompt", question: "prompt", plan: "prompt" } as const
 
 export function createPanelView(post: (reply: PanelReply) => void, changed: () => void) {
   const footer = document.querySelector("footer")!
@@ -15,21 +15,7 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
   let restore: HTMLElement | null = null
   let pending = false
   let cancel = () => {}
-  const locked = () => current !== null && ["approval", "question", "plan", "rewind"].includes(current.kind)
-  function positionPicker(): void {
-    if (!current || locked()) return
-    const anchor = document.getElementById(anchorIds[current.kind])!.getBoundingClientRect()
-    const bounds = footer.getBoundingClientRect()
-    const margin = 12
-    const left = Math.max(bounds.left + margin, Math.min(anchor.right - root.getBoundingClientRect().width, bounds.right - margin - root.getBoundingClientRect().width))
-    root.style.setProperty("--pickerLeft", `${left}px`)
-    root.style.setProperty("--pickerBottom", `${window.innerHeight - anchor.top + 8}px`)
-    root.style.setProperty("--pickerMaxHeight", `${Math.max(0, anchor.top - 16)}px`)
-  }
-  const resize = new ResizeObserver(positionPicker)
-  resize.observe(footer)
-  for (const id of new Set(Object.values(anchorIds))) resize.observe(document.getElementById(id)!)
-  window.addEventListener("resize", positionPicker)
+  const locked = () => current !== null
   function restoreFocus(): void {
     if (restore && !(restore as HTMLButtonElement).disabled) { restore.focus(); restore = null }
   }
@@ -49,11 +35,10 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
     }
     restore = null
     root.dataset.kind = panel.kind
-    root.classList.toggle("pickerPanel", !locked())
     root.replaceChildren()
     const heading = document.createElement("div"); heading.className = "decisionHeading"
     const title = document.createElement("h2"); title.id = "decisionTitle"; title.textContent = panel.title
-    const close = document.createElement("button"); close.type = "button"; close.className = "iconButton"; close.innerHTML = uiIcon("close"); close.setAttribute("aria-label", locked() ? "取消当前请求" : "关闭菜单")
+    const close = document.createElement("button"); close.type = "button"; close.className = "iconButton"; close.innerHTML = uiIcon("close"); close.setAttribute("aria-label", "取消当前请求")
     heading.append(title, close); root.append(heading)
     if (panel.description) { const description = document.createElement("p"); description.className = "decisionDescription"; description.textContent = panel.description; root.append(description) }
     if (panel.detail) {
@@ -107,17 +92,6 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
       })
       choices.push(row); list.append(row)
     }
-    let search: HTMLInputElement | null = null
-    if (panel.kind === "model") {
-      search = document.createElement("input"); search.type = "search"; search.className = "modelSearch"; search.placeholder = "搜索模型…"; search.setAttribute("aria-label", "搜索模型")
-      const empty = document.createElement("p"); empty.className = "decisionEmpty"; empty.textContent = "没有匹配的模型"; empty.hidden = true
-      search.addEventListener("input", () => {
-        const query = search!.value.trim().toLocaleLowerCase()
-        for (const row of choices) row.hidden = !row.textContent!.toLocaleLowerCase().includes(query)
-        empty.hidden = choices.some(row => !row.hidden)
-      })
-      root.append(search, empty)
-    }
     root.append(list)
     if (panel.allowText) { root.append(input); input.addEventListener("input", syncSelection) }
     const actions = document.createElement("div"); actions.className = "decisionActions"
@@ -143,11 +117,7 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
     if (panel.confirmLabel) syncSelection()
     root.removeAttribute("aria-busy")
     changed()
-    positionPicker()
-    if (search) search.focus(); else root.focus()
+    root.focus()
   }
-  document.addEventListener("pointerdown", event => {
-    if (current && !locked() && !root.contains(event.target as Node)) cancel()
-  })
   return { render, locked, restoreFocus, kind: () => current?.kind ?? null }
 }

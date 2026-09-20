@@ -3,7 +3,6 @@ import { it } from "node:test"
 import { PanelBroker } from "../src/panels/panelBroker.ts"
 import type { PanelMessage, PanelView } from "../src/shared/panelTypes.ts"
 import { parseViewAction } from "../src/shared/messages.ts"
-import { selectSettings } from "../src/panels/settingsPanels.ts"
 import { showInteraction } from "../src/panels/interactions.ts"
 
 function fixture() {
@@ -36,15 +35,15 @@ it("binds decisions to the live view and opaque choices, consuming each request 
 
 it("retires requests on abort, supersession and view disposal; old views cannot close replacements", async () => {
   const f = fixture(); const abort = new AbortController()
-  const first = f.broker.request({ kind: "model", title: "Model", choices: [{ label: "A", value: "a" }] }, abort.signal)
+  const first = f.broker.request({ kind: "approval", title: "Approval", choices: [{ label: "A", value: "a" }] }, abort.signal)
   const stale = f.reply([f.view().choices[0]!.id]); abort.abort(); assert.equal(await first, null)
-  const second = f.broker.request({ kind: "model", title: "Model", choices: [] })
+  const second = f.broker.request({ kind: "approval", title: "Approval", choices: [] })
   f.broker.answer(f.owner, stale); assert.ok(f.view())
   const third = f.broker.request({ kind: "question", title: "Question", choices: [], allowText: true, confirmLabel: "Submit" })
   assert.equal(await second, null)
   f.broker.unbind(f.owner); assert.equal(await third, null)
   const nextOwner = {}; f.broker.bind(nextOwner, message => f.messages.push(message))
-  const fourth = f.broker.request({ kind: "model", title: "Model", choices: [{ label: "B", value: "b" }] })
+  const fourth = f.broker.request({ kind: "approval", title: "Approval", choices: [{ label: "B", value: "b" }] })
   f.broker.unbind(f.owner); assert.ok(f.view())
   f.broker.answer(nextOwner, f.reply([f.view().choices[0]!.id])); assert.deepEqual(await fourth, { values: ["b"], text: "" })
 })
@@ -80,20 +79,6 @@ it("serializes question cards and cancels later questions when the turn ends", a
   assert.equal(f.messages.at(-1)?.panel, null)
 })
 
-
-it("selects models without changing effort and supports cancellation", async () => {
-  const f = fixture()
-  const settings = { model: "auto", intelligence: "high", permissionMode: "default" as const, workMode: "default" as const, mcpServers: [], additionalDirectories: [] }
-  const session = { models: [{ id: "other", source: "fixture", contextWindowTokens: 10000, supportsVision: false }] }
-  const abort = new AbortController()
-  const model = selectSettings("selectModel", settings, session, f.broker, abort.signal)
-  assert.equal(f.view().choices.length, 1)
-  f.broker.answer(f.owner, f.reply([f.view().choices[0]!.id]))
-  assert.deepEqual(await model, { ...settings, model: "other" })
-  const cancelled = selectSettings("selectModel", settings, session, f.broker, abort.signal)
-  abort.abort()
-  assert.equal(await cancelled, null)
-})
 
 it("restores an earlier question answer and rejects a mixed back/answer submission", async () => {
   const f = fixture(); const abort = new AbortController()

@@ -20,7 +20,7 @@ interface ComposerElements {
 }
 
 /** One input surface for the lifetime of its Webview; state rules stay in ComposerState. */
-export function createComposerView(elements: ComposerElements, transport: ComposerTransport, locked: () => boolean, changed: () => void) {
+export function createComposerView(elements: ComposerElements, transport: ComposerTransport, locked: () => boolean, changed: () => void, openMenu: (menu: "files" | "model" | "mode") => void) {
   const { form, prompt, send, attachments } = elements
   const draft = new ComposerState(transport.getState() ?? {})
   let state: ChatSnapshot = initialSnapshot()
@@ -84,8 +84,8 @@ export function createComposerView(elements: ComposerElements, transport: Compos
     if (isSlashInput()) { draft.edit(""); persist(); refresh() }
     const mode = inputModes[id]
     if (mode) { setMode(mode); return }
-    const action = ({ files: "addAttachment", model: "selectModel", mode: "selectWorkMode", history: "showHistory" } as const)[id as "files" | "model" | "mode" | "history"]
-    if (action) post({ type: action })
+    if (id === "files" || id === "model" || id === "mode") openMenu(id)
+    else if (id === "history") post({ type: "showHistory" })
     else commandPanels.open(id as SessionPanelCommand)
   }
   function submit(): void {
