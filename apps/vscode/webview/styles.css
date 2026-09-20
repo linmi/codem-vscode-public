@@ -7,7 +7,9 @@
 @import "./loadingState.css";
 * { box-sizing: border-box; }
 html { font-size: 16px; }
-body { margin: 0; background: var(--surface); color: var(--ink); font: 12px/1.5 var(--uiFont); -webkit-font-smoothing: antialiased; }
+/* Own the page gutters: VS Code injects 20px body padding, which modal scroll locking resets.
+   Keep spacing inside the header, transcript and footer so overlays cannot resize the chat. */
+body { margin: 0; padding: 0; background: var(--surface); color: var(--ink); font: 12px/1.5 var(--uiFont); -webkit-font-smoothing: antialiased; }
 button, textarea { font: inherit; color: inherit; }
 button { border: 0; cursor: pointer; background: transparent; transition: background-color 150ms, color 150ms; }
 button:disabled { opacity: .4; cursor: default; }

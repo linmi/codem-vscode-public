@@ -11,13 +11,32 @@ export default async function resourcesViewChecks(page) {
   await page.getByRole('searchbox',{name:'搜索已加载的会话'}).fill('登录');
   await page.locator('.historyEntry').waitFor();
   await page.getByRole('searchbox',{name:'搜索已加载的会话'}).press('Escape');
+  const chatBounds = () => page.evaluate(() => ['.app', '.sessionHeader', '#composer'].map(selector => {
+    const {x, y, width, height} = document.querySelector(selector).getBoundingClientRect();
+    return {selector, x, y, width, height};
+  }));
+  const beforeDialog = await chatBounds();
+  const assertStableChat = async () => {
+    const current = await chatBounds();
+    for (let index = 0; index < beforeDialog.length; index++) {
+      for (const dimension of ['x', 'y', 'width', 'height']) {
+        if (Math.abs(current[index][dimension] - beforeDialog[index][dimension]) > 0.5) {
+          throw Error(`Dialog resized ${current[index].selector}: ${dimension}`);
+        }
+      }
+    }
+  };
   await page.getByRole('button',{name:'文件与工具',exact:true}).click();
+  await page.locator('#activityPanel').waitFor({state:'visible'});
+  await assertStableChat();
   await page.getByRole('tab',{name:'工具',exact:true}).click();
   await page.locator('[data-resource-section="tools"]').waitFor();
   if(await page.locator('[data-resource-section="files"]').isVisible()) throw new Error('Inactive tab visible');
   await page.getByRole('tab',{name:'工具',exact:true}).press('ArrowLeft');
   await page.locator('[data-resource-section="background"]').waitFor();
   await page.getByRole('button', {name:'关闭文件与工具', exact:true}).click();
+  await page.locator('#activityPanel').waitFor({state:'hidden'});
+  await assertStableChat();
   await page.getByRole('link', {name:'MCP 与可用工具', exact:true}).click();
   await page.locator('[data-resource-section="tools"]').waitFor();
   const search = page.getByRole('searchbox', {name:'搜索已加载的工具'});

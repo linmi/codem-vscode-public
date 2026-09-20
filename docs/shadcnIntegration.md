@@ -69,3 +69,14 @@
 会话命令可用性由 `src/sessionCommands.ts` 统一计算并在选择时再次检查。输入模式共用主输入框及 `ComposerSubmission` 的 requestId / 编辑修订收据；普通消息草稿与能力输入草稿分开保存。`/skills`、`/catalog`、`/directories` 只打开详情，目录仍需显式刷新。测试脚本由 `sessionToolsChecks.mjs` 迁移为 `sessionCommandsChecks.mjs`，旧入口命中仅保留在迁移文档和负向断言中。
 
 本 Cycle 的实际验证与未执行层次见 `sessionCommandsAndChanges.md`；独立浏览器脚本未通过 CLI 执行。
+
+
+## 弹窗开关的页面宽度（2026-09-20）
+
+症状：打开文件与工具时，标题和输入框一起变宽，关闭后变窄。当前 VS Code 宿主的 `pre/index.html` 为 body 注入 `padding: 0 20px`；应用只重置 margin，留下了这层宿主内边距。锁定版本 react-remove-scroll-bar 2.3.8 在 Dialog 打开时按 body margin 计算滚动锁的 padding，将原先的左右 20px 清零，造成 40px 跳变。
+
+现在由应用明确把 body padding 设为 0，首屏即采用打开弹窗时的宽度。留白仍由 header、transcript、footer 自己负责，首次打开、重复开关、Escape 取消和重载均使用同一布局；不保存额外尺寸状态、不锁死用户的侧栏宽度、不改动连接或弹窗加载与失败行为。无需增加 RPC、子进程或依赖。
+
+预览样式增加低优先级的宿主默认 padding，避免普通浏览器掩盖此问题；`resourcesViewChecks.mjs` 增加弹窗开关前后 app、标题、输入框坐标及尺寸相等的回归检查。复用 4318 服务和一个临时内置浏览器标签页：440px 浅色视口修复前输入框从 376px 跳到 416px，修复后三态均为 416px；360px 深色视口三态均为 336px，没有页面水平溢出。临时标签页已关闭，视口已恢复。
+
+验证层次：扩展构建、`git diff --check` 通过；模拟界面完成上述尺寸实测；复用真实 VS Code 开发宿主重载，打开/关闭弹窗截图确认默认扩宽且布局稳定。纯 CSS 变更未重新运行单元/集成或独立 Playwright 脚本；未发送真实 Core 模型请求。
