@@ -1,7 +1,7 @@
 import type { ChatSnapshot, ViewAction } from "../src/messages.ts"
 import type { PanelReply, PanelView } from "../src/panelTypes.ts"
 import { createPreviewState, type PreviewSearch } from "./previewState.ts"
-import { applyPreviewCatalog, previewImage } from "./previewContent.ts"
+import { applyPreviewCatalog, previewImage, contentScenario } from "./previewContent.ts"
 import { catalogKinds } from "../src/capabilityTypes.ts"
 
 export function createPreviewRuntime(initial: PreviewSearch) {
@@ -47,19 +47,19 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     // rather than assuming a fixed number of frames means both roots have committed.
     nextFrame(() => {
       if (surface === "sessionTools") {
-        whenRendered(`#sessionTools[data-state="closed"][data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, node => {
+        whenRendered(`#openCommands[data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, node => {
           node.click()
           const kind = demo.sessionTools.catalog?.kind
-          if (kind || search.scenario.startsWith("catalog")) whenRendered('[data-session-tab="catalog"]', node => {
-            node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
-            if (kind && kind !== "skills") whenRendered('[role="dialog"] [aria-label="目录类型"]', trigger => {
+          const command = demo.sessionTools.sideQuestion ? "ask" : search.scenario === "sessionDirectories" ? "directories" : kind || search.scenario.startsWith("catalog") ? (kind && kind !== "skills" ? "catalog" : "skills") : "rename"
+          whenRendered(`[cmdk-item][data-value="${command}"]`, node => {
+            node.click()
+            if (kind && kind !== "skills" && kind !== "environment") whenRendered('[role="dialog"] [aria-label="目录类型"]', trigger => {
               trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
               whenRendered('[role="listbox"] [role="option"]', () => {
                 document.querySelectorAll<HTMLElement>('[role="listbox"] [role="option"]')[catalogKinds.indexOf(kind)]!.click()
               })
             })
           })
-          else if (demo.sessionTools.sideQuestion) whenRendered('[data-session-tab="instructions"]', node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })))
         })
       } else if (surface === "capabilities") {
         whenRendered('.capabilityStatus button[aria-expanded="false"]', node => node.click())
@@ -85,7 +85,8 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     frames.clear(); imageAttempts.clear()
     for (const cancel of pendingElements) cancel()
     document.querySelector<HTMLButtonElement>("#closeResources")?.click()
-    document.querySelector<HTMLButtonElement>('#sessionTools[data-state="open"]')?.click()
+    document.querySelector<HTMLButtonElement>('.sessionCommandDialog [data-slot="dialog-close"]')?.click()
+    document.querySelector<HTMLButtonElement>('[aria-label="返回普通对话"]')?.click()
     generation++
     const next = createPreviewState(search)
     demo = next.demo; panels = next.panels; activePanel = next.activePanel; surface = next.surface
@@ -157,6 +158,17 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "reloadHistory") { demo.historyNeedsRefresh = false; demo.notice = "已重新加载样例记录。" }
     if (action.type === "moreThreads") { demo.history.hasMore = false; demo.notice = "样例中的历史列表已全部加载。" }
     if (action.type === "cancelSideQuestion" && demo.sessionTools.sideQuestion) { demo.sessionTools.sideQuestion.status = "interrupted"; demo.phase = "ready" }
+    if (action.type === "steer" || action.type === "askSideQuestion" || action.type === "shellCommand") {
+      const accepted = search.scenario !== "commandFailure"
+      demo.sessionTools.result = { requestId: action.requestId, accepted }
+      demo.notice = accepted ? "已接收输入（模拟），未请求真实模型或执行命令。" : "输入提交失败（模拟）。内容保留，可以重试。"
+      if (accepted && action.type === "askSideQuestion") demo.sessionTools.sideQuestion = { question: action.text, answer: "这是旁路提问的模拟回答。", status: "completed" }
+    }
+    if (action.type === "manageThread" || action.type === "compactThread" || action.type === "clearThread") {
+      demo.sessionTools.result = { requestId: action.requestId, accepted: true }
+      demo.notice = "会话操作已确认（模拟），未修改真实记录。"
+    }
+    if (action.type === "rewindThread") { activePanel = structuredClone(contentScenario("rewind")!.panel!); demo.phase = "configuring" }
     if (action.type === "loadCatalog") {
       applyPreviewCatalog(demo, action.kind); demo.sessionTools.busy = null; demo.notice = null
     }

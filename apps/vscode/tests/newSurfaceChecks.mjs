@@ -5,7 +5,7 @@ export default async function newSurfaceChecks(page) {
   if(await page.locator('.wrapCode').count()!==1) throw new Error('Code wrap toggle failed');
   await page.locator('#prompt').fill('/model');
   await page.getByRole('option',{name:/选择模型/}).waitFor();
-  await page.locator('#prompt').press('Enter');
+  await page.getByRole('combobox',{name:'搜索会话命令',exact:true}).press('Enter');
   await page.getByRole('dialog').waitFor();
   if(await page.locator('#prompt').inputValue()!=='') throw new Error('Local command was sent as a message');
   await page.getByRole('button',{name:'关闭菜单'}).click();

@@ -1,7 +1,7 @@
 import type { FileSearchResult, FileSelected, ViewAction } from "../src/messages.ts"
 
 export function installFileMentions(prompt: HTMLTextAreaElement, ready: () => boolean, post: (action: ViewAction) => void) {
-  const menu = document.createElement("div"); menu.className = "composerCommands fileMentions"; menu.hidden = true; menu.setAttribute("role", "listbox"); menu.setAttribute("aria-label", "引用工作区文件")
+  const menu = document.createElement("div"); menu.className = "fileMentions"; menu.hidden = true; menu.setAttribute("role", "listbox"); menu.setAttribute("aria-label", "引用工作区文件")
   prompt.parentElement!.append(menu)
   let requestId = "", selecting = "", start = 0, end = 0, draft = "", index = 0
   let entries: HTMLButtonElement[] = []

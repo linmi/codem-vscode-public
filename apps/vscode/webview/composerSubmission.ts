@@ -5,6 +5,7 @@ export class ComposerSubmission {
   private revision = 0
   private pending: { requestId: string; revision: number } | null = null
   get busy(): boolean { return this.pending !== null }
+  reset(): void { this.pending = null; this.revision++ }
   edited(): void { this.revision++ }
   begin(requestId: string): boolean {
     if (this.pending) return false

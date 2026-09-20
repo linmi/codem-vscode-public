@@ -9,8 +9,8 @@
 .toolDialogIcon { display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; background: var(--soft); border: 1px solid var(--line); border-radius: 11px; }
 .toolDialogIcon svg { width: 20px; height: 20px; stroke-width: 1.6; }
 .toolDialogClose { position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; }
-.toolTabs[data-slot="tabs"], .sessionToolsBody { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 0; }
-.toolPanelNotice, .sessionToolsBody > [role="status"] { margin: 0 24px 12px; color: var(--muted); overflow-wrap: anywhere; max-height: 80px; flex-shrink: 0; overflow: auto; }
+.toolTabs[data-slot="tabs"] { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 0; }
+.toolPanelNotice { margin: 0 24px 12px; color: var(--muted); overflow-wrap: anywhere; max-height: 80px; flex-shrink: 0; overflow: auto; }
 .toolTabs > [data-slot="tabs-list"] { display: flex; flex-shrink: 0; width: auto; height: 38px; margin: 0 24px 16px; padding: 3px; gap: 3px; background: var(--soft); border: 1px solid var(--line); border-radius: 9px; }
 .toolTabs [data-slot="tabs-trigger"] { height: 30px; padding: 4px 8px; font: 12px/20px var(--uiFont); color: var(--muted); border-radius: 6px; }
 .toolTabs [data-slot="tabs-trigger"][data-state="active"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px #00000012; }
@@ -20,7 +20,6 @@
 .toolSectionHeading { margin: 0 0 16px; }
 .toolSectionHeading h3 { font-size: 13px; line-height: 20px; margin: 0; font-weight: 600; }
 .toolSectionHeading p, .sessionToolSection p { font-size: 12px; line-height: 1.7; color: var(--muted); margin: 4px 0 0; }
-.toolSectionDivider { padding-top: 20px; border-top: 1px solid var(--line); margin: 12px 0 0; }
 .sessionToolSection { display: grid; gap: 12px; min-width: 0; }
 .sessionToolSection > [data-slot="button"] { justify-self: start; }
 .sessionToolSection pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 220px; overflow: auto; }
@@ -31,13 +30,10 @@
 .toolDialog [data-slot="button"] { font-size: 12px; }
 .toolDialog [data-slot="input"], .toolDialog [data-slot="textarea"] { box-sizing: border-box; color: var(--ink); font: inherit; border: 1px solid var(--line); min-width: 0; background: var(--surface); }
 .toolDialog [data-slot="textarea"] { min-height: 144px; resize: vertical; padding: 12px; border-radius: 9px; }
-.toolFieldLabel { margin-bottom: -8px; font-size: 11px; color: var(--muted); }
-.sessionToolsBody > .sessionToolSection { margin: 4px 24px 24px; overflow: auto; }
 .catalogRows { margin: 0; overflow-wrap: anywhere; }
 .catalogRows > div { border-top: 1px solid var(--line); padding: 12px 0; }
 .catalogRows dt { font-weight: 600; }
 .catalogRows dd { margin: 4px 0 0; color: var(--muted); }
-.sideQuestion { border: 1px solid var(--line); background: var(--soft); padding: 12px; border-radius: 10px; }
 .toolDirectoryRow { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; }
 .toolDirectoryRow > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .toolCardList { display: grid; gap: 10px; }
@@ -72,7 +68,6 @@
   .toolTabs > [data-slot="tabs-list"] { margin: 0 16px 12px; }
   .toolTabs > .toolTabBody { padding: 4px 16px 20px; }
   .toolTabs [data-slot="tabs-trigger"] { gap: 4px; padding: 4px; }
-  .sessionToolsBody > [role="status"], .sessionToolsBody > .sessionToolSection { margin-left: 16px; margin-right: 16px; }
 }
 
 .toolDialog [data-slot="button"][data-variant="outline"] { border: 1px solid var(--line); background: var(--surface); }
@@ -92,3 +87,29 @@
 .turnChangeStats { display: flex; gap: 8px; white-space: nowrap; font-family: var(--codeFont); font-size: 11px; }
 .turnChangeActions { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
 .turnChangeActions [data-slot="button"] { margin-left: auto; height: 28px; padding: 4px 8px; font-size: 11px; }
+
+.slashMenu { position: fixed; z-index: 30; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--composerShadow); overflow: hidden; background: var(--popover); font: 12px/1.6 var(--uiFont); }
+.slashMenu [data-slot="command-input-wrapper"] { border-bottom: 1px solid var(--line); padding: 8px 12px; height: 40px; }
+.slashMenu [data-slot="command-input"] { border: 0; background: transparent; color: var(--ink); font: inherit; outline: none; height: 28px; }
+.slashMenu [data-slot="command-list"] { max-height: min(340px, 40dvh); overflow-y: auto; }
+.slashMenu [data-slot="command-group"] { padding: 4px 6px; }
+.slashMenu [cmdk-group-heading] { color: var(--muted); font-size: 10px; padding: 6px 8px; }
+.slashMenu [data-slot="command-item"] { padding: 8px; display: flex; gap: 12px; min-height: 34px; cursor: pointer; color: var(--ink); border-radius: 6px; }
+.slashMenu [data-slot="command-item"][data-selected="true"] { background: var(--soft); }
+.slashMenu [data-slot="command-item"][data-disabled="true"] { opacity: .5; cursor: default; }
+.slashName { min-width: 90px; font: 11px/18px var(--codeFont); }
+.slashLabel { min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.slashLabel small { display: block; color: var(--muted); font-size: 10px; }
+.slashFooter { border-top: 1px solid var(--line); padding: 6px 12px; color: var(--muted); font-size: 10px; }
+.sessionCommandDialog.toolDialog { height: auto; max-height: calc(100dvh - 32px); }
+.sessionCommandDialog.sessionCommandCatalog { height: min(620px, calc(100dvh - 32px)); }
+.sessionCommandBody { min-height: 0; overflow: auto; padding: 0 24px 24px; }
+.sessionCommandBody > [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
+.composerModeBar { display: flex; align-items: center; flex-wrap: wrap; padding: 8px 12px; gap: 6px; border-bottom: 1px solid var(--line); font: 12px/1.5 var(--uiFont); }
+.composerModeBar > span { display: inline-flex; align-items: center; gap: 6px; }
+.composerModeBar > span svg { width: 14px; height: 14px; }
+.composerModeBar > button { margin-left: auto; padding: 2px 6px; height: 26px; font-size: 11px; color: var(--muted); }
+.composerModeBar p { flex-basis: 100%; margin: 0; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.composerSideAnswer { padding: 12px; max-height: min(200px, 25dvh); overflow: auto; border-bottom: 1px solid var(--line); font: 12px/1.6 var(--uiFont); }
+.composerSideAnswer pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+@media (max-width: 440px) { .sessionCommandBody { padding: 0 16px 20px; } .slashName { min-width: 76px; } }

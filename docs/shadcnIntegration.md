@@ -58,3 +58,14 @@
 验证记录：`pnpm check` 与 `pnpm build:vscode` 通过。复用当前内置浏览器，在浅色常规尺寸、深色 380 × 700、380 × 480 验证图标、文件卡片、后台状态、目录菜单实际展开、搜索 / 无结果、键盘左右切换、Escape 焦点恢复、跨页签草稿保留、删除取消、能力目录和旁路失败场景自动展示；浏览器 error / warn 日志为空。没有新开 Chrome 或 VS Code。
 
 `resourcesViewChecks.mjs`、`sessionToolsChecks.mjs` 和 `richPreviewChecks.mjs` 已同步新组件边界，并增加搜索保留、状态更新焦点、失败可见性、跨会话清理及 ARIA 关联回归断言。这些独立 Playwright 脚本本轮未通过 CLI 执行，界面操作通过现有内置浏览器完成。真实 Core 和真实 VS Code 操作本轮未执行。
+
+
+## `/` 会话命令迁移（2026-09-20）
+
+当前入口为输入框 `/` 或底部斜杠按钮。已删除顶栏会话工具、四页签会话大面板、旧手写 `composerCommands.ts`；文件与工具仍保留独立 Dialog / Tabs。历史小节记录之前各 Cycle 的实现，当前交互以 `sessionCommandsAndChanges.md` 为准。
+
+命令菜单使用官方 shadcn Command（https://ui.shadcn.com/r/styles/new-york-v4/command.json ，MIT），搜索和键盘选择依赖其要求的 `cmdk` 1.1.1；现有 Select / Button 不提供该命令搜索交互，因此新增此单一生产依赖，精确锁定并复用已有 Radix/React。`cn` 和 Dialog imports 适配本地组件；菜单在输入框上方，按实际剩余高度约束滚动区，匹配已有主题和 CSP。未使用 `CommandDialog` 创建额外顶层入口。
+
+会话命令可用性由 `src/sessionCommands.ts` 统一计算并在选择时再次检查。输入模式共用主输入框及 `ComposerSubmission` 的 requestId / 编辑修订收据；普通消息草稿与能力输入草稿分开保存。`/skills`、`/catalog`、`/directories` 只打开详情，目录仍需显式刷新。测试脚本由 `sessionToolsChecks.mjs` 迁移为 `sessionCommandsChecks.mjs`，旧入口命中仅保留在迁移文档和负向断言中。
+
+本 Cycle 的实际验证与未执行层次见 `sessionCommandsAndChanges.md`；独立浏览器脚本未通过 CLI 执行。

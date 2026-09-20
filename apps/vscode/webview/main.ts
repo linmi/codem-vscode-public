@@ -1,11 +1,13 @@
 import { createResourceTools } from "./components/resourceTools.tsx"
-import { createSessionTools, type ToolsDraft } from "./components/sessionTools.tsx"
+import { createSessionCommandPanel } from "./components/sessionCommandPanel.tsx"
+import { createSlashCommands } from "./components/slashCommands.tsx"
+import { createComposerMode, modeLabels } from "./components/composerMode.tsx"
+import { commandUnavailable, inputUnavailable, inputModes, slashQuery, type ComposerMode, type ToolsDraft, type SessionCommandId, type SessionPanelCommand } from "../src/sessionCommands.ts"
 import { createCapabilityStatus } from "./components/capabilityStatus.tsx"
 import { createLoadingStatus } from "./loadingStatusView.ts"
 import { workingStatus } from "./workingStatus.ts"
 import { uiIcon, permissionIcons } from "../src/uiIcons.ts"
 import { installFileMentions } from "./fileMentions.ts"
-import { installComposerCommands } from "./composerCommands.ts"
 import { attachmentCard, configureImageLoader } from "./attachmentView.ts"
 import { createWorkGroups } from "./workGroups.ts"
 import { createPanelView } from "./panelView.ts"
@@ -37,9 +39,15 @@ scroller.addEventListener("scroll", updateJump, { passive: true })
 jumpLatest.addEventListener("click", () => { scroller.scrollTop = scroller.scrollHeight; updateJump() })
 const headerActions = document.querySelector<HTMLElement>(".headerActions")
 if (!headerActions) throw new Error("Missing CodeM header actions")
-const toolsHost = document.createElement("div"); headerActions.prepend(toolsHost)
 let toolsDraft = vscode.getState()?.tools
-const renderSessionTools = createSessionTools(toolsHost, post, () => toolsDraft, value => { toolsDraft = value; vscode.setState({ draft: prompt.value, tools: value }) })
+let inputMode: ComposerMode = "message"
+let messageDraft = vscode.getState()?.draft ?? ""
+let inputScope = ""
+let commands: ReturnType<typeof createSlashCommands> | undefined
+const commandPanelHost = document.createElement("div"); document.body.append(commandPanelHost)
+const commandPanels = createSessionCommandPanel(commandPanelHost, post, () => prompt.focus())
+const modeHost = document.createElement("div"); element("composer").prepend(modeHost)
+const renderComposerMode = createComposerMode(modeHost, () => setInputMode("message"), post)
 const renderResourceTools = createResourceTools(element("resourceToolsHost"), post)
 const renderHistory = createHistoryView(headerActions, scroller, post)
 const statusHost = document.createElement("div")
@@ -59,7 +67,7 @@ configureImageLoader(id => new Promise(resolve => {
 const workingIndicator = createLoadingStatus(element("workingLabel"))
 const submission = new ComposerSubmission()
 const panels = createPanelView(post, () => saveDraft())
-prompt.value = vscode.getState()?.draft ?? ""
+prompt.value = messageDraft
 let measuredPrompt = ""
 let measuredWidth = -1
 function fitPrompt(): void {
@@ -76,20 +84,59 @@ function saveDraft(): void {
   const status = workingStatus(state, panels.kind())
   element("workingRow").hidden = status === null
   workingIndicator.set(status?.label ?? null, status?.animate)
-  vscode.setState({ draft: prompt.value, tools: toolsDraft })
+  if (inputMode === "message") messageDraft = prompt.value
+  else toolsDraft = { scope: inputScope, mode: inputMode, text: prompt.value }
+  vscode.setState({ draft: messageDraft, tools: toolsDraft })
   fitPrompt()
   prompt.disabled = panels.locked()
-  send.disabled = Boolean(state.sessionTools.busy) || state.phase !== "ready" || !prompt.value.trim() || submission.busy || panels.locked()
+  send.disabled = (!isSlashInput() && Boolean(inputUnavailable(inputMode, state))) || !prompt.value.trim() || submission.busy || panels.locked()
+  const generating = state.phase === "running" || state.phase === "stopping"
+  send.hidden = generating && inputMode !== "steer"
+  send.setAttribute("aria-label", inputMode === "message" ? "发送消息" : inputMode === "shellCommand" ? "检查命令" : `发送${modeLabels[inputMode]}`)
+  prompt.setAttribute("aria-label", inputMode === "message" ? "发送给 CodeM 的消息" : `${modeLabels[inputMode]}输入`)
+  prompt.placeholder = inputMode === "message" ? "提出问题，或输入 / 选择会话操作…" : inputMode === "shellCommand" ? "输入要执行的命令…" : `输入${modeLabels[inputMode]}…`
+  element("attachments").hidden = inputMode !== "message"
+  renderComposerMode(inputMode, state)
+}
+function isSlashInput(): boolean { return inputMode !== "shellCommand" && slashQuery(prompt.value) !== null }
+function setInputMode(mode: ComposerMode) {
+  if (inputMode === "message") messageDraft = prompt.value
+  else toolsDraft = { scope: inputScope, mode: inputMode, text: prompt.value }
+  inputMode = mode
+  prompt.value = mode === "message" ? messageDraft : toolsDraft?.scope === inputScope && toolsDraft.mode === mode ? toolsDraft.text : ""
+  submission.edited(); saveDraft(); fileMentions.refresh(); prompt.focus()
+}
+function chooseCommand(id: SessionCommandId) {
+  if (commandUnavailable(id, state)) return
+  if (isSlashInput()) { prompt.value = ""; submission.edited(); saveDraft() }
+  const mode = inputModes[id]
+  if (mode) { setInputMode(mode); return }
+  const action = ({ files: "addAttachment", model: "selectModel", mode: "selectWorkMode", history: "showHistory" } as const)[id as "files" | "model" | "mode" | "history"]
+  if (action) post({ type: action })
+  else commandPanels.open(id as SessionPanelCommand)
 }
 function submit(): void {
+  if (document.activeElement?.closest(".slashMenu")) return
+  if (isSlashInput()) { commands?.open(slashQuery(prompt.value)!); return }
   if (send.disabled) return
   const requestId = crypto.randomUUID()
-  if (!submission.begin(requestId)) return
-  post({ type: "send", text: prompt.value, requestId })
-  saveDraft()
+  const text = prompt.value
+  const mode = inputMode
+  const threadId = state.threadId
+  const submitInput = () => {
+    if (inputMode !== mode || state.threadId !== threadId || inputUnavailable(mode, state) || !submission.begin(requestId)) return
+    if (mode === "message") post({ type: "send", text, requestId })
+    else if (threadId) post({ type: mode, threadId, text, requestId })
+    saveDraft()
+  }
+  if (mode === "shellCommand") commandPanels.confirmShell(text, submitInput)
+  else submitInput()
 }
 element<HTMLFormElement>("composer").addEventListener("submit", (event) => { event.preventDefault(); submit() })
-prompt.addEventListener("input", () => { submission.edited(); saveDraft() })
+prompt.addEventListener("input", event => {
+  submission.edited(); saveDraft()
+  if (!(event as InputEvent).isComposing && isSlashInput() && !panels.locked()) commands?.open(slashQuery(prompt.value)!)
+})
 prompt.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); submit() }
 })
@@ -133,7 +180,15 @@ function render(next: ChatSnapshot): void {
   const switched = state.threadId !== next.threadId
   const previousFirst = state.messages[0]?.id
   const prepended = !switched && previousFirst !== undefined && next.messages.findIndex((message) => message.id === previousFirst) > 0 && state.messages.at(-1)?.id === next.messages.at(-1)?.id
+  const nextScope = JSON.stringify([next.workspace, next.space, next.threadId])
+  if (inputScope !== nextScope && inputMode !== "message") {
+    inputMode = "message"; prompt.value = messageDraft; submission.reset()
+  }
+  inputScope = nextScope
+  if (next.sessionTools.result && submission.settle({ type: "sendResult", ...next.sessionTools.result })) prompt.value = ""
   state = next
+  commandPanels.update(state)
+  commands?.update(state)
   document.querySelector<HTMLElement>(".app")!.dataset.phase = state.phase
   const liveIds = new Set(state.messages.map((message) => message.id))
   for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.dispose(); node.root.remove(); nodes.delete(id) } }
@@ -151,7 +206,6 @@ function render(next: ChatSnapshot): void {
   while (position) { const next = position.nextSibling; position.remove(); position = next }
   renderHistory(state)
   renderCapabilityStatus(state.capabilities)
-  renderSessionTools(state)
   const initializing = state.phase === "connecting"
   const restoring = state.phase === "loadingHistory"
   element("transcriptLoading").hidden = !restoring && (!initializing || state.messages.length > 0)
@@ -173,7 +227,7 @@ function render(next: ChatSnapshot): void {
   element("model").title = state.model ?? "连接后使用 Core 当前模型"
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
-  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，可在会话工具中取消…" : state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : "Enter 发送 · Shift + Enter 换行"
+  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : "Enter 发送 · Shift + Enter 换行"
   element("status").title = element("status").textContent ?? ""
   fileMentions.refresh()
   renderResources()
@@ -194,7 +248,10 @@ window.addEventListener("message", (event: MessageEvent<ChatSnapshot | SendResul
     saveDraft()
   }
 })
-const fileMentions = installFileMentions(prompt, () => state.phase === "ready" && !panels.locked(), post)
-installComposerCommands(prompt, () => state.phase === "ready" && !panels.locked(), post)
+const fileMentions = installFileMentions(prompt, () => inputMode === "message" && state.phase === "ready" && !panels.locked(), post)
+const commandsHost = document.createElement("span"); document.querySelector(".composerLeading")!.append(commandsHost)
+commands = createSlashCommands(commandsHost, element("composer"), prompt, chooseCommand)
+commands.update(state)
+commandPanels.update(state)
 saveDraft()
 post({ type: "ready" })

@@ -23,3 +23,14 @@ it("preserves newer edits even when they contain the same text as the sent draft
   assert.equal(submission.settle({ type: "sendResult", requestId: "first", accepted: true }), false)
   assert.equal(submission.busy, false)
 })
+
+it("retires pending receipts when switching input context", () => {
+  const submission = new ComposerSubmission()
+  submission.begin("old-steer")
+  submission.reset()
+  assert.equal(submission.busy, false)
+  submission.begin("new-message")
+  assert.equal(submission.settle({ type: "sendResult", requestId: "old-steer", accepted: true }), false)
+  assert.equal(submission.busy, true)
+  assert.equal(submission.settle({ type: "sendResult", requestId: "new-message", accepted: true }), true)
+})

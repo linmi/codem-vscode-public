@@ -181,9 +181,9 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .imagePreview img { display: block; width: auto; height: auto; max-width: 80vw; max-height: 75vh; object-fit: contain; }
 .imagePreview button { display: block; margin: 8px auto 0; }
 
-.composerCommands { position: absolute; z-index: 8; left: 8px; right: 8px; bottom: calc(100% + 8px); padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--composerShadow); }
-.composerCommands button { display: block; width: 100%; text-align: left; padding: 8px; border-radius: 6px; font-size: 12px; }
-.composerCommands button[aria-selected="true"] { background: var(--soft); }
+.fileMentions { position: absolute; z-index: 8; left: 8px; right: 8px; bottom: calc(100% + 8px); padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--composerShadow); }
+.fileMentions button { display: block; width: 100%; text-align: left; padding: 8px; border-radius: 6px; font-size: 12px; }
+.fileMentions button[aria-selected="true"] { background: var(--soft); }
 
 .messageEnter { animation: messageEnter 160ms ease-out; }
 @keyframes messageEnter { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }

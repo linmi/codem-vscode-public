@@ -6,10 +6,10 @@
 
 | 能力 | 生产入口与行为 |
 | --- | --- |
-| 改名、分叉、归档、解除归档、删除 | 会话工具 → 加载会话列表 → 选择当前或列表中的目标 → 确认操作；分叉可从刷新后的历史列表继续 |
-| 清空 | 会话工具 → 清空上下文；校验回执的 operationId、原身份、工作区和新 threadId，切换到新身份并撤销旧资源 |
+| 改名、分叉、归档、解除归档、删除 | `/rename`、`/fork`、`/archive`、`/unarchive`、`/delete` → 选择当前或已加载会话 → 确认操作；分叉可从刷新后的历史列表继续 |
+| 清空 | `/clear` → 确认清空上下文；校验回执的 operationId、原身份、工作区和新 threadId，切换到新身份并撤销旧资源 |
 | 主动压缩、回退 | 控制轮次；回退通过 shadcn Dialog/Select 选择 Core 提供的检查点及范围，任一步可取消；压缩存在下述上游终态问题 |
-| 执行中补充指令 | 会话工具 → 补充指令；使用 turn/steer、expectedTurnId、submissionId，不新建轮次 |
+| 执行中补充指令 | `/steer` → 主输入框补充指令；使用 turn/steer、expectedTurnId、submissionId，不新建轮次 |
 | 旁路提问、取消 | 主轮次空闲时启动，独立流式答案与状态；取消回执不替代 sideQuestion/completed |
 | Skills | 按需读取 Core 目录，选择下一条消息的技能；原生 `{type:"skill",name,arguments}` 输入，不拼接 slash 命令；该输入与附件组合当前明确拒绝 |
 | Shell | 输入命令并确认，经 thread/shellCommand 提交；Core 返回空回执，无输出预览，不把回执当成命令执行成功 |
