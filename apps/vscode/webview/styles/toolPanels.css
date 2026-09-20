@@ -97,10 +97,13 @@
 .turnChanges ul { padding: 0; margin: 10px 0 0; list-style: none; }
 .turnChanges li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 16px; border-top: 1px solid var(--line); padding: 8px 0; }
 .turnChanges li:last-child { padding-bottom: 0; }
-.turnChangeFile { min-width: 0; overflow-wrap: anywhere; }
+.turnChangeFile { display: flex; min-width: 0; white-space: nowrap; }
+.turnChangeDirectory { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.turnChangeBasename { flex-shrink: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .turnChangeStats { display: flex; gap: 8px; white-space: nowrap; font-family: var(--codeFont); font-size: 11px; }
-.turnChangeActions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
-.turnChangeActions [data-slot="button"] { height: 28px; padding: 4px 8px; font-size: 11px; }
+.turnChangeActions { display: flex; max-width: 45cqw; justify-content: flex-end; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.turnChangeActions > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.turnChangeActions [data-slot="button"] { flex-shrink: 0; height: 28px; padding: 4px 8px; font-size: 11px; }
 
 .slashMenu { position: fixed; z-index: 30; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--composerShadow); overflow: hidden; background: var(--popover); font: 12px/1.6 var(--uiFont); }
 .slashMenu [data-slot="command-input-wrapper"] { border-bottom: 1px solid var(--line); padding: 8px 12px; height: 40px; }
@@ -146,7 +149,6 @@
 .rewindActions { justify-content: flex-end; }
 
 @container (max-width: 460px) {
-  .turnChanges li { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; }
-  .turnChangeFile { grid-column: 1 / -1; }
+  .turnChanges li { column-gap: 8px; }
   .turnChangeActions { gap: 4px; }
 }
