@@ -11,19 +11,21 @@ export interface HistoryViewState {
   backgroundBusy: boolean
 }
 
-export function createHistoryView(header: HTMLElement, scroller: HTMLElement, post: (action: HistoryAction) => void): (state: HistoryViewState) => void {
+export function createHistoryView(header: HTMLElement | null, scroller: HTMLElement, post: (action: HistoryAction) => void, returnFocus: HTMLElement): (state: HistoryViewState) => void {
   const button = (text: string, action: HistoryAction): HTMLButtonElement => {
     const node = document.createElement("button")
     node.type = "button"; node.className = "textButton"; node.textContent = text
     node.addEventListener("click", () => post(action))
     return node
   }
-  const open = document.createElement("button")
-  open.type = "button"
-  open.addEventListener("click", () => post({ type: lastState?.history.open ? "closeHistory" : "showHistory" }))
-  open.className = "iconButton"; open.innerHTML = uiIcon("history"); open.setAttribute("aria-label", "历史会话")
-  open.title = "浏览当前工作区的历史会话"; open.setAttribute("aria-controls", "historyPanel")
-  header.prepend(open)
+  const open = header ? document.createElement("button") : null
+  if (open && header) {
+    open.type = "button"
+    open.addEventListener("click", () => post({ type: lastState?.history.open ? "closeHistory" : "showHistory" }))
+    open.className = "iconButton"; open.innerHTML = uiIcon("history"); open.setAttribute("aria-label", "历史会话")
+    open.title = "浏览当前工作区的历史会话"; open.setAttribute("aria-controls", "historyPanel")
+    header.prepend(open)
+  }
   const panel = document.createElement("section")
   panel.id = "historyPanel"; panel.className = "historyPanel"; panel.hidden = true; panel.setAttribute("aria-label", "历史会话")
   scroller.before(panel)
@@ -53,12 +55,15 @@ export function createHistoryView(header: HTMLElement, scroller: HTMLElement, po
   function render(state: HistoryViewState): void {
     lastState = state
     const disabled = isBusy(state.phase) || state.phase === "disconnected"
-    open.disabled = disabled && !state.history.open
-    open.title = state.history.open ? "关闭历史会话" : "浏览当前工作区的历史会话"
-    open.setAttribute("aria-expanded", String(state.history.open))
+    if (open) {
+      open.disabled = disabled && !state.history.open
+      open.title = state.history.open ? "关闭历史会话" : "浏览当前工作区的历史会话"
+      open.setAttribute("aria-expanded", String(state.history.open))
+    }
+    const restoreFocus = !state.history.open && wasOpen && panel.contains(document.activeElement)
     panel.hidden = !state.history.open
     if (state.history.open && !wasOpen) search.focus()
-    if (!state.history.open && wasOpen && panel.contains(document.activeElement)) open.focus()
+    if (restoreFocus) (open ?? returnFocus).focus()
     wasOpen = state.history.open
     panel.setAttribute("aria-busy", String(state.history.loading))
     refresh.disabled = more.disabled = disabled || state.history.loading

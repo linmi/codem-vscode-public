@@ -31,15 +31,14 @@ const send = element<HTMLButtonElement>("send")
 const stop = element<HTMLButtonElement>("stop")
 const connect = element<HTMLButtonElement>("connect")
 const signIn = element<HTMLButtonElement>("signIn")
-const newChat = element<HTMLButtonElement>("newChat")
+const standaloneActions = document.getElementById("standaloneActions")
+const newChat = standaloneActions ? element<HTMLButtonElement>("newChat") : null
 const scroller = element("scrollArea")
 const messages = element("messages")
 const jumpLatest = element<HTMLButtonElement>("jumpLatest")
 function updateJump(): void { jumpLatest.hidden = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 70 }
 scroller.addEventListener("scroll", updateJump, { passive: true })
 jumpLatest.addEventListener("click", () => { scroller.scrollTop = scroller.scrollHeight; updateJump() })
-const headerActions = document.querySelector<HTMLElement>(".headerActions")
-if (!headerActions) throw new Error("Missing CodeM header actions")
 let toolsDraft = vscode.getState()?.tools
 let inputMode: ComposerMode = "message"
 let sendKey = "enter"
@@ -54,7 +53,7 @@ const commandPanels = createSessionCommandPanel(commandPanelHost, post, () => pr
 const modeHost = document.createElement("div"); element("composer").prepend(modeHost)
 const renderComposerMode = createComposerMode(modeHost, () => setInputMode("message"), post)
 const renderResourceTools = createResourceTools(element("resourceToolsHost"), post)
-const renderHistory = createHistoryView(headerActions, scroller, post)
+const renderHistory = createHistoryView(standaloneActions, scroller, post, prompt)
 const statusHost = document.createElement("div")
 statusHost.className = "capabilityStatusHost"
 element("composer").before(statusHost)
@@ -153,9 +152,9 @@ for (const button of document.querySelectorAll<HTMLButtonElement>("[data-prompt]
 }
 connect.addEventListener("click", () => post({ type: "connect" }))
 signIn.addEventListener("click", () => post({ type: "signIn" }))
-newChat.addEventListener("click", () => post({ type: "newChat" }))
+newChat?.addEventListener("click", () => post({ type: "newChat" }))
 stop.addEventListener("click", () => post({ type: "stop" }))
-element("showOutput").addEventListener("click", () => post({ type: "showOutput" }))
+if (standaloneActions) element("showOutput").addEventListener("click", () => post({ type: "showOutput" }))
 
 const configurationActions = ["selectSpace", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment"] as const
 for (const type of configurationActions) element(type).addEventListener("click", () => post({ type }))
@@ -224,7 +223,7 @@ function render(next: ChatSnapshot): void {
   element("connection").hidden = state.phase !== "disconnected" && state.phase !== "connecting"
   connect.disabled = signIn.disabled = state.phase === "connecting"
   connect.textContent = state.phase === "connecting" ? "正在连接…" : "连接工作区"
-  newChat.disabled = isBusy(state.phase) || state.backgroundBusy || Boolean(state.sessionTools.busy)
+  if (newChat) newChat.disabled = isBusy(state.phase) || state.backgroundBusy || Boolean(state.sessionTools.busy)
   const generating = state.phase === "running" || state.phase === "stopping"
   stop.hidden = !generating; send.hidden = generating; stop.disabled = state.phase === "stopping"
   element("statusDot").dataset.connected = String(state.phase !== "disconnected" && state.phase !== "connecting")

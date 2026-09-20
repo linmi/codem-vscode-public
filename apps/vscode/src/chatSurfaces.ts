@@ -119,7 +119,7 @@ export class ChatSurfaces implements vscode.Disposable {
         }).catch(() => { void vscode.window.showErrorMessage("CodeM 操作未完成，请查看日志并重试。") })
       } catch { void vscode.window.showErrorMessage("CodeM 拒绝了无效界面请求。") }
     })
-    surface.webview.html = chatHtml({ script: resource("dist/webview.js"), style: resource("dist/webview.css"), logo: resource("assets/codemMark.svg"), cspSource: surface.webview.cspSource })
+    surface.webview.html = chatHtml({ script: resource("dist/webview.js"), style: resource("dist/webview.css"), logo: resource("assets/codemMark.svg"), cspSource: surface.webview.cspSource, surface: surface === this.editor ? "editor" : "sidebar" })
   }
   postSettings(): void { this.post({ type: "editorSettings", sendKey: vscode.workspace.getConfiguration("codem").get<string>("chat.sendKey", "enter") }) }
   dispose(): void {

@@ -179,8 +179,7 @@
         },
         {
           "command": "codem.connect",
-          "when": "view == codem.chat",
-          "group": "navigation@3"
+          "when": "view == codem.chat"
         },
         {
           "command": "codem.signIn",

@@ -15,7 +15,7 @@ it("accepts only supported actions and bounded text; refuses raw RPC, paths and 
 })
 
 it("uses a fresh CSP nonce, escapes resources and prohibits inline handlers and remote requests", () => {
-  const options = { script: 'resource/script.js" onload="bad()', style: "resource/style.css", logo: "resource/logo.svg", cspSource: "https://resource.test" }
+  const options = { surface: "editor" as const, script: 'resource/script.js" onload="bad()', style: "resource/style.css", logo: "resource/logo.svg", cspSource: "https://resource.test" }
   const first = chatHtml(options)
   const second = chatHtml(options)
   assert.match(first, /default-src 'none'/)

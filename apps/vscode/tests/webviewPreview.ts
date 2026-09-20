@@ -23,7 +23,7 @@ createServer((request, response) => {
     try { search = parsePreviewSearch(Object.fromEntries(url.searchParams)) }
     catch (error) { response.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" }); response.end(String(error)); return }
     const theme = search.theme === "dark" ? "vscode-dark" : "vscode-light"
-    let html = chatHtml({ script: "/webview.js", style: "/webview.css", logo: "/logo.svg", cspSource: `http://127.0.0.1:${port}` })
+    let html = chatHtml({ surface: "editor", script: "/webview.js", style: "/webview.css", logo: "/logo.svg", cspSource: `http://127.0.0.1:${port}` })
     const nonce = html.match(/nonce="([^"]+)"/)![1]
     html = html.replace("</head>", '<link rel="stylesheet" href="/preview.css"></head>').replace("<body>", `<body class="${theme}"><aside id="previewNavigation" class="previewNavigation" aria-label="模拟预览导航"></aside><script nonce="${nonce}" src="/previewNavigation.js"></script>`)
     response.setHeader("Content-Type", "text/html; charset=utf-8"); response.end(html); return

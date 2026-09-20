@@ -5,7 +5,7 @@ export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!)
 }
 
-export function chatHtml(resources: { script: string; style: string; logo: string; cspSource: string }): string {
+export function chatHtml(resources: { script: string; style: string; logo: string; cspSource: string; surface: "sidebar" | "editor" }): string {
   const nonce = randomBytes(24).toString("base64")
   const source = escapeHtml(resources.cspSource)
   return `<!doctype html>
@@ -16,8 +16,8 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
 <div class="app" data-phase="initializing">
   <header class="sessionHeader"><span class="sessionTitle"><span class="projectIcon">${uiIcon("folder")}</span><span id="sessionTitle">新会话</span><span class="statusDot" id="statusDot" title="连接状态"></span></span><div class="headerActions">
     <div id="resourceToolsHost"></div>
-    <button class="iconButton" id="newChat" title="新建会话" aria-label="新建会话">${uiIcon("plus")}</button>
-    <button class="iconButton" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志">${uiIcon("terminal")}</button>
+    ${resources.surface === "editor" ? `<div class="headerActions" id="standaloneActions"><button class="iconButton" id="newChat" title="新建会话" aria-label="新建会话">${uiIcon("plus")}</button>
+    <button class="iconButton" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志">${uiIcon("terminal")}</button></div>` : ""}
   </div></header>
   <div class="timelineArea">
   <main id="scrollArea">
