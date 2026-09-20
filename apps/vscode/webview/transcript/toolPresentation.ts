@@ -3,6 +3,7 @@ import { uiIcon } from "../../src/shared/uiIcons.ts"
 
 export function toolPresentation(name: string): { title: string; icon: string; kind: string } {
   const known: Record<string, { title: string; icon: Parameters<typeof uiIcon>[0]; kind: string }> = {
+    skill: { title: "加载技能", icon: "tool", kind: "skill" },
     grep: { title: "搜索内容", icon: "search", kind: "search" },
     list_dir: { title: "查看目录", icon: "folder", kind: "read" },
     run_bash: { title: "执行命令", icon: "terminal", kind: "command" },
@@ -23,6 +24,11 @@ export function toolPresentation(name: string): { title: string; icon: string; k
 // Only use the Host's whitelisted projection, never raw tool arguments or output.
 export function activityTitle(message: ActivityMessage): string {
   if (message.role === "reasoning") return message.summary.trim() || (message.status === "running" ? "正在思考" : "思考过程")
+  if (message.label === "skill") {
+    const actions = { running: "正在加载技能", completed: "已加载技能", failed: "加载技能失败", declined: "已拒绝加载技能", interrupted: "已停止加载技能", incomplete: "技能加载未完成" } as const
+    const name = message.details?.kind === "skill" ? message.details.fields.find(field => field.label === "技能")?.value : undefined
+    return [actions[message.status], name].filter(Boolean).join(" ")
+  }
   const title = toolPresentation(message.label).title
   const verbs: Record<string, [string, string]> = {
     run_bash: ["正在运行", "已运行"],

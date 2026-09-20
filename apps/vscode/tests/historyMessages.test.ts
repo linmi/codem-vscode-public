@@ -106,3 +106,16 @@ it("places persisted late reasoning before a structured final reply within its o
   } }] }
   assert.deepEqual(historyMessages("thread", page).map(m => m.text), ["Checking", "Thought", "Done"])
 })
+
+it("restores skill names and plugin identity with the same safe projection as live events", () => {
+  const page: SessionHistoryPage = { nextCursor: null, turns: [{ submissionId: "s", turn: {
+    id: "turn", index: 0, engineTurnIndexes: [0], model: "fixture", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null,
+    items: [{ id: "skill", at, kind: "tool-execution", toolCallId: "call", toolName: "skill", input: { value: { name: "codem-plugin:codem-wiki", path: "/private/SKILL.md" }, preview: "private input", previewTruncated: false }, result: { value: "Skill loaded.", preview: "Skill loaded.", previewTruncated: false }, status: "succeeded" }],
+  } }] }
+  const [message] = historyMessages("thread", page)
+  assert.ok(message && "status" in message)
+  assert.equal(message.status, "completed")
+  assert.deepEqual(message.details, { kind: "skill", fields: [{ label: "技能", value: "codem-plugin:codem-wiki" }, { label: "插件", value: "codem-plugin" }], code: null })
+  assert.equal(message.text, "Skill loaded.")
+  assert.doesNotMatch(JSON.stringify(message), /private|SKILL.md/)
+})

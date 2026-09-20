@@ -1360,3 +1360,21 @@ it("a rejected turn preserves the pasted image for retry in the established conv
   fixture.host.startTurn = start
   assert.equal(await fixture.controller.send("截图"), true)
 })
+
+it("retains a skill's safe identity through separate started and completed result events", async t => {
+  const f = setup()
+  t.after(() => f.controller.dispose())
+  await f.controller.connect(); await f.controller.send("检查技能展示")
+  f.emit({ type: "item-started", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "skill-call", type: "toolCall", status: "inProgress", tool: "skill", callId: "skill-id", arguments: { name: "codem-plugin:codem-wiki", secret: "host-only" } }, "fixture") })
+  const started = f.controller.snapshot().messages.at(-1)!
+  assert.ok("status" in started)
+  assert.equal(started.status, "running")
+  assert.equal(started.details?.fields[0]?.value, "codem-plugin:codem-wiki")
+  f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "skill-result", type: "toolResult", status: "completed", callId: "skill-id", output: "Skill 'codem-plugin:codem-wiki' loaded." }, "fixture") })
+  const completed = f.controller.snapshot().messages.at(-1)!
+  assert.ok("status" in completed)
+  assert.equal(completed.status, "completed")
+  assert.equal(completed.label, "skill")
+  assert.deepEqual(completed.details, started.details)
+  assert.doesNotMatch(JSON.stringify(completed), /host-only/)
+})

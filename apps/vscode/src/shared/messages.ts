@@ -78,7 +78,7 @@ export interface DiffView { id: string; turnId: string; label: string; added: nu
 export interface BackgroundView { id: string; label: string; inProgress: boolean }
 export interface BackgroundTaskView { id: string; label: string; phase: "queued" | "started" | "skipped" | "cancelled" | "notFound" | "noop" }
 export type ActivityStatus = "running" | "completed" | "failed" | "declined" | "interrupted" | "incomplete"
-export interface ToolDetails { kind: "command" | "file" | "search" | "web" | "mcp" | "subagent"; fields: readonly { label: string; value: string }[]; code: string | null }
+export interface ToolDetails { kind: "skill" | "command" | "file" | "search" | "web" | "mcp" | "subagent"; fields: readonly { label: string; value: string }[]; code: string | null }
 export interface ArtifactView { id: string; kind: "file" | "image" | "chart" | "url" | "diff"; title: string; detail: string; available: boolean }
 /** Host-observed live interval or durable Core interval; finish also records an interrupted connection. */
 export interface TurnTiming { turnId: string; startedAt: number; finishedAt: number | null }

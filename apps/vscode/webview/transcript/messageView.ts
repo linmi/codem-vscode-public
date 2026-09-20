@@ -105,9 +105,9 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
         root.dataset.tool = presentation.kind
         label.textContent = activityTitle(message)
         activityIcon!.innerHTML = presentation.icon
-        toolHeading.textContent = message.details?.kind === "command" ? "Shell" : `${presentation.title}输出`
+        toolHeading.textContent = message.label === "skill" ? "技能加载结果" : message.details?.kind === "command" ? "Shell" : `${presentation.title}输出`
         toolOutput.setAttribute("aria-label", toolHeading.textContent)
-        body.setAttribute("aria-label", `${presentation.title}输出`)
+        body.setAttribute("aria-label", message.label === "skill" ? "技能加载结果" : `${presentation.title}输出`)
       } else label.textContent = activityTitle(message)
       const thinking = message.role === "reasoning" && message.status === "running"
       label.hidden = thinking
@@ -120,7 +120,7 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
       badge.hidden = message.status === "running"
       note.textContent = message.summary
       note.hidden = !message.summary.trim() || message.summary.trim() === message.text.trim() || message.summary.trim() === label.textContent?.trim()
-      const empty = message.status === "running" ? (message.role === "reasoning" ? "正在思考…" : "等待工具输出…") : message.status === "incomplete" ? "未收到完成结果。" : message.role === "reasoning" ? "Core 未提供可显示的思考内容。" : "无文本输出。"
+      const empty = message.status === "running" ? (message.role === "reasoning" ? "正在思考…" : message.label === "skill" ? "正在加载技能说明…" : "等待工具输出…") : message.status === "incomplete" ? "未收到完成结果。" : message.role === "reasoning" ? "Core 未提供可显示的思考内容。" : "无文本输出。"
       text ||= empty
       body.classList.toggle("emptyOutput", !message.text)
     }

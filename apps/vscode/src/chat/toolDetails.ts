@@ -6,6 +6,15 @@ export function projectToolDetails(name: string, input: unknown, cwd: string): T
   if (!input || typeof input !== "object" || Array.isArray(input)) return null
   const value = input as Record<string, unknown>
   const text = (key: string) => typeof value[key] === "string" ? (value[key] as string).slice(0, 8000) : ""
+  if (name === "skill") {
+    // Core 0.8.44 SkillInput and schema 13 calls use {name}, including plugin:skill.
+    const skill = value.name
+    if (typeof skill !== "string" || !skill.trim() || skill !== skill.trim() || skill.length > 256 || (skill.includes("/") || skill.includes("\\") || [...skill].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127))) return null
+    const separator = skill.indexOf(":")
+    const fields = [{ label: "技能", value: skill }]
+    if (separator > 0 && separator < skill.length - 1) fields.push({ label: "插件", value: skill.slice(0, separator) })
+    return { kind: "skill", fields, code: null }
+  }
   if (name === "run_bash") return { kind: "command", fields: [], code: text("command").replace(/((?:token|password|api_key|authorization)\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^\s;]+)/gi, "$1[已隐藏]") }
   if (["read_files", "write_file", "edit_file"].includes(name)) {
     // Core 0.8.44: read_files accepts files:[{path,...}] or one flat path, never paths:[].
