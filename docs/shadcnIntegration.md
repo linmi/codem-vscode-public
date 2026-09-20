@@ -25,3 +25,13 @@
 本次结果：pnpm check、pnpm build:vscode、PREVIEW_NAVIGATION_OK 和 PREVIEW_LAYOUT_OK 均通过；宽屏目录与窄屏展开截图已人工检查，浏览器验收期间无 console error。
 
 场景导航已迁移为左侧分组 TOC，使用 shadcn Button 的链接语义和 Collapsible；主题继续使用 Select。宽屏为 220px 目录＋居中预览，700px 以下通过按钮展开/收起目录。场景链接保留主题，URL 支持刷新恢复。Button / Collapsible 源码来自同一官方 new-york-v4 registry，沿用 MIT 许可证。
+
+## 无刷新场景路由
+
+模拟预览使用 TanStack Router 1.170.38 管理 scenario/theme 搜索参数及浏览器历史，目录使用 Router Link，主题使用 router.navigate；禁止通过 location.href 或 reload 进行场景/主题切换。Router 仅作为预览开发依赖，不进入正式聊天脚本。
+
+场景基线由 tests/previewState.ts 统一创建，server 与 router 使用同一参数校验；已存在的 panel/empty 调试链接仍有效。tests/previewRuntime.ts 在当前文档内发布新的模拟快照，切换场景或重置会清理旧定时器、表单草稿和旧面板身份；单独切换主题保留当前场景的交互状态。目录和聊天外框保留 DOM 身份，目录滚动位置不因导航重置。
+
+验证：tests/previewRouterChecks.mjs 检查零新增文档请求、DOM 身份/目录滚动位置保留、前进后退、旧空间刷新失效及连续切换。一次本地浏览器采样中，六次场景更新到下一帧耗时为 11–17ms；这不是生产性能承诺。还需执行 previewNavigationChecks.mjs、previewLayoutChecks.mjs 和既有面板检查。
+
+官方参考：https://tanstack.com/router/latest/docs/routing/code-based-routing 、https://tanstack.com/router/latest/docs/guide/search-params 。通过已锁定版本的本地类型和浏览器行为确认 API。

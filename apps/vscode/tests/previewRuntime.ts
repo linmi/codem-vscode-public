@@ -42,6 +42,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   function postMessage(action: ViewAction) {
     viewActions.push(action)
     if (action.type === "ready") { ready = true; publish(); return }
+    if (action.type === "send") { emit({type:"sendResult",requestId:action.requestId,accepted:false}); return }
     if (action.type === "searchFiles") { emit({type:"fileSearchResult",requestId:action.requestId,files:action.query==="missing"?[]:[{id:"fileFixture",label:"src/main.ts"}],error:null}); return }
     if (action.type === "selectFile") { demo.attachments=[{id:"fileFixture",label:"src/main.ts",kind:"file",preview:{kind:"none"}}]; publish(); emit({type:"fileSelected",requestId:action.requestId,accepted:true}); return }
     const picker: Partial<Record<ViewAction["type"], string>> = { selectPermission: "permissionMode", selectWorkMode:"workMode", selectSpace:"space", selectEffort:"effort", selectModel:"model" }
