@@ -1,4 +1,5 @@
-import type { ActivityStatus, ChatSnapshot, ToolDetails } from "../src/shared/messages.ts"
+import { previewTools } from "./fixtures/previewTools.ts"
+import type { ActivityStatus, ChatSnapshot } from "../src/shared/messages.ts"
 import type { CatalogKind } from "../src/shared/capabilityTypes.ts"
 import type { PanelView } from "../src/shared/panelTypes.ts"
 import { appendContext, codePrompt } from "../src/shared/editorContext.ts"
@@ -17,16 +18,9 @@ const note = "以下为本地界面样例，不代表真实执行结果。"
 function answer(state: ChatSnapshot, text: string) {
   state.messages = [state.messages[0]!, { id: "richAnswer", role: "assistant", label: "CodeM", text: `${text}\n\n${note}` }]
 }
-const tools: { label: string; details: ToolDetails; text: string }[] = [
-  { label: "run_bash", details: { kind: "command", code: "pnpm --filter codem typecheck", fields: [{ label: "工作目录", value: "workspace" }, { label: "退出码", value: "0" }] }, text: "检查 Host、Webview 与共享协议…\n类型检查通过，未产生构建文件。" },
-  { label: "read_files", details: { kind: "file", code: null, fields: [{ label: "文件", value: "src/auth.ts" }, { label: "范围", value: "12–48 行" }] }, text: "export async function connectWorkspace() {\n  const account = await readAccount()\n  return connect(account.workspace)\n}" },
-  { label: "grep", details: { kind: "search", code: null, fields: [{ label: "查询", value: "connectWorkspace" }, { label: "目录", value: "apps/vscode/src" }] }, text: "src/extension.ts:28 — connectWorkspace()\nsrc/chat/chatController.ts:114 — connectWorkspace(options)\n共找到 2 处调用。" },
-  { label: "web_fetch", details: { kind: "web", code: null, fields: [{ label: "来源", value: "https://example.com/docs" }, { label: "标题", value: "接口说明（样例）" }] }, text: "已读取公开接口说明。\n## 状态\n请求可以完成、失败或被取消。" },
-  { label: "MCP · design.inspect", details: { kind: "mcp", code: null, fields: [{ label: "服务器", value: "design-preview" }, { label: "工具", value: "inspect_component" }] }, text: "组件：LoginPanel\n尺寸：640 × 480\n状态：default / loading / error\n这里只展示允许公开的摘要。" },
-  { label: "子代理 · 检查交互", details: { kind: "subagent", code: null, fields: [{ label: "任务", value: "检查键盘导航与焦点恢复" }, { label: "结果", value: "完成" }] }, text: "已检查菜单、审批与历史面板。\n发现 1 项待改进：窄窗口长内容的滚动边界。" },
-]
-function toolMessages(state: ChatSnapshot, statuses: ActivityStatus[]) {
-  state.messages = [state.messages[0]!, ...tools.map((tool, i) => ({ id: `richTool${i}`, role: "tool" as const, label: tool.label, details: tool.details, text: tool.text, status: statuses[i % statuses.length]!, summary: `${tool.details.kind} · ${statuses[i % statuses.length]}` })), { id: "toolSummary", role: "assistant", label: "CodeM", text: `六类工具详情已列出，可逐项展开查看参数与输出。\n\n${note}` }]
+function toolMessages(state: ChatSnapshot, statuses: ActivityStatus[], all = false) {
+  const tools = all ? previewTools : previewTools.slice(0, 6)
+  state.messages = [state.messages[0]!, ...tools.map((tool, i) => ({ id: `richTool${i}`, role: "tool" as const, label: tool.label, details: structuredClone(tool.details), text: tool.text, status: statuses[i % statuses.length]!, summary: "" })), { id: "toolSummary", role: "assistant", label: "CodeM", text: `工具详情已列出，可逐项展开查看参数与输出。\n\n${note}` }]
 }
 function historyRows() {
   return Array.from({ length: 14 }, (_, i) => ({ id: `history${i}`, title: ["整理登录页面", "检查依赖与构建", "修复长内容滚动", "审阅接口变更"][i % 4]! + ` · 第 ${i + 1} 次`, startedAt: new Date(Date.UTC(2026, 8, 20 - Math.floor(i / 3), 10, i)).toISOString(), turnCount: i + 1, archived: i === 4 }))
@@ -62,6 +56,7 @@ export const contentScenarios = [
   { id: "sentCode", group: "内容", label: "已发送选区代码", apply: (s: ChatSnapshot) => { s.messages = [{ id: "sentCodeUser", role: "user", label: "你", text: appendContext("这行代码写了什么？", codePrompt("addToContext", { path: "vscode/src/connection/accountController.ts", language: "typescript", startLine: 17, endLine: 19, text: "constructor(operations: AccountOperations, changed: (state: AccountState) => void) {\n  this.operations = operations\n  this.changed = changed", diagnostics: [] })) }] } },
   { id: "richMarkdown", group: "内容", label: "Markdown · 表格与代码", apply: (s: ChatSnapshot) => answer(s, "# 工作区检查报告\n\n## 变更概览\n\n正文包含 **重点**、*说明*、~~已废弃方案~~、`inlineCode` 与 [公开链接](https://example.com)。\n\n> 提示：此处展示引用、列表和代码之间的间距。\n\n| 模块 | 状态 | 说明 |\n| --- | --- | --- |\n| 登录 | 完成 | 保留取消后的输入 |\n| 历史 | 待验证 | 增量加载与恢复 |\n| 工具 | 完成 | 参数与输出分开展示 |\n\n- [x] 普通列表和任务列表\n- [ ] 深浅主题与窄栏验证\n\n1. 连接工作区\n2. 执行检查\n   - 展开工具记录\n   - 查看失败输出\n\n```ts\ninterface Result { status: 'ready' | 'failed'; message: string }\nconst result: Result = { status: 'ready', message: '检查完成' }\n```\n\n```diff\n- const label = '等待'\n+ const label = '正在连接工作区…'\n```\n\n---\n\n### 后续验证\n保留失败原因和可执行的重试入口。") },
   { id: "longConversation", group: "对话", label: "多轮长对话与滚动", apply: (s: ChatSnapshot) => { s.messages = Array.from({ length: 12 }, (_, i) => [{ id: `longUser${i}`, role: "user" as const, label: "你", text: `第 ${i + 1} 轮：检查模块 ${i + 1} 的加载、失败与恢复状态。` }, { id: `longAssistant${i}`, role: "assistant" as const, label: "CodeM", text: `### 模块 ${i + 1}\n\n已梳理首次操作、重复操作及取消路径。\n\n- 加载时显示当前步骤。\n- 失败后保留输入。\n- 重试后清除旧提示。\n\n${note}` }]).flat() } },
+  { id: "allToolDetails", group: "工具", label: "全部工具 · 真实参数投影", surface: "activities", apply: (s: ChatSnapshot) => toolMessages(s, ["running", "completed", "failed", "declined", "interrupted", "incomplete"], true) },
   { id: "toolDetails", group: "工具", label: "六类工具 · 参数与输出", surface: "activities", apply: (s: ChatSnapshot) => toolMessages(s, ["completed"]) },
   { id: "toolStates", group: "工具", label: "工具 · 失败拒绝与中断", surface: "activities", apply: (s: ChatSnapshot) => toolMessages(s, ["completed", "failed", "declined", "interrupted", "incomplete"]) },
   { id: "toolLongOutput", group: "工具", label: "工具 · 长命令与日志", surface: "activities", apply: (s: ChatSnapshot) => { toolMessages(s, ["completed"]); s.messages = [s.messages[0]!, { ...s.messages[1]!, text: Array.from({ length: 80 }, (_, i) => `[${String(i).padStart(3, "0")}] 检查 src/components/WorkspacePanel.tsx · ${i % 9 ? "通过" : "跳过可选项"}`).join("\n") }] } },

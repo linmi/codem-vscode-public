@@ -15,7 +15,7 @@ it("validates preview URL state and preserves existing direct fixture links", ()
 it("covers the actual tool, artifact and catalog discriminants with inspectable content", () => {
   const snapshots = previewScenarios.map(([scenario]) => createPreviewState(parsePreviewSearch({scenario})))
   const tools = snapshots.flatMap(({demo}) => demo.messages.flatMap(message => message.role === "tool" && message.details ? [message.details.kind] : []))
-  assert.deepEqual([...new Set(tools)].sort(), ["command", "file", "mcp", "search", "subagent", "web"])
+  assert.deepEqual([...new Set(tools)].sort(), ["command", "context", "file", "image", "installation", "mcp", "plan", "process", "search", "skill", "subagent", "task", "wait", "web", "worktree"])
   const artifacts = snapshots.flatMap(({demo}) => demo.messages.flatMap(message => message.artifacts ?? []))
   assert.deepEqual([...new Set(artifacts.map(item => item.kind))].sort(), ["chart", "diff", "file", "image", "url"])
   for (const kind of ["chart", "diff", "file", "image", "url"]) {

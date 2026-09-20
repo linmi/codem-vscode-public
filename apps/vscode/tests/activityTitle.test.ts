@@ -7,13 +7,13 @@ const tool: ActivityMessage = { id: "t", role: "tool", label: "run_bash", status
 it("summarizes safe input with the real activity status, never tool output", () => {
   assert.equal(activityTitle(tool), "已运行 pnpm check")
   assert.equal(activityTitle({ ...tool, status: "running" }), "正在运行 pnpm check")
-  assert.equal(activityTitle({ ...tool, status: "failed" }), "执行命令 pnpm check")
+  assert.equal(activityTitle({ ...tool, status: "failed" }), "执行命令失败 pnpm check")
   assert.equal(activityTitle({ ...tool, details: undefined }), "已运行")
   assert.equal(activityTitle({ ...tool, label: "read_files", details: { kind: "file", code: null, fields: [{ label: "文件", value: "src/main.ts" }] } }), "已读取 src/main.ts")
 })
 it("uses supplied reasoning summaries and preserves unknown tool names", () => {
   assert.equal(activityTitle({ ...tool, role: "reasoning", summary: "检查连接生命周期" }), "检查连接生命周期")
-  assert.equal(activityTitle({ ...tool, label: "custom", details: undefined }), "custom")
+  assert.equal(activityTitle({ ...tool, label: "custom", details: undefined }), "已调用工具 custom")
 })
 
 it("shows actual Core search terms and batched file names using the safe input projection", () => {
@@ -21,7 +21,7 @@ it("shows actual Core search terms and batched file names using the safe input p
   assert.equal(activityTitle({ ...tool, label: "grep", details }), "已搜索内容 requestId、src、*.ts")
   assert.doesNotMatch(JSON.stringify(details), /workspace|SECRET|hidden|private output/)
   const files = projectToolDetails("read_files", { files: [{ path: "/workspace/src/main.ts", offset: 10 }, { path: "/workspace/src/types.ts" }] }, "/workspace")!
-  assert.equal(activityTitle({ ...tool, label: "read_files", details: files }), "已读取 src/main.ts、src/types.ts")
+  assert.equal(activityTitle({ ...tool, label: "read_files", details: files }), "已读取 src/main.ts（从第 10 行起）、src/types.ts")
   assert.equal(projectToolDetails("read_files", { path: "/workspace/src/main.ts" }, "/workspace")!.fields[0]!.value, "src/main.ts")
   assert.equal(projectToolDetails("read_files", { paths: ["/workspace/obsolete"] }, "/workspace"), null)
   assert.equal(projectToolDetails("read_files", { files: [{ path: "a" }], path: "b" }, "/workspace"), null)

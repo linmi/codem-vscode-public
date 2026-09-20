@@ -11,7 +11,7 @@ it("projects dedicated tool fields without serializing unknown arguments or cred
   assert.match(command!.code!, /已隐藏/); assert.doesNotMatch(JSON.stringify(command), /private|secret|SECRET/)
   assert.equal(projectToolDetails("unknown", { secret: "value" }, "/workspace"), null)
   assert.equal(projectToolDetails("read_files", { files: [{ path: "/workspace/src/main.ts" }, { path: "/private/outside" }] }, "/workspace")!.fields[0]!.value, "src/main.ts")
-  assert.equal(projectToolDetails("web_fetch", { url: "javascript:alert(1)" }, "/workspace")!.fields[0]!.value, "")
+  assert.deepEqual(projectToolDetails("web_fetch", { url: "javascript:alert(1)" }, "/workspace")!.fields, [])
   assert.doesNotMatch(JSON.stringify(projectToolDetails("mcp__test__echo", { token: "secret" }, "/workspace")), /secret/)
 })
 it("artifact handles reject forged ids, escaped paths and active URLs", async () => {

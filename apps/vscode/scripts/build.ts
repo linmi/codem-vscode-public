@@ -1,3 +1,4 @@
+import { previewToolsSource } from "../tests/previewToolSamples.ts"
 import postcss from "postcss"
 import tailwindcss from "@tailwindcss/postcss"
 import { readFile, writeFile } from "node:fs/promises"
@@ -29,6 +30,9 @@ const shadcnStyles: Plugin = {
     })
   },
 }
+
+// Generate browser-only DTO fixtures using the same Host projection as live calls.
+await writeFile(resolve(root, "tests/fixtures/previewTools.ts"), previewToolsSource())
 
 const configurations: BuildOptions[] = [
   { entryPoints: ["src/extension.ts"], outfile: "dist/extension.cjs", platform: "node", format: "cjs", external: ["vscode"], target: "node22" },
