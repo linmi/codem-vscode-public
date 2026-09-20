@@ -4,16 +4,9 @@ import { FileDiffIcon } from "lucide-react"
 import type { ViewAction } from "../../src/shared/messages.ts"
 import type { TurnChanges } from "../../src/shared/turnChanges.ts"
 import { Button } from "../components/ui/button.tsx"
+import { FilePath } from "../resources/filePath.tsx"
 
 const previewLabels = { partial: "部分差异", "raw-partial": "部分差异", binary: "二进制", omitted: "无预览内容" }
-
-function FilePath({ label }: { label: string }) {
-  const separator = Math.max(label.lastIndexOf("/"), label.lastIndexOf("\\"))
-  return <div className="turnChangeFile" title={label}>
-    {separator >= 0 && <span className="turnChangeDirectory">{label.slice(0, separator)}</span>}
-    <span className="turnChangeBasename">{label.slice(separator >= 0 ? separator : 0)}</span>
-  </div>
-}
 
 function TurnChangeList({ group, post }: { group: TurnChanges; post: (action: ViewAction) => void }) {
   const repeated = new Set(group.files.map(file => file.label)).size < group.files.length

@@ -44,13 +44,15 @@
 .resourceToolsDialog.toolDialog { width: min(720px, calc(100vw - 24px)); height: auto; max-height: min(680px, calc(100dvh - 32px)); }
 .toolDiffList { container-type: inline-size; }
 .toolDiffRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 16px; padding: 12px 0; border-top: 1px solid var(--line); }
-.toolDiffRow .toolResourceMeta { align-items: center; flex-wrap: wrap; gap: 8px; }
+.toolDiffRow .toolResourceMeta { max-width: 28cqw; align-items: center; flex-wrap: nowrap; gap: 8px; white-space: nowrap; }
+.toolDiffRow .diffAdded, .toolDiffRow .diffRemoved { flex-shrink: 0; }
+.toolDiffPreview { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .toolDiffRow .sessionToolActions { justify-content: flex-end; flex-wrap: nowrap; gap: 4px; }
 .toolDiffRow [data-slot="button"] { height: 28px; padding: 4px 8px; white-space: nowrap; }
 .toolDiffRow [data-size="icon"] { width: 28px; padding: 6px; }
 @container (max-width: 520px) {
-  .toolDiffRow { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; }
-  .toolDiffRow .toolResourceTitle { grid-column: 1 / -1; }
+  .toolDiffRow { column-gap: 8px; }
+  .toolDiffRow .toolResourceMeta { gap: 4px; }
 }
 .toolResourceTitle { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .toolResourceTitle > svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--muted); }
@@ -97,9 +99,9 @@
 .turnChanges ul { padding: 0; margin: 10px 0 0; list-style: none; }
 .turnChanges li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 16px; border-top: 1px solid var(--line); padding: 8px 0; }
 .turnChanges li:last-child { padding-bottom: 0; }
-.turnChangeFile { display: flex; min-width: 0; white-space: nowrap; }
-.turnChangeDirectory { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.turnChangeBasename { flex-shrink: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.resourceFilePath { display: flex; min-width: 0; white-space: nowrap; }
+.resourceFileDirectory { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.resourceFileBasename { flex-shrink: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .turnChangeStats { display: flex; gap: 8px; white-space: nowrap; font-family: var(--codeFont); font-size: 11px; }
 .turnChangeActions { display: flex; max-width: 45cqw; justify-content: flex-end; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .turnChangeActions > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

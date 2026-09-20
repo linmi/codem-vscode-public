@@ -6,9 +6,11 @@ import { Button } from "../components/ui/button.tsx"
 import { Input } from "../components/ui/input.tsx"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "../components/ui/dialog.tsx"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.tsx"
+import { FilePath } from "./filePath.tsx"
 
 interface Props { state: ChatSnapshot; post: (action: ViewAction) => void }
 const taskLabels = { queued: "等待唤醒", started: "已唤醒", skipped: "已跳过", cancelled: "已取消", notFound: "已不存在", noop: "无需取消" }
+const previewLabels = { partial: "部分差异", "raw-partial": "部分差异", binary: "二进制", omitted: "无预览" }
 function Empty({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return <div className="toolEmpty">{icon}<strong>{title}</strong><p>{children}</p></div>
 }
@@ -36,8 +38,8 @@ function ResourceTools({ state, post }: Props) {
         <TabsContent value="files" data-resource-section="files" className="toolTabBody">
           <div className="toolSectionHeading"><h3>文件差异</h3><p>查看修改内容，或在编辑器中打开文件。</p></div>
           <div id="diffs" className="toolDiffList">{state.diffs.map(diff => <article className="toolDiffRow" key={diff.id}>
-            <div className="toolResourceTitle"><FileDiffIcon aria-hidden="true" /><strong>{diff.label}</strong></div>
-            <div className="toolResourceMeta"><span className="diffAdded">+{diff.added}</span><span className="diffRemoved">−{diff.removed}</span>{diff.preview !== "complete" && <span>{{ partial: "部分差异", "raw-partial": "部分差异", binary: "二进制", omitted: "无预览" }[diff.preview]}</span>}</div>
+            <div className="toolResourceTitle"><FileDiffIcon aria-hidden="true" /><strong><FilePath label={diff.label} /></strong></div>
+            <div className="toolResourceMeta"><span className="diffAdded">+{diff.added}</span><span className="diffRemoved">−{diff.removed}</span>{diff.preview !== "complete" && <span className="toolDiffPreview" title={previewLabels[diff.preview]}>{previewLabels[diff.preview]}</span>}</div>
             <div className="sessionToolActions"><Button variant="outline" size="sm" disabled={!diff.available} onClick={() => post({ type: "openDiff", id: diff.id })}>查看差异</Button><Button variant="ghost" size="icon" aria-label={`打开文件 ${diff.label}`} title="在编辑器中打开文件" disabled={!diff.available} onClick={() => post({ type: "openChangedFile", id: diff.id })}><ExternalLinkIcon aria-hidden="true" /></Button></div>
           </article>)}</div>
           {!state.diffs.length && <Empty icon={<FileDiffIcon aria-hidden="true" />} title="尚无文件差异">会话产生的文件变更会显示在这里。</Empty>}
