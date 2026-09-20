@@ -5,7 +5,13 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-if (process.argv.includes("--native-chat")) {
+if (process.argv.includes("--commit-messages")) {
+  if (!process.argv.includes("--live")) throw new Error("Commit generation acceptance requires explicit test:live")
+  const { runLiveCommitMessages } = await import("../tests/liveCommitMessages.ts")
+  const temporary = await mkdtemp(join(tmpdir(), "codemCommitMessages"))
+  try { await runLiveCommitMessages(root, temporary) }
+  finally { await rm(temporary, { recursive: true, force: true }) }
+} else if (process.argv.includes("--native-chat")) {
   if (!process.argv.includes("--live")) throw new Error("Native chat acceptance requires explicit test:live")
   const { runLiveNativeChat } = await import("../tests/liveNativeChat.ts")
   const temporary = await mkdtemp(join(tmpdir(), "codemNativeChat"))

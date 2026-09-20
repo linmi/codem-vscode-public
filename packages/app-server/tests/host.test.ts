@@ -21,6 +21,28 @@ afterEach(() => {
 })
 
 describe("AppServerHost", () => {
+  for (const mismatch of [false, true]) {
+    it(`normalizes side question outer whitespace and ${mismatch ? "rejects changed" : "accepts matching"} Core echoes`, { timeout: 5000 }, async () => {
+      const fixture = createFixture(undefined, [])
+      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "question-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, QUESTION_MISMATCH: mismatch ? "1" : "" } })
+      const events: AppServerHostEvent[] = []
+      const settled = new Promise<void>(resolve => host.onEvent(event => { events.push(event); if (event.type === "protocol-error" || event.type === "side-question-completed") resolve() }))
+      try {
+        const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+        const question = "Summarize this diff:\n+  preserve indentation\n+\n-end"
+        await assert.rejects(host.startSideQuestion(fixture.root, threadId, "blank", " \n"), /non-empty/)
+        const start = host.startSideQuestion(fixture.root, threadId, "whitespace", ` \n${question}\n\t`)
+        if (mismatch) await assert.rejects(start, /does not match/)
+        else await start
+        await settled
+        const request = readFileSync(fixture.capturePath, "utf8").trim().split("\n").map(line => JSON.parse(line)).find(entry => entry.method === "thread/sideQuestion/start")
+        assert.equal(request.params.question, question)
+        assert.equal(events.some(event => event.type === "protocol-error"), mismatch)
+        assert.equal(events.some(event => event.type === "side-question-completed"), !mismatch)
+      } finally { await host.close() }
+    })
+  }
+
   it("accepts correlated Core activity without replacing text or changing terminal ownership", { timeout: 5000 }, async () => {
     const fixture = createFixture(undefined, [
       { method: "turn/activity", params: { source: "provider_stream" } },
@@ -833,7 +855,7 @@ lines.on("line", (line) => {
   if (frame.method === "thread/start") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thread-1" } } })
   if (frame.method === "thread/resume") return send({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: frame.params.threadId } } })
   if (frame.method === "thread/sideQuestion/start") {
-    const sideQuestion = { id: "question-1", question: frame.params.question, status: "inProgress" }
+    const sideQuestion = { id: "question-1", question: process.env.QUESTION_MISMATCH ? "different question" : frame.params.question.trim(), status: "inProgress" }
     send({ method: "thread/sideQuestion/started", params: { threadId: frame.params.threadId, sideQuestion } })
     send({ id: frame.id, result: { sideQuestion: { ...sideQuestion, status: "accepted" } } })
     if (process.env.SHUTDOWN_HOLD === "question") return

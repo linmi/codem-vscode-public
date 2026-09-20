@@ -607,7 +607,8 @@ export class AppServerHost {
     if (thread.activeTurn || thread.sideQuestion) throw new Error(`CodeM thread ${threadId} is already active`)
     const active: ActiveSideQuestion = {
       operationId: exactNonBlankString(operationId, "side question operationId"),
-      question: nonBlankString(question, "side question"),
+      // Core 0.8.44 trims the question before echoing it in started. Correlate the sent value.
+      question: nonBlankString(question, "side question").trim(),
       id: null,
     }
     thread.sideQuestion = active
