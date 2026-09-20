@@ -124,6 +124,7 @@
   "dependencies": {
     "@codem/app-server": "workspace:*",
     "@codem/session-history": "workspace:*",
+    "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "dompurify": "3.4.15",
     "get-nonce": "1.0.1",

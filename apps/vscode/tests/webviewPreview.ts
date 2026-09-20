@@ -19,7 +19,7 @@ const fixture: ChatSnapshot = {
 }
 const port = 4318
 const routes: Record<string, { path: string; type: string }> = {
-  "/previewToolbar.js": { path: "../dist/previewToolbar.js", type: "text/javascript" },
+  "/previewNavigation.js": { path: "../dist/previewNavigation.js", type: "text/javascript" },
   "/preview.css": { path: "./preview.css", type: "text/css" },
   "/webview.js": { path: "../dist/webview.js", type: "text/javascript" },
   "/webview.css": { path: "../dist/webview.css", type: "text/css" },
@@ -36,7 +36,7 @@ createServer((request, response) => {
     const theme = url.searchParams.get("theme") === "dark" ? "vscode-dark" : "vscode-light"
     let html = chatHtml({ script: "/webview.js", style: "/webview.css", logo: "/logo.svg", cspSource: `http://127.0.0.1:${port}` })
     const nonce = html.match(/nonce="([^"]+)"/)![1]
-    html = html.replace("</head>", '<link rel="stylesheet" href="/preview.css"></head>').replace("<body>", `<body class="${theme}"><nav id="previewToolbar" class="previewToolbar" aria-label="模拟场景"></nav><script nonce="${nonce}" defer src="/previewToolbar.js"></script>`).replace('<script nonce=', `<script nonce="${nonce}">
+    html = html.replace("</head>", '<link rel="stylesheet" href="/preview.css"></head>').replace("<body>", `<body class="${theme}"><aside id="previewNavigation" class="previewNavigation" aria-label="模拟预览导航"></aside><script nonce="${nonce}" defer src="/previewNavigation.js"></script>`).replace('<script nonce=', `<script nonce="${nonce}">
       const demo = ${JSON.stringify(state).replaceAll("<", "\\u003c")};
       const panels = ${JSON.stringify(panelFixtures).replaceAll("<", "\\u003c")};
       let activePanel = panels[${JSON.stringify(panelName)}] ?? null;

@@ -29,7 +29,7 @@ const shadcnStyles: Plugin = {
 const configurations: BuildOptions[] = [
   { entryPoints: ["src/extension.ts"], outfile: "dist/extension.cjs", platform: "node", format: "cjs", external: ["vscode"], target: "node22" },
   { entryPoints: ["webview/main.ts"], outfile: "dist/webview.js", platform: "browser", format: "iife", target: "es2022" },
-  { entryPoints: ["tests/previewToolbar.tsx"], outfile: "dist/previewToolbar.js", platform: "browser", format: "iife", target: "es2022", jsx: "automatic", define: { "process.env.NODE_ENV": '"production"' }, minify: true },
+  { entryPoints: ["tests/previewNavigation.tsx"], outfile: "dist/previewNavigation.js", platform: "browser", format: "iife", target: "es2022", jsx: "automatic", define: { "process.env.NODE_ENV": '"production"' }, minify: true },
   { entryPoints: ["webview/styles.css"], outfile: "dist/webview.css" },
   { entryPoints: ["tests/extensionSmoke.ts"], outfile: "dist/extensionSmoke.cjs", platform: "node", format: "cjs", external: ["vscode"], target: "node22" },
 ]
