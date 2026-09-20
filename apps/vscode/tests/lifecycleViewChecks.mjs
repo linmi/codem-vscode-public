@@ -4,7 +4,19 @@ export default async function lifecycleViewChecks(page) {
     await page.evaluate(phase=>window.postMessage({...demo,phase},'*'),phase);
     await page.locator('#transcriptLoading').waitFor();
     if(await page.locator('#welcome').isVisible()) throw new Error('Loading flashed welcome');
+    if(await page.locator('#connection').isVisible()) throw new Error('Connection actions duplicate loading feedback');
+    if(await page.locator('.modelLoading').count() || (await page.locator('#status').textContent()).trim()) throw new Error('Duplicate connection/history loading announcement');
   }
+  const saved = {id:'saved',role:'assistant',label:'CodeM',text:'Existing history'};
+  await page.evaluate(saved=>window.postMessage({...demo,phase:'connecting',messages:[saved]},'*'),saved);
+  await page.locator('#transcriptLoading').waitFor();
+  await page.getByText('Existing history',{exact:true}).waitFor();
+  if(await page.locator('#connection').isVisible()) throw new Error('Reconnect duplicates loading feedback');
+  await page.evaluate(saved=>window.postMessage({...demo,phase:'disconnected',messages:[saved],notice:'连接失败，请重试。'},'*'),saved);
+  await page.getByRole('button',{name:'连接工作区',exact:true}).waitFor();
+  await page.getByText('连接失败，请重试。',{exact:true}).waitFor();
+  if(await page.locator('#transcriptLoading').isVisible()) throw new Error('Failed connection kept loading feedback');
+  if(!await page.locator('#connect').isEnabled()) throw new Error('Connection cannot be retried');
   for(const phase of ['sending','running','stopping']) {
     await page.evaluate(phase=>window.postMessage({...demo,phase},'*'),phase);
     await page.locator('#workingRow').waitFor();

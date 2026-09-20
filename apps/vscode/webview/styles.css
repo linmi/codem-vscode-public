@@ -158,10 +158,6 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .loadingLines i { display: block; height: 10px; border-radius: 6px; background: var(--soft); animation: thinkingFade 1.6s ease-in-out infinite; }
 .loadingLines i:nth-child(2) { width: 85%; }
 .loadingLines i:nth-child(3) { width: 55%; }
-.modelLoading { display: none; }
-#selectModel { position: relative; }
-.app[data-phase="connecting"] #selectModel > :not(.modelLoading), .app[data-phase="initializing"] #selectModel > :not(.modelLoading) { visibility: hidden; }
-.app[data-phase="connecting"] .modelLoading, .app[data-phase="initializing"] .modelLoading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; }
 .app[data-phase="initializing"] #welcome { display: none; }
 @keyframes loadingSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .loadingSpinner, .loadingLines i { animation: none; } }

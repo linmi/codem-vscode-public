@@ -212,14 +212,13 @@ function render(next: ChatSnapshot): void {
   renderCapabilityStatus(state, sendKey)
   const initializing = state.phase === "connecting"
   const restoring = state.phase === "loadingHistory"
-  element("transcriptLoading").hidden = !restoring && (!initializing || state.messages.length > 0)
+  element("transcriptLoading").hidden = !restoring && !initializing
   element("loadingLabel").textContent = restoring ? "正在恢复会话记录…" : "正在连接并加载模型…"
   messages.setAttribute("aria-busy", String(restoring))
   element("selectModel").setAttribute("aria-busy", String(initializing))
   element("welcome").hidden = initializing || restoring || ["sending", "running", "stopping"].includes(state.phase) || state.messages.length > 0
-  element("connection").hidden = state.phase !== "disconnected" && state.phase !== "connecting"
+  element("connection").hidden = state.phase !== "disconnected"
   connect.disabled = signIn.disabled = state.phase === "connecting"
-  connect.textContent = state.phase === "connecting" ? "正在连接…" : "连接工作区"
   if (newChat) newChat.disabled = isBusy(state.phase) || state.backgroundBusy || Boolean(state.sessionTools.busy)
   const generating = state.phase === "running" || state.phase === "stopping"
   stop.hidden = !generating; send.hidden = generating; stop.disabled = state.phase === "stopping"
@@ -231,7 +230,7 @@ function render(next: ChatSnapshot): void {
   element("model").title = state.model ?? "连接后使用 Core 当前模型"
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
-  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : ""
+  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : ""
   fileMentions.refresh()
   renderResources()
   saveDraft()
