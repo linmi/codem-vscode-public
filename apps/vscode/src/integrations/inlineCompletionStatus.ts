@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 
-type CompletionActivity = "idle" | "waiting" | "generating" | "cancelling" | "failed"
+type CompletionActivity = "idle" | "waiting" | "generating" | "cancelling" | "failed" | "timedOut"
 type SettingItem = vscode.QuickPickItem & { key: "completion.enabled" | "completion.autoTrigger" }
 
 /** Native status/menu only; generation and cancellation remain owned by the provider. */
@@ -19,7 +19,7 @@ export class InlineCompletionStatus implements vscode.Disposable {
     this.item.command = "codem.completionMenu"
     this.subscriptions = [
       vscode.commands.registerCommand("codem.completionMenu", () => this.openMenu()),
-      vscode.window.onDidChangeActiveTextEditor(() => { this.picker?.hide(); if (this.activity === "failed") this.activity = "idle"; this.render() }),
+      vscode.window.onDidChangeActiveTextEditor(() => { this.picker?.hide(); if (this.activity === "failed" || this.activity === "timedOut") this.activity = "idle"; this.render() }),
       vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration("codem.completion") || event.affectsConfiguration("editor.inlineSuggest.enabled")) this.render() }),
     ]
     this.render()
@@ -38,6 +38,7 @@ export class InlineCompletionStatus implements vscode.Disposable {
       : this.activity === "cancelling" ? "$(loading~spin) CodeM 取消中"
       : this.activity === "waiting" ? "$(clock) CodeM 等待补全"
       : !enabled ? "$(circle-slash) CodeM 补全已关闭"
+      : this.activity === "timedOut" ? "$(clock) CodeM 补全超时"
       : this.activity === "failed" ? "$(warning) CodeM 补全失败"
       : automatic && inline ? "$(sparkle) CodeM 自动补全" : "$(edit) CodeM 手动补全"
     this.item.text = label

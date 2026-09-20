@@ -38,7 +38,7 @@ async function fixture(t: TestContext) {
   const requests: { prompt: string; signal: AbortSignal; resolve: (text: string) => void; reject: (error: Error) => void }[] = []
   let phase = "ready", scope = "scope", workspaceChecks = 0, workspaceError = false
   const chat = {
-    snapshot: () => ({ phase, sessionTools: { busy: null } }), contextKey: () => scope,
+    completionContext: () => ({ ready: phase === "ready", key: scope }), contextKey: () => scope,
     assertContextWorkspace: async () => { workspaceChecks++; if (workspaceError) throw new Error("wrong workspace") },
     generateText: (prompt: string, signal: AbortSignal) => new Promise<string>((resolve, reject) => { requests.push({ prompt, signal, resolve, reject }) }),
   }
@@ -74,9 +74,9 @@ it("manual command avoids the macOS system shortcut and explains unsupported edi
 it("automatic requests debounce and coalesce; manual requests bypass the delay", async t => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["setTimeout"] })
-  const first = f.invoke(1); t.mock.timers.tick(400)
+  const first = f.invoke(1); t.mock.timers.tick(100)
   const second = f.invoke(1); await flush(); assert.deepEqual(await first, [])
-  t.mock.timers.tick(599); await flush(); assert.equal(f.requests.length, 0)
+  t.mock.timers.tick(249); await flush(); assert.equal(f.requests.length, 0)
   t.mock.timers.tick(1); await flush(); assert.equal(f.requests.length, 1)
   f.requests[0]!.resolve('{"insertText":"sole"}')
   assert.equal((await second)[0].insertText, "sole")
@@ -145,7 +145,7 @@ it("cancelled debounce and changed session never start a model request", async t
   t.mock.timers.enable({ apis: ["setTimeout"] })
   const abort = new AbortController()
   const cancelled = f.invoke(1, undefined, abort); abort.abort(); assert.deepEqual(await cancelled, [])
-  const switched = f.invoke(1); f.setScope("new-session"); t.mock.timers.tick(600); assert.deepEqual(await switched, [])
+  const switched = f.invoke(1); f.setScope("new-session"); t.mock.timers.tick(250); assert.deepEqual(await switched, [])
   assert.equal(f.requests.length, 0)
 })
 
@@ -154,7 +154,7 @@ it("failures release ownership, report manual errors and log automatic errors wi
   t.mock.timers.enable({ apis: ["setTimeout"] })
   const manual = f.invoke(); await flush(); f.requests[0]!.reject(new Error("model failed"))
   assert.deepEqual(await manual, []); assert.deepEqual(f.control.warnings, ["model failed"])
-  const automatic = f.invoke(1); t.mock.timers.tick(600); await flush(); f.requests[1]!.resolve("invalid JSON")
+  const automatic = f.invoke(1); t.mock.timers.tick(250); await flush(); f.requests[1]!.resolve("invalid JSON")
   assert.deepEqual(await automatic, []); assert.equal(f.control.warnings.length, 1)
   assert.ok(f.logs.some((line: string) => line.startsWith("Inline completion failed (automatic)")))
   assert.equal(f.control.visible, true)
@@ -258,4 +258,51 @@ it("status reloads from saved config without a Host request, and no-file menus p
   picker.selectedItems = picker.items; await picker.accept()
   assert.deepEqual(f.control.updates, [{ key: "completion.autoTrigger", value: true, target: 1 }])
   assert.equal(f.requests.length, 0)
+})
+
+it("no-suggestion is normal and exact prefix typing reuses the existing suggestion without a new request", async t => {
+  const f = await fixture(t)
+  const pending = f.invoke(); await flush(); f.requests[0]!.resolve('{"insertText":"sole.log()"}')
+  await pending
+  const doc = f.control.editor.document
+  doc.offsetAt = (p: { character: number }) => p.character
+  doc.version = 2
+  await f.control.events.text({ document: doc, contentChanges: [{ rangeOffset: 3, rangeLength: 0, text: "sole" }] })
+  f.control.editor.selection.active = new f.Position(0, 7)
+  await f.control.events.selection({ textEditor: f.control.editor })
+  const before = performance.now()
+  assert.equal((await f.invoke(1))[0].insertText, ".log()")
+  assert.ok(performance.now() - before < 100)
+  assert.equal(f.requests.length, 1)
+  const manual = f.invoke(); await flush(); f.requests[1]!.resolve('{"insertText":""}')
+  assert.deepEqual(await manual, []); assert.equal(f.control.warnings.length, 0)
+  assert.deepEqual(await f.invoke(1), []); assert.equal(f.requests.length, 2)
+  await f.control.commands["codem.cancelCompletion"]()
+  const retry = f.invoke(); await flush(); f.requests[2]!.resolve('{"insertText":"new"}'); await retry
+})
+
+it("automatic deadline cancels once, discards late content and reports timeout after terminal cleanup", async t => {
+  const f = await fixture(t)
+  t.mock.timers.enable({ apis: ["setTimeout"] })
+  const pending = f.invoke(1); t.mock.timers.tick(250); await flush()
+  assert.equal(f.requests.length, 1)
+  t.mock.timers.tick(4000); assert.equal(f.requests[0]!.signal.aborted, true)
+  assert.match(f.control.status.text, /取消中/)
+  f.requests[0]!.resolve('{"insertText":"too late"}'); assert.deepEqual(await pending, [])
+  assert.match(f.control.status.text, /超时/)
+  assert.equal(f.control.warnings.length, 0)
+  assert.ok(f.logs.some((line: string) => line.includes("timeout")))
+})
+
+it("an explicit cancellation is not relabelled as timeout while Core settles", async t => {
+  const f = await fixture(t)
+  t.mock.timers.enable({ apis: ["setTimeout"] })
+  const pending = f.invoke(); await flush()
+  await f.control.commands["codem.cancelCompletion"]()
+  t.mock.timers.tick(10000)
+  f.requests[0]!.resolve('{"insertText":"late"}')
+  assert.deepEqual(await pending, [])
+  assert.equal(f.control.warnings.length, 0)
+  assert.ok(f.logs.some((line: string) => line.includes("cancelled")))
+  assert.ok(f.logs.every((line: string) => !line.includes("timeout")))
 })

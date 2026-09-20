@@ -1,0 +1,12 @@
+import assert from "node:assert/strict"
+
+export const completionExamples = [
+  { name: "typed-expression", language: "typescript", prefix: "// Return the sum of a and b.\nexport function add(a: number, b: number): number {\n  return ", suffix: ";\n}\n", check(text: string) { assert.match(text, /a\s*\+\s*b/); assert.ok(text.length < 60) } },
+  { name: "existing-closing-delimiters", language: "typescript", prefix: "// Clamp value to the inclusive range min..max.\nfunction clamp(value: number, min: number, max: number) {\n  return Math.min(max, Math.max(", suffix: "));\n}\n", check(text: string) { assert.match(text, /(?:min\s*,\s*value|value\s*,\s*min)/); assert.ok(!text.includes(")")) } },
+  { name: "local-type-properties", language: "typescript", prefix: "type User = { firstName: string; lastName: string };\n// Join the user's first and last name with one space.\nexport function fullName(user: User): string {\n  return ", suffix: ";\n}\n", check(text: string) { assert.match(text, /user\.firstName/); assert.match(text, /user\.lastName/); assert.ok(text.length < 150) } },
+  { name: "async-json", language: "typescript", prefix: "async function loadJson(url: string) {\n  const response = await fetch(url);\n  if (!response.ok) throw new Error(String(response.status));\n  return await response.", suffix: "();\n}\n", check(text: string) { assert.equal(text, "json") } },
+  { name: "python-body", language: "python", prefix: "def is_even(n: int) -> bool:\n    \"\"\"Return whether n is divisible by two.\"\"\"\n    ", suffix: "\n", check(text: string) { assert.match(text, /^return n % 2 == 0/); assert.ok(text.split("\n").length <= 2) } },
+  { name: "small-function-body", language: "typescript", prefix: "// Return the first item, or undefined for an empty array.\nfunction first<T>(items: T[]): T | undefined {\n  ", suffix: "\n}\n", check(text: string) { assert.match(text, /return /); assert.match(text, /items\[0\]/); assert.ok(!text.includes("}")) } },
+  { name: "completed-file-abstention", language: "typescript", prefix: "export const isEven = (n: number): boolean => n % 2 === 0;\n", suffix: "", check(text: string) { assert.equal(text, "") } },
+  { name: "existing-next-statement", language: "typescript", prefix: "function square(n: number) {\n  return ", suffix: ";\n}\nconst example = square(4);\n", check(text: string) { assert.match(text, /n\s*\*\s*n|n\s*\*\*\s*2|Math\.pow\(n,\s*2\)/); assert.ok(!text.includes("const example")); assert.ok(text.length < 50) } },
+]

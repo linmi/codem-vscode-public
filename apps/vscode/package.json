@@ -404,7 +404,7 @@
         "codem.completion.autoTrigger": {
           "type": "boolean",
           "default": true,
-          "description": "停输入 600ms 后自动请求行内补全。需要启用 editor.inlineSuggest.enabled 且 CodeM 已连接并空闲；关闭后仍可手动触发。",
+          "description": "停输入 250ms 后自动请求短行内补全，生成等待超过 4 秒时取消。需要启用 editor.inlineSuggest.enabled 且 CodeM 已连接并空闲；关闭后仍可手动触发。",
           "scope": "resource"
         },
         "codem.completion.enabled": {

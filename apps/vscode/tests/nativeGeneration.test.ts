@@ -35,7 +35,7 @@ it("native generators reject disabled automatic completions, stale documents, ch
   } }] })
   const { registerGitActions, registerInlineCompletion, control } = await import(pathToFileURL(outfile).href)
   let resolve: (text: string) => void = () => {}; let calls = 0; let prompt = ""; let scope = "scope"
-  const chat = { contextKey: () => scope, assertContextWorkspace: async () => {}, assertContextDirectory: async () => {}, snapshot: () => ({ phase: "ready", sessionTools: { busy: null } }), generateText: (text: string) => { calls++; prompt = text; return new Promise<string>(done => { resolve = done }) } }
+  const chat = { completionContext: () => ({ ready: true, key: scope }), contextKey: () => scope, assertContextWorkspace: async () => {}, assertContextDirectory: async () => {}, snapshot: () => ({ phase: "ready", sessionTools: { busy: null } }), generateText: (text: string) => { calls++; prompt = text; return new Promise<string>(done => { resolve = done }) } }
   registerGitActions(chat, () => {}); registerInlineCompletion(chat, () => {})
   const token = { isCancellationRequested: false, onCancellationRequested: () => ({ dispose() {} }) }
   const doc = control.editor.document

@@ -834,10 +834,32 @@ it("platform text generation creates one thread, reuses the connection and waits
   await f.controller.dispose()
 })
 
+it("completion readiness is cheap and its identity changes with model, effort and connection", async () => {
+  const f = setup()
+  try {
+    assert.equal(f.controller.completionContext().ready, false)
+    await f.controller.connect()
+    const initial = f.controller.completionContext()
+    assert.equal(initial.ready, true)
+    await f.controller.configure(async settings => {
+      assert.equal(f.controller.completionContext().ready, false)
+      return { ...settings, model: "other-model", intelligence: "high" }
+    })
+    assert.notEqual(f.controller.completionContext().key, initial.key)
+    assert.equal(f.controller.completionContext().ready, true)
+    const configured = f.controller.completionContext().key
+    await f.controller.dispose()
+    assert.equal(f.controller.completionContext().ready, false)
+    assert.notEqual(f.controller.completionContext().key, configured)
+  } finally { await f.controller.dispose() }
+})
+
 it("platform generation cancellation sends one cancel and does not complete on its receipt", async () => {
   const f = setup(); let cancels = 0
+  let acknowledge!: (id: string) => void
   f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => {
-    f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "side-1", question }); return "side-1"
+    f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "side-1", question })
+    return new Promise<string>(resolve => { acknowledge = resolve })
   }
   f.host.cancelSideQuestion = async () => { cancels++ }
   await f.controller.connect()
@@ -848,6 +870,8 @@ it("platform generation cancellation sends one cancel and does not complete on i
   await assert.rejects(f.controller.generateText("duplicate", new AbortController().signal, f.controller.contextKey()), /等待/)
   abort.abort(); await new Promise(resolve => setImmediate(resolve))
   assert.equal(cancels, 1); assert.equal(f.controller.snapshot().phase, "sideQuestion")
+  acknowledge("side-1"); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(cancels, 1, "a late start receipt must not revive a stopping request")
   f.emit({ type: "side-question-completed", threadId: "thread-1", sideQuestionId: "side-1", status: "interrupted", error: null })
   await rejected
   assert.equal(f.controller.snapshot().phase, "ready")
@@ -858,12 +882,66 @@ it("platform generation rejects startup failures and closes pending results on d
   const f = setup(); await f.controller.connect()
   await assert.rejects(f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey()), /生成未能启动/)
   assert.equal(f.controller.snapshot().phase, "ready")
+  assert.equal(f.controller.snapshot().notice, null)
+  assert.equal(f.controller.snapshot().sessionTools.sideQuestion, null)
+  assert.equal(f.controller.snapshot().sessionTools.result, null)
   f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => {
     f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "side-1", question }); return "side-1"
   }
   const rejected = assert.rejects(f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey()), /连接已关闭/)
   await new Promise(resolve => setImmediate(resolve))
   await f.controller.dispose(); await rejected
+})
+
+it("typing cancellation during authorization never publishes a side-question warning or request payload", async () => {
+  const f = setup(); await f.controller.connect()
+  let authorize!: () => void, requests = 0
+  f.session.authorize = () => new Promise<void>(resolve => { authorize = resolve })
+  f.host.startSideQuestion = async () => { requests++; return "unexpected" }
+  const abort = new AbortController()
+  const rejected = assert.rejects(f.controller.generateText("private code prompt", abort.signal, f.controller.contextKey()), /生成已取消/)
+  assert.equal(f.controller.snapshot().sessionTools.sideQuestion, null)
+  abort.abort(); authorize(); await rejected
+  assert.equal(requests, 0)
+  assert.equal(f.controller.snapshot().phase, "ready")
+  assert.equal(f.controller.snapshot().notice, null)
+  assert.equal(f.controller.snapshot().sessionTools.result, null)
+  assert.doesNotMatch(JSON.stringify(f.controller.snapshot()), /private code prompt/)
+  await f.controller.dispose()
+})
+
+it("editor generation success, failure and cancel failure preserve the user's chat question and notice", async () => {
+  const f = setup(); await f.controller.connect(); await f.controller.send("first")
+  f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+  await f.controller.askSideQuestion("user question", "user-question")
+  const before = f.controller.snapshot()
+  assert.match(before.notice!, /旁路提问回执未能确认/)
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => {
+    f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "generated", question })
+    f.emit({ type: "side-question-delta", threadId, sideQuestionId: "generated", delta: '{"insertText":"ok"}' })
+    return "generated"
+  }
+  const assertChatPreserved = () => {
+    const snapshot = f.controller.snapshot()
+    assert.equal(snapshot.notice, before.notice)
+    assert.deepEqual(snapshot.sessionTools.sideQuestion, before.sessionTools.sideQuestion)
+    assert.deepEqual(snapshot.sessionTools.result, before.sessionTools.result)
+    assert.deepEqual(snapshot.messages, before.messages)
+  }
+  for (const outcome of ["completed", "failed", "interrupted"] as const) {
+    const abort = new AbortController()
+    const pending = f.controller.generateText("editor request", abort.signal, f.controller.contextKey())
+    const verified = outcome === "completed" ? pending.then(text => assert.equal(text, '{"insertText":"ok"}')) : assert.rejects(pending, /取消或失败/)
+    await new Promise(resolve => setImmediate(resolve)); assertChatPreserved()
+    if (outcome === "interrupted") {
+      f.host.cancelSideQuestion = async () => { throw new Error("cancel RPC failed") }
+      abort.abort(); await new Promise(resolve => setImmediate(resolve)); assertChatPreserved()
+    }
+    f.emit({ type: "side-question-completed", threadId: "thread-1", sideQuestionId: "generated", status: outcome, error: outcome === "failed" ? "fixture failure" : null })
+    await verified; assertChatPreserved()
+    assert.equal(f.controller.snapshot().phase, "ready")
+  }
+  await f.controller.dispose()
 })
 
 it("platform generation rejects a context captured before a conversation switch without issuing a request", async () => {

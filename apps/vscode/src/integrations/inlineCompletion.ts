@@ -1,21 +1,23 @@
 import * as vscode from "vscode"
+import { CompletionContinuation } from "./completionContinuation.ts"
 import { InlineCompletionStatus } from "./inlineCompletionStatus.ts"
-import { completionPrompt, generatedText } from "./editorGeneration.ts"
+import { completionPrompt, completionText } from "./completionGeneration.ts"
 import type { ChatController } from "../chat/chatController.ts"
 import { assertTrusted } from "../connection/runtimeSession.ts"
 
-type CompletionChat = Pick<ChatController, "snapshot" | "contextKey" | "assertContextWorkspace" | "generateText">
+type CompletionChat = Pick<ChatController, "completionContext" | "contextKey" | "assertContextWorkspace" | "generateText">
 type Request = { abort: AbortController; settled: Promise<void>; document: vscode.TextDocument }
-const automaticDelayMs = 600
+const automaticDelayMs = 250
 
 /** One owner for pending debounce, generation and cancellation, scoped to this extension host. */
 export function registerInlineCompletion(chat: CompletionChat, log: (message: string) => void): vscode.Disposable {
+  const continuation = new CompletionContinuation<vscode.TextDocument>()
   let active: Request | null = null
   let disposed = false
   const status = new InlineCompletionStatus()
-  const cancel = () => active?.abort.abort()
+  const cancel = () => { continuation.clear(); active?.abort.abort() }
   const enabled = (document: vscode.TextDocument) => vscode.workspace.getConfiguration("codem", document.uri).get<boolean>("completion.enabled", true)
-  const idle = () => { const state = chat.snapshot(); return state.phase === "ready" && !state.backgroundBusy && !state.sessionTools.busy }
+  const idle = () => chat.completionContext().ready
   const provider = vscode.languages.registerInlineCompletionItemProvider({ scheme: "file" }, {
     async provideInlineCompletionItems(document, position, context, token) {
       const automatic = context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic
@@ -23,6 +25,17 @@ export function registerInlineCompletion(chat: CompletionChat, log: (message: st
       if (automatic && !vscode.workspace.getConfiguration("codem", document.uri).get<boolean>("completion.autoTrigger", true)) return []
       const editor = vscode.window.activeTextEditor
       if (editor?.document !== document || !editor.selection.isEmpty || !editor.selection.active.isEqual(position)) return []
+      const contextState = chat.completionContext()
+      const offset = document.offsetAt(position)
+      if (automatic && !context.selectedCompletionInfo && contextState.ready) {
+        const remaining = continuation.read(document, document.version, offset, contextState.key)
+        if (remaining !== null) {
+          status.setActivity("idle")
+          log("Inline completion: reused current suggestion, generationCalls=0")
+          return remaining ? [new vscode.InlineCompletionItem(remaining, new vscode.Range(position, position))] : []
+        }
+      }
+      continuation.clear()
       // Keep the old request's settlement in the chain: abort is not a Core terminal event.
       const previous = active
       if (!previous && !idle()) return []
@@ -40,6 +53,8 @@ export function registerInlineCompletion(chat: CompletionChat, log: (message: st
       const started = performance.now()
       let generationCalls = 0
       let failed = false
+      let timedOut = false
+      let deadline: ReturnType<typeof setTimeout> | undefined
       try {
         if (automatic) await delay(automaticDelayMs, abort.signal)
         if (previous) await previous.settled
@@ -51,12 +66,17 @@ export function registerInlineCompletion(chat: CompletionChat, log: (message: st
         const selected = context.selectedCompletionInfo
         const range = selected?.range ?? new vscode.Range(position, position)
         const start = document.offsetAt(range.start), end = document.offsetAt(range.end)
-        const prefix = document.getText(new vscode.Range(document.positionAt(Math.max(0, start - 8000)), range.start)) + (selected?.text ?? "")
-        const suffix = document.getText(new vscode.Range(range.end, document.positionAt(end + 4000)))
+        const prefix = document.getText(new vscode.Range(document.positionAt(Math.max(0, start - 5000)), range.start)) + (selected?.text ?? "")
+        const suffix = document.getText(new vscode.Range(range.end, document.positionAt(end + 2000)))
+        const header = start > 5000 ? document.getText(new vscode.Range(document.positionAt(0), document.positionAt(Math.min(1500, start - 5000)))) : ""
+        deadline = setTimeout(() => { if (!abort.signal.aborted) { timedOut = true; abort.abort() } }, automatic ? 4000 : 10000)
         generationCalls++
-        const response = await chat.generateText(completionPrompt(document.languageId, prefix, suffix), abort.signal, scope)
+        const response = await chat.generateText(completionPrompt(document.languageId, prefix, suffix, header), abort.signal, scope)
         if (!valid()) return []
-        const insertion = (selected?.text ?? "") + generatedText(response, "insertText")
+        const text = completionText(response, prefix, suffix)
+        if (!selected) continuation.remember(document, version, offset, chat.completionContext().key, text)
+        if (!text) return []
+        const insertion = (selected?.text ?? "") + text
         return [new vscode.InlineCompletionItem(insertion, range)]
       } catch (error) {
         if (!abort.signal.aborted && !token.isCancellationRequested) {
@@ -66,18 +86,28 @@ export function registerInlineCompletion(chat: CompletionChat, log: (message: st
         }
         return []
       } finally {
-        log(`Inline completion (${automatic ? "automatic" : "manual"}): ${Math.round(performance.now() - started)}ms, generationCalls=${generationCalls}`)
+        clearTimeout(deadline)
+        if (timedOut && !automatic) void vscode.window.showWarningMessage("补全等待超过 10 秒，已取消。请稍后重试。")
+        log(`Inline completion (${automatic ? "automatic" : "manual"}, ${timedOut ? "timeout" : abort.signal.aborted ? "cancelled" : failed ? "failed" : "completed"}): ${Math.round(performance.now() - started)}ms, generationCalls=${generationCalls}`)
         subscription.dispose()
-        if (active === request) { active = null; status.setActivity(failed ? "failed" : "idle") }
+        if (active === request) { active = null; status.setActivity(timedOut ? "timedOut" : failed ? "failed" : "idle") }
         settle()
       }
     },
   })
   return vscode.Disposable.from(provider, status,
     { dispose() { disposed = true; cancel() } },
-    vscode.workspace.onDidChangeTextDocument(event => { if (event.document === active?.document && event.contentChanges.length) cancel() }),
+    vscode.workspace.onDidChangeTextDocument(event => {
+      continuation.changed(event.document, event.document.version, event.contentChanges)
+      if (event.document === active?.document && event.contentChanges.length) active.abort.abort()
+    }),
     vscode.window.onDidChangeActiveTextEditor(cancel),
-    vscode.window.onDidChangeTextEditorSelection(event => { if (event.textEditor.document === active?.document) cancel() }),
+    vscode.window.onDidChangeTextEditorSelection(event => {
+      const editor = event.textEditor
+      if (!editor.selection.isEmpty) continuation.clear()
+      else continuation.read(editor.document, editor.document.version, editor.document.offsetAt(editor.selection.active), chat.completionContext().key)
+      if (editor.document === active?.document) active.abort.abort()
+    }),
     vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration("codem.completion")) cancel() }),
     vscode.commands.registerCommand("codem.generateCompletion", async () => {
       const editor = vscode.window.activeTextEditor
