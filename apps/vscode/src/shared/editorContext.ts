@@ -1,12 +1,14 @@
 export const MAX_PINNED_CODE_SELECTIONS = 20
 export type EditorAction = "addToContext" | "explainCode" | "fixCode" | "improveCode"
 export interface CodeContext { path: string; language: string; startLine: number; endLine: number; text: string; diagnostics: readonly string[] }
+// Includes historical persisted envelopes for rendering only; new repair drafts are rejected.
 const codeInstructions = { addToContext: "参考以下代码：", explainCode: "请解释以下代码：", fixCode: "请检查并修复以下代码的问题：", improveCode: "请在保持行为不变的前提下改进以下代码：" } as const
-export function codePrompt(action: EditorAction, context: CodeContext): string {
+export function codePrompt(action: "addToContext" | "explainCode", context: CodeContext): string {
+  if (action !== "addToContext" && action !== "explainCode") throw new Error("修复和改进必须生成待审阅的修改建议。")
   if (!context.text.trim()) throw new Error("请先选择要处理的代码。")
   if (context.text.length > 24_000) throw new Error("选区过大，请缩小到 24000 字符以内。")
   const instruction = codeInstructions[action]
-  return `${instruction}\n${context.path}:${context.startLine}-${context.endLine} (${context.language})\n<selected_code>\n${context.text}\n</selected_code>${action === "fixCode" && context.diagnostics.length ? `\n诊断：\n${context.diagnostics.join("\n")}` : ""}`
+  return `${instruction}\n${context.path}:${context.startLine}-${context.endLine} (${context.language})\n<selected_code>\n${context.text}\n</selected_code>`
 }
 
 export type CodePromptPart = { kind: "text"; text: string } | { kind: "code"; path: string; language: string; startLine: number; endLine: number; text: string }

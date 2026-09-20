@@ -1,0 +1,11 @@
+/** Return the sum of two numbers. */
+export function add(a: number, b: number): number {
+  return a - b;
+}
+
+// Keep these independent helpers separate.
+
+/** Return the product of two numbers. */
+export function multiply(a: number, b: number): number {
+  return a + b;
+}

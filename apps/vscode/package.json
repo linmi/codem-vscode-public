@@ -149,6 +149,33 @@
         "command": "codem.cancelCompletion",
         "title": "取消行内补全",
         "category": "CodeM"
+      },
+      {
+        "command": "codem.reviewEdits",
+        "title": "审阅代码修改建议",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.acceptAllEdits",
+        "title": "接受全部修改建议",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.rejectAllEdits",
+        "title": "拒绝全部修改建议",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.acceptCurrentEdit",
+        "title": "接受当前修改块",
+        "category": "CodeM",
+        "icon": "$(check)"
+      },
+      {
+        "command": "codem.rejectCurrentEdit",
+        "title": "拒绝当前修改块",
+        "category": "CodeM",
+        "icon": "$(close)"
       }
     ],
     "viewsContainers": {
@@ -237,6 +264,31 @@
           "command": "codem.openInSidebar",
           "when": "activeWebviewPanelId == codem.editor",
           "group": "navigation"
+        },
+        {
+          "command": "codem.acceptCurrentEdit",
+          "when": "resourceScheme == codem-edit-review",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codem.rejectCurrentEdit",
+          "when": "resourceScheme == codem-edit-review",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codem.reviewEdits",
+          "when": "resourceScheme == codem-edit-review",
+          "group": "codemReview@1"
+        },
+        {
+          "command": "codem.acceptAllEdits",
+          "when": "resourceScheme == codem-edit-review",
+          "group": "codemReview@2"
+        },
+        {
+          "command": "codem.rejectAllEdits",
+          "when": "resourceScheme == codem-edit-review",
+          "group": "codemReview@3"
         }
       ],
       "terminal/context": [

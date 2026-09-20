@@ -36,6 +36,7 @@ it("initializes on opening chat by default, once per activation, with explicit r
       export class ChatSurfaces {constructor(context,panels,dispatch){control.dispatch=dispatch} get available(){return control.available} post(){} resetDraft(){control.draftsCleared++} async focus(){control.focusCalls++} async openAccount(){control.accountPages++} dispose(){} }
       export class ConnectionPreferences {}
       export class EditorSelection {state={snapshot(){return null},setContext(){},clear(){control.selectionsCleared++}};dispose(){}}
+      export class EditorReview {contextChanged(){} dispose(){}}
       export class ActiveConversation {}
       export class NativeFeatures {dispose(){}}
       export class PanelBroker {cancel(){}}

@@ -1,14 +1,15 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import { appendContext, codePrompt, codePromptParts, type EditorAction } from "../src/shared/editorContext.ts"
-it("captures code whitespace and includes diagnostics only for repair", () => {
+it("captures code whitespace and rejects the removed repair-draft path", () => {
   const context = { path: "src/main.ts", language: "typescript", startLine: 2, endLine: 4, text: "  foo()\n", diagnostics: ["unknown foo"] }
-  assert.match(codePrompt("fixCode", context), /src\/main.ts:2-4/)
-  assert.match(codePrompt("fixCode", context), /  foo\(\)\n/)
-  assert.match(codePrompt("fixCode", context), /unknown foo/)
+  assert.match(codePrompt("explainCode", context), /src\/main.ts:2-4/)
+  assert.match(codePrompt("explainCode", context), /  foo\(\)\n/)
+  // @ts-expect-error Repair now belongs to the review flow, including at runtime.
+  assert.throws(() => codePrompt("fixCode", context), /修改建议/)
   assert.doesNotMatch(codePrompt("explainCode", context), /unknown foo/)
-  assert.throws(() => codePrompt("fixCode", { ...context, text: " " }))
-  assert.throws(() => codePrompt("fixCode", { ...context, text: "x".repeat(24001) }))
+  assert.throws(() => codePrompt("explainCode", { ...context, text: " " }))
+  assert.throws(() => codePrompt("explainCode", { ...context, text: "x".repeat(24001) }))
 })
 it("appends without replacing existing work and rejects oversized combined drafts", () => {
   assert.equal(appendContext("my question", "code"), "my question\n\ncode")
@@ -18,7 +19,9 @@ it("appends without replacing existing work and rejects oversized combined draft
 it("renders persisted selected code separately without changing whitespace or user instructions", () => {
   const context = { path: "src/accountController.ts", language: "typescript", startLine: 17, endLine: 19, text: "  constructor() {\n    this.value = '<img src=x onerror=alert(1)>'\n  }\n", diagnostics: ["unknown property"] }
   for (const action of ["addToContext", "explainCode", "fixCode", "improveCode"] satisfies EditorAction[]) {
-    const prompt = codePrompt(action, context)
+    const prompt = action === "fixCode" || action === "improveCode"
+      ? `${action === "fixCode" ? "请检查并修复以下代码的问题：" : "请在保持行为不变的前提下改进以下代码："}\n${context.path}:${context.startLine}-${context.endLine} (${context.language})\n<selected_code>\n${context.text}\n</selected_code>${action === "fixCode" ? "\n诊断：\nunknown property" : ""}`
+      : codePrompt(action, context)
     const parts = codePromptParts(appendContext("这行代码写了什么？", prompt))
     assert.equal(parts[0]?.text, "这行代码写了什么？")
     assert.deepEqual(parts.find(part => part.kind === "code"), { kind: "code", path: context.path, language: context.language, startLine: 17, endLine: 19, text: context.text })

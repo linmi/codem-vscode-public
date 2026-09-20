@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { codePrompt, type EditorAction } from "../shared/editorContext.ts"
 import { assertTrusted } from "../connection/runtimeSession.ts"
 
-export function registerEditorActions(addContext: (text: string, uri: vscode.Uri) => Promise<void>): vscode.Disposable {
+export function registerEditorActions(addContext: (text: string, uri: vscode.Uri) => Promise<void>, propose: (action: "fixCode" | "improveCode", document: vscode.TextDocument, range: vscode.Range, diagnostics: readonly string[]) => Promise<void>): vscode.Disposable {
   const actions: readonly EditorAction[] = ["addToContext", "explainCode", "fixCode", "improveCode"]
   const titles = { addToContext: "加入 CodeM 上下文", explainCode: "使用 CodeM 解释代码", fixCode: "使用 CodeM 修复代码", improveCode: "使用 CodeM 改进代码" }
   const run = async (action: EditorAction, uri?: vscode.Uri, range?: vscode.Range, version?: number) => {
@@ -13,7 +13,9 @@ export function registerEditorActions(addContext: (text: string, uri: vscode.Uri
     if (version !== undefined && document.version !== version) throw new Error("代码已变化，请重新选择操作。")
     const selected = range ?? editor?.selection
     if (!selected || selected.isEmpty) throw new Error("请先选择要处理的代码。")
-    const text = codePrompt(action, { path: vscode.workspace.asRelativePath(document.uri, true), language: document.languageId, startLine: selected.start.line + 1, endLine: selected.end.line + 1, text: document.getText(selected), diagnostics: vscode.languages.getDiagnostics(document.uri).filter(item => item.range.intersection(selected)).slice(0, 20).map(item => `第 ${item.range.start.line + 1} 行：${item.message.slice(0, 500)}`) })
+    const diagnostics = vscode.languages.getDiagnostics(document.uri).filter(item => item.range.intersection(selected)).slice(0, 20).map(item => `第 ${item.range.start.line + 1} 行：${item.message.slice(0, 500)}`)
+    if (action === "fixCode" || action === "improveCode") { await propose(action, document, selected, diagnostics); return }
+    const text = codePrompt(action, { path: vscode.workspace.asRelativePath(document.uri, true), language: document.languageId, startLine: selected.start.line + 1, endLine: selected.end.line + 1, text: document.getText(selected), diagnostics })
     await addContext(text, document.uri)
   }
   return vscode.Disposable.from(

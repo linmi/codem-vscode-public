@@ -18,6 +18,12 @@ if (process.argv.includes("--inline-completion")) {
   const temporary = await mkdtemp(join(tmpdir(), "codemImages"))
   try { await runLiveImages(root, temporary) }
   finally { await rm(temporary, { recursive: true, force: true }) }
+} else if (process.argv.includes("--editor-review")) {
+  if (!process.argv.includes("--live")) throw new Error("Editor review acceptance requires explicit test:live")
+  const { runLiveEditorReview } = await import("../tests/liveEditorReview.ts")
+  const temporary = await mkdtemp(join(tmpdir(), "codemEditorReview"))
+  try { await runLiveEditorReview(root, temporary) }
+  finally { await rm(temporary, { recursive: true, force: true }) }
 } else if (process.argv.includes("--commit-messages")) {
   if (!process.argv.includes("--live")) throw new Error("Commit generation acceptance requires explicit test:live")
   const { runLiveCommitMessages } = await import("../tests/liveCommitMessages.ts")

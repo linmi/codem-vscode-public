@@ -7,6 +7,7 @@ import { registerInlineCompletion } from "./integrations/inlineCompletion.ts"
 import { registerTerminalActions } from "./integrations/terminalActions.ts"
 import { ChatSurfaces } from "./chat/chatSurfaces.ts"
 import { registerEditorActions } from "./integrations/editorActions.ts"
+import { EditorReview } from "./integrations/editorReview.ts"
 import { ConnectionPreferences } from "./connection/connectionPreferences.ts"
 import { ActiveConversation } from "./sessionHistory/activeConversation.ts"
 import * as vscode from "vscode"
@@ -39,6 +40,7 @@ export function activate(context: vscode.ExtensionContext): void {
   account.publish()
   accountController = account
   let selection: EditorSelection | undefined
+  let review: EditorReview | undefined
   let connectingAt: number | null = null
   let previousPhase: string | null = null
   const openSession = async (signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
@@ -82,6 +84,7 @@ export function activate(context: vscode.ExtensionContext): void {
         output.appendLine(`UI phase: ${state.phase}`); previousPhase = state.phase
       }
       selection?.state.setContext(state)
+      review?.contextChanged()
       surfaces?.post(state)
     },
     report: (operation, error) => {
@@ -208,7 +211,8 @@ export function activate(context: vscode.ExtensionContext): void {
     await surfaces!.addContext(text)
     selection!.state.consume(selectionIds)
   }
-  context.subscriptions.push(output, surfaces, registerGitActions(chat, message => output.appendLine(message)), registerInlineCompletion(chat, message => output.appendLine(message)), registerEditorActions(addContext), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
+  review = new EditorReview({ contextKey: () => chat.contextKey(), ready: () => chat.snapshot().phase === "ready", checkFile: path => chat.assertContextWorkspace(path), generate: (text, signal, scope) => chat.generateText(text, signal, scope) }, message => output.appendLine(message))
+  context.subscriptions.push(output, surfaces, review, registerGitActions(chat, message => output.appendLine(message)), registerInlineCompletion(chat, message => output.appendLine(message)), registerEditorActions(addContext, (action, document, range, diagnostics) => review!.generate(action, document, range, diagnostics)), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration("codem.chat.sendKey")) surfaces?.postSettings()
     if (event.affectsConfiguration("codem.autoConnect")) void autoConnect()
   }))
