@@ -11,6 +11,7 @@ export class SpaceDirectory {
     this.read = read
   }
   list(): readonly AppServerSpace[] { return this.catalog.spaces }
+  get accountKey(): string | null { return this.account }
   matchesAccount(status: AppServerAuthStatus): boolean { return this.account !== null && identity(status) === this.account }
   assertAccount(status: AppServerAuthStatus): void {
     if (this.account !== null && identity(status) !== this.account) throw new Error("CodeM account changed; reconnect before selecting a space")

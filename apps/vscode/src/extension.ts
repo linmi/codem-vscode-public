@@ -4,6 +4,7 @@ import { registerTerminalActions } from "./integrations/terminalActions.ts"
 import { ChatSurfaces } from "./chat/chatSurfaces.ts"
 import { registerEditorActions } from "./integrations/editorActions.ts"
 import { ConnectionPreferences } from "./connection/connectionPreferences.ts"
+import { ActiveConversation } from "./sessionHistory/activeConversation.ts"
 import * as vscode from "vscode"
 import type { SpaceDirectory } from "./connection/spaceDirectory.ts"
 import { ChatController } from "./chat/chatController.ts"
@@ -41,6 +42,7 @@ export function activate(context: vscode.ExtensionContext): void {
   }
   controller = new ChatController({
     preferences,
+    activeConversation: new ActiveConversation(context.workspaceState),
     connected: session => preferences.remember({ cwd: session.cwd, workspace: session.workspace, key: session.space.key }),
     connect: async (signIn, signal) => {
       const session = await openSession(signIn, signal)

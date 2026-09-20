@@ -34,6 +34,7 @@ it("initializes on opening chat by default, once per activation, with explicit r
       export class ChatController { async connect(){control.calls++;await control.pending} async dispose(){} publish(){} }
       export class ChatSurfaces {constructor(context,panels,dispatch){control.dispatch=dispatch} get available(){return control.available} dispose(){} }
       export class ConnectionPreferences {}
+      export class ActiveConversation {}
       export class NativeFeatures {dispose(){}}
       export class PanelBroker {cancel(){}}
       export class UserVisibleError extends Error {}

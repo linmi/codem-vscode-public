@@ -1,3 +1,4 @@
+import type { ActiveConversation, ConversationScope } from "../sessionHistory/activeConversation.ts"
 import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from "../sessionHistory/conversationHistory.ts"
 import { BackgroundTasks, type BackgroundContext } from "./backgroundTasks.ts"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
@@ -51,6 +52,7 @@ interface ActiveTurn {
 }
 export interface ChatControllerOptions {
   preferences?: SettingsPersistence
+  activeConversation?: ActiveConversation
   connected?: (session: ChatSession) => Promise<void>
 
   connect: (signIn: boolean, signal: AbortSignal) => Promise<ChatSession>
@@ -65,6 +67,7 @@ export class ChatController {
   private readonly composerCatalog = new ComposerCatalogView()
   private pendingSettings: Partial<LocalComposerSettings>
   private pendingSend: { message: ChatMessage & { role: "user" } } | null = null
+  private pendingNewChat = false
   private textGeneration: { operationId: string; cancelled: boolean; finish: (error: Error | null, text?: string) => void } | null = null
   private side: { operationId: string; id: string | null } | null = null
   private controlTurn: ActiveTurn | null = null
@@ -134,6 +137,7 @@ export class ChatController {
       this.options.assertTrusted()
       this.bindSession(session, generation, restored, true)
       await this.rememberConnection(session)
+      await this.restoreActiveConversation(session)
     } catch (error) {
       if (acquired && this.session !== acquired) await acquired.host.close()
       if (!this.disposed && generation === this.generation) {
@@ -155,8 +159,48 @@ export class ChatController {
     this.unsubscribe = session.host.onEvent((event) => {
       if (this.session === session && generation === this.generation) this.onEvent(event)
     })
-    this.update({ ...initialSnapshot(), attachments: this.resources.attachmentViews(session.cwd), phase: "ready", workspace: session.workspace, space: session.space.name, model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name), notice: restored.notice })
+    this.update({ ...initialSnapshot(), attachments: this.resources.attachmentViews(session.cwd), phase: "connecting", workspace: session.workspace, space: session.space.name, model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name), notice: restored.notice })
     this.background.startPolling(() => this.backgroundContext())
+  }
+
+  private conversationScope(session: ChatSession): ConversationScope {
+    return { cwd: session.cwd, spaceKey: session.space.key, accountKey: session.spaceDirectory.accountKey }
+  }
+
+  private async rememberActiveConversation(session: ChatSession, threadId: string | null): Promise<void> {
+    try { await this.options.activeConversation?.save(this.conversationScope(session), threadId) }
+    catch (error) {
+      this.options.report("saveActiveConversation", error)
+      if (!this.disposed && this.session === session && this.threadId === threadId) this.update({ notice: "当前会话位置保存失败，重载后可能无法恢复；聊天记录仍由 Core 保存。" })
+    }
+  }
+
+  private async restoreActiveConversation(session: ChatSession): Promise<void> {
+    if (this.disposed || this.session !== session) return
+    try {
+      if (this.pendingNewChat) {
+        this.pendingNewChat = false
+        await this.rememberActiveConversation(session, null)
+        return
+      }
+      const threadId = await this.options.activeConversation?.load(this.conversationScope(session))
+      if (this.disposed || this.session !== session) return
+      this.options.assertTrusted()
+      if (threadId) {
+        const hadPendingSend = this.pendingSend !== null
+        this.pendingSend = null
+        await this.restoreConversation(session, threadId, true)
+        if (hadPendingSend && !this.disposed && this.session === session && this.threadId === threadId) this.update({ notice: "已恢复上次会话，请确认聊天内容后再次发送；输入已保留。" })
+      }
+    } catch (error) {
+      this.options.report("restoreActiveConversation", error)
+      if (!this.disposed && this.session === session) {
+        this.pendingSend = null
+        this.update({ notice: "无法读取上次会话位置，请从历史会话中重新选择。" })
+      }
+    } finally {
+      if (!this.disposed && this.session === session && this.state.phase === "connecting") this.update({ phase: "ready" })
+    }
   }
 
   private async rememberConnection(session: ChatSession): Promise<void> {
@@ -210,6 +254,7 @@ export class ChatController {
       const connected = next
       next = null
       await this.rememberConnection(connected)
+      await this.restoreActiveConversation(connected)
     } catch (error) {
       if (next) await next.host.close()
       this.options.report("selectSpace", error)
@@ -240,6 +285,8 @@ export class ChatController {
       const threadId = await session.host.startThread(session.cwd, this.settings)
       if (this.session !== session || this.disposed) throw new UserVisibleError("创建会话期间连接已关闭，请从历史列表核对。")
       this.threadId = threadId
+      await this.rememberActiveConversation(session, threadId)
+      if (this.session !== session || this.disposed) throw new UserVisibleError("连接已关闭。")
     }
     return this.threadId
   }
@@ -253,7 +300,11 @@ export class ChatController {
     const generation = this.generation + (connecting ? 1 : 0)
     try {
       if (connecting) await this.connect()
-      if (this.pendingSend !== request || this.generation !== generation || (connecting && this.threadId !== null)) return false
+      if (this.pendingSend !== request || this.generation !== generation) return false
+      if (connecting && this.threadId !== null) {
+        this.update({ notice: "已恢复上次会话，请确认聊天内容后再次发送；输入已保留。" })
+        return false
+      }
       return await this.sendConnected(request.message)
     } finally {
       if (this.pendingSend === request) { this.pendingSend = null; this.publish() }
@@ -425,6 +476,8 @@ export class ChatController {
         threadId = await session.host.startThread(session.cwd, this.settings)
         if (this.session !== session || this.side !== side) return
         this.threadId = threadId
+        await this.rememberActiveConversation(session, threadId)
+        if (this.session !== session || this.side !== side) return
       }
       if (this.textGeneration?.cancelled) throw new UserVisibleError("生成已取消。")
       const id = await session.host.startSideQuestion(session.cwd, threadId, requestId, text)
@@ -496,6 +549,8 @@ export class ChatController {
         written = true
         if (this.session !== session) return
         this.threadId = id; this.invalidateHistory(); this.resetResources()
+        await this.rememberActiveConversation(session, id)
+        if (this.session !== session || this.disposed) return
         const modes = await session.host.readModes(session.cwd, id)
         if (this.session !== session || this.threadId !== id) return
         this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }; this.updateSettings()
@@ -604,9 +659,12 @@ export class ChatController {
       }
     }
     this.threadId = null
+    this.pendingNewChat = this.session === null
+    const saved = this.session ? this.rememberActiveConversation(this.session, null) : Promise.resolve()
     this.conversationHistory.invalidate()
     this.resetResources()
     this.update({ hasOlderMessages: false, historyNeedsRefresh: false, messages: [], turnTimings: [], attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], notice: null, phase: this.session ? "ready" : "disconnected" })
+    await saved
   }
 
   async toggleHistory(): Promise<void> {
@@ -638,17 +696,27 @@ export class ChatController {
       if (!this.state.notice) this.historyList.close()
       return
     }
-    this.update({ phase: "loadingHistory", notice: null })
+    await this.restoreConversation(session, threadId)
+  }
+
+  private async restoreConversation(session: ChatSession, threadId: string, initializing = false): Promise<void> {
+    this.update({ phase: initializing ? "connecting" : "loadingHistory", notice: null })
+    let saved = Promise.resolve()
+    let restored = false
     try {
       await this.conversationHistory.restore(this.historyContext(session), threadId, this.threadId, this.settings, ({ page, modes }) => {
-        this.threadId = threadId
         this.resetResources()
         const messages = this.resources.projectHistory(threadId, page, session.cwd)
         const diffs = this.resources.restoreDiffs(session.cwd, page, true, this.state.diffs)
         this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }
+        this.threadId = threadId
+        restored = true
+        saved = this.rememberActiveConversation(session, threadId)
         this.update({ phase: "ready", messages, turnTimings: historyTurnTimings(page), permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs, background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
         this.historyList.close()
       })
+      await saved
+      if (initializing && !restored && this.session === session && !this.disposed) this.update({ notice: "上次会话恢复已中止，请从历史会话中重试。" })
     } catch (error) {
       if (this.session !== session || this.disposed) return
       if (!(error instanceof HistoryRestoreFailure)) throw error
@@ -656,7 +724,7 @@ export class ChatController {
         this.update({ phase: "disconnected", notice: "会话切换状态未能确认，已断开连接，请重新连接。" })
         await this.retire()
       } else {
-        this.update({ notice: error.cause instanceof UserVisibleError ? error.cause.message : "会话恢复失败，当前记录已保留。请刷新历史后重试。" })
+        this.update({ notice: error.cause instanceof UserVisibleError ? error.cause.message : initializing ? "上次会话未能恢复，记录未被清除。请从历史会话中重试或新建会话。" : "会话恢复失败，当前记录已保留。请刷新历史后重试。" })
       }
     } finally {
       if (this.session === session && !this.disposed && this.snapshot().phase === "loadingHistory") this.update({ phase: "ready" })
@@ -715,7 +783,7 @@ export class ChatController {
 
   private async disposeResources(): Promise<void> {
     const current = this.retire()
-    const results = await Promise.allSettled(new Set([current, ...this.retiringHosts]))
+    const results = await Promise.allSettled(new Set([current, ...this.retiringHosts, this.options.activeConversation?.flush() ?? Promise.resolve()]))
     const failures = results.flatMap(result => result.status === "rejected" ? [result.reason] : [])
     if (failures.length) throw new AggregateError(failures, "CodeM host cleanup failed")
   }
@@ -820,6 +888,7 @@ export class ChatController {
         this.conversationHistory.invalidate()
         this.finishActivities("incomplete")
         this.active?.abort.abort(); this.active = null; this.threadId = null
+        if (this.session) void this.rememberActiveConversation(this.session, null)
         this.invalidateHistory(); this.resetResources()
         this.update({ attachments: [], diffs: this.state.diffs.map(diff => ({ ...diff, available: false })), background: [], backgroundTasks: [], tools: [], messages: this.state.messages.map(message => message.artifacts ? { ...message, artifacts: message.artifacts.map(artifact => ({ ...artifact, available: false })) } : message), phase: this.mutatingThread ? "configuring" : "ready", notice: "当前会话已关闭或归档。已有内容保留，可从历史列表重新选择会话。" })
         return
@@ -1141,6 +1210,8 @@ export class ChatController {
         const threadId = await session.host.startThread(session.cwd, settings)
         if (this.session !== session || this.disposed) return null
         this.threadId = threadId
+        await this.rememberActiveConversation(session, threadId)
+        if (this.session !== session || this.disposed) return null
       }
       const result = await session.host.listTools(session.cwd, this.threadId)
       if (this.session === session) this.update({ tools: result.tools })

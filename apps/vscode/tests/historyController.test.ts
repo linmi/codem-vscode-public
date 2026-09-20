@@ -1,3 +1,4 @@
+import { ActiveConversation } from "../src/sessionHistory/activeConversation.ts"
 import { capabilityHostFixture } from "./capabilityHostFixture.ts"
 import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
 import assert from "node:assert/strict"
@@ -10,7 +11,7 @@ const at = "2026-09-19T00:00:00Z"
 function page(index: number, nextCursor: string | null): SessionHistoryPage {
   return { nextCursor, turns: [{ submissionId: `old-${index}`, turn: { id: `old-turn-${index}`, index, engineTurnIndexes: [index], model: "model", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null, items: [{ id: `user-${index}`, at, kind: "message", role: "user", text: `question ${index}`, attachments: [] }, { id: `answer-${index}`, at, kind: "message", role: "assistant", text: `answer ${index}`, delivery: null }] } }] }
 }
-function setup() {
+function setup(activeConversation?: ActiveConversation) {
   let listener: (event: AppServerHostEvent) => void = () => {}
   let trusted = true
   const resumed: string[] = []
@@ -37,8 +38,9 @@ function setup() {
     async interruptTurn() {}, async respondToInteraction() {}, async close() {},
   }
   const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { assert.ok(trusted) }, readHistory: async (_id, cursor) => { read.push(cursor); return cursor ? page(0, null) : page(1, "older") } }
-  const chat = new ChatController({ connect: async () => session, assertTrusted() { assert.ok(trusted) }, publish() {}, interact: async () => null, report() {} })
-  return { chat, host, session, resumed, released, sent, read, starts: () => starts, untrust: () => { trusted = false }, emit: (event: AppServerHostEvent) => listener(event) }
+  const snapshots: ReturnType<ChatController["snapshot"]>[] = []
+  const chat = new ChatController({ activeConversation, connect: async () => session, assertTrusted() { assert.ok(trusted) }, publish(state) { snapshots.push(state) }, interact: async () => null, report() {} })
+  return { chat, host, session, snapshots, resumed, released, sent, read, starts: () => starts, untrust: () => { trusted = false }, emit: (event: AppServerHostEvent) => listener(event) }
 }
 
 it("toggles history open, closed and open again without fetching on close", async () => {
@@ -313,5 +315,179 @@ it("new chat does not bypass an aborted history read that still owns cleanup", a
     await f.chat.resumeThread("history-2")
     assert.equal(f.chat.snapshot().threadId, "history-2")
     assert.equal(f.chat.snapshot().messages[0]?.text, "question 3")
+  } finally { await f.chat.dispose() }
+})
+
+
+function bookmarks() {
+  const data = new Map<string, unknown>()
+  const store = { get: <T>(key: string) => data.get(key) as T | undefined, update: async (key: string, value: unknown) => { data.set(key, value) } }
+  return { data, store, open: () => new ActiveConversation(store) }
+}
+function scope(session: ChatSession) { return { cwd: session.cwd, spaceKey: session.space.key, accountKey: session.spaceDirectory.accountKey } }
+
+it("reload restores the selected Core conversation before ready, without listing or creating threads", async () => {
+  const saved = bookmarks()
+  const first = setup(saved.open())
+  await first.chat.connect(); await first.chat.showHistory(); await first.chat.resumeThread("history-2")
+  const messages = first.chat.snapshot().messages
+  await first.chat.dispose()
+  const reloaded = setup(saved.open())
+  reloaded.host.listThreads = async () => { throw new Error("Recovery must not load the history catalog") }
+  try {
+    await reloaded.chat.connect()
+    assert.equal(reloaded.chat.snapshot().threadId, "history-2")
+    assert.deepEqual(reloaded.chat.snapshot().messages, messages)
+    assert.equal(reloaded.chat.snapshot().hasOlderMessages, true)
+    assert.deepEqual(reloaded.resumed, ["history-2"])
+    assert.deepEqual(reloaded.read, [undefined])
+    assert.equal(reloaded.starts(), 0)
+    assert.equal(reloaded.snapshots.filter(state => state.phase === "ready").every(state => state.threadId === "history-2" && state.messages.length === 2), true)
+    await reloaded.chat.send("continue after reload")
+    assert.deepEqual(reloaded.sent, ["history-2"])
+  } finally { await reloaded.chat.dispose() }
+})
+
+for (const operation of ["create", "send", "tools"] as const) {
+  it(`persists a Core identity established by ${operation} before reload`, async () => {
+    const saved = bookmarks()
+    const first = setup(saved.open())
+    await first.chat.connect()
+    if (operation === "create") await first.chat.createThread()
+    else if (operation === "send") await first.chat.send("first prompt")
+    else await first.chat.refreshTools()
+    await first.chat.dispose()
+    const second = setup(saved.open())
+    try {
+      await second.chat.connect()
+      assert.equal(second.chat.snapshot().threadId, "new-thread")
+      assert.deepEqual(second.resumed, ["new-thread"])
+      assert.equal(second.starts(), 0)
+    } finally { await second.chat.dispose() }
+  })
+}
+
+it("explicit new chat clears the bookmark and stays blank after reload", async () => {
+  const saved = bookmarks()
+  const first = setup(saved.open())
+  await first.chat.connect(); await first.chat.showHistory(); await first.chat.resumeThread("history-1")
+  await first.chat.newChat(); await first.chat.dispose()
+  const second = setup(saved.open())
+  try {
+    await second.chat.connect()
+    assert.equal(second.chat.snapshot().threadId, null)
+    assert.deepEqual(second.chat.snapshot().messages, [])
+    assert.deepEqual(second.resumed, [])
+    assert.equal(second.starts(), 0)
+  } finally { await second.chat.dispose() }
+})
+
+it("failed new chat preserves the bookmark; a closed thread removes it", async () => {
+  const saved = bookmarks(), persistence = saved.open(), f = setup(persistence)
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    f.host.unsubscribeThread = async () => { throw new Error("release failed") }
+    await f.chat.newChat()
+    assert.equal(await persistence.load(scope(f.session)), "history-1")
+    f.emit({ type: "thread-closed", cwd: f.session.cwd, threadId: "history-1", reason: "thread/archive" })
+    assert.equal(await persistence.load(scope(f.session)), null)
+  } finally { await f.chat.dispose() }
+})
+
+for (const failure of ["missing", "archived", "history", "liveTurn"] as const) {
+  it(`keeps the bookmark and input without auto-sending when recovery encounters ${failure}`, async () => {
+    const saved = bookmarks(), persistence = saved.open(), f = setup(persistence)
+    await persistence.save(scope(f.session), "history-1")
+    if (failure === "missing") f.host.readThread = async () => { throw new Error("missing /private secret") }
+    if (failure === "archived") {
+      const read = f.host.readThread
+      f.host.readThread = async (...args) => ({ ...await read(...args), archived: true })
+    }
+    if (failure === "history") f.session.readHistory = async () => { throw new Error("invalid JSONL /private secret") }
+    if (failure === "liveTurn") f.session.readHistory = async () => { f.emit({ type: "turn-started", threadId: "history-1", turnId: "background", submissionId: null }); return page(1, null) }
+    try {
+      assert.equal(await f.chat.send("do not submit into a different conversation"), false)
+      assert.equal(f.chat.snapshot().phase, "ready")
+      assert.equal(f.chat.snapshot().threadId, null)
+      assert.ok(f.chat.snapshot().notice)
+      assert.doesNotMatch(JSON.stringify(f.chat.snapshot()), /private|secret/)
+      assert.equal(await persistence.load(scope(f.session)), "history-1")
+      assert.deepEqual(f.sent, [])
+      assert.equal(f.starts(), 0)
+      assert.deepEqual(f.released, failure === "history" || failure === "liveTurn" ? ["history-1"] : [])
+      await f.chat.newChat()
+      assert.equal(await persistence.load(scope(f.session)), null)
+    } finally { await f.chat.dispose() }
+  })
+}
+
+it("a lazy send that restores a previous conversation retains the input for explicit resubmission", async () => {
+  const saved = bookmarks(), persistence = saved.open(), f = setup(persistence)
+  await persistence.save(scope(f.session), "history-1")
+  try {
+    assert.equal(await f.chat.send("pending input"), false)
+    assert.equal(f.chat.snapshot().threadId, "history-1")
+    assert.match(f.chat.snapshot().notice!, /输入已保留/)
+    assert.deepEqual(f.sent, [])
+    assert.equal(await f.chat.send("pending input"), true)
+    assert.deepEqual(f.sent, ["history-1"])
+  } finally { await f.chat.dispose() }
+})
+
+it("late recovery cannot publish after disposal, and disposal retains the bookmark", async () => {
+  const saved = bookmarks(), persistence = saved.open(), f = setup(persistence)
+  await persistence.save(scope(f.session), "history-1")
+  let finish!: (value: SessionHistoryPage) => void
+  let reading!: () => void
+  const started = new Promise<void>(resolve => { reading = resolve })
+  f.session.readHistory = () => { reading(); return new Promise(resolve => { finish = resolve }) }
+  const connecting = f.chat.connect()
+  await started
+  assert.equal(f.chat.snapshot().phase, "connecting")
+  await f.chat.newChat()
+  assert.equal(await f.chat.send("blocked during recovery"), false)
+  await f.chat.dispose()
+  const count = f.snapshots.length
+  finish(page(1, null)); await connecting
+  assert.equal(f.snapshots.length, count)
+  assert.equal(f.chat.snapshot().threadId, null)
+  assert.equal(await persistence.load(scope(f.session)), "history-1")
+})
+
+it("switching spaces restores only that space's last conversation", async () => {
+  const saved = bookmarks(), persistence = saved.open(), f = setup(persistence), other = setup()
+  other.session.space = { key: "other", name: "Other" }
+  await persistence.save(scope(f.session), "history-1")
+  await persistence.save(scope(other.session), "history-2")
+  try {
+    await f.chat.connect()
+    await f.chat.selectSpace(async () => other.session)
+    assert.equal(f.chat.snapshot().threadId, "history-2")
+    assert.deepEqual(other.resumed, ["history-2"])
+    assert.equal(await persistence.load(scope(f.session)), "history-1")
+  } finally { await f.chat.dispose(); await other.chat.dispose() }
+})
+
+it("failed bookmark persistence is visible without losing the live conversation", async () => {
+  const saved = bookmarks(), f = setup(saved.open())
+  saved.store.update = async () => { throw new Error("disk failure secret") }
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    assert.equal(f.chat.snapshot().threadId, "history-1")
+    assert.match(f.chat.snapshot().notice!, /位置保存失败/)
+    assert.equal(f.chat.snapshot().messages.length, 2)
+    assert.doesNotMatch(f.chat.snapshot().notice!, /secret/)
+  } finally { await f.chat.dispose() }
+})
+
+it("new chat chosen offline suppresses recovery on the next authenticated connection", async () => {
+  const saved = bookmarks(), persistence = saved.open(), f = setup(persistence)
+  await persistence.save(scope(f.session), "history-1")
+  try {
+    await f.chat.newChat()
+    await f.chat.connect()
+    assert.equal(f.chat.snapshot().threadId, null)
+    assert.deepEqual(f.resumed, [])
+    assert.equal(await persistence.load(scope(f.session)), null)
   } finally { await f.chat.dispose() }
 })

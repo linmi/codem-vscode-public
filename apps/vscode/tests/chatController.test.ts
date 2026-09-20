@@ -920,7 +920,7 @@ it("model selection connects on demand and a cancelled picker does not create a 
   await f.controller.dispose()
 })
 
-it("a new conversation invalidates a first send still waiting for connection bookkeeping", async () => {
+it("connection bookkeeping remains busy until initialization finishes", async () => {
   const f = setup()
   let finish!: () => void
   let connected!: () => void
@@ -928,10 +928,13 @@ it("a new conversation invalidates a first send still waiting for connection boo
   const c = new ChatController({ connect: async () => f.session, connected: () => { connected(); return new Promise<void>(done => { finish = done }) }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   const pending = c.send("old context")
   await ready
+  assert.equal(c.snapshot().phase, "connecting")
   await c.newChat()
+  assert.equal(c.snapshot().phase, "connecting", "A new chat cannot interrupt an unfinished initialization")
+  assert.equal(await c.send("duplicate"), false)
   finish()
-  assert.equal(await pending, false)
-  assert.equal(f.counts().turns, 0)
+  assert.equal(await pending, true)
+  assert.equal(f.counts().turns, 1)
   await c.dispose()
 })
 
