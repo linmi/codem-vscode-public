@@ -1,3 +1,5 @@
+import { createLoadingStatus } from "./loadingStatusView.ts"
+import { workingStatus } from "./workingStatus.ts"
 import { uiIcon, permissionIcons } from "../src/uiIcons.ts"
 import { installFileMentions } from "./fileMentions.ts"
 import { installComposerCommands } from "./composerCommands.ts"
@@ -64,6 +66,7 @@ configureImageLoader(id => new Promise(resolve => {
   imageRequests.set(id, preview => { clearTimeout(timer); existing?.(preview); resolve(preview) })
   if (!existing) post({ type: "loadImage", id })
 }))
+const workingIndicator = createLoadingStatus(element("workingLabel"))
 const submission = new ComposerSubmission()
 const panels = createPanelView(post, () => saveDraft())
 prompt.value = vscode.getState()?.draft ?? ""
@@ -80,8 +83,9 @@ new ResizeObserver(fitPrompt).observe(prompt)
 
 function post(action: ViewAction): void { vscode.postMessage(action) }
 function saveDraft(): void {
-  element("workingRow").hidden = !["sending", "running", "stopping"].includes(state.phase)
-  element("workingLabel").textContent = panels.locked() ? "等待你的回复…" : state.phase === "sending" ? "正在发送…" : state.phase === "stopping" ? "正在停止…" : "正在思考与处理…"
+  const status = workingStatus(state, panels.kind())
+  element("workingRow").hidden = status === null
+  workingIndicator.set(status?.label ?? null, status?.animate)
   vscode.setState({ draft: prompt.value })
   fitPrompt()
   prompt.disabled = panels.locked()

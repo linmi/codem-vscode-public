@@ -101,6 +101,7 @@ export function createMessageView(initial: ChatMessage, post: (action: ViewActio
       label.title = label.textContent ?? ""
       if (!userToggled && details) details.open = message.status === "failed"
       badge.textContent = message.role === "reasoning" ? ({ running: "思考中", completed: "思考完成", interrupted: "思考已停止", incomplete: "思考未完成", failed: "思考失败", declined: "已拒绝" } as const)[message.status] : statusLabels[message.status]
+      badge.hidden = message.role === "reasoning" && message.status === "running"
       note.textContent = message.summary
       note.hidden = !message.summary || message.summary === message.text
       const empty = message.status === "running" ? (message.role === "reasoning" ? "正在思考…" : "等待工具输出…") : message.status === "incomplete" ? "未收到完成结果。" : message.role === "reasoning" ? "Core 未提供可显示的思考内容。" : "无文本输出。"

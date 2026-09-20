@@ -80,3 +80,9 @@
 ## 2026-09-20：历史图片读取边界
 
 查阅本机 `codem-app/src/main/session/source/codem/attachment.ts` 确认 Core 图片位于 `<sessionsRoot>/<projectHash>/<threadId>/attachments/`，并按当前包边界独立实现 `sessionImage.ts`；沿用 schema 13 的会话图片描述与 sha256 校验，不引入桌面文件预览服务或第二份历史存储。较大图片通过按需 Webview 消息读取，单图上限与发送限制一致（20 MiB）。
+
+## Beautiful UI loading state intake — 2026-09-20
+
+- Source: https://www.beautifului.dev/ and the LoadingState React example supplied by the user with this request.
+- Adapted the 3×3 pixel grid, staggered chevron animation and shimmer label into `apps/vscode/webview/components/loadingState.tsx` and `loadingState.css`, using existing React dependencies and CodeM theme tokens. No external video, elapsed-time simulation or additional dependency was imported.
+- Applied to the live turn header and initial waiting placeholder. Once the current turn has progress, its bottom thinking placeholder disappears; approval, question, plan and stopping feedback remain. Added reduced-motion and forced-colors behavior. This is an adaptation of the supplied loading design, not an import of the full Beautiful UI component library.

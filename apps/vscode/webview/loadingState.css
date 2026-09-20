@@ -1,0 +1,15 @@
+.beautifulLoading { display: inline-flex; align-items: center; gap: 10px; min-height: 20px; font: 500 12px/20px var(--uiFont); color: var(--muted); }
+.beautifulLoadingGrid { display: grid; flex-shrink: 0; grid-template-columns: repeat(3, 4px); gap: 1.5px; }
+.beautifulLoadingGrid > span { width: 4px; height: 4px; border-radius: 1px; background: currentColor; opacity: .15; }
+.beautifulLoading[data-animated="true"] .beautifulLoadingGrid > span { animation: beautifulPixel 650ms ease-in-out infinite; }
+.beautifulLoading[data-animated="true"] .beautifulLoadingLabel { color: transparent; background: linear-gradient(90deg, var(--muted) 35%, var(--ink) 50%, var(--muted) 65%); background-size: 200% 100%; background-clip: text; animation: beautifulShimmer 1.4s linear infinite; }
+@keyframes beautifulPixel { 0%, 65%, 100% { opacity: .15; } 30% { opacity: 1; } }
+@keyframes beautifulShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .beautifulLoading[data-animated="true"] .beautifulLoadingGrid > span { animation: none; }
+  .beautifulLoading[data-animated="true"] .beautifulLoadingLabel { animation: none; background: none; color: var(--muted); }
+}
+@media (forced-colors: active) {
+  .beautifulLoading[data-animated="true"] .beautifulLoadingLabel { background: none; color: CanvasText; animation: none; }
+  .beautifulLoadingGrid > span { background: CanvasText; }
+}

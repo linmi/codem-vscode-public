@@ -3,6 +3,7 @@
 @import "./history.css";
 @import "./markdown.css";
 @import "./panels.css";
+@import "./loadingState.css";
 * { box-sizing: border-box; }
 html { font-size: 16px; }
 body { margin: 0; background: var(--surface); color: var(--ink); font: 12px/1.5 var(--uiFont); -webkit-font-smoothing: antialiased; }
@@ -135,6 +136,7 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .workGroup { width: 100%; color: var(--muted); }
 .workGroup > summary { display: flex; gap: 6px; align-items: center; font-size: 12px; line-height: 20px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); list-style: none; cursor: pointer; }
 .workGroup > summary::-webkit-details-marker { display: none; }
+.workGroupChevron { display: inline-flex; margin-left: auto; flex-shrink: 0; }
 .workGroup > summary svg { width: 12px; height: 12px; transition: transform 150ms; }
 .workGroup[open] > summary svg { transform: rotate(90deg); }
 .workGroupContent { padding: 8px 0 2px; display: flex; flex-direction: column; gap: 0; }
@@ -171,8 +173,6 @@ body.vscode-high-contrast-light { color-scheme: light; }
 @keyframes loadingSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .loadingSpinner, .loadingLines i { animation: none; } }
 .workingRow { max-width: var(--chatWidth); width: 100%; margin: 0 auto; padding: 8px 4px 12px; font: 12px/1.625 var(--uiFont); color: var(--muted); }
-.workingRow > span:last-child { animation: thinkingFade 1.6s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .workingRow > span:last-child { animation: none; } }
 
 .app[data-phase="loadingHistory"] .transcriptLoading { padding-block: 16px; }
 .app[data-phase="loadingHistory"] #messages { opacity: .45; pointer-events: none; }

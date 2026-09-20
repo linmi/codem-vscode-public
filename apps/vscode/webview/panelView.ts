@@ -144,5 +144,5 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
   document.addEventListener("pointerdown", event => {
     if (current && !locked() && !root.contains(event.target as Node)) cancel()
   })
-  return { render, locked, restoreFocus }
+  return { render, locked, restoreFocus, kind: () => current?.kind ?? null }
 }
