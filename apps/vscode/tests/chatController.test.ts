@@ -796,3 +796,64 @@ it("times correlated turns once, keeps ticking through stop acknowledgement, and
     assert.equal(f.controller.snapshot().turnTimings[1]!.finishedAt, 90_000)
   } finally { await f.controller.dispose() }
 })
+
+it("platform text generation creates one thread, reuses the connection and waits for the correlated side-question terminal", async () => {
+  const f = setup(); let calls = 0; let auth = 0
+  f.session.authorize = async () => { auth++ }
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => {
+    calls++
+    f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "side-1", question })
+    f.emit({ type: "side-question-delta", threadId: "rogue", sideQuestionId: "side-1", delta: "wrong" })
+    f.emit({ type: "side-question-delta", threadId, sideQuestionId: "side-1", delta: '{"insertText":"ok"}' })
+    f.emit({ type: "side-question-completed", threadId, sideQuestionId: "side-1", status: "completed", error: null })
+    return "side-1"
+  }
+  await f.controller.connect()
+  assert.equal(await f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey()), '{"insertText":"ok"}')
+  assert.equal(await f.controller.generateText("again", new AbortController().signal, f.controller.contextKey()), '{"insertText":"ok"}')
+  assert.equal(f.counts().starts, 1); assert.equal(f.counts().turns, 0); assert.equal(calls, 2); assert.equal(auth, 2)
+  assert.equal(f.controller.snapshot().phase, "ready")
+  await f.controller.dispose()
+})
+
+it("platform generation cancellation sends one cancel and does not complete on its receipt", async () => {
+  const f = setup(); let cancels = 0
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => {
+    f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "side-1", question }); return "side-1"
+  }
+  f.host.cancelSideQuestion = async () => { cancels++ }
+  await f.controller.connect()
+  const abort = new AbortController()
+  const pending = f.controller.generateText("complete", abort.signal, f.controller.contextKey())
+  const rejected = assert.rejects(pending, /取消|失败/)
+  await new Promise(resolve => setImmediate(resolve))
+  await assert.rejects(f.controller.generateText("duplicate", new AbortController().signal, f.controller.contextKey()), /等待/)
+  abort.abort(); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(cancels, 1); assert.equal(f.controller.snapshot().phase, "sideQuestion")
+  f.emit({ type: "side-question-completed", threadId: "thread-1", sideQuestionId: "side-1", status: "interrupted", error: null })
+  await rejected
+  assert.equal(f.controller.snapshot().phase, "ready")
+  await f.controller.dispose()
+})
+
+it("platform generation rejects startup failures and closes pending results on disconnect", async () => {
+  const f = setup(); await f.controller.connect()
+  await assert.rejects(f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey()), /生成未能启动/)
+  assert.equal(f.controller.snapshot().phase, "ready")
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => {
+    f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "side-1", question }); return "side-1"
+  }
+  const rejected = assert.rejects(f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey()), /连接已关闭/)
+  await new Promise(resolve => setImmediate(resolve))
+  await f.controller.dispose(); await rejected
+})
+
+it("platform generation rejects a context captured before a conversation switch without issuing a request", async () => {
+  const f = setup(); await f.controller.connect()
+  const previous = f.controller.contextKey()
+  await f.controller.send("hello")
+  f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+  await assert.rejects(f.controller.generateText("stale source", new AbortController().signal, previous), /会话已切换/)
+  assert.equal(f.controller.snapshot().phase, "ready")
+  await f.controller.dispose()
+})

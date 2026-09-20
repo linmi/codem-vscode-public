@@ -1,6 +1,6 @@
 import type { FileDiffContent } from "./filePresentation.ts"
 import { realpath, stat } from "node:fs/promises"
-import { basename } from "node:path"
+import { basename, relative, isAbsolute, sep } from "node:path"
 import { projectCatalog } from "./capabilityCatalog.ts"
 import { emptySessionTools, type CatalogKind, type ThreadOperation, type SessionToolsState, emptyCapabilities } from "./capabilityTypes.ts"
 import type { SpaceDirectory } from "./spaceDirectory.ts"
@@ -59,6 +59,7 @@ export interface ChatControllerOptions {
 
 /** One live conversation. Core owns durable history; these are display-only snapshots. */
 export class ChatController {
+  private textGeneration: { operationId: string; cancelled: boolean; finish: (error: Error | null, text?: string) => void } | null = null
   private side: { operationId: string; id: string | null } | null = null
   private controlTurn: ActiveTurn | null = null
   private mutatingThread = false
@@ -102,6 +103,12 @@ export class ChatController {
 
   async assertContextWorkspace(path: string): Promise<void> {
     if (this.session) await changedFilePath(this.session.cwd, path)
+  }
+
+  async assertContextDirectory(path: string): Promise<void> {
+    if (!this.session) throw new UserVisibleError("请先连接当前工作区。")
+    const local = relative(await realpath(this.session.cwd), await realpath(path))
+    if (local === ".." || local.startsWith(`..${sep}`) || isAbsolute(local)) throw new UserVisibleError("目标不属于当前 CodeM 工作区，请连接对应工作区后重试。")
   }
 
   publish(): void { if (!this.disposed) this.options.publish(this.snapshot()) }
@@ -308,8 +315,48 @@ export class ChatController {
   }
 
   async askSideQuestion(text: string, requestId: string): Promise<void> {
-    const session = this.session, threadId = this.threadId
-    if (!session || !threadId || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    await this.startQuestion(text, requestId, false)
+  }
+
+  /** Platform text generation shares the idle connection; it never starts an Agent turn. */
+  contextKey(): string { return `${this.generation}:${this.threadId ?? ""}` }
+
+  async generateText(text: string, signal: AbortSignal, expectedContext: string): Promise<string> {
+    if (expectedContext !== this.contextKey()) throw new UserVisibleError("CodeM 会话已切换，请重新发起生成。")
+    signal.throwIfAborted()
+    if (!this.session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy || this.textGeneration) throw new UserVisibleError("请先连接 CodeM，并等待当前任务结束。")
+    if (!text.trim() || text.length > 32_000) throw new UserVisibleError("生成请求为空或过长。")
+    const operationId = randomUUID()
+    return new Promise<string>((resolve, reject) => {
+      let recovery: ReturnType<typeof setTimeout> | undefined
+      const finish = (error: Error | null, result = "") => {
+        clearTimeout(timeout); clearTimeout(recovery); signal.removeEventListener("abort", cancel)
+        if (this.textGeneration?.operationId === operationId) this.textGeneration = null
+        if (error) reject(error); else if (!result.trim()) reject(new UserVisibleError("模型没有返回可用内容，请重试。")); else resolve(result)
+      }
+      const cancel = () => {
+        const active = this.textGeneration
+        if (!active || active.operationId !== operationId || active.cancelled) return
+        active.cancelled = true
+        void this.cancelSideQuestion()
+        // A cancel receipt is not a terminal event. Reclaim a connection that never settles.
+        recovery = setTimeout(() => {
+          if (this.textGeneration !== active) return
+          this.update({ phase: "disconnected", notice: "生成取消后未收到终态，连接已关闭，请重新连接。" })
+          void this.retire().catch(error => this.options.report("generationCleanup", error))
+        }, 5000)
+      }
+      const timeout = setTimeout(cancel, 45000)
+      this.textGeneration = { operationId, cancelled: false, finish }
+      signal.addEventListener("abort", cancel, { once: true })
+      void this.startQuestion(text, operationId, true)
+    })
+  }
+
+  private async startQuestion(text: string, requestId: string, allowCreate: boolean): Promise<void> {
+    const session = this.session
+    let threadId = this.threadId
+    if (!session || (!threadId && !allowCreate) || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     const side = { operationId: requestId, id: null as string | null }
     this.side = side
     this.update({ phase: "sideQuestion", notice: null })
@@ -317,16 +364,25 @@ export class ChatController {
     try {
       this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted()
       if (this.session !== session || this.side !== side) return
+      if (this.textGeneration?.cancelled) throw new UserVisibleError("生成已取消。")
+      if (!threadId) {
+        threadId = await session.host.startThread(session.cwd, this.settings)
+        if (this.session !== session || this.side !== side) return
+        this.threadId = threadId
+      }
+      if (this.textGeneration?.cancelled) throw new UserVisibleError("生成已取消。")
       const id = await session.host.startSideQuestion(session.cwd, threadId, requestId, text)
       if (this.session !== session || this.threadId !== threadId) return
       if (this.side === side) { side.id = id; this.updateTools({ sideQuestion: { ...this.state.sessionTools.sideQuestion!, status: "running" } }) }
       this.updateTools({ result: { requestId, accepted: true } })
+      if (this.textGeneration?.cancelled) void this.cancelSideQuestion()
     } catch (error) {
       this.options.report("sideQuestion", error)
       if (this.session !== session || this.threadId !== threadId) return
       if (this.side === side && side.id === null) { this.side = null; this.update({ phase: "ready" }); this.updateTools({ sideQuestion: { question: text, answer: "", status: "failed" } }) }
       this.updateTools({ result: { requestId, accepted: side.id !== null } })
       this.update({ notice: "旁路提问回执未能确认；内容保留，不自动重试。" })
+      if (side.id === null && this.textGeneration?.operationId === requestId) this.textGeneration.finish(new UserVisibleError("生成未能启动，请检查连接后重试。"))
     }
   }
 
@@ -636,6 +692,7 @@ export class ChatController {
 
   private retire(): Promise<void> {
     const session = this.session
+    this.textGeneration?.finish(new UserVisibleError("连接已关闭，生成结果已取消。"))
     this.historyRead?.abort()
     this.historyRead = null
     this.restoringThreadId = null
@@ -675,6 +732,7 @@ export class ChatController {
       if (event.type === "side-question-started" && event.operationId === side.operationId) {
         side.id = event.sideQuestionId
         this.updateTools({ sideQuestion: { question: event.question, answer: "", status: "running" } })
+        if (this.textGeneration?.cancelled) void this.cancelSideQuestion()
         return
       }
       if (event.type === "side-question-delta" && event.sideQuestionId === side.id) {
@@ -682,6 +740,8 @@ export class ChatController {
         return
       }
       if (event.type === "side-question-completed" && event.sideQuestionId === side.id) {
+        const generation = this.textGeneration
+        if (generation?.operationId === side.operationId) generation.finish(generation.cancelled || event.status !== "completed" ? new UserVisibleError("生成已取消或失败。") : null, this.state.sessionTools.sideQuestion?.answer ?? "")
         this.side = null
         this.updateTools({ sideQuestion: { ...this.state.sessionTools.sideQuestion!, status: event.status } })
         this.update({ phase: this.active ? "running" : "ready", notice: event.status === "failed" ? "旁路提问失败，请重试。" : null })

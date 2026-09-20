@@ -1,3 +1,5 @@
+import { registerGitActions } from "./gitActions.ts"
+import { registerInlineCompletion } from "./inlineCompletion.ts"
 import { registerTerminalActions } from "./terminalActions.ts"
 import { ChatSurfaces } from "./chatSurfaces.ts"
 import { registerEditorActions } from "./editorActions.ts"
@@ -181,7 +183,7 @@ export function activate(context: vscode.ExtensionContext): void {
     if (uri?.scheme === "file") await chat.assertContextWorkspace(uri.fsPath)
     await surfaces!.addContext(text)
   }
-  context.subscriptions.push(output, surfaces, registerEditorActions(addContext), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
+  context.subscriptions.push(output, surfaces, registerGitActions(chat, message => output.appendLine(message)), registerInlineCompletion(chat, message => output.appendLine(message)), registerEditorActions(addContext), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration("codem.chat.sendKey")) surfaces?.postSettings()
     if (event.affectsConfiguration("codem.autoConnect")) void autoConnect()
   }))

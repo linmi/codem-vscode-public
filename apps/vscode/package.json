@@ -128,6 +128,22 @@
         "command": "codem.terminalFixCommand",
         "title": "分析最近终端错误",
         "category": "CodeM"
+      },
+      {
+        "command": "codem.generateCommitMessage",
+        "title": "生成暂存变更的提交说明",
+        "category": "CodeM",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "codem.generateCompletion",
+        "title": "生成行内补全",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.cancelCompletion",
+        "title": "取消行内补全",
+        "category": "CodeM"
       }
     ],
     "viewsContainers": {
@@ -236,6 +252,20 @@
         {
           "command": "codem.terminalFixCommand"
         }
+      ],
+      "scm/title": [
+        {
+          "command": "codem.generateCommitMessage",
+          "when": "scmProvider == git && isWorkspaceTrusted",
+          "group": "navigation"
+        }
+      ],
+      "scm/input": [
+        {
+          "command": "codem.generateCommitMessage",
+          "when": "scmProvider == git && isWorkspaceTrusted",
+          "group": "navigation"
+        }
       ]
     },
     "submenus": [
@@ -265,6 +295,12 @@
         "key": "ctrl+alt+n",
         "mac": "cmd+alt+n",
         "when": "focusedView == codem.chat || activeWebviewPanelId == codem.editor"
+      },
+      {
+        "command": "codem.generateCompletion",
+        "key": "ctrl+alt+space",
+        "mac": "cmd+alt+space",
+        "when": "editorTextFocus && !editorReadonly && isWorkspaceTrusted"
       }
     ],
     "configuration": {
@@ -289,6 +325,12 @@
           "default": "enter",
           "description": "聊天输入框的发送按键。",
           "scope": "window"
+        },
+        "codem.completion.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用手动行内补全。仅显式调用时请求模型，使用当前空闲 CodeM 连接。",
+          "scope": "resource"
         }
       }
     }
