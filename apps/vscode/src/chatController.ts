@@ -435,7 +435,13 @@ export class ChatController {
 
   private onEvent(event: AppServerHostEvent): void {
     if (event.type === "connection-closed" || event.type === "protocol-error" || event.type === "authentication-invalidated") {
-      this.update({ phase: "disconnected", notice: "连接已中断，请重新连接。已有记录由 Core 保存。" })
+      const reason = event.type === "protocol-error"
+        ? "CORE_PROTOCOL_ERROR：Core 协议处理失败，请更新扩展或查看 CodeM 日志。"
+        : event.type === "authentication-invalidated"
+          ? "CORE_AUTH_INVALIDATED：CodeM 登录已失效，请重新登录。"
+          : `CORE_PROCESS_EXIT：Core 进程已退出（退出码 ${event.exit.code ?? "无"}，信号 ${event.exit.signal ?? "无"}）。请重新连接。`
+      this.options.report("connection", new UserVisibleError(reason))
+      this.update({ phase: "disconnected", notice: `${reason} 已有记录由 Core 保存。` })
       void this.retire().catch((error) => this.options.report("close", error))
       return
     }

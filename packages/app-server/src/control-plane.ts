@@ -44,6 +44,7 @@ export const APP_SERVER_KNOWN_NOTIFICATIONS = [
   "thread/sideQuestion/completed",
   "serverRequest/resolved",
   "turn/started",
+  "turn/activity",
   "turn/completed",
   "turn/diff/updated",
   "turn/plan/updated",

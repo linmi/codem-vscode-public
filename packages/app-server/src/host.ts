@@ -233,6 +233,7 @@ export type AppServerInteractionResponse =
   | { readonly kind: "plan-mode"; readonly approved: boolean }
 
 export type AppServerHostEvent =
+  | { readonly type: "turn-activity"; readonly threadId: string; readonly turnId: string; readonly source: string }
   | { readonly type: "thread-modes-updated"; readonly threadId: string; readonly state: AppServerModeState }
   | { readonly type: "connection-ready"; readonly cwd: string }
   | { readonly type: "connection-closed"; readonly cwd: string; readonly exit: AppServerProcessExit }
@@ -1271,6 +1272,14 @@ export class AppServerHost {
     }
     const active = thread.activeTurn
     if (!active) return
+    // Core 0.8.44 emits liveness independently of text/tool items. It is neither
+    // a new turn nor completion and must never reset the active turn's clock.
+    if (frame.method === "turn/activity") {
+      const turnId = nonBlankString(frame.params.turnId, "turn/activity turnId")
+      const source = nonBlankString(frame.params.source, "turn/activity source")
+      if (turnId === active.turnId) this.emit({ type: "turn-activity", threadId: thread.id, turnId, source })
+      return
+    }
     const turnId = notificationTurnId(frame.params, active)
     if (!turnId) return
     if (frame.method === "turn/started") {

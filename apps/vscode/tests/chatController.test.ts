@@ -160,6 +160,30 @@ it("connection failure restores reconnect UI without forwarding raw error payloa
   await fixture.controller.dispose()
 })
 
+for (const [event, code] of [
+  [{ type: "protocol-error", cwd: "/private/workspace", message: "secret-token raw frame" }, "CORE_PROTOCOL_ERROR"],
+  [{ type: "authentication-invalidated", message: "secret-token account info" }, "CORE_AUTH_INVALIDATED"],
+  [{ type: "connection-closed", cwd: "/private/workspace", exit: { code: 7, signal: null, expected: false } }, "CORE_PROCESS_EXIT"],
+] as const) it(`reports ${code} without exposing Core payloads and permits reconnection`, async () => {
+  const f = setup()
+  const reports: string[] = []
+  const controller = new ChatController({ connect: async () => f.session, assertTrusted() {}, publish() {}, interact: async () => null,
+    report(operation, error) { assert.ok(error instanceof UserVisibleError); reports.push(`${operation}: ${error.message}`) },
+  })
+  try {
+    await controller.connect(); await controller.send("hello")
+    f.emit(event)
+    assert.equal(controller.snapshot().phase, "disconnected")
+    assert.match(controller.snapshot().notice!, new RegExp(code))
+    assert.equal(reports.length, 1)
+    assert.match(reports[0]!, new RegExp(code))
+    assert.doesNotMatch(JSON.stringify([controller.snapshot(), reports]), /secret-token|raw frame|account info|private/)
+    assert.notEqual(controller.snapshot().turnTimings[0]!.finishedAt, null)
+    await controller.connect()
+    assert.equal(controller.snapshot().phase, "ready")
+  } finally { await controller.dispose(); await f.controller.dispose() }
+})
+
 it("changes model and effort on the same thread and applies modes using the displayed revision", async () => {
   const fixture = setup()
   await fixture.controller.connect(); await fixture.controller.send("first")
@@ -740,6 +764,11 @@ it("times correlated turns once, keeps ticking through stop acknowledgement, and
     f.emit({ type: "reasoning-delta", threadId: "thread-1", turnId: "turn-1", itemId: "reason", delta: "thinking" })
     assert.equal(f.controller.snapshot().messages[1]!.turnId, "turn-1")
     t.mock.timers.setTime(36_000)
+    const beforeActivity = f.controller.snapshot()
+    for (let i = 0; i < 2; i++) f.emit({ type: "turn-activity", threadId: "thread-1", turnId: "turn-1", source: "provider_stream" })
+    assert.deepEqual(f.controller.snapshot().messages, beforeActivity.messages, "Activity cannot replace transcript content")
+    assert.deepEqual(f.controller.snapshot().turnTimings, beforeActivity.turnTimings, "Activity cannot reset the turn clock")
+    assert.equal(f.controller.snapshot().phase, beforeActivity.phase, "Activity cannot change turn lifecycle")
     f.emit({ type: "turn-started", threadId: "thread-1", turnId: "turn-1", submissionId: f.submission() })
     f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "foreign", outcome: "completed", stopReason: "end", error: null })
     await f.controller.stop()
@@ -748,6 +777,8 @@ it("times correlated turns once, keeps ticking through stop acknowledgement, and
     t.mock.timers.setTime(37_000)
     f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "stopped", stopReason: "end", error: null })
     t.mock.timers.setTime(90_000)
+    f.emit({ type: "turn-activity", threadId: "thread-1", turnId: "turn-1", source: "provider_stream" })
+    assert.equal(f.controller.snapshot().phase, "ready", "A retired heartbeat cannot reopen a turn")
     f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
     assert.equal(f.controller.snapshot().turnTimings[0]!.finishedAt, 37_000)
     await f.controller.send("second")

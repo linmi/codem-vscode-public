@@ -110,6 +110,7 @@ describe("App Server control-plane projection", () => {
       /absent/,
     )
     assert.equal(isAppServerKnownNotification("turn/completed"), true)
+    assert.equal(isAppServerKnownNotification("turn/activity"), true)
     assert.equal(isAppServerKnownNotification("future/unknown"), false)
   })
 })

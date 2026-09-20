@@ -21,6 +21,48 @@ afterEach(() => {
 })
 
 describe("AppServerHost", () => {
+  it("accepts correlated Core activity without replacing text or changing terminal ownership", { timeout: 5000 }, async () => {
+    const fixture = createFixture(undefined, [
+      { method: "turn/activity", params: { source: "provider_stream" } },
+      { method: "turn/activity", params: { source: "provider_stream" } },
+      { method: "turn/activity", params: { threadId: "foreign", source: "provider_stream" } },
+      { method: "turn/activity", params: { turnId: "stale", source: "provider_stream" } },
+      { method: "item/agentMessage/delta", params: { delta: "Still connected" } },
+    ])
+    const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "activity-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath } })
+    const events: AppServerHostEvent[] = []
+    const finished = new Promise<void>((resolve, reject) => host.onEvent(event => {
+      events.push(event)
+      if (event.type === "protocol-error") reject(new Error(event.message))
+      if (event.type === "turn-activity") assert.equal(host.hasActiveWork, true)
+      if (event.type === "turn-completed") resolve()
+    }))
+    try {
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      await host.startTurn({ cwd: fixture.root, threadId, submissionId: "activity", text: "Hello" })
+      await finished
+      assert.deepEqual(events.filter(event => event.type === "turn-activity"), Array.from({ length: 2 }, () => ({ type: "turn-activity", threadId, turnId: "turn-1", source: "provider_stream" })))
+      assert.deepEqual(events.flatMap(event => event.type === "text-delta" ? [event.delta] : []), ["Still connected"])
+      assert.equal(events.filter(event => event.type === "turn-completed").length, 1)
+      assert.equal(host.hasActiveWork, false)
+      await host.readModes(fixture.root, threadId)
+    } finally { await host.close() }
+  })
+
+  for (const params of [{}, { source: null }, { source: 42 }, { source: " " }, { source: "provider_stream", turnId: null }]) {
+    it(`rejects invalid activity ${JSON.stringify(params)}`, { timeout: 5000 }, async () => {
+      const fixture = createFixture(undefined, [{ method: "turn/activity", params }])
+      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "activity-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath } })
+      const events: AppServerHostEvent[] = []
+      const failed = new Promise<string>(resolve => host.onEvent(event => { events.push(event); if (event.type === "protocol-error") resolve(event.message) }))
+      try {
+        const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+        await host.startTurn({ cwd: fixture.root, threadId, submissionId: "invalid-activity", text: "Hello" })
+        assert.match(await failed, /turn\/activity/)
+        assert.equal(events.some(event => event.type === "turn-activity" || event.type === "turn-completed"), false)
+      } finally { await host.close() }
+    })
+  }
 
   for (const scenario of [
     { method: "thread/unsubscribe", hold: "", stubborn: false },
