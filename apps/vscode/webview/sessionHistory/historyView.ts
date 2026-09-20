@@ -30,10 +30,13 @@ export function createHistoryView(header: HTMLElement | null, scroller: HTMLElem
   panel.id = "historyPanel"; panel.className = "historyPanel"; panel.hidden = true; panel.setAttribute("aria-label", "历史会话")
   scroller.before(panel)
   const toolbar = document.createElement("div"); toolbar.className = "historyToolbar"
+  const heading = document.createElement("div"); heading.className = "historyHeading"
   const title = document.createElement("strong"); title.textContent = "历史会话"
+  const count = document.createElement("span"); count.className = "historyCount"; count.hidden = true
+  heading.append(title, count)
   const refresh = button("刷新", { type: "refreshHistory" })
   const close = button("关闭", { type: "closeHistory" })
-  toolbar.append(title, refresh, close)
+  toolbar.append(heading, refresh, close)
   const status = document.createElement("p"); status.className = "historyStatus"; status.setAttribute("role", "status")
   const list = document.createElement("ul"); list.className = "historyEntries"
   const more = button("加载更多会话", { type: "moreThreads" })
@@ -68,7 +71,11 @@ export function createHistoryView(header: HTMLElement | null, scroller: HTMLElem
     panel.setAttribute("aria-busy", String(state.history.loading))
     refresh.disabled = more.disabled = disabled || state.history.loading
     more.hidden = !state.history.hasMore
-    status.textContent = state.history.error ?? (state.phase === "loadingHistory" ? "正在恢复所选会话，当前记录暂时保留…" : state.history.loading ? "正在加载会话…" : state.history.entries.length ? `已显示 ${state.history.entries.length} 个会话` : "当前工作区还没有历史会话。")
+    count.hidden = state.history.entries.length === 0
+    count.textContent = `${state.history.entries.length} 会话`
+    count.title = `已加载 ${state.history.entries.length} 个会话`
+    status.textContent = state.history.error ?? (state.phase === "loadingHistory" ? "正在恢复所选会话，当前记录暂时保留…" : state.history.loading ? "正在加载会话…" : state.history.entries.length ? "" : "当前工作区还没有历史会话。")
+    status.hidden = !status.textContent
     const switchingDisabled = disabled || state.backgroundBusy
     const key = JSON.stringify([state.history.entries, switchingDisabled, state.threadId, search.value])
     if (key !== previousEntries) {
