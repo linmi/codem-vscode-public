@@ -61,6 +61,32 @@
           }
         ]
       }
+    },
+    {
+      "files": [
+        "apps/vscode/webview/composerState.ts",
+        "apps/vscode/webview/composerSubmission.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "message": "Composer state may depend only on its receipt rule and shared input contracts; never on UI, Host or entrypoints.",
+                "group": [
+                  "**",
+                  "!./composerSubmission.ts",
+                  "!../src/editorContext.ts",
+                  "!../src/messages.ts",
+                  "!../src/sessionCommands.ts"
+                ],
+                "caseSensitive": true
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "rules": {

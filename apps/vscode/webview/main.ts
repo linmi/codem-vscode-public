@@ -1,25 +1,20 @@
-import { appendContext } from "../src/editorContext.ts"
 import { createResourceTools } from "./components/resourceTools.tsx"
-import { createSessionCommandPanel } from "./components/sessionCommandPanel.tsx"
-import { createSlashCommands } from "./components/slashCommands.tsx"
-import { createComposerMode, modeLabels } from "./components/composerMode.tsx"
-import { commandUnavailable, inputUnavailable, inputModes, slashQuery, type ComposerMode, type ToolsDraft, type SessionCommandId, type SessionPanelCommand } from "../src/sessionCommands.ts"
 import { createCapabilityStatus } from "./components/capabilityStatus.tsx"
 import { createLoadingStatus } from "./loadingStatusView.ts"
 import { workingStatus } from "./workingStatus.ts"
 import { uiIcon, permissionIcons } from "../src/uiIcons.ts"
-import { installFileMentions } from "./fileMentions.ts"
 import { attachmentCard, configureImageLoader } from "./attachmentView.ts"
 import { createWorkGroups } from "./workGroups.ts"
 import { createPanelView } from "./panelView.ts"
 import type { PanelMessage } from "../src/panelTypes.ts"
-import { initialSnapshot, isBusy, type EditorMessage, type ImageResult, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
-import { ComposerSubmission } from "./composerSubmission.ts"
+import { initialSnapshot, isBusy, type ComposerDraft, type EditorMessage, type ImageResult, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/messages.ts"
+
+import { createComposerView } from "./composerView.ts"
 
 import { createMessageView } from "./messageView.ts"
 import { createHistoryView } from "./historyView.ts"
 
-declare function acquireVsCodeApi(): { postMessage(message: ViewAction): void; getState(): { draft?: string; tools?: ToolsDraft } | undefined; setState(state: { draft: string; tools?: ToolsDraft }): void }
+declare function acquireVsCodeApi(): { postMessage(message: ViewAction): void; getState(): Partial<ComposerDraft> | undefined; setState(state: ComposerDraft): void }
 const vscode = acquireVsCodeApi()
 function element<T extends HTMLElement>(id: string): T {
   const found = document.getElementById(id)
@@ -39,19 +34,6 @@ const jumpLatest = element<HTMLButtonElement>("jumpLatest")
 function updateJump(): void { jumpLatest.hidden = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 70 }
 scroller.addEventListener("scroll", updateJump, { passive: true })
 jumpLatest.addEventListener("click", () => { scroller.scrollTop = scroller.scrollHeight; updateJump() })
-let toolsDraft = vscode.getState()?.tools
-let inputMode: ComposerMode = "message"
-let sendKey = "enter"
-let hostDraftReady = false
-let applyingHostDraft = false
-let lastDraft = ""
-let messageDraft = vscode.getState()?.draft ?? ""
-let inputScope = ""
-let commands: ReturnType<typeof createSlashCommands> | undefined
-const commandPanelHost = document.createElement("div"); document.body.append(commandPanelHost)
-const commandPanels = createSessionCommandPanel(commandPanelHost, post, () => prompt.focus())
-const modeHost = document.createElement("div"); element("composer").prepend(modeHost)
-const renderComposerMode = createComposerMode(modeHost, () => setInputMode("message"), post)
 const renderResourceTools = createResourceTools(element("resourceToolsHost"), post)
 const renderHistory = createHistoryView(standaloneActions, scroller, post, prompt)
 const renderCapabilityStatus = createCapabilityStatus(element("runtimeDetailsHost"))
@@ -66,87 +48,15 @@ configureImageLoader(id => new Promise(resolve => {
   if (!existing) post({ type: "loadImage", id })
 }))
 const workingIndicator = createLoadingStatus(element("workingLabel"))
-const submission = new ComposerSubmission()
-const panels = createPanelView(post, () => saveDraft())
-prompt.value = messageDraft
-let measuredPrompt = ""
-let measuredWidth = -1
-function fitPrompt(): void {
-  const width = prompt.clientWidth
-  if (prompt.value === measuredPrompt && width === measuredWidth) return
-  measuredPrompt = prompt.value; measuredWidth = width
-  prompt.style.height = "auto"
-  prompt.style.height = `${Math.min(220, Math.max(59, prompt.scrollHeight))}px`
-}
-new ResizeObserver(fitPrompt).observe(prompt)
+const panels = createPanelView(post, () => composer.refresh())
+const composer = createComposerView({ form: element<HTMLFormElement>("composer"), prompt, send, attachments: element("attachments") }, vscode, () => panels.locked(), renderWorkingStatus)
 
 function post(action: ViewAction): void { vscode.postMessage(action) }
-function saveDraft(): void {
-  const status = workingStatus(state, panels.kind(), submission.busy && inputMode === "message" && state.messages.at(-1)?.role === "user")
+function renderWorkingStatus(): void {
+  const status = workingStatus(state, panels.kind(), composer.pendingMessage && state.messages.at(-1)?.role === "user")
   element("welcome").hidden = status !== null || ["connecting", "loadingHistory", "sending", "running", "stopping"].includes(state.phase) || state.messages.length > 0
   element("workingRow").hidden = status === null
   workingIndicator.set(status?.label ?? null, status?.animate)
-  if (inputMode === "message") messageDraft = prompt.value
-  else toolsDraft = { scope: inputScope, mode: inputMode, text: prompt.value }
-  const value = { draft: messageDraft, ...(toolsDraft ? { tools: toolsDraft } : {}) }
-  vscode.setState(value)
-  const encoded = JSON.stringify(value)
-  if (hostDraftReady && !applyingHostDraft && encoded !== lastDraft) { lastDraft = encoded; post({ type: "composerChanged", value }) }
-  fitPrompt()
-  prompt.disabled = panels.locked()
-  send.disabled = (!isSlashInput() && Boolean(inputUnavailable(inputMode, state))) || !prompt.value.trim() || submission.busy || panels.locked()
-  const generating = state.phase === "running" || state.phase === "stopping"
-  send.hidden = generating && inputMode !== "steer"
-  send.setAttribute("aria-label", inputMode === "message" ? "发送消息" : inputMode === "shellCommand" ? "检查命令" : `发送${modeLabels[inputMode]}`)
-  prompt.setAttribute("aria-label", inputMode === "message" ? "发送给 CodeM 的消息" : `${modeLabels[inputMode]}输入`)
-  prompt.placeholder = inputMode === "message" ? "提出问题，或输入 / 选择会话操作…" : inputMode === "shellCommand" ? "输入要执行的命令…" : `输入${modeLabels[inputMode]}…`
-  element("attachments").hidden = inputMode !== "message"
-  renderComposerMode(inputMode, state)
-}
-function isSlashInput(): boolean { return inputMode !== "shellCommand" && slashQuery(prompt.value) !== null }
-function setInputMode(mode: ComposerMode) {
-  if (inputMode === "message") messageDraft = prompt.value
-  else toolsDraft = { scope: inputScope, mode: inputMode, text: prompt.value }
-  inputMode = mode
-  prompt.value = mode === "message" ? messageDraft : toolsDraft?.scope === inputScope && toolsDraft.mode === mode ? toolsDraft.text : ""
-  submission.edited(); saveDraft(); fileMentions.refresh(); prompt.focus()
-}
-function chooseCommand(id: SessionCommandId) {
-  if (commandUnavailable(id, state)) return
-  if (isSlashInput()) { prompt.value = ""; submission.edited(); saveDraft() }
-  const mode = inputModes[id]
-  if (mode) { setInputMode(mode); return }
-  const action = ({ files: "addAttachment", model: "selectModel", mode: "selectWorkMode", history: "showHistory" } as const)[id as "files" | "model" | "mode" | "history"]
-  if (action) post({ type: action })
-  else commandPanels.open(id as SessionPanelCommand)
-}
-function submit(): void {
-  if (document.activeElement?.closest(".slashMenu")) return
-  if (isSlashInput()) { commands?.open(slashQuery(prompt.value)!); return }
-  if (send.disabled) return
-  const requestId = crypto.randomUUID()
-  const text = prompt.value
-  const mode = inputMode
-  const threadId = state.threadId
-  const submitInput = () => {
-    if (inputMode !== mode || state.threadId !== threadId || inputUnavailable(mode, state) || !submission.begin(requestId)) return
-    if (mode === "message") post({ type: "send", text, requestId })
-    else if (threadId) post({ type: mode, threadId, text, requestId })
-    saveDraft()
-  }
-  if (mode === "shellCommand") commandPanels.confirmShell(text, submitInput)
-  else submitInput()
-}
-element<HTMLFormElement>("composer").addEventListener("submit", (event) => { event.preventDefault(); submit() })
-prompt.addEventListener("input", event => {
-  submission.edited(); saveDraft()
-  if (!(event as InputEvent).isComposing && isSlashInput() && !panels.locked()) commands?.open(slashQuery(prompt.value)!)
-})
-prompt.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey && !event.isComposing && (sendKey === "enter" ? !event.ctrlKey && !event.metaKey : event.ctrlKey || event.metaKey)) { event.preventDefault(); submit() }
-})
-for (const button of document.querySelectorAll<HTMLButtonElement>("[data-prompt]")) {
-  button.addEventListener("click", () => { prompt.value = button.dataset.prompt ?? ""; submission.edited(); saveDraft(); prompt.focus() })
 }
 connect.addEventListener("click", () => post({ type: "connect" }))
 signIn.addEventListener("click", () => post({ type: "signIn" }))
@@ -185,15 +95,7 @@ function render(next: ChatSnapshot): void {
   const switched = state.threadId !== next.threadId
   const previousFirst = state.messages[0]?.id
   const prepended = !switched && previousFirst !== undefined && next.messages.findIndex((message) => message.id === previousFirst) > 0 && state.messages.at(-1)?.id === next.messages.at(-1)?.id
-  const nextScope = JSON.stringify([next.workspace, next.space, next.threadId])
-  if (inputScope !== nextScope && inputMode !== "message") {
-    inputMode = "message"; prompt.value = messageDraft; submission.reset()
-  }
-  inputScope = nextScope
-  if (next.sessionTools.result && submission.settle({ type: "sendResult", ...next.sessionTools.result })) prompt.value = ""
   state = next
-  commandPanels.update(state)
-  commands?.update(state)
   document.querySelector<HTMLElement>(".app")!.dataset.phase = state.phase
   const liveIds = new Set(state.messages.map((message) => message.id))
   for (const [id, node] of nodes) { if (!liveIds.has(id)) { node.dispose(); node.root.remove(); nodes.delete(id) } }
@@ -210,7 +112,7 @@ function render(next: ChatSnapshot): void {
   }
   while (position) { const next = position.nextSibling; position.remove(); position = next }
   renderHistory(state)
-  renderCapabilityStatus(state, sendKey)
+  renderCapabilityStatus(state, composer.sendKey)
   const connecting = state.phase === "connecting"
   const restoring = state.phase === "loadingHistory"
   element("transcriptLoading").hidden = !restoring
@@ -220,7 +122,7 @@ function render(next: ChatSnapshot): void {
   connect.disabled = signIn.disabled = state.phase === "connecting"
   if (newChat) newChat.disabled = isBusy(state.phase) || state.backgroundBusy || Boolean(state.sessionTools.busy)
   const generating = state.phase === "running" || state.phase === "stopping"
-  stop.hidden = !generating; send.hidden = generating; stop.disabled = state.phase === "stopping"
+  stop.hidden = !generating; stop.disabled = state.phase === "stopping"
   element("statusDot").dataset.connected = String(state.phase !== "disconnected" && state.phase !== "connecting")
   element("space").textContent = state.space ?? "选择空间"
   element("selectSpace").title = state.space ? `切换空间：${state.space}` : "连接后选择 CodeM 空间"
@@ -230,9 +132,8 @@ function render(next: ChatSnapshot): void {
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
   element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : ""
-  fileMentions.refresh()
   renderResources()
-  saveDraft()
+  composer.update(state)
   panels.restoreFocus()
   if (prepended && anchor) scroller.scrollTop = oldTop + anchor.getBoundingClientRect().top - anchorTop
   else if (switched || follow) scroller.scrollTop = scroller.scrollHeight
@@ -240,43 +141,14 @@ function render(next: ChatSnapshot): void {
 }
 
 window.addEventListener("message", (event: MessageEvent<EditorMessage | ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected | ImageResult>) => {
-  if (event.data?.type === "composerDraft") {
-    applyingHostDraft = true; hostDraftReady = true
-    submission.reset()
-    if (event.data.pendingRequestId) submission.begin(event.data.pendingRequestId)
-    messageDraft = event.data.value.draft; toolsDraft = event.data.value.tools
-    inputMode = "message"; prompt.value = messageDraft; saveDraft()
-    lastDraft = JSON.stringify(event.data.value); applyingHostDraft = false
-    if (event.data.focus) prompt.focus()
+  if (event.data?.type === "composerDraft" || event.data?.type === "appendContext" || event.data?.type === "focusComposer" || event.data?.type === "editorSettings" || event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected" || event.data?.type === "sendResult") {
+    composer.receive(event.data)
+    if (event.data.type === "editorSettings") renderCapabilityStatus(state, composer.sendKey)
   }
-  else if (event.data?.type === "appendContext") {
-    let accepted = false
-    try {
-      const next = appendContext(inputMode === "message" ? prompt.value : messageDraft, event.data.text)
-      setInputMode("message"); applyingHostDraft = true
-      prompt.value = next; submission.edited(); saveDraft(); accepted = true
-    } catch { /* Host reports a rejected receipt and keeps the previous draft. */ }
-    finally { applyingHostDraft = false }
-    const value = { draft: messageDraft, ...(toolsDraft ? { tools: toolsDraft } : {}) }
-    lastDraft = JSON.stringify(value)
-    post({ type: "contextAdded", id: event.data.id, value, accepted })
-  }
-  else if (event.data?.type === "focusComposer") prompt.focus()
-  else if (event.data?.type === "editorSettings") { sendKey = event.data.sendKey; send.title = sendKey === "enter" ? "发送消息 · Enter" : "发送消息 · Ctrl / Cmd + Enter"; render(state) }
   else if (event.data?.type === "imageResult") { imageRequests.get(event.data.id)?.(event.data.preview); imageRequests.delete(event.data.id) }
-  else if (event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected") fileMentions.receive(event.data)
   else if (event.data?.type === "panel") panels.render(event.data.panel)
   else if (event.data?.type === "state") render(event.data)
-  else if (event.data?.type === "sendResult") {
-    if (submission.settle(event.data)) prompt.value = ""
-    saveDraft()
-  }
 })
-const fileMentions = installFileMentions(prompt, () => inputMode === "message" && state.phase === "ready" && !panels.locked(), post)
-const commandsHost = document.createElement("span"); commandsHost.id = "slashCommandsHost"; commandsHost.hidden = true; element("composer").append(commandsHost)
-commands = createSlashCommands(commandsHost, element("composer"), prompt, chooseCommand)
-commands.update(state)
-commandPanels.update(state)
-saveDraft()
+composer.update(state)
 post({ type: "ready" })
-post({ type: "composerRestore", value: { draft: messageDraft, ...(toolsDraft ? { tools: toolsDraft } : {}) } })
+composer.requestRestore()

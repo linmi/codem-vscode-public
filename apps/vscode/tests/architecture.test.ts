@@ -107,3 +107,50 @@ it("architecture gate: lint rejects even erased editor type imports", async t =>
     return true
   })
 })
+
+it("structure gate: composer state accepts its contracts and rejects UI, Host, entrypoint and arbitrary helper imports", async t => {
+  const root = await fixture(t)
+  await put(root, ".oxlintrc.json", await readFile(join(workspace, ".oxlintrc.json"), "utf8"))
+  const path = "apps/vscode/webview/composerState.ts"
+  const lint = () => execFileSync(join(workspace, "node_modules/.bin/oxlint"), ["--deny-warnings", path], { cwd: root, encoding: "utf8", stdio: "pipe" })
+  await put(root, path, 'export type { ComposerDraft } from "../src/messages.ts"; export { ComposerSubmission } from "./composerSubmission.ts"')
+  lint()
+  for (const source of [
+    'export { createComposerView } from "./composerView.ts"',
+    'export type { ChatController } from "../src/chatController.ts"',
+    'import "./main.ts"',
+    'export type { ReactNode } from "react"',
+    'export { readFile } from "node:fs/promises"',
+    'export { draft } from "./helpers.ts"',
+    'export const load = () => import("./composerView.ts")',
+  ]) {
+    await put(root, path, source)
+    assert.throws(lint, error => {
+      const failure = error as Error & { status: number; stdout: string }
+      assert.equal(failure.status, 1)
+      assert.match(failure.stdout, /no-restricted-imports/)
+      return true
+    }, source)
+  }
+})
+
+it("structure gate: composer type environment accepts plain state and rejects DOM and ambient Node APIs", async t => {
+  const root = await fixture(t)
+  const directory = "apps/vscode/webview"
+  const config = JSON.parse(await readFile(join(workspace, directory, "tsconfig.composer.json"), "utf8"))
+  config.extends = join(workspace, "tsconfig.json")
+  await put(root, `${directory}/tsconfig.composer.json`, JSON.stringify(config))
+  const path = `${directory}/composerState.ts`
+  const check = () => execFileSync(join(workspace, "apps/vscode/node_modules/.bin/tsc"), ["--noEmit", "-p", `${directory}/tsconfig.composer.json`], { cwd: root, encoding: "utf8", stdio: "pipe" })
+  await put(root, path, 'export const drafts = new Map<string, string>()')
+  check()
+  for (const source of ['export const draft = document.createElement("textarea")', 'export const draft = process.env.DRAFT']) {
+    await put(root, path, source)
+    assert.throws(check, error => {
+      const failure = error as Error & { status: number; stdout: string }
+      assert.notEqual(failure.status, 0)
+      assert.match(failure.stdout, /Cannot find name '(document|process)'/)
+      return true
+    }, source)
+  }
+})
