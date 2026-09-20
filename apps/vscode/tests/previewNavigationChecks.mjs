@@ -8,7 +8,11 @@ export default async function previewNavigationChecks(page) {
     await page.goto('http://127.0.0.1:4318/?scenario=thinking&theme=light')
     const toc = page.getByRole('navigation',{name:'场景目录'})
     await toc.waitFor()
-    if (await toc.getByRole('link').count() !== 24) throw Error('Missing scenarios')
+    const links = await toc.getByRole('link').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))
+    if (new Set(links).size !== links.length) throw Error('Duplicate scenario links')
+    for (const name of ['完成回复', '六类工具 · 参数与输出', '五类产物与长标题', '运行环境与依赖', '图片加载失败与重试']) {
+      if (await toc.getByRole('link', {name, exact:true}).count() !== 1) throw Error(`Missing scenario: ${name}`)
+    }
     if (await page.getByRole('combobox',{name:'预览场景'}).count()) throw Error('Old dropdown remains')
     if (await toc.getByRole('link',{name:'思考中',exact:true}).getAttribute('aria-current') !== 'page') throw Error('Current scenario not marked')
     await toc.getByRole('link',{name:'工具执行中',exact:true}).click()

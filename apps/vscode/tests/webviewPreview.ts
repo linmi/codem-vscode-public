@@ -8,6 +8,7 @@ import { chatHtml } from "../src/html.ts"
 
 const port = 4318
 const routes: Record<string, { path: string; type: string }> = {
+  "/previewDashboard.png": { path: "./fixtures/previewDashboard.png", type: "image/png" },
   "/previewNavigation.js": { path: "../dist/previewNavigation.js", type: "text/javascript" },
   "/preview.css": { path: "./preview.css", type: "text/css" },
   "/webview.js": { path: "../dist/webview.js", type: "text/javascript" },

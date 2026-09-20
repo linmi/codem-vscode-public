@@ -1,6 +1,7 @@
 import { initialSnapshot, type ChatSnapshot } from "../src/messages.ts"
 import { applyPreviewScenario, previewScenarios } from "./previewScenarios.ts"
 import { panelFixtures } from "./panelFixtures.ts"
+import { contentScenario } from "./previewContent.ts"
 
 const fixture: ChatSnapshot = {
   ...initialSnapshot(), phase: "ready", workspace: "codem-plugin", space: "研发团队", model: "Auto", threadId: "preview",
@@ -26,7 +27,9 @@ export function createPreviewState(search: PreviewSearch) {
   const panels = structuredClone(panelFixtures)
   if (search.empty !== undefined) { demo.messages = []; demo.threadId = null }
   const panelName = applyPreviewScenario(demo, search.scenario) ?? search.panel
-  const activePanel = panelName ? panels[panelName] : null
+  const content = contentScenario(search.scenario)
+  content?.apply(demo)
+  const activePanel = content?.panel ? structuredClone(content.panel) : panelName ? panels[panelName] : null
   if (activePanel?.kind === "permissionMode") activePanel.choices.forEach(choice => { choice.selected = choice.id === demo.permission })
   if (demo.messages.length) {
     const turnId = "previewTurn"
@@ -34,5 +37,5 @@ export function createPreviewState(search: PreviewSearch) {
     const now = Date.now()
     demo.turnTimings = [{ turnId, startedAt: now - 36_000, finishedAt: ["running", "stopping"].includes(demo.phase) ? null : now }]
   }
-  return { demo, panels, activePanel }
+  return { demo, panels, activePanel, surface: content?.surface ?? null }
 }

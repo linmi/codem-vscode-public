@@ -1,4 +1,5 @@
 import type { ChatSnapshot } from "../src/messages.ts"
+import { contentScenarios } from "./previewContent.ts"
 
 export const previewScenarios = [
   ["conversation", "对话", "完成回复"], ["progressUpdates", "对话", "多次搜索与进度说明"], ["welcome", "对话", "新会话"],
@@ -11,6 +12,7 @@ export const previewScenarios = [
   ["permissionDefault", "菜单", "权限 · 默认"], ["permissionAuto", "菜单", "权限 · 自动审批"], ["permissionYolo", "菜单", "权限 · 完全访问"],
   ["approval", "交互", "命令审批"], ["question", "交互", "多选问题"], ["questionBack", "交互", "第二题 · 返回与提交"], ["plan", "交互", "计划确认"],
   ["attachments", "内容", "文件与图片附件"], ["artifacts", "内容", "产物卡片"],
+  ...contentScenarios.map(({ id, group, label }) => [id, group, label] as const),
 ] as const
 
 export function applyPreviewScenario(state: ChatSnapshot, scenario: string): string | null {
