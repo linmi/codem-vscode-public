@@ -1,4 +1,7 @@
-import { basename } from "node:path"
+import { mkdtemp, writeFile, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { MAX_ATTACHMENTS, parsePastedImages, type PastedImage } from "../shared/pastedImages.ts"
+import { basename, join } from "node:path"
 import { randomUUID } from "node:crypto"
 import type { AppServerPromptAttachment } from "@codem/app-server"
 import { readSessionImage, resolveSessionsRoot, type ConversationAttachment, type SessionHistoryPage } from "@codem/session-history"
@@ -8,7 +11,7 @@ import { historyMessages } from "../sessionHistory/historyMessages.ts"
 import { Artifacts, type ArtifactInput } from "./artifacts.ts"
 import { FileReferences } from "./fileReferences.ts"
 import { changedFilePath, displayPath, validateAttachment, type FileDiffContent } from "./filePresentation.ts"
-import { attachmentPreview, rasterPreview } from "./attachmentPreview.ts"
+import { attachmentPreview, rasterPreview, rasterMediaType } from "./attachmentPreview.ts"
 
 /** Owns opaque resource handles for one conversation; never owns connection or UI state. */
 export class ConversationResources {
@@ -19,8 +22,12 @@ export class ConversationResources {
   private readonly diffs = new Map<string, FileDiffContent>()
   private readonly diffIds = new Map<string, string>()
   private revision = 0
+  private readonly pastedDirectories = new Map<string, string>()
+  private readonly imageImports = new Set<Promise<AttachmentView[]>>()
+  private readonly imageCleanup = new Set<Promise<void>>()
+  private readonly cleanupErrors: unknown[] = []
 
-  clear(preserveAttachments = false): void {
+  clear(preserveAttachments = false, releaseAfter: Promise<unknown> = Promise.resolve()): void {
     this.revision++
     this.artifacts.clear()
     this.references.clear()
@@ -29,6 +36,7 @@ export class ConversationResources {
     for (const [id, item] of this.attachments) {
       if (item.kind === "image") this.images.set(id, () => attachmentPreview(item))
     }
+    for (const id of this.pastedDirectories.keys()) if (!this.attachments.has(id)) this.releasePastedImage(id, releaseAfter)
     this.diffs.clear()
     this.diffIds.clear()
   }
@@ -49,7 +57,7 @@ export class ConversationResources {
   async add(cwd: string | null, chosen: readonly AppServerPromptAttachment[], assertCurrent: () => void): Promise<AttachmentView[]> {
     const revision = this.revision
     const unique = chosen.filter((item, index) => !this.contains(item.path) && chosen.findIndex(other => other.path === item.path) === index)
-    if (this.attachments.size + unique.length > 20) throw new UserVisibleError("每条消息最多添加 20 个附件。")
+    if (this.attachments.size + unique.length > MAX_ATTACHMENTS) throw new UserVisibleError("每条消息最多添加 20 个附件。")
     for (const item of unique) await validateAttachment(item)
     if (revision !== this.revision) throw new Error("Attachment selection expired")
     assertCurrent()
@@ -59,6 +67,57 @@ export class ConversationResources {
       if (item.kind === "image") this.images.set(id, () => attachmentPreview(item))
       return { id, label: cwd === null ? basename(item.path) : displayPath(cwd, item.path), kind: item.kind, preview: item.kind === "image" ? { kind: "deferred" } : { kind: "none" } }
     })
+  }
+
+  addPastedImages(images: readonly PastedImage[], assertCurrent: () => void): Promise<AttachmentView[]> {
+    const task = this.importImages(images, assertCurrent)
+    this.imageImports.add(task)
+    const settled = () => { this.imageImports.delete(task) }
+    void task.then(settled, settled)
+    return task
+  }
+
+  private async importImages(images: readonly PastedImage[], assertCurrent: () => void): Promise<AttachmentView[]> {
+    const revision = this.revision
+    const checked = parsePastedImages(images)
+    if (this.attachments.size + checked.length > MAX_ATTACHMENTS) throw new UserVisibleError("每条消息最多添加 20 个附件。")
+    const created: { directory: string; path: string }[] = []
+    try {
+      for (const image of checked) {
+        assertCurrent()
+        if (revision !== this.revision) throw new Error("Image paste expired")
+        const bytes = Buffer.from(image.data, "base64")
+        if (bytes.toString("base64") !== image.data || rasterMediaType(bytes) !== image.mediaType) throw new UserVisibleError("剪贴板图片格式无效，请重新复制 PNG、JPEG、GIF 或 WebP 图片。")
+        const directory = await mkdtemp(join(tmpdir(), "codem-paste-"))
+        const path = join(directory, `粘贴图片.${image.mediaType === "image/jpeg" ? "jpg" : image.mediaType.slice(6)}`)
+        created.push({ directory, path })
+        await writeFile(path, bytes, { flag: "wx", mode: 0o600 })
+      }
+      if (revision !== this.revision) throw new Error("Image paste expired")
+      const added = await this.add(null, created.map(item => ({ kind: "image", path: item.path })), assertCurrent)
+      added.forEach((item, index) => this.pastedDirectories.set(item.id, created[index]!.directory))
+      return added
+    } catch (error) {
+      await Promise.all(created.map(item => rm(item.directory, { recursive: true, force: true })))
+      throw error
+    }
+  }
+
+  private releasePastedImage(id: string, after: Promise<unknown> = Promise.resolve()): void {
+    const directory = this.pastedDirectories.get(id)
+    if (!directory) return
+    this.pastedDirectories.delete(id)
+    // Retiring Core may still be reading a submitted localImage. Wait for its close.
+    const task = after.then(() => rm(directory, { recursive: true, force: true }))
+      .catch(error => { this.cleanupErrors.push(error) })
+    this.imageCleanup.add(task)
+    void task.then(() => { this.imageCleanup.delete(task) })
+  }
+
+  async finishImageCleanup(): Promise<void> {
+    await Promise.allSettled([...this.imageImports])
+    await Promise.all([...this.imageCleanup])
+    if (this.cleanupErrors.length) throw new AggregateError(this.cleanupErrors.splice(0), "Pasted image cleanup failed")
   }
 
   search(cwd: string, query: string, find: (cwd: string, query: string) => Promise<readonly string[]>) { return this.references.search(cwd, query, find) }
@@ -77,7 +136,7 @@ export class ConversationResources {
 
   retainImages(attachments: readonly AttachmentView[], messages: readonly ChatMessage[]): void {
     const ids = new Set([...attachments, ...messages.flatMap(message => "attachments" in message ? message.attachments ?? [] : [])].map(item => item.id))
-    for (const id of this.images.keys()) if (!ids.has(id)) this.images.delete(id)
+    for (const id of this.images.keys()) if (!ids.has(id)) { this.images.delete(id); this.releasePastedImage(id) }
   }
 
   recordDiff(cwd: string, turnId: string, itemId: string, diff: FileDiffContent): DiffView {

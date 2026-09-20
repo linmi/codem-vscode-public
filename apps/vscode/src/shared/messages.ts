@@ -1,3 +1,4 @@
+import { parsePastedImages, type PasteImagesAction } from "./pastedImages.ts"
 import { MAX_PINNED_CODE_SELECTIONS } from "./editorContext.ts"
 import { CODEM_DEFAULT_INTELLIGENCE, parseCodemIntelligence, parseCodemPermissionMode, type CodemBuiltinIntelligence } from "@codem/protocol"
 import { parseWorkMode, type ComposerSettingAction, type ComposerCatalog } from "./composerSettings.ts"
@@ -13,6 +14,7 @@ export interface CodeSelectionView { id: string; label: string; path: string; st
 export interface CodeSelectionsView { current: CodeSelectionView | null; pinned: readonly CodeSelectionView[] }
 export type EditorMessage = { type: "codeSelection"; value: CodeSelectionsView } | { type: "composerDraft"; value: ComposerDraft; focus: boolean; pendingRequestId: string | null } | { type: "appendContext"; id: string; text: string } | { type: "focusComposer" } | { type: "editorSettings"; sendKey: string }
 export type ViewAction =
+  | PasteImagesAction
   | ComposerSettingAction
   | { type: "pickAttachment"; kind: "file" | "directory" }
   | { type: "contextAdded"; id: string; accepted: boolean; value: ComposerDraft }
@@ -34,6 +36,10 @@ export interface SendResult { type: "sendResult"; requestId: string; accepted: b
 export function parseViewAction(value: unknown): ViewAction {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid CodeM action")
   const record = value as Record<string, unknown>
+  if (record.type === "pasteImages") {
+    if (Object.keys(record).length !== 4 || typeof record.requestId !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(record.requestId) || typeof record.scope !== "string" || record.scope.length > 1000) throw new Error("Invalid image paste action")
+    return { type: "pasteImages", requestId: record.requestId, scope: record.scope, images: parsePastedImages(record.images) }
+  }
   if (record.type === "contextAdded") {
     if (Object.keys(record).length !== 4 || typeof record.id !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(record.id) || typeof record.accepted !== "boolean") throw new Error("Invalid context receipt")
     const draft = parseViewAction({ type: "composerChanged", value: record.value })

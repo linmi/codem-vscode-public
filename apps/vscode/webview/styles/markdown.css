@@ -1,4 +1,4 @@
-/* Adapted from Synara index.css .chat-markdown at 33333439; MIT notice in licenses/synara.txt. */
+/* Adapted from Synara index.css .chat-markdown at 33333439 (MIT). */
 .chatMarkdown { min-width: 0; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
 .chatMarkdown strong, .chatMarkdown b { font-weight: 500; font-synthesis: none; }
 .chatMarkdown > :first-child { margin-top: 0; }

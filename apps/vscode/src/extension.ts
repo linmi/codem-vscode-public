@@ -1,3 +1,4 @@
+import type { PasteImagesResult } from "./shared/pastedImages.ts"
 import { AccountController } from "./connection/accountController.ts"
 import { accountOperations } from "./connection/runtimeAccount.ts"
 import { EditorSelection } from "./integrations/editorSelection.ts"
@@ -97,8 +98,9 @@ export function activate(context: vscode.ExtensionContext): void {
     await chat.connect()
   }
   context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => { void autoConnect() }))
-  const dispatch = async (action: ViewAction, reply: (result: SendResult | FileSearchResult | FileSelected | ImageResult) => void): Promise<void> => {
+  const dispatch = async (action: ViewAction, reply: (result: PasteImagesResult | SendResult | FileSearchResult | FileSelected | ImageResult) => void): Promise<void> => {
     if (!account.signedIn && !["ready", "signIn", "signOut", "cancelSignIn", "refreshAccount", "showOutput"].includes(action.type)) {
+      if (action.type === "pasteImages") reply({ type: "pasteImagesResult", requestId: action.requestId, error: "请先登录后再粘贴图片。" })
       if (action.type === "send") reply({ type: "sendResult", requestId: action.requestId, accepted: false })
       account.publish(); return
     }
@@ -176,6 +178,7 @@ export function activate(context: vscode.ExtensionContext): void {
         catch { reply({ type: "fileSelected", requestId: action.requestId, accepted: false }) }
         break
       }
+      case "pasteImages": reply({ type: "pasteImagesResult", requestId: action.requestId, error: await chat.pasteImages(action) }); break
       case "pickAttachment": await chat.addAttachments(() => features.pickAttachments(action.kind)); break
       case "openArtifact": await chat.openArtifact(action.id, source => features.showArtifact(source)); break
       case "loadImage": reply({ type: "imageResult", id: action.id, preview: await chat.loadImage(action.id) }); break

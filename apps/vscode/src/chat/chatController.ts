@@ -1,3 +1,4 @@
+import { attachmentScope, type PasteImagesAction } from "../shared/pastedImages.ts"
 import type { ActiveConversation, ConversationScope } from "../sessionHistory/activeConversation.ts"
 import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from "../sessionHistory/conversationHistory.ts"
 import { BackgroundTasks, type BackgroundContext } from "./backgroundTasks.ts"
@@ -842,6 +843,7 @@ export class ChatController {
     const current = this.retire()
     const results = await Promise.allSettled(new Set([current, ...this.retiringHosts, this.options.activeConversation?.flush() ?? Promise.resolve()]))
     const failures = results.flatMap(result => result.status === "rejected" ? [result.reason] : [])
+    try { await this.resources.finishImageCleanup() } catch (error) { failures.push(error) }
     if (failures.length) throw new AggregateError(failures, "CodeM host cleanup failed")
   }
 
@@ -851,7 +853,8 @@ export class ChatController {
     this.conversationHistory.reset()
     this.historyList.bind(null)
     this.background.stopPolling()
-    this.resetResources()
+    const retiring = Promise.resolve().then(() => session?.host.close())
+    this.resetResources(false, retiring)
     this.session = null
     this.directoryPaths.clear()
     this.generation++
@@ -864,7 +867,6 @@ export class ChatController {
     this.update({ hasOlderMessages: false, historyNeedsRefresh: false })
     // Register every retirement here, including disconnect events, before callers
     // can begin another disposal. Event authority is revoked synchronously above.
-    const retiring = Promise.resolve().then(() => session?.host.close())
     this.retiringHosts.add(retiring)
     const settled = () => { this.retiringHosts.delete(retiring) }
     void retiring.then(settled, settled)
@@ -1226,6 +1228,30 @@ export class ChatController {
     return this.session === session && this.resources.selected().some(value => value.path === item.path)
   }
 
+  async pasteImages(action: PasteImagesAction): Promise<string | null> {
+    const session = this.session
+    const generation = this.generation
+    if (this.disposed || action.scope !== attachmentScope(this.state)) return "会话已切换，请重新粘贴图片。"
+    if (!["ready", "disconnected"].includes(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return "请等待当前操作完成后再粘贴图片。"
+    const assertCurrent = () => {
+      this.options.assertTrusted()
+      if (this.disposed || this.session !== session || this.generation !== generation || action.scope !== attachmentScope(this.state)) throw new Error("Image paste expired")
+    }
+    this.update({ phase: "configuring", notice: null })
+    try {
+      assertCurrent()
+      const additions = await this.resources.addPastedImages(action.images, assertCurrent)
+      assertCurrent()
+      this.update({ attachments: [...this.state.attachments, ...additions] })
+      return null
+    } catch (error) {
+      this.options.report("pasteImages", error)
+      return error instanceof UserVisibleError ? error.message : "图片粘贴失败，请重新复制后重试。"
+    } finally {
+      if (this.session === session && this.generation === generation && !this.disposed && this.snapshot().phase === "configuring") this.update({ phase: session ? "ready" : "disconnected" })
+    }
+  }
+
   async addAttachments(pick: () => Promise<readonly AppServerPromptAttachment[]>): Promise<void> {
     const session = this.session
     if (this.disposed || !["ready", "disconnected"].includes(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return
@@ -1307,11 +1333,11 @@ export class ChatController {
     this.update({ model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name) })
   }
 
-  private resetResources(preserveAttachments = false): void {
+  private resetResources(preserveAttachments = false, releaseAfter: Promise<unknown> = Promise.resolve()): void {
     this.liveSnapshot.clear()
     this.side = null; this.controlTurn = null; this.skillNames.clear()
     this.state = { ...this.state, capabilities: emptyCapabilities(), sessionTools: { ...emptySessionTools(), directories: this.state.sessionTools.directories } }
-    this.resources.clear(preserveAttachments); this.background.clear()
+    this.resources.clear(preserveAttachments, releaseAfter); this.background.clear()
     this.state = { ...this.state, ...this.background.snapshot() }
   }
 

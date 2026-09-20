@@ -18,6 +18,10 @@ export async function attachmentPreview(item: AppServerPromptAttachment): Promis
 }
 
 export function rasterPreview(bytes: Buffer): AttachmentView["preview"] {
-  const mime = bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? "image/png" : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? "image/jpeg" : /^GIF8[79]a$/.test(bytes.subarray(0, 6).toString()) ? "image/gif" : bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP" ? "image/webp" : null
+  const mime = rasterMediaType(bytes)
   return mime ? { kind: "image", dataUrl: `data:${mime};base64,${bytes.toString("base64")}` } : { kind: "unavailable", reason: "此格式不支持安全缩略图" }
+}
+
+export function rasterMediaType(bytes: Buffer): string | null {
+  return bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? "image/png" : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? "image/jpeg" : /^GIF8[79]a$/.test(bytes.subarray(0, 6).toString()) ? "image/gif" : bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP" ? "image/webp" : null
 }
