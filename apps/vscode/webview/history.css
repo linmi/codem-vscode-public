@@ -1,8 +1,9 @@
-.historyPanel { position: absolute; z-index: 4; left: 12px; top: 8px; width: min(340px, calc(100% - 24px)); max-height: calc(100% - 20px); overflow: auto; padding: 8px; background: color-mix(in srgb, var(--popover) 90%, transparent); backdrop-filter: blur(40px) saturate(150%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--composerShadow); }
+.historyPanel { position: absolute; z-index: 4; left: 12px; top: 8px; width: min(340px, calc(100% - 24px)); max-height: calc(100% - 20px); display: flex; flex-direction: column; overflow: hidden; padding: 8px; background: color-mix(in srgb, var(--popover) 90%, transparent); backdrop-filter: blur(40px) saturate(150%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--composerShadow); }
 .historyToolbar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .historyToolbar strong { margin-right: auto; font-size: 12px; }
 .historyStatus { color: var(--muted); font-size: 10px; margin: 10px 6px; }
-.historyEntries { list-style: none; padding: 0; margin: 0; }
+.historyPanel > * { flex-shrink: 0; }
+.historyEntries { flex-shrink: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; list-style: none; padding: 0; margin: 0; }
 .historyEntry { display: block; width: 100%; text-align: left; padding: 6px 8px; border-radius: 10px; }
 .historyEntry span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
 .historyEntry small { display: block; color: var(--muted); margin-top: 4px; font-size: 10px; }

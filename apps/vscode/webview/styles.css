@@ -107,7 +107,7 @@ textarea::placeholder { color: color-mix(in srgb, var(--muted) 40%, transparent)
 .primaryButton { background: var(--primary); color: var(--onPrimary); border-radius: 999px; padding: 5px 12px; }
 .textButton { font-size: 11px; padding: 5px 8px; border-radius: 6px; color: var(--muted); }
 .notice { font-size: 11px; line-height: 1.625; padding: 10px 12px; border: 1px solid var(--vscode-inputValidation-warningBorder, #d97706); border-radius: 14px; overflow-wrap: anywhere; }
-.attachments { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 12px 0; }
+.attachments { max-height: min(144px, 24dvh); overflow-y: auto; overscroll-behavior: contain; display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 12px 0; }
 .attachments:empty { display: none; }
 .attachments button { max-width: 100%; overflow-wrap: anywhere; text-align: left; border: 1px solid var(--line); background: var(--soft); padding: 5px 8px; border-radius: 8px; font-size: 11px; }
 .jumpLatest { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: var(--popover); box-shadow: var(--composerShadow); color: var(--muted); }

@@ -35,6 +35,5 @@
 [data-slot="dialog-overlay"] { z-index: 90; }
 [data-slot="dialog-content"] { z-index: 91; background: var(--surface); color: var(--ink); border: 1px solid var(--line); font: 12px/1.6 var(--uiFont); box-sizing: border-box; }
 [data-slot="select-content"] { z-index: 100; }
-.rewindDialog { width: min(520px, calc(100vw - 24px)); }
 [data-slot="dialog-title"], [data-slot="dialog-description"] { margin: 0; flex-shrink: 0; }
 [data-slot="dialog-title"] { font-size: 16px; line-height: 24px; }
