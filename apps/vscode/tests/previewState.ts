@@ -7,7 +7,7 @@ export const localMenuNames = ["effort", "workMode", "permissionMode", "model", 
 const fixture: ChatSnapshot = {
   ...initialSnapshot(), phase: "ready", workspace: "codem-plugin", space: "研发团队", model: "Auto", threadId: "preview",
   composerCatalog: {
-    models: [{ id: "auto", label: "Auto", description: "自动选择合适的模型", selected: true }, { id: "model-one", label: "CodeM Reasoning", description: "支持图片 · 200,000 tokens", selected: false }, { id: "model-two", label: "CodeM Fast", description: "128,000 tokens", selected: false }],
+    models: [{ id: "auto", label: "Auto", description: "", selected: true }, { id: "model-one", label: "CodeM Reasoning", description: "支持图片", selected: false }, { id: "model-two", label: "CodeM Fast", description: "", selected: false }],
     spaces: [{ id: "team", label: "研发团队", description: "", selected: true }, { id: "personal", label: "个人空间", description: "", selected: false }],
   },
   messages: [

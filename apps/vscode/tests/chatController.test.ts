@@ -1160,6 +1160,7 @@ it("publishes local catalog handles without Core reads and rejects stale/cross-c
   await f.controller.connect()
   const catalog = f.controller.snapshot().composerCatalog
   assert.equal(catalog.models.length, 2)
+  assert.deepEqual(catalog.models.map(({ description }) => description), ["支持图片", ""])
   for (let i = 0; i < 5; i++) assert.deepEqual(f.controller.snapshot().composerCatalog, catalog)
   assert.equal(modeReads, 0)
   await f.controller.chooseModel(catalog.spaces[0]!.id)

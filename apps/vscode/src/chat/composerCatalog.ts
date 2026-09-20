@@ -15,7 +15,7 @@ export class ComposerCatalogView {
   space(id: string): string | undefined { return this.spaces.get(id)?.projectKey }
   snapshot(model: string, space: string): ComposerCatalog {
     return {
-      models: [...this.models].map(([id, item]) => ({ id, label: item.id.endsWith("/auto") ? "Auto" : item.id, description: `${item.supportsVision ? "支持图片 · " : ""}${item.contextWindowTokens.toLocaleString()} tokens`, selected: item.id === model })),
+      models: [...this.models].map(([id, item]) => ({ id, label: item.id.endsWith("/auto") ? "Auto" : item.id, description: item.supportsVision ? "支持图片" : "", selected: item.id === model })),
       spaces: [...this.spaces].map(([id, item]) => ({ id, label: item.displayName, description: "", selected: item.projectKey === space })),
     }
   }
