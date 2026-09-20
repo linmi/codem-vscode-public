@@ -87,6 +87,8 @@ export function startAppServerLogin(options: StartAppServerLoginOptions): AppSer
   let lastEventType: string | null = null
   let authorizationPresentation: Promise<void> | null = null
   let cancelled = false
+  const verification = new AbortController()
+  const cancelledPresentation = new Promise<void>(resolve => verification.signal.addEventListener("abort", () => resolve(), { once: true }))
   const progress = new Set<AppServerLoginProgress>()
 
   child.stdout.setEncoding("utf8")
@@ -116,8 +118,12 @@ export function startAppServerLogin(options: StartAppServerLoginOptions): AppSer
     if (lastEventType !== "login_success" || authorizationPresentation === null) {
       throw new Error("CodeM login ended without a successful authorization flow")
     }
-    await authorizationPresentation
-    const status = await readAppServerAuthStatus(options)
+    await Promise.race([authorizationPresentation, cancelledPresentation])
+    if (cancelled) throw new AppServerLoginCancelledError()
+    let status: AppServerAuthStatus
+    try { status = await readAppServerAuthStatus({ ...options, signal: verification.signal }) }
+    catch (error) { if (cancelled) throw new AppServerLoginCancelledError(); throw error }
+    if (cancelled) throw new AppServerLoginCancelledError()
     assertAppServerAuthenticated(status)
     return status
   })()
@@ -125,9 +131,11 @@ export function startAppServerLogin(options: StartAppServerLoginOptions): AppSer
   return {
     completed,
     cancel: async () => {
-      if (cancelled || child.exitCode !== null || child.signalCode !== null) return
+      if (cancelled) return
       cancelled = true
-      await terminateAuthProcess(child, closed, options.closeTimeoutMs ?? DEFAULT_AUTH_CLOSE_TIMEOUT_MS)
+      verification.abort()
+      if (child.exitCode === null && child.signalCode === null) await terminateAuthProcess(child, closed, options.closeTimeoutMs ?? DEFAULT_AUTH_CLOSE_TIMEOUT_MS)
+      await completed.catch(() => undefined)
     },
   }
 

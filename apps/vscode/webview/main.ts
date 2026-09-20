@@ -1,3 +1,5 @@
+import { createAccountView } from "./account/accountView.tsx"
+import type { AccountMessage } from "../src/shared/accountTypes.ts"
 import { createResourceTools } from "./resources/resourceTools.tsx"
 import { createCapabilityStatus } from "./status/capabilityStatus.tsx"
 import { createLoadingStatus } from "./status/loadingStatusView.ts"
@@ -27,7 +29,6 @@ const prompt = element<HTMLTextAreaElement>("prompt")
 const send = element<HTMLButtonElement>("send")
 const stop = element<HTMLButtonElement>("stop")
 const connect = element<HTMLButtonElement>("connect")
-const signIn = element<HTMLButtonElement>("signIn")
 const standaloneActions = document.getElementById("standaloneActions")
 const newChat = standaloneActions ? element<HTMLButtonElement>("newChat") : null
 const scroller = element("scrollArea")
@@ -40,6 +41,7 @@ const renderResourceTools = createResourceTools(element("resourceToolsHost"), po
 const renderHistory = createHistoryView(standaloneActions, scroller, post, prompt)
 const renderCapabilityStatus = createCapabilityStatus(element("runtimeDetailsHost"))
 const renderWorkGroups = createWorkGroups(post)
+const renderAccount = createAccountView(element("accountRoot"), element("accountMenu"), document.querySelector<HTMLElement>(".app")!, element("accountRoot").dataset.logo!, post)
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
 const imageRequests = new Map<string, (preview: import("../src/shared/messages.ts").AttachmentView["preview"]) => void>()
@@ -66,7 +68,6 @@ function renderWorkingStatus(): void {
   workingIndicator.set(initializingWelcome ? null : status?.label ?? null, status?.animate)
 }
 connect.addEventListener("click", () => post({ type: "connect" }))
-signIn.addEventListener("click", () => post({ type: "signIn" }))
 newChat?.addEventListener("click", () => post({ type: "newChat" }))
 stop.addEventListener("click", () => post({ type: "stop" }))
 if (standaloneActions) element("showOutput").addEventListener("click", () => post({ type: "showOutput" }))
@@ -117,7 +118,7 @@ function render(next: ChatSnapshot): void {
   element("transcriptLoading").hidden = !restoring
   messages.setAttribute("aria-busy", String(restoring))
   element("connection").hidden = state.phase !== "disconnected" || !state.notice
-  connect.disabled = signIn.disabled = state.phase === "connecting"
+  connect.disabled = state.phase === "connecting"
   if (newChat) newChat.disabled = isBusy(state.phase) || state.backgroundBusy || Boolean(state.sessionTools.busy)
   const generating = state.phase === "running" || state.phase === "stopping"
   stop.hidden = !generating; stop.disabled = state.phase === "stopping"
@@ -134,13 +135,14 @@ function render(next: ChatSnapshot): void {
   updateJump()
 }
 
-window.addEventListener("message", (event: MessageEvent<EditorMessage | ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected | ImageResult>) => {
+window.addEventListener("message", (event: MessageEvent<AccountMessage | EditorMessage | ChatSnapshot | SendResult | PanelMessage | FileSearchResult | FileSelected | ImageResult>) => {
   if (event.data?.type === "codeSelection" || event.data?.type === "composerDraft" || event.data?.type === "appendContext" || event.data?.type === "focusComposer" || event.data?.type === "editorSettings" || event.data?.type === "fileSearchResult" || event.data?.type === "fileSelected" || event.data?.type === "sendResult") {
     composer.receive(event.data)
     if (event.data.type === "editorSettings") renderCapabilityStatus(state, composer.sendKey)
   }
   else if (event.data?.type === "imageResult") { imageRequests.get(event.data.id)?.(event.data.preview); imageRequests.delete(event.data.id) }
   else if (event.data?.type === "panel") panels.render(event.data.panel)
+  else if (event.data?.type === "account") renderAccount(event.data.state)
   else if (event.data?.type === "state") render(event.data)
 })
 composer.update(state)

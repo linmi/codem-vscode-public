@@ -21,7 +21,7 @@ function png(): Buffer {
 export async function runLiveImages(extensionRoot: string, workspace: string): Promise<void> {
   const bytes = png(); assert.ok(bytes.length > 512 * 1024)
   const path = join(workspace, "acceptanceImage.png"); await writeFile(path, bytes)
-  const controller = new ChatController({ connect: (_signIn, signal) => liveRuntime(extensionRoot, workspace, signal), assertTrusted() {}, publish() {}, interact: async () => { throw new Error("Image test must not execute tools") }, report: (operation, error) => console.log(`IMAGE_FAILURE ${operation}: ${error instanceof Error ? error.message : "unknown"}`) })
+  const controller = new ChatController({ connect: (signal) => liveRuntime(extensionRoot, workspace, signal), assertTrusted() {}, publish() {}, interact: async () => { throw new Error("Image test must not execute tools") }, report: (operation, error) => console.log(`IMAGE_FAILURE ${operation}: ${error instanceof Error ? error.message : "unknown"}`) })
   try {
     await controller.connect(); assert.equal(controller.snapshot().phase, "ready")
     let imageModelAvailable = false

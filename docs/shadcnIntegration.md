@@ -107,3 +107,7 @@
 ## 输入栏菜单本地化
 
 `webview/composer/composerMenus.tsx` 接管工作模式、权限、附件类型、模型和空间菜单。固定项使用 Select；动态目录使用 Popover + Command，支持搜索、键盘选择、焦点恢复和碰撞边界。模型/空间的空状态也本地展示，只有明确点击连接或刷新才请求服务。`settingsPanels.ts`、Host 的四种 picker 面板和手写模型搜索/弹层定位已删除；审批与问答仍由 PanelBroker 管理。`/files`、`/model`、`/mode` 打开同一组件，行为及验证见 `localComposerMenus.md`。
+
+## 独立账户页面
+
+`webview/account/accountView.tsx` 使用 React 与现有 shadcn/ui Button，复用主题令牌，分别提供居中登录页、头像入口和紧凑个人账户页。没有新增依赖、手写菜单或原生 select。身份仅来自 Host 白名单 `AccountState`，认证行为、刷新失效和状态保存范围见 `accountExperience.md`。

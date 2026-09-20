@@ -173,7 +173,9 @@ for (const [event, code] of [
 ] as const) it(`reports ${code} without exposing Core payloads and permits reconnection`, async () => {
   const f = setup()
   const reports: string[] = []
+  let invalidations = 0
   const controller = new ChatController({ connect: async () => f.session, assertTrusted() {}, publish() {}, interact: async () => null,
+    authenticationInvalidated: () => { invalidations++ },
     report(operation, error) { assert.ok(error instanceof UserVisibleError); reports.push(`${operation}: ${error.message}`) },
   })
   try {
@@ -182,6 +184,7 @@ for (const [event, code] of [
     assert.equal(controller.snapshot().phase, "disconnected")
     assert.match(controller.snapshot().notice!, new RegExp(code))
     assert.equal(reports.length, 1)
+    assert.equal(invalidations, event.type === "authentication-invalidated" ? 1 : 0)
     assert.match(reports[0]!, new RegExp(code))
     assert.doesNotMatch(JSON.stringify([controller.snapshot(), reports]), /secret-token|raw frame|account info|private/)
     assert.notEqual(controller.snapshot().turnTimings[0]!.finishedAt, null)

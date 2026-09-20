@@ -98,7 +98,7 @@ it("missing cancellation terminal closes the Core connection and permits explici
     await assert.rejects(run, /未收到 Core 终态/)
     assert.equal(f.counts().closes, 1)
     assert.equal(f.service.snapshot().phase, "disconnected")
-    await f.service.connect(false, signal())
+    await f.service.connect(signal())
     assert.equal(f.counts().connects, 2)
   } finally { await f.service.dispose() }
 })
@@ -201,7 +201,7 @@ it("repeated disposal awaits the same Core shutdown", async () => {
   const f = setup()
   let close!: () => void
   f.host.close = () => new Promise(resolve => { close = resolve })
-  await f.service.connect(false, signal())
+  await f.service.connect(signal())
   const first = f.service.dispose()
   const second = f.service.dispose()
   assert.equal(first, second)

@@ -10,8 +10,8 @@ export async function runLiveFeatures(extensionRoot: string): Promise<void> {
   let session: ChatSession | null = null
   let resolveTurn: ((snapshot: ChatSnapshot) => void) | null = null
   const controller = new ChatController({
-    connect: async (_signIn, signal) => {
-      session = await connectRuntime(extensionRoot, "0.2.0", false, signal)
+    connect: async (signal) => {
+      session = await connectRuntime(extensionRoot, "0.2.0", signal)
       return session
     },
     assertTrusted,

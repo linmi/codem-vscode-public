@@ -1,3 +1,5 @@
+import { AccountController } from "./connection/accountController.ts"
+import { accountOperations } from "./connection/runtimeAccount.ts"
 import { EditorSelection } from "./integrations/editorSelection.ts"
 import { registerGitActions } from "./integrations/gitActions.ts"
 import { registerInlineCompletion } from "./integrations/inlineCompletion.ts"
@@ -19,6 +21,7 @@ import { PanelBroker } from "./panels/panelBroker.ts"
 import { NativeFeatures } from "./integrations/nativeFeatures.ts"
 
 let controller: ChatController | undefined
+let accountController: AccountController | undefined
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("CodeM")
@@ -28,12 +31,14 @@ export function activate(context: vscode.ExtensionContext): void {
   const panels = new PanelBroker()
   let settingsAbort: AbortController | null = null
   let surfaces: ChatSurfaces | undefined
+  const account = new AccountController(accountOperations(context.extensionPath, (stage, ms) => output.appendLine(`Account ${stage}: ${ms}ms`)), state => surfaces?.post({ type: "account", state }))
+  accountController = account
   let selection: EditorSelection | undefined
   let connectingAt: number | null = null
   let previousPhase: string | null = null
-  const openSession = async (signIn: boolean, signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
+  const openSession = async (signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
     const runtimeStarted = performance.now()
-    const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signIn, signal, target, directory)
+    const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signal, target, directory, status => account.observe(status))
     output.appendLine(`Connection runtime: ${Math.round(performance.now() - runtimeStarted)}ms`)
     try {
       const mcpStarted = performance.now()
@@ -44,10 +49,11 @@ export function activate(context: vscode.ExtensionContext): void {
   }
   controller = new ChatController({
     preferences,
+    authenticationInvalidated: () => account.invalidate(),
     activeConversation: new ActiveConversation(context.workspaceState),
     connected: session => preferences.remember({ cwd: session.cwd, workspace: session.workspace, key: session.space.key }),
-    connect: async (signIn, signal) => {
-      const session = await openSession(signIn, signal)
+    connect: async (signal) => {
+      const session = await openSession(signal)
       session.host.onEvent((event) => {
         if (event.type === "turn-started") output.appendLine(JSON.stringify({ event: event.type, turnId: event.turnId, submissionId: event.submissionId }))
         if (event.type === "turn-completed") output.appendLine(JSON.stringify({ event: event.type, turnId: event.turnId, outcome: event.outcome, stopReason: event.stopReason }))
@@ -81,7 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const chat = controller
   let autoConnectAttempted = false
   const autoConnect = async () => {
-    if (autoConnectAttempted || !surfaces?.available || !vscode.workspace.isTrusted || !vscode.workspace.workspaceFolders?.length) return
+    if (!account.signedIn || autoConnectAttempted || !surfaces?.available || !vscode.workspace.isTrusted || !vscode.workspace.workspaceFolders?.length) return
     if (!vscode.workspace.getConfiguration("codem").get<boolean>("autoConnect", true)) return
     autoConnectAttempted = true
     await chat.connect()
@@ -89,11 +95,13 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => { void autoConnect() }))
   const dispatch = async (action: ViewAction, reply: (result: SendResult | FileSearchResult | FileSelected | ImageResult) => void): Promise<void> => {
     switch (action.type) {
-      case "ready": await autoConnect(); break
+      case "ready": await account.initialize(); account.publish(); await autoConnect(); break
       case "composerChanged": case "composerRestore": case "contextAdded": break
       case "panelReply": break
-      case "connect": await chat.connect(); break
-      case "signIn": await chat.connect(true); break
+      case "connect": await account.initialize(); if (account.signedIn) await chat.connect(); else account.publish(); break
+      case "signIn": await account.login(); break
+      case "cancelSignIn": account.cancel(); break
+      case "refreshAccount": await account.refresh(); break
       case "showHistory": await chat.showHistory(); break
       case "closeHistory": chat.closeHistory(); break
       case "refreshHistory": await chat.refreshHistory(); break
@@ -105,6 +113,7 @@ export function activate(context: vscode.ExtensionContext): void {
       case "removeCodeSelection": selection!.state.remove(action.id); break
       case "revealCodeSelection": await selection!.reveal(action.id); break
       case "send": {
+        if (!account.signedIn) { account.publish(); reply({ type: "sendResult", requestId: action.requestId, accepted: false }); break }
         let accepted = false
         try { accepted = await selection!.send(action.text, action.selectionId, text => chat.send(text), path => chat.assertContextWorkspace(path)) }
         catch (error) { void vscode.window.showErrorMessage(error instanceof Error ? error.message : "无法附带选中代码，请重新选择后重试。") }
@@ -124,7 +133,7 @@ export function activate(context: vscode.ExtensionContext): void {
       case "addDirectory": await chat.addDirectory(() => features.pickDirectories()); break
       case "removeDirectory": await chat.removeDirectory(action.id); break
       case "chooseModel": await chat.chooseModel(action.id); break
-      case "chooseSpace": await chat.chooseSpace(action.id, (session, key, signal) => openSession(false, signal, { cwd: session.cwd, workspace: session.workspace, key }, session.spaceDirectory)); break
+      case "chooseSpace": await chat.chooseSpace(action.id, (session, key, signal) => openSession(signal, { cwd: session.cwd, workspace: session.workspace, key }, session.spaceDirectory)); break
       case "refreshSpaces": await chat.refreshSpaces(); break
       case "setEffort": case "setWorkMode": case "setPermission": {
         await chat.setComposerSetting(action, async signal => {
@@ -168,6 +177,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(selection)
   surfaces = new ChatSurfaces(context, panels, dispatch, () => {
     chat.publish()
+    account.publish()
     surfaces?.post({ type: "codeSelection", value: selection!.state.snapshot() })
   })
   const addContext = async (text: string, uri?: vscode.Uri) => {
@@ -190,12 +200,12 @@ export function activate(context: vscode.ExtensionContext): void {
     "codem.stop": () => chat.stop(),
     "codem.history": async () => { await surfaces?.focus(); await chat.toggleHistory() },
     "codem.newChat": async () => { await surfaces?.focus(); await chat.newChat(); selection!.state.clear() },
-    "codem.connect": () => chat.connect(),
-    "codem.signIn": () => chat.connect(true),
+    "codem.connect": async () => { await account.initialize(); if (account.signedIn) await chat.connect(); else await surfaces?.focus() },
+    "codem.signIn": async () => { await surfaces?.focus(); await account.initialize(); await account.login() },
     "codem.showOutput": () => output.show(),
   }
   for (const [name, run] of Object.entries(commands)) context.subscriptions.push(vscode.commands.registerCommand(name, run))
-  context.subscriptions.push({ dispose: () => { panels.cancel(); void chat.dispose().catch(() => undefined) } })
+  context.subscriptions.push({ dispose: () => { panels.cancel(); void account.dispose(); void chat.dispose().catch(() => undefined) } })
 }
 
-export async function deactivate(): Promise<void> { await controller?.dispose(); controller = undefined }
+export async function deactivate(): Promise<void> { await Promise.all([controller?.dispose(), accountController?.dispose()]); controller = undefined; accountController = undefined }

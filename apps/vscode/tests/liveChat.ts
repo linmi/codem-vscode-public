@@ -10,8 +10,8 @@ export async function runLiveChat(extensionRoot: string): Promise<void> {
   let finish: (state: ChatSnapshot) => void = () => undefined
   const completed = new Promise<ChatSnapshot>((resolve) => { finish = resolve })
   const controller = new ChatController({
-    connect: async (_signIn, signal) => {
-      const session = await connectRuntime(extensionRoot, "0.2.0", false, signal)
+    connect: async (signal) => {
+      const session = await connectRuntime(extensionRoot, "0.2.0", signal)
       session.host.onEvent((event) => {
         if (event.type === "text-delta") deltaCount++
         if (event.type === "turn-completed") terminalOutcome = event.outcome

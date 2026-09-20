@@ -1,3 +1,4 @@
+import { accountOperations } from "../connection/runtimeAccount.ts"
 import * as vscode from "vscode"
 import { NativeChatService } from "./nativeChatService.ts"
 import { nativeSessionType, nativeThreadId, type NativeChatApi, type NativeHistoryApi, type NativeSessionController } from "./nativeChatApi.ts"
@@ -48,9 +49,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const report = (operation: string, error: unknown) => output.appendLine(`${operation}: ${error instanceof UserVisibleError ? error.message : "操作失败，请核对连接和 Core 运行时。"}`)
   const agent = new NativeChatService({
     assertTrusted,
-    connect: async (signIn, signal) => {
+    connect: async (signal) => {
       const started = performance.now()
-      const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signIn, signal)
+      const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signal)
       output.appendLine(`Connection: ${Math.round(performance.now() - started)}ms; one Core connection`)
       return session
     },
@@ -112,9 +113,12 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   }, participant, { supportsInterruptions: false })
   const connect = (signIn: boolean) => vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "CodeM 原生实验", cancellable: true }, async (_progress, token) => {
-    await withCancellation(token, signal => agent.connect(signIn, signal))
-    await refresh(token)
-    output.appendLine("Native session provider ready")
+    await withCancellation(token, async signal => {
+      if (signIn) await accountOperations(context.extensionPath).login(signal, () => {})
+      else await agent.connect(signal)
+    })
+    if (!signIn) await refresh(token)
+    output.appendLine(signIn ? "Account signed in" : "Native session provider ready")
   }).then(undefined, error => { report("connect", error); void vscode.window.showErrorMessage(error instanceof UserVisibleError ? error.message : "CodeM 原生连接失败，请查看实验日志。") })
   context.subscriptions.push(output, panels, participant, items, provider,
     vscode.commands.registerCommand("codemNative.connect", () => connect(false)),

@@ -2,6 +2,7 @@ import type { ChatSnapshot } from "../src/shared/messages.ts"
 import { contentScenarios } from "./previewContent.ts"
 
 export const previewScenarios = [
+  ["accountSignedOut", "账户", "未登录"], ["accountSigningIn", "账户", "浏览器登录中"], ["accountFailure", "账户", "登录失败"], ["accountProfile", "账户", "个人账户"],
   ["conversation", "对话", "完成回复"], ["progressUpdates", "对话", "多次搜索与进度说明"], ["welcome", "对话", "新会话"], ["codeSelection", "输入", "代码选区"], ["codeSelectionFailure", "输入", "代码选区 · 发送失败"],
   ["disconnected", "状态", "未连接"], ["connecting", "状态", "首次发送 · 连接准备"],
   ["firstSend", "状态", "首次发送 · 慢连接交互"],
@@ -29,7 +30,7 @@ export function applyPreviewScenario(state: ChatSnapshot, scenario: string): str
     { id: "t3", role: "tool", label: "整理来源", text: "来源整理完成。", summary: "", status: "completed" },
     { id: "a", role: "assistant", label: "CodeM", text: "已完成新闻检索。提供所在城市后，可以继续筛选本地消息。\n\n这是界面预览示例，不是真实新闻。" },
   ]
-  if (scenario === "welcome") empty()
+  if (scenario === "welcome" || scenario.startsWith("account")) empty()
   if (scenario === "disconnected" || scenario === "connecting") { empty(); state.phase = scenario; state.space = null; state.workspace = null; state.model = null }
   if (scenario === "firstSend") { empty(); state.phase = "disconnected"; state.space = null; state.workspace = null; state.model = null }
   if (scenario === "historyLoading") state.phase = "loadingHistory"

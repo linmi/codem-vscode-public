@@ -51,11 +51,12 @@ interface ActiveTurn {
   approvals: Promise<void>
 }
 export interface ChatControllerOptions {
+  authenticationInvalidated?: () => void
   preferences?: SettingsPersistence
   activeConversation?: ActiveConversation
   connected?: (session: ChatSession) => Promise<void>
 
-  connect: (signIn: boolean, signal: AbortSignal) => Promise<ChatSession>
+  connect: (signal: AbortSignal) => Promise<ChatSession>
   assertTrusted: () => void
   publish: (state: ChatSnapshot) => void
   interact: (request: AppServerInteraction, signal: AbortSignal, cwd: string) => Promise<AppServerInteractionResponse | null>
@@ -121,14 +122,14 @@ export class ChatController {
 
   publish(): void { if (!this.disposed) this.options.publish(this.snapshot()) }
 
-  async connect(signIn = false): Promise<void> {
+  async connect(): Promise<void> {
     if (this.disposed || this.state.phase !== "disconnected") return
     const generation = ++this.generation
     let acquired: ChatSession | null = null
     this.update({ phase: "connecting", notice: null })
     try {
       this.options.assertTrusted()
-      const session = await this.options.connect(signIn, this.lifetime.signal)
+      const session = await this.options.connect(this.lifetime.signal)
       acquired = session
       if (this.disposed || generation !== this.generation) { await session.host.close(); return }
       this.options.assertTrusted()
@@ -843,6 +844,7 @@ export class ChatController {
       }
     }
     if (event.type === "connection-closed" || event.type === "protocol-error" || event.type === "authentication-invalidated") {
+      if (event.type === "authentication-invalidated") this.options.authenticationInvalidated?.()
       const reason = event.type === "protocol-error"
         ? "CORE_PROTOCOL_ERROR：Core 协议处理失败，请更新扩展或查看 CodeM 日志。"
         : event.type === "authentication-invalidated"

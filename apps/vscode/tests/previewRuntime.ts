@@ -1,4 +1,5 @@
 import type { ChatSnapshot, CodeSelectionView, ViewAction } from "../src/shared/messages.ts"
+import type { AccountState } from "../src/shared/accountTypes.ts"
 import type { PanelReply } from "../src/shared/panelTypes.ts"
 import { createPreviewState, type PreviewSearch } from "./previewState.ts"
 import { applyPreviewCatalog, previewImage, contentScenario } from "./previewContent.ts"
@@ -9,6 +10,10 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   let { demo, panels, activePanel, surface } = createPreviewState(initial)
   const selectionFixture = (): CodeSelectionView | null => ["codeSelection", "codeSelectionFailure"].includes(search.scenario) ? { id: "selected-code", label: "connectionPreferences.ts", path: "src/connection/connectionPreferences.ts", startLine: 10, endLine: 15, error: null } : null
   let selectedCode = selectionFixture()
+  const signedIn = (): AccountState => ({ status: "signedIn", profile: { displayName: "林晓", userId: "preview-user", tenantId: "preview-team", authMethod: "browser" }, refreshing: false, notice: null })
+  const accountFixture = (): AccountState => search.scenario === "accountSignedOut" ? { status: "signedOut", notice: null } : search.scenario === "accountSigningIn" ? { status: "signingIn", progress: "waiting" } : search.scenario === "accountFailure" ? { status: "error", message: "登录未完成，请重试。" } : signedIn()
+  let account = accountFixture()
+  let loginTimer: ReturnType<typeof setTimeout> | undefined
   let ready = false
   let generation = 0
   let refreshTimer: ReturnType<typeof setTimeout> | undefined
@@ -24,6 +29,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   }
   function publish() {
     if (!ready || search.scenario === "waitingForHost") return
+    emit({ type: "account", state: account })
     emit(demo)
     emit({ type: "codeSelection", value: selectedCode })
     emit({ type: "panel", panel: activePanel })
@@ -83,6 +89,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
           whenRendered(`[data-resource-tab="${surface}"]`, node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })))
         })
       }
+      if (search.scenario === "accountProfile") whenRendered(".accountTrigger", node => node.click())
       if (search.scenario === "sendFailure") {
         const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
         prompt.value = "继续检查错误恢复，并保留这段草稿。"; prompt.dispatchEvent(new Event("input", { bubbles: true }))
@@ -91,6 +98,9 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   }
   function reset() {
     clearTimeout(refreshTimer)
+    clearTimeout(loginTimer)
+    document.querySelector<HTMLButtonElement>('[aria-label="返回聊天"]')?.click()
+    account = accountFixture()
     if (delayedSubmission) { emit({ type: "sendResult", requestId: delayedSubmission, accepted: false }); delayedSubmission = null }
     for (const id of frames) cancelAnimationFrame(id)
     frames.clear(); imageAttempts.clear()
@@ -125,6 +135,14 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "composerRestore") { emit({ type: "composerDraft", value: action.value, focus: false, pendingRequestId: null }); return }
     if (action.type === "composerChanged" || action.type === "contextAdded") return
     if (action.type === "ready") { ready = true; publish(); showSurface(); return }
+    if (action.type === "signIn") {
+      if (account.status === "signingIn" || account.status === "signedIn") return
+      account = { status: "signingIn", progress: "waiting" }; publish()
+      loginTimer = setTimeout(() => { account = signedIn(); publish() }, 1800)
+      return
+    }
+    if (action.type === "cancelSignIn") { clearTimeout(loginTimer); account = { status: "signedOut", notice: "已取消登录，可随时重试。" }; publish(); return }
+    if (action.type === "refreshAccount") { if (account.status === "error") account = { status: "signedOut", notice: null }; publish(); return }
     if (action.type === "removeCodeSelection") { if (action.id === selectedCode?.id) selectedCode = null; publish(); return }
     if (action.type === "revealCodeSelection") { demo.notice = "模拟预览已收到定位请求；不会访问真实文件。"; publish(); return }
     if (action.type === "send" && ["codeSelection", "codeSelectionFailure"].includes(search.scenario)) {
@@ -228,5 +246,5 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     viewActions: { configurable: true, get: () => viewActions },
   })
   Object.assign(window, { acquireVsCodeApi: () => ({ getState: () => null, setState: () => {}, postMessage }) })
-  return { select, reset, dispose: () => { generation++; clearTimeout(refreshTimer); for (const id of frames) cancelAnimationFrame(id); frames.clear(); for (const cancel of pendingElements) cancel() } }
+  return { select, reset, dispose: () => { generation++; clearTimeout(refreshTimer); clearTimeout(loginTimer); for (const id of frames) cancelAnimationFrame(id); frames.clear(); for (const cancel of pendingElements) cancel() } }
 }

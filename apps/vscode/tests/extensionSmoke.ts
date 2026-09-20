@@ -27,7 +27,7 @@ export async function run(): Promise<void> {
   assert.equal(chatTabs().length, 0)
   await runNativeFeatureSmoke()
   if (process.env.CODEM_LIVE_SMOKE === "1") {
-    if (process.env.CODEM_INTERACTIONS_LIVE === "1") await runLiveInteractions({ connect: signal => connectRuntime(extension.extensionPath, "0.2.0", false, signal), assertTrusted })
+    if (process.env.CODEM_INTERACTIONS_LIVE === "1") await runLiveInteractions({ connect: signal => connectRuntime(extension.extensionPath, "0.2.0", signal), assertTrusted })
     else if (process.env.CODEM_FEATURE_LIVE === "1") await runLiveFeatures(extension.extensionPath)
     else await runLiveChat(extension.extensionPath)
   }

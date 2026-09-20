@@ -25,7 +25,7 @@ export async function runLiveInteractions(adapter: { connect: (signal: AbortSign
     panels.answer(owner, { type: "panelReply", id: pending.id, choiceIds: ids, text, cancelled })
   }
   const controller = new ChatController({
-    connect: async (_signIn, signal) => { session = await adapter.connect(signal); return session },
+    connect: async (signal) => { session = await adapter.connect(signal); return session },
     assertTrusted: adapter.assertTrusted, publish() {}, report: operation => console.log(`INTERACTION_FAILURE ${operation}`),
     interact: async (incoming, signal, cwd) => {
       request = incoming

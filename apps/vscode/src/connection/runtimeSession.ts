@@ -1,7 +1,7 @@
 import { SpaceDirectory } from "./spaceDirectory.ts"
 import * as vscode from "vscode"
 import { realpath } from "node:fs/promises"
-import { AppServerHost, assertAppServerAuthenticated, listAppServerSpaces, prepareAppServerSpace, prepareInitialAppServerSpace, readAppServerAuthStatus, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
+import { AppServerHost, assertAppServerAuthenticated, listAppServerSpaces, prepareAppServerSpace, prepareInitialAppServerSpace, readAppServerAuthStatus, resolveBundledAppServerRuntime, type AppServerAuthStatus } from "@codem/app-server"
 import { resolveSessionsRoot } from "@codem/session-history"
 import { createSessionHistoryReader } from "../sessionHistory/sessionHistory.ts"
 import { type ChatSession } from "../chat/chatController.ts"
@@ -11,7 +11,7 @@ export function assertTrusted(): void {
   if (!vscode.workspace.isTrusted) throw new UserVisibleError("请先通过 VS Code 管理工作区信任，再连接 CodeM。")
 }
 
-export async function connectRuntime(extensionRoot: string, version: string, signIn: boolean, signal: AbortSignal, target?: { cwd: string; workspace: string; key: string }, knownSpaces?: SpaceDirectory): Promise<ChatSession> {
+export async function connectRuntime(extensionRoot: string, version: string, signal: AbortSignal, target?: { cwd: string; workspace: string; key: string }, knownSpaces?: SpaceDirectory, onAuth?: (status: AppServerAuthStatus) => void): Promise<ChatSession> {
   assertTrusted()
   const folders = vscode.workspace.workspaceFolders ?? []
   if (folders.length === 0) throw new UserVisibleError("请先打开一个项目文件夹。")
@@ -25,27 +25,13 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   const cwd = await realpath(folder.uri.fsPath)
   const runtime = resolveBundledAppServerRuntime({ extensionRoot })
   const options = { runtime, workingDirectory: cwd, signal }
-  let status = await readAppServerAuthStatus(options)
-  signal.throwIfAborted()
-  if (signIn && !status.loggedIn) {
-    status = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "登录 CodeM", cancellable: true }, async (progress, token) => {
-      const login = startAppServerLogin({
-        ...options,
-        presentAuthorization: async (url) => {
-          const uri = vscode.Uri.parse(url)
-          if (uri.scheme !== "https") throw new UserVisibleError("登录服务返回了不安全的地址。")
-          if (!await vscode.env.openExternal(uri)) throw new UserVisibleError("无法打开登录页面，请检查默认浏览器。")
-          progress.report({ message: "请在浏览器中完成登录…" })
-        },
-      })
-      const cancel = () => { void login.cancel().catch(() => undefined) }
-      signal.addEventListener("abort", cancel, { once: true })
-      const subscription = token.onCancellationRequested(cancel)
-      if (signal.aborted || token.isCancellationRequested) cancel()
-      try { return await login.completed }
-      finally { signal.removeEventListener("abort", cancel); subscription.dispose() }
-    })
+  const readStatus = async (signal: AbortSignal) => {
+    const status = await readAppServerAuthStatus({ ...options, signal })
+    onAuth?.(status)
+    return status
   }
+  let status = await readStatus(signal)
+  signal.throwIfAborted()
   if (!status.loggedIn) throw new UserVisibleError("尚未登录 CodeM，请点击「登录 CodeM」。")
   assertAppServerAuthenticated(status)
   assertTrusted()
@@ -62,11 +48,11 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   if (!space) throw new UserVisibleError("所选空间已不可用，请重新选择。")
   signal.throwIfAborted()
   // A user prompt may have remained open for an arbitrary time; renew auth then.
-  if (needsSelection) { status = await readAppServerAuthStatus({ ...options, signal }); assertAppServerAuthenticated(status) }
+  if (needsSelection) { status = await readStatus(signal); assertAppServerAuthenticated(status) }
   let directory: SpaceDirectory
   const authorize = async () => {
     assertTrusted()
-    const current = await readAppServerAuthStatus({ ...options, signal })
+    const current = await readStatus(signal)
     assertAppServerAuthenticated(current)
     directory.assertAccount(current)
     assertTrusted()
@@ -74,7 +60,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   }
   directory = reusableSpaces ?? new SpaceDirectory(spaces, status, async refreshSignal => {
     assertTrusted()
-    const current = await readAppServerAuthStatus({ ...options, signal: refreshSignal })
+    const current = await readStatus(refreshSignal)
     assertAppServerAuthenticated(current); directory.assertAccount(current)
     return listAppServerSpaces({ ...options, signal: refreshSignal })
   })

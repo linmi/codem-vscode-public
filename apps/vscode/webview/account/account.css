@@ -1,0 +1,28 @@
+#accountRoot:empty { display: none; }
+#accountRoot { min-height: 0; }
+.accountPage { height: 100dvh; box-sizing: border-box; overflow: auto; background: var(--surface); color: var(--ink); }
+.accountLogin { display: grid; place-items: center; padding: 24px; }
+.accountLoginContent { width: 100%; max-width: 300px; text-align: center; }
+.accountLoginContent > img { display: block; margin: 0 auto 24px; }
+.accountLoginContent h1 { margin: 0 0 10px; font-size: 22px; line-height: 1.4; font-weight: 600; }
+.accountLoginContent p { font-size: 13px; line-height: 1.6; color: var(--muted); }
+.accountLoginActions { margin-top: 28px; }
+.accountLoginActions .accountLoginButton { width: 100%; min-height: 38px; border-radius: 8px; background: var(--vscode-button-background, #6554ee); color: var(--vscode-button-foreground, #fff); gap: 8px; }
+.accountLoginActions .accountLoginButton:hover { background: var(--vscode-button-hoverBackground, #5546d3); }
+.accountFootnote, .accountLoginContent .accountFootnote { font-size: 11px; color: var(--muted); }
+.accountNotice { margin-top: 20px; font-size: 12px; overflow-wrap: anywhere; }
+.accountHeader { min-height: 44px; padding: 6px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }
+.accountHeader h1 { flex: 1; margin: 0; font-size: 13px; font-weight: 500; }
+.accountHeader button { width: 28px; height: 28px; padding: 6px; }
+.accountProfile { max-width: 360px; margin: 0 auto; padding: 36px 20px; text-align: center; }
+.accountProfile h2 { margin: 14px 0 6px; font-size: 18px; overflow-wrap: anywhere; }
+.accountAvatar { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--soft); color: var(--ink); border: 1px solid var(--line); font-size: 11px; font-weight: 500; }
+.accountAvatarLarge { width: 56px; height: 56px; font-size: 22px; }
+.accountAvatarLarge svg { width: 26px; height: 26px; }
+.accountTrigger { width: 28px; height: 28px; padding: 2px; border-radius: 50%; }
+.accountConnected { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.accountConnected > span { width: 5px; height: 5px; background: var(--vscode-charts-green, #16833e); border-radius: 50%; }
+.accountFields { margin: 28px 0 18px; text-align: left; }
+.accountFields > div { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.accountFields dt { color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+.accountFields dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; user-select: text; }

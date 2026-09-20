@@ -13,9 +13,10 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${source} data:; style-src ${source} 'nonce-${nonce}'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'">
 <link rel="stylesheet" href="${escapeHtml(resources.style)}"><title>CodeM</title></head>
 <body>
-<div class="app" data-phase="disconnected">
+<div id="accountRoot" data-logo="${escapeHtml(resources.logo)}"></div>
+<div class="app" data-phase="disconnected" hidden>
   <header class="sessionHeader"><span class="sessionTitle"><span class="sessionIcon">${uiIcon("chat")}</span><span id="sessionTitle">新会话</span><span class="statusDot" id="statusDot" title="连接状态"></span></span><div class="headerActions">
-    <div id="resourceToolsHost"></div>
+    <div id="resourceToolsHost"></div><div id="accountMenu"></div>
     ${resources.surface === "editor" ? `<div class="headerActions" id="standaloneActions"><button class="iconButton" id="newChat" title="新建会话" aria-label="新建会话">${uiIcon("plus")}</button>
     <button class="iconButton" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志">${uiIcon("terminal")}</button></div>` : ""}
   </div></header>
@@ -32,7 +33,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
   <button class="jumpLatest" id="jumpLatest" hidden aria-label="回到最新消息">${uiIcon("arrowUp")}</button>
   </div>
   <footer>
-    <div id="connection" class="connection" hidden><p>连接工作区，开始与 CodeM 协作。</p><div><button id="connect" class="primaryButton">连接工作区</button><button id="signIn" class="textButton">登录 CodeM</button></div></div>
+    <div id="connection" class="connection" hidden><p>连接工作区，开始与 CodeM 协作。</p><div><button id="connect" class="primaryButton">连接工作区</button></div></div>
     <p id="notice" class="notice" role="status" hidden></p>
     <form id="composer" class="composer">
       <div id="attachments" class="attachments" aria-label="待发送附件"></div>

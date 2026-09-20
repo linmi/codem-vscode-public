@@ -12,7 +12,7 @@ export async function runLiveNativeChat(extensionRoot: string, workspace: string
   const stages: Record<string, number> = {}
   const create = () => new NativeChatService({
     assertTrusted() {},
-    connect: async (_signIn, signal) => {
+    connect: async (signal) => {
       session = await liveRuntime(extensionRoot, workspace, signal)
       connections++
       session.host.onEvent(event => { events.push(event.type); if (event.type === "thread-started") created.add(event.threadId) })

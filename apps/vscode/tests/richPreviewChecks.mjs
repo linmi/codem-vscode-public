@@ -1,3 +1,4 @@
+import accountPreviewChecks from "./accountPreviewChecks.mjs"
 import runtimePopoverChecks from "./runtimePopoverChecks.mjs"
 
 // Browser fixtures only. All state transitions stay local and never contact Core.
@@ -30,6 +31,7 @@ export default async function richPreviewChecks(page) {
       }
       checks.push(`${theme}: tools, artifacts, runtime, resource panels and catalogs`)
     }
+    await accountPreviewChecks(page)
     await runtimePopoverChecks(page)
     await page.goto('http://127.0.0.1:4318/?scenario=imageGallery')
     await page.getByRole('button',{name:'预览 工作区概览.png'}).click()

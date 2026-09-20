@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
@@ -125,6 +125,35 @@ describe("App Server authentication", () => {
     await assert.rejects(operation.completed, AppServerLoginCancelledError)
   })
 
+  it("cancels and reaps the final status verification after browser authorization succeeds", async () => {
+    const fixture = createAuthFixture({ status: "wait", login: "success" })
+    const marker = join(fixture.root, "status-started")
+    let started!: () => void
+    const ready = new Promise<void>(resolve => { started = resolve })
+    const watcher = watch(fixture.root, (_event, file) => { if (file === "status-started") started() })
+    const operation = startAppServerLogin({ ...fixture.options({ CODEM_FIXTURE_STATUS_MARKER: marker }), closeTimeoutMs: 25, presentAuthorization: () => {} })
+    const rejected = assert.rejects(operation.completed, AppServerLoginCancelledError)
+    try {
+      await ready
+      const pid = Number(readFileSync(marker, "utf8"))
+      await operation.cancel(); await rejected
+      assert.throws(() => process.kill(pid, 0), { code: "ESRCH" })
+    } finally { watcher.close(); await operation.cancel() }
+  })
+
+  it("cancellation settles even when the authorization presenter is awaiting cancellation", { timeout: 2000 }, async () => {
+    const fixture = createAuthFixture({ login: "success" })
+    const operation = startAppServerLogin({
+      ...fixture.options(),
+      presentAuthorization: async () => {
+        // Let the successful auth child exit while its presenter is still pending.
+        await new Promise(resolve => setTimeout(resolve, 25))
+        await operation.cancel()
+      },
+    })
+    await assert.rejects(operation.completed, AppServerLoginCancelledError)
+  })
+
   it("signs out through the broker and verifies the signed-out state", async () => {
     const fixture = createAuthFixture()
     const status = await signOutAppServer(fixture.options())
@@ -151,6 +180,7 @@ function createAuthFixture(options: { readonly status?: string; readonly login?:
     authLicensePath: join(root, "LICENSE.auth"),
   }
   return {
+    root,
     options: (environment: NodeJS.ProcessEnv = {}) => ({
       runtime,
       workingDirectory: root,
@@ -174,7 +204,7 @@ const action = process.argv[3]
 if (command !== "auth") process.exit(9)
   if (action === "status") {
   const state = fs.readFileSync(statePath, "utf8")
-  if (state === "wait") { setInterval(() => {}, 1000); return }
+  if (state === "wait") { if (process.env.CODEM_FIXTURE_STATUS_MARKER) { process.on("SIGTERM", () => {}); fs.writeFileSync(process.env.CODEM_FIXTURE_STATUS_MARKER, String(process.pid)) }; setInterval(() => {}, 1000); return }
   if (state === "malformed") {
     process.stdout.write("not-json\\n")
     process.exit(0)

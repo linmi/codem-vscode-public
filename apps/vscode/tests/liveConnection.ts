@@ -24,7 +24,7 @@ export async function runLiveConnection(extensionRoot: string, workspace: string
     panels.answer(owner, { type: "panelReply", id: panel.id, choiceIds: mode === "cancel" ? [] : [panel.choices[0].id], text: "", cancelled: mode === "cancel" })
   })
   const controller = new ChatController({
-    connect: async (_signIn, signal) => {
+    connect: async (signal) => {
       connections++
       const session = await liveRuntime(extensionRoot, workspace, signal)
       session.host.onEvent(event => {

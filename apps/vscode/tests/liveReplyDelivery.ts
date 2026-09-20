@@ -29,7 +29,7 @@ export async function runLiveReplyDelivery(extensionRoot: string, workspace: str
   const outcomes: string[] = []
   const toolNames = new Set<string>()
   const controller = new ChatController({
-    connect: async (_signIn, signal) => {
+    connect: async (signal) => {
       connections++
       const connected = await liveRuntime(extensionRoot, cwd, signal)
       session = connected

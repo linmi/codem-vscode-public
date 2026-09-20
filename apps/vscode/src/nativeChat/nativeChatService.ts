@@ -72,14 +72,14 @@ export class NativeChatService {
     this.busy = true
     try { return await run() } finally { this.busy = false }
   }
-  private async ensureConnected(signIn: boolean, signal: AbortSignal): Promise<void> {
+  private async ensureConnected(signal: AbortSignal): Promise<void> {
     if (this.snapshot().phase === "disconnected") {
       const controller = this.controller
       // Cancel startup by disposing its lifetime; never leave a late Core process attached.
       let closing: Promise<void> | undefined
       const cancel = () => { closing ??= controller.dispose(); void closing.catch(error => this.options.report("nativeConnectCleanup", error)) }
       signal.addEventListener("abort", cancel, { once: true })
-      try { await controller.connect(signIn) }
+      try { await controller.connect() }
       finally {
         signal.removeEventListener("abort", cancel)
         await closing
@@ -89,12 +89,12 @@ export class NativeChatService {
     signal.throwIfAborted()
     if (this.snapshot().phase !== "ready") throw new UserVisibleError(this.snapshot().notice ?? "请先连接原生 CodeM。")
   }
-  connect(signIn: boolean, signal: AbortSignal): Promise<void> {
-    return this.exclusive(signal, () => this.ensureConnected(signIn, signal))
+  connect(signal: AbortSignal): Promise<void> {
+    return this.exclusive(signal, () => this.ensureConnected(signal))
   }
   create(signal: AbortSignal): Promise<string> {
     return this.exclusive(signal, async () => {
-      await this.ensureConnected(false, signal)
+      await this.ensureConnected(signal)
       await this.controller.newChat()
       signal.throwIfAborted()
       return this.controller.createThread()
@@ -102,7 +102,7 @@ export class NativeChatService {
   }
   list(signal: AbortSignal): Promise<readonly HistoryEntry[]> {
     return this.exclusive(signal, async () => {
-      await this.ensureConnected(false, signal)
+      await this.ensureConnected(signal)
       await this.controller.showHistory()
       for (;;) {
         signal.throwIfAborted()
@@ -114,7 +114,7 @@ export class NativeChatService {
     })
   }
   private async select(threadId: string, signal: AbortSignal): Promise<void> {
-    await this.ensureConnected(false, signal)
+    await this.ensureConnected(signal)
     if (this.snapshot().threadId === threadId) return
     await this.controller.showHistory()
     while (!this.snapshot().history.entries.some(entry => entry.id === threadId) && this.snapshot().history.hasMore) {

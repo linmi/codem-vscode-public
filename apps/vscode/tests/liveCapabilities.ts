@@ -17,7 +17,7 @@ export async function runLiveCapabilities(extensionRoot: string, workspace: stri
   const stages: Record<string, number> = {}
   const failures: unknown[] = []
   const controller = new ChatController({
-    connect: async (_signIn, signal) => {
+    connect: async (signal) => {
       const connected = await liveRuntime(extensionRoot, workspace, signal)
       session = connected
       connected.host.onEvent(event => { events.push(event.type); if (event.type === "thread-started") created.add(event.threadId); if (event.type === "warning") console.log(`CORE_WARNING ${event.message.replace(/https?:\/\/\S+/g, "[url]").slice(0, 250)}`); if (event.type === "protocol-error") console.log(`CORE_PROTOCOL_VALIDATION ${event.message.slice(0, 250)}`) })

@@ -17,10 +17,10 @@ it("initializes on opening chat by default, once per activation, with explicit r
     contents: `export { activate, deactivate } from './apps/vscode/src/extension.ts'; export { control } from 'vscode';`, resolveDir: root,
   }, plugins: [{ name: "fixture", setup(b) {
     b.onResolve({ filter: /^vscode$/ }, () => ({ path: "vscode", namespace: "fixture" }))
-    b.onResolve({ filter: /^\.\// }, args => args.importer.endsWith("/src/extension.ts") ? { path: "dependencies", namespace: "fixture" } : undefined)
+    b.onResolve({ filter: /^\.\// }, args => args.importer.endsWith("/src/extension.ts") && !args.path.endsWith("accountController.ts") ? { path: "dependencies", namespace: "fixture" } : undefined)
     b.onLoad({ filter: /.*/, namespace: "fixture" }, args => ({ contents: args.path === "vscode" ? `
       const disposable = {dispose(){}};
-      export const control = {available:false, trusted:true, folders:[{}], setting:undefined, calls:0, commands:{}, pending:Promise.resolve()};
+      export const control = {available:false, trusted:true, folders:[{}], setting:undefined, calls:0, authReads:0, logins:0, signedIn:true, commands:{}, pending:Promise.resolve()};
       export const workspace = {
         get isTrusted(){return control.trusted}, get workspaceFolders(){return control.folders},
         getConfiguration(){return {get:(key,fallback)=>control.setting ?? fallback}},
@@ -31,8 +31,9 @@ it("initializes on opening chat by default, once per activation, with explicit r
       export const commands = {registerCommand(name,fn){control.commands[name]=fn;return disposable}};
     ` : `
       import {control} from 'vscode';
+      export function accountOperations(){return {read:async()=>{control.authReads++;return {loggedIn:control.signedIn,routerCredential:control.signedIn,displayName:null,userId:null,tenantId:null,authMethod:null}},login:async()=>{control.logins++;control.signedIn=true;return {loggedIn:true,routerCredential:true,displayName:null,userId:null,tenantId:null,authMethod:null}}}}
       export class ChatController { async connect(){control.calls++;await control.pending} async dispose(){} publish(){} }
-      export class ChatSurfaces {constructor(context,panels,dispatch){control.dispatch=dispatch} get available(){return control.available} dispose(){} }
+      export class ChatSurfaces {constructor(context,panels,dispatch){control.dispatch=dispatch} get available(){return control.available} post(){} async focus(){} dispose(){} }
       export class ConnectionPreferences {}
       export class EditorSelection {state={snapshot(){return null},setContext(){}};dispose(){}}
       export class ActiveConversation {}
@@ -65,6 +66,7 @@ it("initializes on opening chat by default, once per activation, with explicit r
   let finish!: () => void
   control.pending = new Promise<void>(resolve => { finish = resolve })
   const opening = ready()
+  await Promise.resolve()
   assert.equal(control.calls, 1)
   await ready()
   control.grantTrust()
@@ -84,4 +86,14 @@ it("initializes on opening chat by default, once per activation, with explicit r
   control.setting = true
   control.configuration({ affectsConfiguration: (key: string) => key === "codem.autoConnect" })
   assert.equal(control.calls, 3, "Enabling initialization while chat is open must connect")
+  assert.equal(control.authReads, 2, "Reloads reuse account display, each activation reads once")
+  await deactivate()
+  control.signedIn = false; control.folders = []; control.trusted = false
+  activate(context); await ready()
+  assert.equal(control.calls, 3, "Signed-out account never connects Core")
+  await control.dispatch({ type: "signIn" }, () => {})
+  assert.equal(control.logins, 1)
+  assert.equal(control.calls, 3, "Login is independent of Core, folders and trust")
+  await control.commands["codem.signIn"]()
+  assert.equal(control.logins, 1, "An already signed-in account must not launch login again")
 })

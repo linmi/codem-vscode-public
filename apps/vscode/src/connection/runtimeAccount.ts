@@ -1,0 +1,41 @@
+import { homedir } from "node:os"
+import * as vscode from "vscode"
+import { readAppServerAuthStatus, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
+import { UserVisibleError } from "../shared/userVisibleError.ts"
+import type { AccountOperations } from "./accountController.ts"
+
+/** Auth runs in the user's home, independent of workspace trust, selection and Core. */
+export function accountOperations(extensionRoot: string, timing?: (stage: "status" | "login", durationMs: number) => void): AccountOperations {
+  const options = () => ({ runtime: resolveBundledAppServerRuntime({ extensionRoot }), workingDirectory: homedir() })
+  const read = async (authentication: ReturnType<typeof options>, signal: AbortSignal) => {
+    const started = performance.now()
+    try { return await readAppServerAuthStatus({ ...authentication, signal }) }
+    finally { timing?.("status", Math.round(performance.now() - started)) }
+  }
+  return {
+    read: signal => read(options(), signal),
+    login: async (signal, progress) => {
+      const authentication = options()
+      const current = await read(authentication, signal)
+      signal.throwIfAborted()
+      if (current.loggedIn && current.routerCredential === true) return current
+      const started = performance.now()
+      const login = startAppServerLogin({
+        ...authentication,
+        presentAuthorization: async url => {
+          signal.throwIfAborted()
+          const uri = vscode.Uri.parse(url)
+          if (uri.scheme !== "https") throw new UserVisibleError("登录服务返回了不安全的地址。")
+          if (!await vscode.env.openExternal(uri)) throw new UserVisibleError("无法打开登录页面，请检查默认浏览器。")
+          progress("waiting")
+        },
+        onProgress: stage => { if (stage === "binding") progress("binding") },
+      })
+      const cancel = () => { void login.cancel().catch(() => undefined) }
+      signal.addEventListener("abort", cancel, { once: true })
+      if (signal.aborted) cancel()
+      try { return await login.completed }
+      finally { signal.removeEventListener("abort", cancel); timing?.("login", Math.round(performance.now() - started)) }
+    },
+  }
+}

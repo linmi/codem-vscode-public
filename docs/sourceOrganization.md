@@ -12,7 +12,7 @@
 | --- | --- |
 | `apps/vscode/src/extension.ts` | 正式扩展入口与组装 |
 | `src/chat/` | 聊天协调器、界面容器、HTML 与 Host 展示投影 |
-| `src/connection/` | 连接、空间目录、连接偏好和 MCP 配置 |
+| `src/connection/` | 独立账户认证与展示状态、连接、空间目录、连接偏好和 MCP 配置 |
 | `src/sessionHistory/` | 历史读取、列表及历史消息投影 |
 | `src/resources/` | 文件、附件、产物句柄和差异内容 |
 | `src/integrations/` | 编辑器、终端、Git、补全及其他 VS Code 能力适配 |
@@ -20,6 +20,7 @@
 | `src/nativeChat/` | 原生 Chat 实验入口及适配；不混入正式扩展入口 |
 | `src/shared/` | Host/Webview 共用的消息契约、展示规则、输入规则和图标；无平台运行时 |
 | `webview/main.ts` | Webview 入口与组装 |
+| `webview/account/` | 独立登录页、头像入口和个人账户详情；与聊天状态分离 |
 | `webview/composer/` | 输入状态、回执、输入视图、文件引用与会话命令组件 |
 | `webview/transcript/` | 消息、工具、Markdown、工作分组和轮次变更展示 |
 | `webview/sessionHistory/` | 历史界面 |
