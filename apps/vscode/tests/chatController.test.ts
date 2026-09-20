@@ -941,3 +941,52 @@ it("opening history connects on demand without creating a conversation", async (
   assert.equal(f.controller.snapshot().history.open, true)
   await f.controller.dispose()
 })
+
+it("renders one stable outgoing message before slow connection and thread creation finish", async () => {
+  const f = setup()
+  let connect!: (session: ChatSession) => void
+  let createThread!: (id: string) => void
+  let creating!: () => void
+  const threadStarted = new Promise<void>(resolve => { creating = resolve })
+  const published: ReturnType<ChatController["snapshot"]>[] = []
+  f.host.startThread = () => { creating(); return new Promise(resolve => { createThread = resolve }) }
+  const c = new ChatController({ connect: () => new Promise(resolve => { connect = resolve }), assertTrusted() {}, publish: state => published.push(state), interact: async () => null, report() {} })
+  const send = c.send("show immediately")
+  assert.equal(c.snapshot().phase, "connecting")
+  const outgoing = c.snapshot().messages[0]!
+  assert.equal(outgoing.text, "show immediately")
+  assert.equal(outgoing.role, "user")
+  assert.equal(f.counts().turns, 0)
+  connect(f.session)
+  await threadStarted
+  assert.equal(c.snapshot().phase, "sending")
+  assert.equal(c.snapshot().messages[0]?.id, outgoing.id)
+  assert.equal(f.counts().turns, 0)
+  createThread("thread-1")
+  assert.equal(await send, true)
+  assert.equal(f.submission(), outgoing.id)
+  for (const state of published) {
+    assert.equal(state.messages.filter(message => message.role === "user").length, 1)
+    assert.equal(state.messages[0]?.id, outgoing.id)
+  }
+  assert.equal(c.snapshot().messages.filter(message => message.id === outgoing.id).length, 1)
+  await c.dispose()
+})
+
+it("removes an unaccepted outgoing preview on connection failure and gives retry a fresh identity", async () => {
+  const f = setup()
+  let fail!: (error: Error) => void
+  let attempts = 0
+  const c = new ChatController({ connect: () => ++attempts === 1 ? new Promise((_resolve, reject) => { fail = reject }) : Promise.resolve(f.session), assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const pending = c.send("retained draft")
+  const firstId = c.snapshot().messages[0]?.id
+  assert.ok(firstId)
+  fail(new UserVisibleError("连接失败"))
+  assert.equal(await pending, false)
+  assert.deepEqual(c.snapshot().messages, [])
+  assert.equal(c.snapshot().notice, "连接失败")
+  assert.equal(await c.send("retained draft"), true)
+  assert.notEqual(c.snapshot().messages[0]?.id, firstId)
+  assert.equal(c.snapshot().messages.length, 1)
+  await c.dispose()
+})

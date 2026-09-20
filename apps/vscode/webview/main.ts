@@ -82,7 +82,7 @@ new ResizeObserver(fitPrompt).observe(prompt)
 
 function post(action: ViewAction): void { vscode.postMessage(action) }
 function saveDraft(): void {
-  const status = workingStatus(state, panels.kind(), submission.busy && inputMode === "message")
+  const status = workingStatus(state, panels.kind(), submission.busy && inputMode === "message" && state.messages.at(-1)?.role === "user")
   element("welcome").hidden = status !== null || ["connecting", "loadingHistory", "sending", "running", "stopping"].includes(state.phase) || state.messages.length > 0
   element("workingRow").hidden = status === null
   workingIndicator.set(status?.label ?? null, status?.animate)

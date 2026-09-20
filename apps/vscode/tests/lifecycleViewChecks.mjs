@@ -1,4 +1,16 @@
 export default async function lifecycleViewChecks(page) {
+  await page.goto('http://127.0.0.1:4318/?scenario=firstSend');
+  await page.locator('#prompt').fill('Immediate outgoing bubble');
+  await page.locator('#send').click();
+  const bubble = page.locator('#messages [data-role="user"]');
+  await bubble.waitFor();
+  if(await page.locator('.app').getAttribute('data-phase') !== 'connecting') throw new Error('Outgoing bubble waited for connection');
+  await bubble.evaluate(node => { window.firstOutgoingBubble = node });
+  const before = await bubble.boundingBox();
+  await page.locator('.app[data-phase="running"]').waitFor();
+  if(await bubble.count() !== 1 || !await bubble.evaluate(node => node === window.firstOutgoingBubble)) throw new Error('Connection replaced or duplicated the outgoing bubble');
+  const after = await bubble.boundingBox();
+  if(before.y !== after.y || before.height !== after.height) throw new Error('Outgoing bubble moved after connecting');
   await page.goto('http://127.0.0.1:4318/?scenario=disconnected');
   await page.locator('#welcome').waitFor();
   if(await page.locator('#transcriptLoading').isVisible() || await page.locator('#connection').isVisible()) throw new Error('Opening chat should not show connection UI');

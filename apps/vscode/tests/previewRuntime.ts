@@ -10,6 +10,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   let ready = false
   let generation = 0
   let refreshTimer: ReturnType<typeof setTimeout> | undefined
+  let delayedSubmission: string | null = null
   const frames = new Set<number>()
   const imageAttempts = new Map<string, number>()
   const pendingElements = new Set<() => void>()
@@ -82,6 +83,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   }
   function reset() {
     clearTimeout(refreshTimer)
+    if (delayedSubmission) { emit({ type: "sendResult", requestId: delayedSubmission, accepted: false }); delayedSubmission = null }
     for (const id of frames) cancelAnimationFrame(id)
     frames.clear(); imageAttempts.clear()
     for (const cancel of pendingElements) cancel()
@@ -114,7 +116,24 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "composerRestore") { emit({ type: "composerDraft", value: action.value, focus: false, pendingRequestId: null }); return }
     if (action.type === "composerChanged" || action.type === "contextAdded") return
     if (action.type === "ready") { ready = true; publish(); showSurface(); return }
-    if (action.type === "send") { emit({type:"sendResult",requestId:action.requestId,accepted:false}); return }
+    if (action.type === "send") {
+      if (search.scenario !== "firstSend" || demo.phase !== "disconnected") { emit({type:"sendResult",requestId:action.requestId,accepted:false}); return }
+      // Slow connection fixture: the outgoing bubble must precede any async completion.
+      demo.messages = [{ id: action.requestId, role: "user", label: "你", text: action.text }]
+      delayedSubmission = action.requestId
+      demo.phase = "connecting"
+      publish()
+      const owner = generation
+      refreshTimer = setTimeout(() => {
+        if (owner !== generation) return
+        demo.phase = "running"; demo.threadId = "first-send-fixture"
+        demo.space = "研发团队"; demo.workspace = "codem-plugin"; demo.model = "Auto"
+        publish()
+        delayedSubmission = null
+        emit({type:"sendResult",requestId:action.requestId,accepted:true})
+      }, 2000)
+      return
+    }
     if (action.type === "loadImage") {
       const attempt = (imageAttempts.get(action.id) ?? 0) + 1
       imageAttempts.set(action.id, attempt)

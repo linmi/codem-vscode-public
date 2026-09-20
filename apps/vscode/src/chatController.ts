@@ -14,7 +14,7 @@ import { attachmentPreview, rasterPreview } from "./attachmentPreview.ts"
 import { terminalReplyLast } from "./timelineOrder.ts"
 import { randomUUID } from "node:crypto"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerBackgroundTerminal, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
-import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatSnapshot } from "./messages.ts"
+import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatMessage, type ChatSnapshot } from "./messages.ts"
 
 import { HistoryListController } from "./historyList.ts"
 import { historyMessages, historyTurnTimings } from "./historyMessages.ts"
@@ -59,7 +59,7 @@ export interface ChatControllerOptions {
 
 /** One live conversation. Core owns durable history; these are display-only snapshots. */
 export class ChatController {
-  private pendingSend: symbol | null = null
+  private pendingSend: { message: ChatMessage & { role: "user" } } | null = null
   private textGeneration: { operationId: string; cancelled: boolean; finish: (error: Error | null, text?: string) => void } | null = null
   private side: { operationId: string; id: string | null } | null = null
   private controlTurn: ActiveTurn | null = null
@@ -99,7 +99,10 @@ export class ChatController {
   }
 
   snapshot(): ChatSnapshot {
-    return structuredClone({ ...this.state, threadId: this.threadId, history: this.historyList.snapshot() })
+    const pending = this.pendingSend?.message
+    const messages = pending && !this.state.messages.some(message => message.id === pending.id)
+      ? [...this.state.messages, pending] : this.state.messages
+    return structuredClone({ ...this.state, messages, threadId: this.threadId, history: this.historyList.snapshot() })
   }
 
   async assertContextWorkspace(path: string): Promise<void> {
@@ -230,24 +233,25 @@ export class ChatController {
   async send(text: string): Promise<boolean> {
     if (this.disposed || this.pendingSend || !text.trim() || text.length > 32_000) return false
     if (this.state.phase !== "disconnected" && this.state.phase !== "ready") return false
-    const request = Symbol("send")
+    const request: { message: ChatMessage & { role: "user" } } = { message: { id: randomUUID(), role: "user", label: "你", text, ...(this.state.attachments.length ? { attachments: this.state.attachments } : {}) } }
     this.pendingSend = request
     const connecting = this.state.phase === "disconnected"
     const generation = this.generation + (connecting ? 1 : 0)
     try {
       if (connecting) await this.connect()
       if (this.pendingSend !== request || this.generation !== generation || (connecting && this.threadId !== null)) return false
-      return await this.sendConnected(text)
+      return await this.sendConnected(request.message)
     } finally {
-      if (this.pendingSend === request) this.pendingSend = null
+      if (this.pendingSend === request) { this.pendingSend = null; this.publish() }
     }
   }
 
-  private async sendConnected(text: string): Promise<boolean> {
+  private async sendConnected(message: ChatMessage & { role: "user" }): Promise<boolean> {
+    const text = message.text
     if (this.disposed || this.state.phase !== "ready" || !this.session || this.state.sessionTools.busy) return false
     if (!text.trim() || text.length > 32_000) return false
     const session = this.session
-    const active: ActiveTurn = { submissionId: randomUUID(), turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
+    const active: ActiveTurn = { submissionId: message.id, turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
     const attachmentIds = [...this.attachments.keys()]
     const consumeAttachments = () => {
       if (this.session !== session || this.disposed) return
@@ -265,7 +269,7 @@ export class ChatController {
       const threadId = await this.ensureThread(session)
       this.options.assertTrusted()
       const attachments = [...this.attachments.values()]
-      this.update({ messages: [...this.state.messages, { id: active.submissionId, role: "user", label: "你", text, ...(this.state.attachments.length ? { attachments: this.state.attachments } : {}) }] })
+      this.update({ messages: [...this.state.messages, message] })
       const skillId = this.state.sessionTools.selectedSkill
       const skillName = skillId === null ? undefined : this.skillNames.get(skillId)
       if (skillId !== null && !skillName) throw new UserVisibleError("技能目录已变化，请重新选择技能。")

@@ -4,6 +4,7 @@ import { contentScenarios } from "./previewContent.ts"
 export const previewScenarios = [
   ["conversation", "对话", "完成回复"], ["progressUpdates", "对话", "多次搜索与进度说明"], ["welcome", "对话", "新会话"],
   ["disconnected", "状态", "未连接"], ["connecting", "状态", "首次发送 · 连接准备"],
+  ["firstSend", "状态", "首次发送 · 慢连接交互"],
   ["thinking", "状态", "思考中"], ["tools", "状态", "工具执行中"],
   ["failed", "状态", "工具失败"], ["stopping", "状态", "正在停止"],
   ["historyLoading", "状态", "历史恢复中"], ["history", "对话", "历史会话列表"],
@@ -29,6 +30,7 @@ export function applyPreviewScenario(state: ChatSnapshot, scenario: string): str
   ]
   if (scenario === "welcome") empty()
   if (scenario === "disconnected" || scenario === "connecting") { empty(); state.phase = scenario; state.space = null; state.workspace = null; state.model = null }
+  if (scenario === "firstSend") { empty(); state.phase = "disconnected"; state.space = null; state.workspace = null; state.model = null }
   if (scenario === "historyLoading") state.phase = "loadingHistory"
   if (scenario === "history") state.history = { open: true, loading: false, hasMore: true, error: null, entries: ["整理登录页面", "检查工作区文件", "优化聊天交互"].map((title, i) => ({ id: `preview${i}`, title, startedAt: new Date(Date.now() - i * 86400000).toISOString(), turnCount: i + 1, archived: false })) }
   if (["thinking", "tools", "failed", "stopping"].includes(scenario)) {
