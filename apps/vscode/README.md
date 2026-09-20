@@ -33,13 +33,13 @@ Host 按 `chat`、`connection`、`sessionHistory`、`resources`、`integrations`
 - 编辑器选区右键 **CodeM**：加入上下文、解释、修复、改进。灯泡提供诊断修复与重写动作。捕获未保存的选区及位置，先追加到草稿，再由用户发送。
 - **CodeM: 在编辑器标签页打开聊天** / **将聊天移回侧栏**：共用当前会话、草稿和审批，重复打开复用同一个标签页。
 - 终端右键 **CodeM**：复制选区加入上下文、加入最近输出、解释命令或分析错误。最近输出要求 Shell Integration，扩展激活前的输出不回溯；每个终端只保留最近命令的 20000 字符，不落盘。选区命令会把所选文本复制到剪贴板。
-- **CodeM: 生成行内补全**：连接后在文件光标处手动调用，以原生灰字显示，使用 VS Code 的接受/取消操作。没有自动逐键请求；忙碌时等待当前任务结束。修改文档、移动光标或取消后丢弃结果。
+- **CodeM: 生成行内补全**：连接后在文件光标处手动调用，以原生灰字显示，使用 VS Code 的接受/取消操作。默认在停输入 600ms 后自动请求，忙碌时跳过；可关闭 `codem.completion.autoTrigger` 后仅手动触发。修改文档、移动光标或取消后丢弃结果。
 - Git 源代码管理中的 **生成暂存变更的提交说明**：基于完整暂存差异提炼主要变化，参考最近 8 条提交标题的语言和格式，简单改动只写标题。生成后填入对应仓库输入框，不会执行提交；取消、暂存变化、分支切换和输入框编辑均阻止覆盖。无暂存变更时提示先暂存。设计与真实质量验收见 [提交说明生成](../../docs/commitMessages.md)。
 - 完整且匹配的文本补丁打开原生只读双栏 Diff，标题注明补丁重建。比较行内容，不比较行尾格式；部分、二进制、缺失或不匹配的内容仍明确显示补丁说明。
 
-默认快捷键：`Ctrl+Alt+M` 聚焦聊天、`Ctrl+K Ctrl+M` 加入选区、聊天内 `Ctrl+Alt+N` 新建会话、`Ctrl+Alt+Space` 手动补全；macOS 将 Ctrl 换为 Cmd。可在 VS Code 键盘快捷方式中修改。设置页提供 `codem.autoConnect`、`codem.chat.sendKey` 和 `codem.completion.enabled`；发送键可选 Enter 或 Ctrl/Cmd+Enter，运行时生效。
+默认快捷键：`Ctrl+Alt+M` 聚焦聊天、`Ctrl+K Ctrl+M` 加入选区、聊天内 `Ctrl+Alt+N` 新建会话、`Ctrl+Alt+Space` 手动补全；macOS 补全使用 `Cmd+Alt+\`，其余快捷键将 Ctrl 换为 Cmd。可在 VS Code 键盘快捷方式中修改。设置页提供 `codem.autoConnect`、`codem.chat.sendKey`、`codem.completion.enabled` 和 `codem.completion.autoTrigger`；发送键可选 Enter 或 Ctrl/Cmd+Enter，运行时生效。
 
-实现边界、取消与验证记录见 [原生集成](../../docs/nativeIntegration.md)。
+实现边界、取消与验证记录见 [原生集成](../../docs/nativeIntegration.md) 和 [行内补全](../../docs/inlineCompletion.md)。
 
 ## 开发
 

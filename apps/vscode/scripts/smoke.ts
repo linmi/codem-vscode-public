@@ -6,7 +6,13 @@ import { fileURLToPath } from "node:url"
 import { vscodeExecutable } from "./support/vscodeExecutable.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-if (process.argv.includes("--images")) {
+if (process.argv.includes("--inline-completion")) {
+  if (!process.argv.includes("--live")) throw new Error("Inline completion acceptance requires explicit test:live")
+  const { runLiveInlineCompletion } = await import("../tests/liveInlineCompletion.ts")
+  const temporary = await mkdtemp(join(tmpdir(), "codemInlineCompletion"))
+  try { await runLiveInlineCompletion(root, temporary) }
+  finally { await rm(temporary, { recursive: true, force: true }) }
+} else if (process.argv.includes("--images")) {
   if (!process.argv.includes("--live")) throw new Error("Image acceptance requires explicit test:live")
   const { runLiveImages } = await import("../tests/liveImages.ts")
   const temporary = await mkdtemp(join(tmpdir(), "codemImages"))

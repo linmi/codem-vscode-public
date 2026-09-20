@@ -6,7 +6,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 
-it("native generators reject automatic completions, stale documents, changed staged diffs and edited SCM input", async t => {
+it("native generators reject disabled automatic completions, stale documents, changed staged diffs and edited SCM input", async t => {
   const directory = await mkdtemp(join(tmpdir(), "codem-native-generation-")); t.after(() => rm(directory, { recursive: true, force: true }))
   const outfile = join(directory, "fixture.mjs")
   const root = process.cwd().endsWith("apps/vscode") ? join(process.cwd(), "../..") : process.cwd()
@@ -22,7 +22,7 @@ it("native generators reject automatic completions, stale documents, changed sta
       control.editor={document,selection:{isEmpty:true,active:position}};
       control.position=position;
       control.repo={rootUri:uri,inputBox:{value:''},state:{HEAD:{commit:'head-1'}},async diff(){if(control.diffWait)await control.diffWait;return control.diff},async log(options){control.historyCalls++;control.logOptions=options;if(control.historyWait)await control.historyWait;if(control.historyError)throw new Error('Cannot read commit history');return [{message:'fix(chat): preserve drafts\\n\\nOld feature must not appear in output'}]}};
-      export const workspace={isTrusted:true,getWorkspaceFolder:()=>({}),getConfiguration:()=>({get:()=>true}),onDidChangeTextDocument:event,onDidChangeConfiguration:event};
+      export const workspace={isTrusted:true,getWorkspaceFolder:()=>({}),getConfiguration:()=>({get:key=>key!=="completion.autoTrigger"}),onDidChangeTextDocument:event,onDidChangeConfiguration:event};
       export const window={get activeTextEditor(){return control.editor},onDidChangeActiveTextEditor:event,onDidChangeTextEditorSelection:event,showQuickPick:async items=>items[0],showWarningMessage:async()=> '替换',showInformationMessage(){},showErrorMessage:m=>control.errors.push(m),async withProgress(opts,callback){return callback({}, {onCancellationRequested:callback=>{control.cancel=callback;return disposable}})},createStatusBarItem:()=>({show(){},hide(){},dispose(){}})};
       export const commands={registerCommand(name,fn){control.commands[name]=fn;return disposable},executeCommand:async()=>{}};
       export const extensions={getExtension:()=>({isActive:true,exports:{enabled:true,getAPI:()=>({repositories:[control.repo]})}})};
@@ -35,7 +35,7 @@ it("native generators reject automatic completions, stale documents, changed sta
   } }] })
   const { registerGitActions, registerInlineCompletion, control } = await import(pathToFileURL(outfile).href)
   let resolve: (text: string) => void = () => {}; let calls = 0; let prompt = ""; let scope = "scope"
-  const chat = { contextKey: () => scope, assertContextWorkspace: async () => {}, assertContextDirectory: async () => {}, snapshot: () => ({ phase: "ready" }), generateText: (text: string) => { calls++; prompt = text; return new Promise<string>(done => { resolve = done }) } }
+  const chat = { contextKey: () => scope, assertContextWorkspace: async () => {}, assertContextDirectory: async () => {}, snapshot: () => ({ phase: "ready", sessionTools: { busy: null } }), generateText: (text: string) => { calls++; prompt = text; return new Promise<string>(done => { resolve = done }) } }
   registerGitActions(chat, () => {}); registerInlineCompletion(chat, () => {})
   const token = { isCancellationRequested: false, onCancellationRequested: () => ({ dispose() {} }) }
   const doc = control.editor.document

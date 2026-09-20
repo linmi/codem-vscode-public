@@ -317,7 +317,7 @@
       {
         "command": "codem.generateCompletion",
         "key": "ctrl+alt+space",
-        "mac": "cmd+alt+space",
+        "mac": "cmd+alt+\\",
         "when": "editorTextFocus && !editorReadonly && isWorkspaceTrusted"
       }
     ],
@@ -344,10 +344,16 @@
           "description": "聊天输入框的发送按键。",
           "scope": "window"
         },
+        "codem.completion.autoTrigger": {
+          "type": "boolean",
+          "default": true,
+          "description": "停输入 600ms 后自动请求行内补全。需要启用 editor.inlineSuggest.enabled 且 CodeM 已连接并空闲；关闭后仍可手动触发。",
+          "scope": "resource"
+        },
         "codem.completion.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "启用手动行内补全。仅显式调用时请求模型，使用当前空闲 CodeM 连接。",
+          "description": "启用行内补全，使用当前空闲 CodeM 连接；可通过快捷键手动触发或停输入后自动触发。",
           "scope": "resource"
         }
       }
