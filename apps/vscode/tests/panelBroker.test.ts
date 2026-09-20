@@ -81,28 +81,18 @@ it("serializes question cards and cancels later questions when the turn ends", a
 })
 
 
-it("selects effort independently and preserves model settings on selection and cancellation", async () => {
+it("selects models without changing effort and supports cancellation", async () => {
   const f = fixture()
-  const settings = { model: "auto", intelligence: "medium" as const, permissionMode: "default" as const, workMode: "default" as const, mcpServers: [], additionalDirectories: [] }
-  const session = { models: [{ id: "auto", source: "fixture", contextWindowTokens: 10000, supportsVision: false }] }
+  const settings = { model: "auto", intelligence: "high", permissionMode: "default" as const, workMode: "default" as const, mcpServers: [], additionalDirectories: [] }
+  const session = { models: [{ id: "other", source: "fixture", contextWindowTokens: 10000, supportsVision: false }] }
   const abort = new AbortController()
-  const result = selectSettings("selectEffort", settings, session, f.broker, abort.signal)
-  assert.equal(f.view().kind, "effort")
-  assert.deepEqual(f.view().choices.map(c => c.label), ["low", "medium", "high", "xhigh"])
-  assert.equal(f.view().choices[1]!.description, "默认")
-  assert.equal(f.view().choices[1]!.selected, true)
-  f.broker.answer(f.owner, f.reply([f.view().choices.find(c => c.label === "xhigh")!.id]))
-  assert.deepEqual(await result, { ...settings, intelligence: "xhigh" })
   const model = selectSettings("selectModel", settings, session, f.broker, abort.signal)
   assert.equal(f.view().choices.length, 1)
   f.broker.answer(f.owner, f.reply([f.view().choices[0]!.id]))
-  assert.deepEqual(await model, settings)
-  const cancelled = selectSettings("selectEffort", settings, session, f.broker, abort.signal)
+  assert.deepEqual(await model, { ...settings, model: "other" })
+  const cancelled = selectSettings("selectModel", settings, session, f.broker, abort.signal)
   abort.abort()
   assert.equal(await cancelled, null)
-  assert.equal(settings.intelligence, "medium")
-  assert.deepEqual(parseViewAction({ type: "selectEffort" }), { type: "selectEffort" })
-  assert.throws(() => parseViewAction({ type: "selectEffort", effort: "injected" }))
 })
 
 it("restores an earlier question answer and rejects a mixed back/answer submission", async () => {

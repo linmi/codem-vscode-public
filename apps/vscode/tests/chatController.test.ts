@@ -665,7 +665,7 @@ it("restores selected settings after controller restart and retains them for new
 it("reports unavailable saved models without overwriting the preference", async () => {
   const fixture = setup()
   let writes = 0
-  const controller = new ChatController({ preferences: { load: async () => ({ model: "removed-model", intelligence: "high", permissionMode: "default", workMode: "plan" }), save: async () => { writes++ } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const controller = new ChatController({ preferences: { pendingEffort: () => null, savePendingEffort: async () => {}, load: async () => ({ model: "removed-model", intelligence: "high", permissionMode: "default", workMode: "plan" }), save: async () => { writes++ } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   await controller.connect()
   assert.equal(controller.snapshot().model, "model-from-core")
   assert.equal(controller.snapshot().effort, "high")
@@ -676,7 +676,7 @@ it("reports unavailable saved models without overwriting the preference", async 
 
 it("a settings persistence failure leaves the applied selection visible with a warning", async () => {
   const fixture = setup()
-  const controller = new ChatController({ preferences: { load: async () => null, save: async () => { throw new Error("disk full") } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const controller = new ChatController({ preferences: { pendingEffort: () => null, savePendingEffort: async () => {}, load: async () => null, save: async () => { throw new Error("disk full") } }, connect: async () => fixture.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   await controller.connect()
   await controller.configure(async settings => ({ ...settings, intelligence: "high" }))
   assert.equal(controller.snapshot().effort, "high")
@@ -989,4 +989,109 @@ it("removes an unaccepted outgoing preview on connection failure and gives retry
   assert.notEqual(c.snapshot().messages[0]?.id, firstId)
   assert.equal(c.snapshot().messages.length, 1)
   await c.dispose()
+})
+
+it("chooses effort offline without connecting and sends the chosen value on first use", async () => {
+  const f = setup()
+  let submitted = ""
+  const start = f.host.startThread
+  f.host.startThread = async (cwd, settings) => { submitted = settings.intelligence; return start(cwd, settings) }
+  await f.controller.setEffort("xhigh")
+  assert.equal(f.controller.snapshot().phase, "disconnected")
+  assert.equal(f.controller.snapshot().effort, "xhigh")
+  assert.deepEqual(f.counts(), { connections: 0, starts: 0, turns: 0, closed: 0 })
+  await f.controller.send("use my selection")
+  assert.equal(submitted, "xhigh")
+  assert.equal(f.counts().connections, 1)
+  await f.controller.setEffort("low")
+  assert.equal(f.controller.snapshot().effort, "xhigh", "running turns deny changes")
+  await f.controller.dispose()
+})
+
+it("restores offline effort, consumes it into the first space and isolates later space settings", async () => {
+  const data = new Map<string, unknown>()
+  const preferences = new ConnectionPreferences({ get: <T>(key: string) => data.get(key) as T | undefined, update: async (key, value) => { data.set(key, value) } })
+  const f = setup(), next = setup()
+  next.session.space = { key: "second", name: "第二空间" }
+  const saved = { model: "removed-model", intelligence: "low", permissionMode: "auto" as const, workMode: "plan" as const }
+  await preferences.save(f.session, saved)
+  await preferences.save(next.session, { ...saved, model: next.session.model, intelligence: "medium" })
+  let connections = 0
+  const make = () => new ChatController({ preferences, connect: async () => { connections++; return f.session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const first = make()
+  await first.setEffort("high"); await first.setEffort("xhigh")
+  assert.equal(connections, 0)
+  await first.dispose()
+  const reopened = make()
+  assert.equal(reopened.snapshot().effort, "xhigh")
+  await reopened.connect()
+  assert.equal(reopened.snapshot().effort, "xhigh")
+  assert.equal(reopened.snapshot().permission, "auto")
+  assert.equal(preferences.pendingEffort(), null)
+  assert.deepEqual(await preferences.load(f.session), { ...saved, intelligence: "xhigh" })
+  await reopened.selectSpace(async () => next.session)
+  assert.equal(reopened.snapshot().effort, "medium")
+  await reopened.dispose(); await f.controller.dispose(); await next.controller.dispose()
+})
+
+it("serializes offline persistence with connection and reports failures without starting Core", async () => {
+  const f = setup()
+  let reject!: (error: Error) => void
+  let connections = 0
+  const c = new ChatController({ preferences: { pendingEffort: () => null, savePendingEffort: () => new Promise<void>((_resolve, fail) => { reject = fail }), load: async () => null, save: async () => {} }, connect: async () => { connections++; return f.session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const choosing = c.setEffort("high")
+  await c.connect(); await c.setEffort("low")
+  assert.equal(connections, 0)
+  assert.equal(c.snapshot().effort, "high")
+  reject(new Error("disk full")); await choosing
+  assert.equal(c.snapshot().phase, "disconnected")
+  assert.match(c.snapshot().notice!, /保存失败/)
+  await c.dispose(); await f.controller.dispose()
+})
+
+it("updates connected effort only after Core accepts and preserves it on failed changes", async () => {
+  const f = setup()
+  await f.controller.send("first")
+  f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+  let complete!: () => void
+  let calls = 0
+  f.host.resumeThread = async (_cwd, _threadId, settings) => { calls++; assert.equal(settings.intelligence, "high"); await new Promise<void>(resolve => { complete = resolve }) }
+  const changing = f.controller.setEffort("high")
+  while (!complete) await Promise.resolve()
+  assert.equal(f.controller.snapshot().effort, "medium")
+  assert.equal(f.controller.snapshot().phase, "configuring")
+  complete(); await changing
+  assert.equal(f.controller.snapshot().effort, "high")
+  await f.controller.setEffort("high")
+  assert.equal(calls, 1, "reselecting current effort requires no Core mutation")
+  f.host.resumeThread = async () => { throw new Error("Core rejected setting") }
+  await f.controller.setEffort("low")
+  assert.equal(f.controller.snapshot().effort, "high")
+  assert.match(f.controller.snapshot().notice!, /设置未应用/)
+  await f.controller.dispose()
+})
+
+it("does not replay a stale offline choice after a failed promotion and a newer connected choice", async () => {
+  const data = new Map<string, unknown>()
+  let rejectClear = true
+  const preferences = new ConnectionPreferences({ get: <T>(key: string) => data.get(key) as T | undefined, update: async (key, value) => {
+    if (key === "codem.pendingEffort" && value === undefined && rejectClear) throw new Error("write failed")
+    data.set(key, value)
+  } })
+  const f = setup()
+  const make = () => new ChatController({ preferences, connect: async () => f.session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const c = make()
+  await c.setEffort("xhigh"); await c.connect()
+  assert.equal(c.snapshot().effort, "xhigh")
+  assert.match(c.snapshot().notice!, /保存失败/)
+  assert.equal(preferences.pendingEffort(), "xhigh")
+  rejectClear = false
+  await c.setEffort("low")
+  assert.equal(preferences.pendingEffort(), null)
+  assert.equal((await preferences.load(f.session))?.intelligence, "low")
+  await c.dispose()
+  const reopened = make()
+  await reopened.connect()
+  assert.equal(reopened.snapshot().effort, "low")
+  await reopened.dispose(); await f.controller.dispose()
 })

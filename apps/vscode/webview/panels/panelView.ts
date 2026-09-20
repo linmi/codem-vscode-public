@@ -3,7 +3,7 @@ import type { PanelReply, PanelView } from "../../src/shared/panelTypes.ts"
 import { uiIcon } from "../../src/shared/uiIcons.ts"
 import { renderMarkdown } from "../transcript/markdownView.ts"
 
-const anchorIds = { rewind: "prompt", space: "selectSpace", model: "selectModel", effort: "selectEffort", permissionMode: "selectPermission", workMode: "selectWorkMode", approval: "prompt", question: "prompt", plan: "prompt" } as const
+const anchorIds = { rewind: "prompt", space: "selectSpace", model: "selectModel", permissionMode: "selectPermission", workMode: "selectWorkMode", approval: "prompt", question: "prompt", plan: "prompt" } as const
 
 export function createPanelView(post: (reply: PanelReply) => void, changed: () => void) {
   const footer = document.querySelector("footer")!

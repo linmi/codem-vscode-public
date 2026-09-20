@@ -124,8 +124,12 @@
           {
             "patterns": [
               {
-                "regex": "^(\\.\\./|[^.])",
-                "message": "Shared application contracts use only sibling pure modules; no platform or feature dependencies."
+                "group": [
+                  "**",
+                  "!./*",
+                  "!@codem/protocol"
+                ],
+                "message": "Shared contracts may use sibling pure code and the portable protocol package only."
               }
             ]
           }

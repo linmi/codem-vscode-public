@@ -99,3 +99,7 @@
 删除此组件被替代的 Dialog 引用、关闭按钮和旧 CSS；预览重置改为点击打开中的入口。运行信息回归从 `richPreviewChecks.mjs` 提取到 `runtimePopoverChecks.mjs` 并由前者调用。复用 4318 服务，在唯一新建的 `codem-runtime-popover` Playwright 会话验证 1440×900 浅色、380×640 深色、320×480 浅色，结果 `RUNTIME_POPOVER_OK`：实际展开位置、无模态/滚动锁、输入框尺寸不变、重复点击、外部关闭、Escape/Enter、内部滚动、用量/快捷键实时更新、跨会话关闭、空状态与重载均通过，截图已检查。检查过程中仅使用模拟数据。
 
 验证层次：构建、类型检查、定向 Oxlint、模拟界面回归通过；纯 UI 边界未重复运行 Core 单元/集成测试或真实模型。真实 VS Code 正在承载其他工作，本次未重载，宿主操作验收未执行。测试浏览器验证后关闭，原预览服务继续保留。
+
+## 本地思考强度选择
+
+`webview/composer/effortSelector.tsx` 使用现有 shadcn/ui Select，四档和默认值来自无运行时依赖的 `@codem/protocol`。菜单不再经过 PanelBroker；旧 `selectEffort` 消息被值校验严格的 `setEffort` 替代。触发器保留 DOM id 供焦点、预览和布局检查使用，信号格数随已选择值变化。保存范围与失败行为见 `localEffortSelection.md`。

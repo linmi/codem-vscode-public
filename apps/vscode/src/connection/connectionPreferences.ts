@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { parseCodemIntelligence, type CodemBuiltinIntelligence } from "@codem/protocol"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerThreadSettings } from "@codem/app-server"
 
 export type SavedSettings = Pick<AppServerThreadSettings, "model" | "intelligence" | "permissionMode" | "workMode">
@@ -6,6 +7,8 @@ export interface ConnectionTarget { cwd: string; workspace: string; key: string 
 interface Store { get<T>(key: string): T | undefined; update(key: string, value: unknown): PromiseLike<void> }
 export interface SettingsScope { cwd: string; space: { key: string } }
 export interface SettingsPersistence {
+  pendingEffort(): CodemBuiltinIntelligence | null
+  savePendingEffort(value: CodemBuiltinIntelligence | null): Promise<void>
   load(scope: SettingsScope): Promise<SavedSettings | null>
   save(scope: SettingsScope, settings: SavedSettings): Promise<void>
 }
@@ -14,6 +17,13 @@ export interface SettingsPersistence {
 export class ConnectionPreferences implements SettingsPersistence {
   private readonly store: Store
   constructor(store: Store) { this.store = store }
+  pendingEffort(): CodemBuiltinIntelligence | null {
+    const value = this.store.get<unknown>("codem.pendingEffort")
+    return value === undefined ? null : parseCodemIntelligence(value)
+  }
+  async savePendingEffort(value: CodemBuiltinIntelligence | null): Promise<void> {
+    await this.store.update("codem.pendingEffort", value === null ? undefined : parseCodemIntelligence(value))
+  }
   private key(scope: SettingsScope): string {
     return `codem.settings.${createHash("sha256").update(JSON.stringify([scope.cwd, scope.space.key])).digest("hex")}`
   }

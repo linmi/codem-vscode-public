@@ -34,3 +34,13 @@
 [data-slot="select-content"] { z-index: 100; }
 [data-slot="dialog-title"], [data-slot="dialog-description"] { margin: 0; flex-shrink: 0; }
 [data-slot="dialog-title"] { font-size: 16px; line-height: 24px; }
+
+#effortSelector { display: inline-flex; width: 28px; height: 28px; }
+#selectEffort.effortTrigger { width: 28px; height: 28px; padding: 4px; border: 0; background: transparent; box-shadow: none; color: var(--vscode-descriptionForeground); }
+#selectEffort.effortTrigger:hover { background: var(--vscode-toolbar-hoverBackground); }
+#selectEffort.effortTrigger:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+#selectEffort.effortTrigger > svg { display: none; }
+#selectEffort .effortSignal { width: 20px; height: 20px; }
+.effortMenu { width: 180px; font-family: var(--vscode-font-family); }
+.effortMenu [data-slot="select-item"] { min-height: 34px; }
+.effortDefault { padding: 1px 5px; border-radius: 4px; color: var(--vscode-descriptionForeground); background: var(--vscode-toolbar-hoverBackground); font-size: 11px; }

@@ -58,7 +58,8 @@ export function applyPreviewScenario(state: ChatSnapshot, scenario: string): str
     empty(); state.permission = scenario === "permissionYolo" ? "yolo" : scenario === "permissionAuto" ? "auto" : "default"
     state.phase = "configuring"; return "permissionMode"
   }
-  if (["space", "model", "effort", "workMode"].includes(scenario)) { empty(); state.phase = "configuring"; return scenario }
+  if (scenario === "effort") { empty(); state.phase = "disconnected"; return "effort" }
+  if (["space", "model", "workMode"].includes(scenario)) { empty(); state.phase = "configuring"; return scenario }
   if (["approval", "question", "questionBack", "plan"].includes(scenario)) { state.messages = state.messages.slice(0, 1); state.phase = "running"; return scenario }
   return null
 }

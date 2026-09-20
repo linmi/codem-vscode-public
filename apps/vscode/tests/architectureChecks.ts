@@ -64,7 +64,7 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
         if (resolved.errors.length) return { errors: resolved.errors }
         if (resolved.external) {
           if (owner === "packages/protocol") return problem("protocol cannot have external runtime imports")
-          if (isContract) return problem("application contracts cannot import external runtimes")
+          if (isContract && args.path !== "@codem/protocol") return problem("application contracts cannot import external runtimes")
           return { path: resolved.path, external: true }
         }
         const path = await realpath(resolved.path)

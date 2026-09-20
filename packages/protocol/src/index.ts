@@ -49,6 +49,11 @@ export interface CodemSkillSummary {
 export const CODEM_BUILTIN_INTELLIGENCE_TIERS = ["low", "medium", "high", "xhigh"] as const
 
 export type CodemBuiltinIntelligence = (typeof CODEM_BUILTIN_INTELLIGENCE_TIERS)[number]
+export const CODEM_DEFAULT_INTELLIGENCE: CodemBuiltinIntelligence = "medium"
+export function parseCodemIntelligence(value: unknown): CodemBuiltinIntelligence {
+  if (!CODEM_BUILTIN_INTELLIGENCE_TIERS.some(tier => tier === value)) throw new Error(`Invalid CodeM intelligence: ${String(value)}`)
+  return value as CodemBuiltinIntelligence
+}
 
 export interface CodemModelCatalog {
   readonly activeModel: string

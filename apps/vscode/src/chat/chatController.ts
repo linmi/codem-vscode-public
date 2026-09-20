@@ -1,4 +1,5 @@
 import type { FileDiffContent } from "../resources/filePresentation.ts"
+import { parseCodemIntelligence, type CodemBuiltinIntelligence } from "@codem/protocol"
 import { realpath, stat } from "node:fs/promises"
 import { basename, relative, isAbsolute, sep } from "node:path"
 import { projectCatalog } from "./capabilityCatalog.ts"
@@ -59,6 +60,7 @@ export interface ChatControllerOptions {
 
 /** One live conversation. Core owns durable history; these are display-only snapshots. */
 export class ChatController {
+  private pendingEffort: CodemBuiltinIntelligence | null
   private pendingSend: { message: ChatMessage & { role: "user" } } | null = null
   private textGeneration: { operationId: string; cancelled: boolean; finish: (error: Error | null, text?: string) => void } | null = null
   private side: { operationId: string; id: string | null } | null = null
@@ -95,6 +97,11 @@ export class ChatController {
 
   constructor(options: ChatControllerOptions) {
     this.options = options
+    this.pendingEffort = options.preferences?.pendingEffort() ?? null
+    if (this.pendingEffort !== null) {
+      this.settings = { ...this.settings, intelligence: this.pendingEffort }
+      this.state = { ...this.state, effort: this.pendingEffort }
+    }
     this.historyList = new HistoryListController(() => this.publish(), options.report)
   }
 
@@ -153,7 +160,7 @@ export class ChatController {
     this.unsubscribe = session.host.onEvent((event) => {
       if (this.session === session && generation === this.generation) this.onEvent(event)
     })
-    this.update({ ...initialSnapshot(), phase: "ready", workspace: session.workspace, space: session.space.name, model: this.settings.model, effort: this.settings.intelligence, permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name), notice: restored.notice })
+    this.update({ ...initialSnapshot(), phase: "ready", workspace: session.workspace, space: session.space.name, model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name), notice: restored.notice })
     this.poll = setInterval(() => { void this.refreshBackground() }, 3000)
     this.poll.unref()
   }
@@ -169,9 +176,22 @@ export class ChatController {
   private async restoreSettings(session: ChatSession): Promise<{ settings: AppServerThreadSettings; notice: string | null }> {
     const saved = await this.options.preferences?.load(session)
     const available = !saved || session.models.some(model => model.id === saved.model)
+    const settings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" as const, ...saved, model: available && saved ? saved.model : session.model, mcpServers: session.mcpServers }
+    let notice = available ? null : "已保存的模型当前不可用，暂用 Core 当前模型；原选择仍保留，可重新选择模型。"
+    if (this.pendingEffort !== null) {
+      settings.intelligence = this.pendingEffort
+      try {
+        // Bind the unconnected choice once. Preserve an unavailable saved model preference.
+        await this.options.preferences?.save(session, { ...(saved ?? settings), intelligence: this.pendingEffort })
+        await this.options.preferences?.savePendingEffort(null)
+        this.pendingEffort = null
+      } catch (error) {
+        this.options.report("saveEffort", error)
+        notice = [notice, "思考强度已应用，但保存失败；下次连接会继续尝试保存。"].filter(Boolean).join(" ")
+      }
+    }
     return {
-      settings: { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default", ...saved, model: available && saved ? saved.model : session.model, mcpServers: session.mcpServers },
-      notice: available ? null : "已保存的模型当前不可用，暂用 Core 当前模型；原选择仍保留，可重新选择模型。",
+      settings, notice,
     }
   }
 
@@ -948,6 +968,27 @@ export class ChatController {
     }
   }
 
+  /** Builtin effort is a local preference before connection, not a request to start Core. */
+  async setEffort(value: CodemBuiltinIntelligence): Promise<void> {
+    const effort = parseCodemIntelligence(value)
+    if (this.disposed || !["disconnected", "ready"].includes(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    if (this.session) {
+      if (effort === this.settings.intelligence) { this.publish(); return }
+      await this.configure(async settings => ({ ...settings, intelligence: effort }))
+      return
+    }
+    this.pendingEffort = effort
+    this.settings = { ...this.settings, intelligence: effort }
+    this.update({ phase: "configuring", effort, notice: null })
+    try { await this.options.preferences?.savePendingEffort(effort) }
+    catch (error) {
+      this.options.report("saveEffort", error)
+      if (!this.disposed) this.update({ notice: "思考强度已选择，但保存失败；重载后可能无法恢复，请重新选择后重试。" })
+    } finally {
+      if (!this.disposed) this.update({ phase: "disconnected" })
+    }
+  }
+
   /** Host owns the settings transaction. Holding this phase prevents sends racing a selection. */
   async configure(pick: (settings: AppServerThreadSettings, session: ChatSession) => Promise<AppServerThreadSettings | null>): Promise<void> {
     if (this.state.phase === "disconnected") await this.connect()
@@ -985,7 +1026,18 @@ export class ChatController {
       this.settings = confirmedModes ? { ...next, permissionMode: confirmedModes.permissionMode, workMode: confirmedModes.workMode === "plan" ? "plan" : "default" } : next
       this.updateSettings()
       this.update({ tools: [] })
-      try { await this.options.preferences?.save(session, this.settings) }
+      try {
+        // A failed earlier promotion must never overwrite a newer connected choice.
+        if (this.pendingEffort !== null) {
+          this.pendingEffort = parseCodemIntelligence(this.settings.intelligence)
+          await this.options.preferences?.savePendingEffort(this.pendingEffort)
+        }
+        await this.options.preferences?.save(session, this.settings)
+        if (this.pendingEffort !== null) {
+          await this.options.preferences?.savePendingEffort(null)
+          this.pendingEffort = null
+        }
+      }
       catch (error) {
         this.options.report("saveSettings", error)
         if (this.session === session && !this.disposed) this.update({ notice: "配置已应用，但保存失败；重载后可能无法恢复，请重新选择后重试。" })
@@ -1193,7 +1245,7 @@ export class ChatController {
   }
 
   private updateSettings(): void {
-    this.update({ model: this.settings.model, effort: this.settings.intelligence, permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name) })
+    this.update({ model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name) })
   }
 
   private resetResources(): void {

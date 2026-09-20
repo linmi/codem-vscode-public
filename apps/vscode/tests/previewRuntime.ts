@@ -47,7 +47,9 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     // React and the transcript have separate roots. Wait for their actual controls,
     // rather than assuming a fixed number of frames means both roots have committed.
     nextFrame(() => {
-      if (surface === "sessionTools") {
+      if (surface === "effort") {
+        whenRendered("#selectEffort:not(:disabled)", node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })))
+      } else if (surface === "sessionTools") {
         whenRendered(`#slashCommandsHost[data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, () => {
           const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
           prompt.value = "/"; prompt.dispatchEvent(new Event("input", { bubbles: true }))
@@ -141,7 +143,8 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     }
     if (action.type === "searchFiles") { emit({type:"fileSearchResult",requestId:action.requestId,files:action.query==="missing"?[]:[{id:"fileFixture",label:"src/main.ts"}],error:null}); return }
     if (action.type === "selectFile") { demo.attachments=[{id:"fileFixture",label:"src/main.ts",kind:"file",preview:{kind:"none"}}]; publish(); emit({type:"fileSelected",requestId:action.requestId,accepted:true}); return }
-    const picker: Partial<Record<ViewAction["type"], string>> = { selectPermission: "permissionMode", selectWorkMode:"workMode", selectSpace:"space", selectEffort:"effort", selectModel:"model" }
+    if (action.type === "setEffort") { demo.effort = action.effort; publish(); return }
+    const picker: Partial<Record<ViewAction["type"], string>> = { selectPermission: "permissionMode", selectWorkMode:"workMode", selectSpace:"space", selectModel:"model" }
     const name = picker[action.type]
     if (name) {
       activePanel = structuredClone(panels[name]!)
@@ -169,7 +172,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
       } else if (!action.cancelled && activePanel?.kind === "rewind" && activePanel.confirmLabel === "继续") {
         activePanel = { ...activePanel, id: `rewindScope${generation}`, title: "确认回退范围", confirmLabel: "确认回退", choices: [{ id: "conversation", label: "只回退对话", description: "保留工作区文件（模拟）", selected: true }, { id: "both", label: "对话与文件", description: "同时恢复检查点（模拟）", selected: false }] }
       } else activePanel = null
-      demo.phase = activePanel ? (["space", "model", "effort", "permissionMode", "workMode", "rewind"].includes(activePanel.kind) ? "configuring" : "running") : "ready"
+      demo.phase = activePanel ? (["space", "model", "permissionMode", "workMode", "rewind"].includes(activePanel.kind) ? "configuring" : "running") : "ready"
     }
     if (action.type === "showHistory") demo.history = {...demo.history, open:true, entries:[{id:"preview",title:"整理登录页面",startedAt:"2026-09-19T12:00:00Z",turnCount:1,archived:false}]}
     if (action.type === "closeHistory") demo.history.open = false
@@ -212,7 +215,6 @@ export function createPreviewRuntime(initial: PreviewSearch) {
 function applyChoice(demo: ChatSnapshot, panel: PanelView, id: string, label: string) {
   if (panel.kind === "permissionMode" && (id === "default" || id === "auto" || id === "yolo")) demo.permission = id
   if (panel.kind === "workMode" && (id === "default" || id === "plan")) demo.workMode = id
-  if (panel.kind === "effort") demo.effort = id
   if (panel.kind === "space" && id !== "refresh") demo.space = label
   if (panel.kind === "model") demo.model = label
 }

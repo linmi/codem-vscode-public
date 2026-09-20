@@ -45,3 +45,12 @@ it("creates independent fixture state so prior choices never mutate the next sce
   assert.deepEqual(next.activePanel?.choices.filter(choice=>choice.selected).map(choice=>choice.id),["default"])
   assert.equal(createPreviewState(parsePreviewSearch({})).demo.messages.length,4)
 })
+
+it("opens effort locally without a Host panel or configuring phase", () => {
+  for (const search of [{ scenario: "effort" }, { panel: "effort", empty: "1" }]) {
+    const state = createPreviewState(parsePreviewSearch(search))
+    assert.equal(state.surface, "effort")
+    assert.equal(state.activePanel, null)
+    assert.ok(["ready", "disconnected"].includes(state.demo.phase))
+  }
+})

@@ -30,7 +30,7 @@ it("uses a fresh CSP nonce, escapes resources and prohibits inline handlers and 
 })
 
 it("accepts feature intents and opaque handles without accepting executable inputs", () => {
-  for (const type of ["selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"]) assert.deepEqual(parseViewAction({ type }), { type })
+  for (const type of ["selectModel", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"]) assert.deepEqual(parseViewAction({ type }), { type })
   for (const type of ["removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"]) {
     assert.deepEqual(parseViewAction({ type, id: "opaque-id" }), { type, id: "opaque-id" })
     for (const id of ["../secret", "/path", "", 42, "x".repeat(101)]) assert.throws(() => parseViewAction({ type, id }))
@@ -54,4 +54,9 @@ it("accepts bounded drafts and rejects arbitrary properties and malformed tool s
   for (const value of [{ draft: "x".repeat(32001) }, { draft: "", path: "/etc/passwd" }, { draft: "", tools: { scope: "t", text: "x", mode: "shell" } }, []]) {
     assert.throws(() => parseViewAction({ type: "composerChanged", value }))
   }
+})
+
+it("accepts only builtin effort values and rejects the obsolete menu request", () => {
+  for (const effort of ["low", "medium", "high", "xhigh"]) assert.deepEqual(parseViewAction({ type: "setEffort", effort }), { type: "setEffort", effort })
+  for (const value of [{ type: "selectEffort" }, { type: "setEffort" }, { type: "setEffort", effort: "max" }, { type: "setEffort", effort: null }, { type: "setEffort", effort: "high", model: "injected" }]) assert.throws(() => parseViewAction(value))
 })

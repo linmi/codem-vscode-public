@@ -47,6 +47,7 @@ import {
 
 import {
   CODEM_BUILTIN_INTELLIGENCE_TIERS,
+  CODEM_DEFAULT_INTELLIGENCE,
   type CodemBuiltinIntelligence,
   type CodemModelCatalog,
   type CodemModelSummary,
@@ -89,7 +90,7 @@ export interface AppServerThreadSettings {
 
 export const DEFAULT_APP_SERVER_THREAD_SETTINGS: AppServerThreadSettings = Object.freeze({
   model: "codem-router/auto",
-  intelligence: "medium",
+  intelligence: CODEM_DEFAULT_INTELLIGENCE,
   permissionMode: "auto",
   workMode: "default",
   additionalDirectories: [],

@@ -143,7 +143,8 @@ export function activate(context: vscode.ExtensionContext): void {
           }
         }); break
       }
-      case "selectModel": case "selectEffort": case "selectPermission": case "selectWorkMode": {
+      case "setEffort": await chat.setEffort(action.effort); return
+      case "selectModel": case "selectPermission": case "selectWorkMode": {
         const kind = action.type
         await chat.configure(async (settings, session) => {
           const abort = new AbortController(); settingsAbort = abort

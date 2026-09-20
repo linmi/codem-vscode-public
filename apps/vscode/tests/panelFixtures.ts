@@ -10,12 +10,6 @@ export const panelFixtures: Record<string, PanelView> = {
     { id: "model-one", label: "CodeM Reasoning", description: "支持图片 · 200,000 tokens", selected: false },
     { id: "model-two", label: "CodeM Fast", description: "128,000 tokens", selected: false },
   ] },
-  effort: { ...base, id: "effortFixture", kind: "effort", title: "思考强度", choices: [
-    { id: "low", label: "low", description: "", selected: false },
-    { id: "medium", label: "medium", description: "默认", selected: true },
-    { id: "high", label: "high", description: "", selected: false },
-    { id: "xhigh", label: "xhigh", description: "", selected: false },
-  ] },
   approval: { ...base, id: "approval-fixture", kind: "approval", title: "允许执行命令？", description: "验证当前项目的类型检查。", detail: "pnpm typecheck", choices: [
     { id: "once", label: "仅允许这一次", description: "仅批准当前请求", selected: false },
     { id: "session", label: "本次会话允许", description: "对此操作不再询问", selected: false },

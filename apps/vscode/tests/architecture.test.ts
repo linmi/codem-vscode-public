@@ -41,7 +41,7 @@ it("architecture gate: accepts Node services, local protocol code and public pac
 
 it("application boundaries: accepts shared contracts and UI composition", async t => {
   const root = await fixture(t)
-  await put(root, "apps/vscode/src/shared/messages.ts", "export const value = 1")
+  await put(root, "apps/vscode/src/shared/messages.ts", 'export { value } from "@codem/protocol"')
   await put(root, "apps/vscode/webview/components/ui/button.ts", "export const button = 1")
   await put(root, "apps/vscode/webview/composer/view.ts", 'export { value } from "../../src/shared/messages.ts"; export { button } from "../components/ui/button.ts"')
   await checkWorkspaceArchitecture(root)

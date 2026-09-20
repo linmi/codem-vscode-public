@@ -21,3 +21,18 @@ it("rejects invalid saved settings instead of silently accepting unsupported val
   const valid = { model: "model", intelligence: "medium", permissionMode: "default", workMode: "default" }
   for (const value of [null, {}, { ...valid, intelligence: "max" }, { ...valid, permissionMode: "all" }, { ...valid, token: "secret" }]) assert.throws(() => parseSavedSettings(value))
 })
+
+it("restores and clears an unconnected effort without creating scoped settings", async () => {
+  const data = new Map<string, unknown>()
+  const store = { get: <T>(key: string) => data.get(key) as T | undefined, update: async (key: string, value: unknown) => { data.set(key, value) } }
+  const first = new ConnectionPreferences(store)
+  assert.equal(first.pendingEffort(), null)
+  await first.savePendingEffort("xhigh")
+  const reopened = new ConnectionPreferences(store)
+  assert.equal(reopened.pendingEffort(), "xhigh")
+  assert.equal(await reopened.load({ cwd: "/work", space: { key: "team" } }), null)
+  await reopened.savePendingEffort(null)
+  assert.equal(first.pendingEffort(), null)
+  data.set("codem.pendingEffort", "max")
+  assert.throws(() => reopened.pendingEffort(), /Invalid CodeM intelligence/)
+})

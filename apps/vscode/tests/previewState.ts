@@ -19,7 +19,7 @@ export function parsePreviewSearch(search: Record<string, unknown>): PreviewSear
   const theme = search.theme ?? "light"
   if (!previewScenarios.some(item => item[0] === scenario)) throw new Error("未知预览场景")
   if (theme !== "light" && theme !== "dark") throw new Error("未知预览主题")
-  if (search.panel !== undefined && (typeof search.panel !== "string" || !Object.hasOwn(panelFixtures, search.panel))) throw new Error("未知预览面板")
+  if (search.panel !== undefined && (typeof search.panel !== "string" || (search.panel !== "effort" && !Object.hasOwn(panelFixtures, search.panel)))) throw new Error("未知预览面板")
   return { scenario: scenario as PreviewSearch["scenario"], theme, ...(typeof search.panel === "string" ? { panel: search.panel } : {}), ...(search.empty !== undefined ? { empty: String(search.empty) } : {}) }
 }
 export function createPreviewState(search: PreviewSearch) {
@@ -29,7 +29,7 @@ export function createPreviewState(search: PreviewSearch) {
   const panelName = applyPreviewScenario(demo, search.scenario) ?? search.panel
   const content = contentScenario(search.scenario)
   content?.apply(demo)
-  const activePanel = content?.panel ? structuredClone(content.panel) : panelName ? panels[panelName] : null
+  const activePanel = content?.panel ? structuredClone(content.panel) : panelName && panelName !== "effort" ? panels[panelName] : null
   if (activePanel?.kind === "permissionMode") activePanel.choices.forEach(choice => { choice.selected = choice.id === demo.permission })
   if (demo.messages.length) {
     const turnId = "previewTurn"
@@ -37,5 +37,5 @@ export function createPreviewState(search: PreviewSearch) {
     const now = Date.now()
     demo.turnTimings = [...new Set(demo.messages.map(message => message.turnId!))].map(turnId => ({ turnId, startedAt: now - 36_000, finishedAt: ["running", "stopping"].includes(demo.phase) ? null : now }))
   }
-  return { demo, panels, activePanel, surface: content?.surface ?? null }
+  return { demo, panels, activePanel, surface: panelName === "effort" ? "effort" : content?.surface ?? null }
 }

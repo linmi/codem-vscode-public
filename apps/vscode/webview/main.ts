@@ -9,6 +9,7 @@ import { createPanelView } from "./panels/panelView.ts"
 import type { PanelMessage } from "../src/shared/panelTypes.ts"
 import { initialSnapshot, isBusy, type ComposerDraft, type EditorMessage, type ImageResult, type FileSearchResult, type FileSelected, type ChatSnapshot, type SendResult, type ViewAction } from "../src/shared/messages.ts"
 
+import { createEffortSelector } from "./composer/effortSelector.tsx"
 import { createComposerView } from "./composer/composerView.ts"
 
 import { createMessageView } from "./transcript/messageView.ts"
@@ -64,14 +65,14 @@ newChat?.addEventListener("click", () => post({ type: "newChat" }))
 stop.addEventListener("click", () => post({ type: "stop" }))
 if (standaloneActions) element("showOutput").addEventListener("click", () => post({ type: "showOutput" }))
 
-const configurationActions = ["selectSpace", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment"] as const
+const renderEffort = createEffortSelector(element("effortSelector"), post)
+const configurationActions = ["selectSpace", "selectModel", "selectPermission", "selectWorkMode", "addAttachment"] as const
 for (const type of configurationActions) element(type).addEventListener("click", () => post({ type }))
 let attachmentsKey = ""
 function renderResources(): void {
   const ready = ["ready", "disconnected"].includes(state.phase) && !state.backgroundBusy && !state.sessionTools.busy
   for (const type of configurationActions) element<HTMLButtonElement>(type).disabled = !ready
-  element("selectEffort").setAttribute("aria-label", `思考强度：${state.effort}`)
-  element("selectEffort").title = `思考强度：${state.effort}`
+  renderEffort(state)
   element("selectWorkMode").textContent = state.workMode === "plan" ? "Plan" : "Agent"
   const permission = element("selectPermission")
   permission.title = { default: "默认权限", auto: "自动审批", yolo: "完全访问" }[state.permission]

@@ -1,13 +1,15 @@
+import { CODEM_DEFAULT_INTELLIGENCE, parseCodemIntelligence, type CodemBuiltinIntelligence } from "@codem/protocol"
 import { emptySessionTools, parseCapabilityAction, type CapabilityAction, type SessionToolsState, emptyCapabilities, type CapabilityState } from "./capabilityTypes.ts"
 import { parsePanelReply, type PanelReply } from "./panelTypes.ts"
 import { emptyHistoryList, type HistoryAction, type HistoryList } from "./historyTypes.ts"
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
-const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "selectSpace", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
+const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "selectSpace", "selectModel", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
 const handleActions = ["openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
 export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" } }
 export type EditorMessage = { type: "composerDraft"; value: ComposerDraft; focus: boolean; pendingRequestId: string | null } | { type: "appendContext"; id: string; text: string } | { type: "focusComposer" } | { type: "editorSettings"; sendKey: string }
 export type ViewAction =
+  | { type: "setEffort"; effort: CodemBuiltinIntelligence }
   | { type: "contextAdded"; id: string; accepted: boolean; value: ComposerDraft }
   | { type: "composerChanged" | "composerRestore"; value: ComposerDraft }
   | CapabilityAction
@@ -40,6 +42,7 @@ export function parseViewAction(value: unknown): ViewAction {
     if (t !== undefined && (!t || typeof t !== "object" || Object.keys(t).length !== 3 || typeof t.scope !== "string" || t.scope.length > 1000 || typeof t.text !== "string" || t.text.length > 32_000 || !["askSideQuestion", "steer", "shellCommand"].includes(t.mode))) throw new Error("Invalid tools draft")
     return { type: record.type, value }
   }
+  if (record.type === "setEffort" && Object.keys(record).length === 2) return { type: "setEffort", effort: parseCodemIntelligence(record.effort) }
   if (record.type === "panelReply") return parsePanelReply(record)
   const capability = parseCapabilityAction(record)
   if (capability) return capability
@@ -83,7 +86,7 @@ export interface ChatSnapshot {
   space: string | null
   workspace: string | null
   model: string | null
-  effort: string
+  effort: CodemBuiltinIntelligence
   permission: "default" | "auto" | "yolo"
   workMode: "default" | "plan"
   mcpNames: readonly string[]
@@ -102,7 +105,7 @@ export interface ChatSnapshot {
   historyNeedsRefresh: boolean
 }
 export function initialSnapshot(): ChatSnapshot {
-  return { capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: "medium", permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
+  return { capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
 }
 export function isBusy(phase: ChatPhase): boolean {
   return phase !== "ready" && phase !== "disconnected"
