@@ -1,7 +1,8 @@
 import { createRoot } from "react-dom/client"
+import { useId } from "react"
 import { InfoIcon, KeyboardIcon } from "lucide-react"
 import { Button } from "./button.tsx"
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./dialog.tsx"
+import { Popover, PopoverContent, PopoverTrigger } from "./popover.tsx"
 import type { ChatSnapshot } from "../../src/messages.ts"
 
 const labels: Record<string, string> = { idle: "空闲", running: "运行中", completed: "已完成", in_progress: "进行中", pending: "待执行", failed: "失败", success: "成功", allow: "允许", deny: "拒绝", skipped: "已跳过", interrupted: "已中断" }
@@ -11,12 +12,13 @@ const phaseLabels: Record<ChatSnapshot["phase"], string> = {
 const format = (value: number | null) => value === null ? "未知" : value.toLocaleString("zh-CN")
 
 function CapabilityStatus({ snapshot, sendKey }: { snapshot: ChatSnapshot; sendKey: string }) {
+  const titleId = useId()
   const state = snapshot.capabilities
   const status = state.threadStatus ? labels[state.threadStatus] ?? state.threadStatus : "尚未开始"
-  return <Dialog>
-    <DialogTrigger asChild><Button id="runtimeDetails" data-thread-id={snapshot.threadId ?? ""} className="runtimeDetailsTrigger" variant="ghost" size="icon" title="运行详情与快捷键" aria-label="运行详情与快捷键"><InfoIcon aria-hidden="true" /></Button></DialogTrigger>
-    <DialogContent className="runtimeDetailsDialog">
-      <header className="runtimeDetailsHeading"><DialogTitle>运行详情</DialogTitle><DialogDescription className="visuallyHidden">当前会话的状态、用量与操作提示</DialogDescription></header>
+  return <Popover modal={false}>
+    <PopoverTrigger asChild><Button id="runtimeDetails" data-thread-id={snapshot.threadId ?? ""} className="runtimeDetailsTrigger" variant="ghost" size="icon" title="运行详情与快捷键" aria-label="运行详情与快捷键"><InfoIcon aria-hidden="true" /></Button></PopoverTrigger>
+    <PopoverContent className="runtimeDetailsPopover" side="top" align="end" sideOffset={8} collisionPadding={12} aria-labelledby={titleId}>
+      <header className="runtimeDetailsHeading"><h2 id={titleId}>运行详情</h2></header>
       <div className="runtimeDetailsBody">
         <section className="runtimeSection" aria-label="会话状态">
           <div className="runtimeSectionHeading"><h3>会话状态</h3><span className="runtimeBadge">{phaseLabels[snapshot.phase]}</span></div>
@@ -32,11 +34,11 @@ function CapabilityStatus({ snapshot, sendKey }: { snapshot: ChatSnapshot; sendK
         {state.hooks.length > 0 && <section className="runtimeSection"><h3>Hooks</h3><ul className="runtimeRecords">{state.hooks.map(hook => <li key={hook.id}><div><strong>{hook.event}</strong><span className="runtimeBadge">{labels[hook.outcome] ?? hook.outcome}</span></div><p>{hook.tool && <span>{hook.tool} · </span>}{format(hook.elapsedMs)} ms</p></li>)}</ul></section>}
         <section className="runtimeSection" aria-label="快捷键"><h3 className="runtimeKeyboardHeading"><KeyboardIcon aria-hidden="true" />快捷键</h3><dl className="runtimeRows runtimeShortcuts"><div><dt>发送消息</dt><dd><kbd>{sendKey === "enter" ? "Enter" : "Ctrl / Cmd + Enter"}</kbd></dd></div><div><dt>换行</dt><dd><kbd>{sendKey === "enter" ? "Shift + Enter" : "Enter"}</kbd></dd></div></dl></section>
       </div>
-    </DialogContent>
-  </Dialog>
+    </PopoverContent>
+  </Popover>
 }
 
 export function createCapabilityStatus(host: HTMLElement) {
-  const root = createRoot(host)
+  const root = createRoot(host, { identifierPrefix: "runtime-details-" })
   return (snapshot: ChatSnapshot, sendKey: string) => root.render(<CapabilityStatus key={JSON.stringify([snapshot.workspace, snapshot.space, snapshot.threadId])} snapshot={snapshot} sendKey={sendKey} />)
 }

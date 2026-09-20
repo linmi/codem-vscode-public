@@ -86,7 +86,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     for (const cancel of pendingElements) cancel()
     document.querySelector<HTMLButtonElement>("#closeResources")?.click()
     document.querySelector<HTMLButtonElement>('.sessionCommandDialog [data-slot="dialog-close"]')?.click()
-    document.querySelector<HTMLButtonElement>('.runtimeDetailsDialog [data-slot="dialog-close"]')?.click()
+    document.querySelector<HTMLButtonElement>('#runtimeDetails[data-state="open"]')?.click()
     document.querySelector<HTMLButtonElement>('[aria-label="返回普通对话"]')?.click()
     generation++
     const next = createPreviewState(search)
