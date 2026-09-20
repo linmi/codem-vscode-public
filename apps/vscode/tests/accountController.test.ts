@@ -1,26 +1,25 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { AccountController, type AccountOperations } from "../src/connection/accountController.ts"
-import type { AppServerAuthStatus } from "@codem/app-server"
+import { AccountController, type AccountIdentity, type AccountOperations } from "../src/connection/accountController.ts"
 
-const authenticated: AppServerAuthStatus = { loggedIn: true, routerCredential: true, serverUrl: "https://private.invalid", userId: "user", tenantId: "tenant", displayName: "小林", authMethod: "browser" }
+const authenticated: AccountIdentity = { avatar: { kind: "image", url: "https://s1-imfile.feishucdn.com/avatar.jpg" }, loggedIn: true, routerCredential: true, serverUrl: "https://private.invalid", userId: "user", tenantId: "tenant", displayName: "小林", authMethod: "browser" }
 const signedOut = { ...authenticated, loggedIn: false, routerCredential: false }
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r }); return { promise, resolve } }
 
 it("account display initializes once, shares pending reads and projects only approved profile fields", async () => {
-  const result = deferred<AppServerAuthStatus>(); let reads = 0
+  const result = deferred<AccountIdentity>(); let reads = 0
   const account = new AccountController({ read: () => { reads++; return result.promise }, login: async () => { throw Error("unexpected login") } }, () => {})
   const first = account.initialize(); const second = account.initialize()
   await Promise.resolve(); assert.equal(reads, 1)
   result.resolve(authenticated); await Promise.all([first, second]); await account.initialize(); await account.login()
   assert.equal(reads, 1)
-  assert.deepEqual(account.snapshot(), { status: "signedIn", profile: { displayName: "小林", userId: "user", tenantId: "tenant", authMethod: "browser" }, refreshing: false, notice: null })
+  assert.deepEqual(account.snapshot(), { status: "signedIn", profile: { avatar: authenticated.avatar, displayName: "小林", userId: "user", tenantId: "tenant", authMethod: "browser" }, refreshing: false, notice: null })
   assert.doesNotMatch(JSON.stringify(account.snapshot()), /private|routerCredential|serverUrl/)
   await account.dispose()
 })
 
 it("account login is single flight; cancellation waits for cleanup and ignores late success before retry", async () => {
-  const first = deferred<AppServerAuthStatus>(); let logins = 0; let signal!: AbortSignal
+  const first = deferred<AccountIdentity>(); let logins = 0; let signal!: AbortSignal
   const account = new AccountController({ read: async () => signedOut, login: async (s, progress) => { signal = s; logins++; progress("waiting"); return logins === 1 ? first.promise : authenticated } }, () => {})
   await account.initialize()
   const login = account.login(); await Promise.resolve(); const duplicate = account.login()
@@ -47,7 +46,7 @@ it("read and login failures are sanitized and retryable; refreshing failure pres
 })
 
 it("explicit auth invalidation and fresh runtime observations supersede stale account reads", async () => {
-  const stale = deferred<AppServerAuthStatus>()
+  const stale = deferred<AccountIdentity>()
   const account = new AccountController({ read: () => stale.promise, login: async () => authenticated }, () => {})
   const read = account.initialize(); await Promise.resolve(); account.invalidate()
   stale.resolve(authenticated); await read; assert.equal(account.signedIn, false)
@@ -59,7 +58,7 @@ it("explicit auth invalidation and fresh runtime observations supersede stale ac
 })
 
 it("dispose aborts in-flight login, waits for cleanup and never publishes late state", async () => {
-  const end = deferred<AppServerAuthStatus>(); const states: unknown[] = []; let signal!: AbortSignal
+  const end = deferred<AccountIdentity>(); const states: unknown[] = []; let signal!: AbortSignal
   const operations: AccountOperations = { read: async () => signedOut, login: async s => { signal = s; return end.promise } }
   const account = new AccountController(operations, state => states.push(state))
   const login = account.login(); await Promise.resolve(); const count = states.length
@@ -67,4 +66,19 @@ it("dispose aborts in-flight login, waits for cleanup and never publishes late s
   await Promise.resolve(); assert.equal(signal.aborted, true); assert.equal(done, false)
   end.resolve(authenticated); await Promise.all([login, disposal])
   assert.equal(states.length, count); await account.login(); assert.equal(states.length, count)
+})
+
+it("fresh runtime auth retains only the same account avatar and rejects a stale profile after identity changes", async () => {
+  const pending = deferred<AccountIdentity>()
+  const account = new AccountController({ read: () => pending.promise, login: async () => authenticated }, () => {})
+  await account.login(); account.observe(authenticated)
+  const same = account.snapshot(); assert.equal(same.status === "signedIn" && same.profile.avatar.kind, "image")
+  const refresh = account.refresh(); await Promise.resolve()
+  account.observe({ ...authenticated, userId: "another" })
+  pending.resolve(authenticated); await refresh
+  const changed = account.snapshot()
+  assert.equal(changed.status === "signedIn" && changed.profile.userId, "another")
+  assert.deepEqual(changed.status === "signedIn" && changed.profile.avatar, { kind: "none" })
+  account.invalidate(); assert.equal(account.snapshot().status, "signedOut")
+  await account.dispose()
 })

@@ -17,6 +17,7 @@
 .accountProfile { max-width: 360px; margin: 0 auto; padding: 36px 20px; text-align: center; }
 .accountProfile h2 { margin: 14px 0 6px; font-size: 18px; overflow-wrap: anywhere; }
 .accountAvatar { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--soft); color: var(--ink); border: 1px solid var(--line); font-size: 11px; font-weight: 500; }
+.accountAvatar [data-slot="avatar-fallback"] { font-size: inherit; color: inherit; background: inherit; }
 .accountAvatarLarge { width: 56px; height: 56px; font-size: 22px; }
 .accountAvatarLarge svg { width: 26px; height: 26px; }
 .accountTrigger { width: 28px; height: 28px; padding: 2px; border-radius: 50%; }

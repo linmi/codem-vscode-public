@@ -2,6 +2,7 @@ import type { ChatSnapshot } from "../src/shared/messages.ts"
 import { contentScenarios } from "./previewContent.ts"
 
 export const previewScenarios = [
+  ["accountAvatar", "账户", "账户头像"], ["accountAvatarFailure", "账户", "头像加载失败"],
   ["accountSignedOut", "账户", "未登录"], ["accountSigningIn", "账户", "浏览器登录中"], ["accountFailure", "账户", "登录失败"], ["accountProfile", "账户", "个人账户"],
   ["conversation", "对话", "完成回复"], ["progressUpdates", "对话", "多次搜索与进度说明"], ["welcome", "对话", "新会话"], ["codeSelection", "输入", "代码选区"], ["codeSelectionFailure", "输入", "代码选区 · 发送失败"],
   ["disconnected", "状态", "未连接"], ["connecting", "状态", "首次发送 · 连接准备"],

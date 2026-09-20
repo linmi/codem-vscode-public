@@ -1,4 +1,6 @@
+export type AccountAvatar = { kind: "none" } | { kind: "unavailable" } | { kind: "image"; url: string }
 export interface AccountProfile {
+  avatar: AccountAvatar
   displayName: string | null
   userId: string | null
   tenantId: string | null

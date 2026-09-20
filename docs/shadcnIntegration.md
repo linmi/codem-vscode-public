@@ -111,3 +111,5 @@
 ## 独立账户页面
 
 `webview/account/accountView.tsx` 使用 React 与现有 shadcn/ui Button，复用主题令牌，分别提供居中登录页、头像入口和紧凑个人账户页。没有新增依赖、手写菜单或原生 select。身份仅来自 Host 白名单 `AccountState`，认证行为、刷新失效和状态保存范围见 `accountExperience.md`。
+
+账户头像使用 `components/ui/avatar.tsx`（shadcn Avatar / AvatarImage / AvatarFallback），来源和生命周期见 `accountExperience.md`。缺图时由 Radix 的图片加载状态显示后备头像，删除原手写圆形 span 实现；两处头像保持固定尺寸和无 Referrer 图片请求。

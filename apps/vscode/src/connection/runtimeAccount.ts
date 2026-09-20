@@ -1,24 +1,26 @@
+import { accountProfilePath, readAccountAvatar } from "./accountAvatar.ts"
 import { homedir } from "node:os"
 import * as vscode from "vscode"
-import { readAppServerAuthStatus, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
+import { type AppServerAuthStatus, readAppServerAuthStatus, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
-import type { AccountOperations } from "./accountController.ts"
+import type { AccountIdentity, AccountOperations } from "./accountController.ts"
 
 /** Auth runs in the user's home, independent of workspace trust, selection and Core. */
 export function accountOperations(extensionRoot: string, timing?: (stage: "status" | "login", durationMs: number) => void): AccountOperations {
   const options = () => ({ runtime: resolveBundledAppServerRuntime({ extensionRoot }), workingDirectory: homedir() })
+  const identity = async (status: AppServerAuthStatus, signal: AbortSignal): Promise<AccountIdentity> => ({ ...status, avatar: await readAccountAvatar(status, accountProfilePath(process.env, homedir()), signal) })
   const read = async (authentication: ReturnType<typeof options>, signal: AbortSignal) => {
     const started = performance.now()
     try { return await readAppServerAuthStatus({ ...authentication, signal }) }
     finally { timing?.("status", Math.round(performance.now() - started)) }
   }
   return {
-    read: signal => read(options(), signal),
+    read: async signal => identity(await read(options(), signal), signal),
     login: async (signal, progress) => {
       const authentication = options()
       const current = await read(authentication, signal)
       signal.throwIfAborted()
-      if (current.loggedIn && current.routerCredential === true) return current
+      if (current.loggedIn && current.routerCredential === true) return identity(current, signal)
       const started = performance.now()
       const login = startAppServerLogin({
         ...authentication,
@@ -34,7 +36,7 @@ export function accountOperations(extensionRoot: string, timing?: (stage: "statu
       const cancel = () => { void login.cancel().catch(() => undefined) }
       signal.addEventListener("abort", cancel, { once: true })
       if (signal.aborted) cancel()
-      try { return await login.completed }
+      try { return await identity(await login.completed, signal) }
       finally { signal.removeEventListener("abort", cancel); timing?.("login", Math.round(performance.now() - started)) }
     },
   }

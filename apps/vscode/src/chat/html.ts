@@ -1,3 +1,4 @@
+import { accountAvatarSources } from "../shared/accountAvatar.ts"
 import { randomBytes } from "node:crypto"
 import { uiIcon } from "../shared/uiIcons.ts"
 
@@ -10,7 +11,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
   const source = escapeHtml(resources.cspSource)
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${source} data:; style-src ${source} 'nonce-${nonce}'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${source} data: ${accountAvatarSources}; style-src ${source} 'nonce-${nonce}'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'">
 <link rel="stylesheet" href="${escapeHtml(resources.style)}"><title>CodeM</title></head>
 <body>
 <div id="accountRoot" data-logo="${escapeHtml(resources.logo)}"></div>

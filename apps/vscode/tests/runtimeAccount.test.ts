@@ -12,8 +12,9 @@ async function setup(t: TestContext): Promise<{ accountOperations: typeof Operat
   const directory = await mkdtemp(join(tmpdir(), "codem-account-")); t.after(() => rm(directory, { recursive: true, force: true }))
   const outfile = join(directory, "fixture.mjs")
   await build({ outfile, bundle: true, platform: "node", format: "esm", logLevel: "silent", stdin: { contents: 'export { accountOperations } from "./src/connection/runtimeAccount.ts"; export { control } from "accountFixture"', resolveDir: root }, plugins: [{ name: "account", setup(b) {
+    b.onResolve({ filter: /accountAvatar\.ts$/ }, () => ({path:"avatar",namespace:"account"}))
     b.onResolve({ filter: /^(vscode|@codem\/app-server|accountFixture)$/ }, args => ({ path: args.path, namespace: "account" }))
-    b.onLoad({ filter: /.*/, namespace: "account" }, args => ({ contents: args.path === "accountFixture" ? `
+    b.onLoad({ filter: /.*/, namespace: "account" }, args => ({ contents: args.path === "avatar" ? `export const accountProfilePath=()=>'/fixture/config.json'; export const readAccountAvatar=async()=>({kind:'image',url:'https://s1-imfile.feishucdn.com/avatar.jpg'});` : args.path === "accountFixture" ? `
       export const control={loggedIn:false,browser:true,url:'https://login.invalid/authorize',calls:[],cwd:'',finish:()=>{}};
     ` : args.path === "vscode" ? `
       import {control} from 'accountFixture';
@@ -40,7 +41,7 @@ it("login reads auth and opens browser without workspace APIs or Core; authentic
   const f = await setup(t); const operations = f.accountOperations("/extension"); const stages: string[] = []
   const login = operations.login(new AbortController().signal, stage => stages.push(stage))
   await new Promise(resolve => setImmediate(resolve)); assert.deepEqual(f.control.calls, ["status", "login", "browser"])
-  assert.equal(f.control.cwd, homedir()); f.control.finish(); assert.equal((await login).loggedIn, true)
+  assert.equal(f.control.cwd, homedir()); f.control.finish(); const identity = await login; assert.equal(identity.loggedIn, true); assert.equal(identity.avatar.kind, "image")
   assert.deepEqual(stages, ["waiting", "binding"])
   f.control.calls.length = 0
   await operations.login(new AbortController().signal, () => assert.fail("unexpected progress"))

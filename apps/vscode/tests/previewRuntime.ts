@@ -11,7 +11,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
   let { demo, panels, activePanel, surface } = createPreviewState(initial)
   const selectionFixture = (): CodeSelectionsView => ({ current: ["codeSelection", "codeSelectionFailure"].includes(search.scenario) ? { id: "selected-code", label: "connectionPreferences.ts", path: "src/connection/connectionPreferences.ts", startLine: 10, endLine: 15, error: null } : null, pinned: [] })
   let selectedCode = selectionFixture()
-  const signedIn = (): AccountState => ({ status: "signedIn", profile: { displayName: "林晓", userId: "preview-user", tenantId: "preview-team", authMethod: "browser" }, refreshing: false, notice: null })
+  const signedIn = (): AccountState => ({ status: "signedIn", profile: { avatar: search.scenario === "accountAvatar" ? {kind:"image",url:"/logo.svg"} : search.scenario === "accountAvatarFailure" ? {kind:"image",url:"/missing-avatar.jpg"} : {kind:"none"}, displayName: "林晓", userId: "preview-user", tenantId: "preview-team", authMethod: "browser" }, refreshing: false, notice: null })
   const accountFixture = (): AccountState => search.scenario === "accountSignedOut" ? { status: "signedOut", notice: null } : search.scenario === "accountSigningIn" ? { status: "signingIn", progress: "waiting" } : search.scenario === "accountFailure" ? { status: "error", message: "登录未完成，请重试。" } : signedIn()
   let account = accountFixture()
   let loginTimer: ReturnType<typeof setTimeout> | undefined
@@ -90,7 +90,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
           whenRendered(`[data-resource-tab="${surface}"]`, node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })))
         })
       }
-      if (search.scenario === "accountProfile") whenRendered(".accountTrigger", node => node.click())
+      if (["accountProfile", "accountAvatar", "accountAvatarFailure"].includes(search.scenario)) whenRendered(".accountTrigger", node => node.click())
       if (search.scenario === "sendFailure") {
         const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
         prompt.value = "继续检查错误恢复，并保留这段草稿。"; prompt.dispatchEvent(new Event("input", { bubbles: true }))

@@ -2,31 +2,37 @@ import { useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { createRoot } from "react-dom/client"
 import { ArrowLeftIcon, ArrowUpRightIcon, RefreshCwIcon, UserRoundIcon } from "lucide-react"
+import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar.tsx"
 import { Button } from "../components/ui/button.tsx"
-import type { AccountAction, AccountProfile, AccountState } from "../../src/shared/accountTypes.ts"
+import type { AccountAction, AccountAvatar, AccountProfile, AccountState } from "../../src/shared/accountTypes.ts"
 
-function Avatar({ name, large = false }: { name: string | null; large?: boolean }) {
+function AccountAvatarView({ name, avatar, large = false }: { name: string | null; avatar: AccountAvatar; large?: boolean }) {
   const initial = name?.trim() ? Array.from(name.trim())[0]!.toLocaleUpperCase() : null
-  return <span className={`accountAvatar${large ? " accountAvatarLarge" : ""}`} aria-hidden="true">{initial ?? <UserRoundIcon />}</span>
+  return <Avatar className={`accountAvatar${large ? " accountAvatarLarge" : ""}`} aria-hidden="true">
+    {avatar.kind === "image" && <AvatarImage src={avatar.url} alt="" referrerPolicy="no-referrer" />}
+    <AvatarFallback>{initial ?? <UserRoundIcon />}</AvatarFallback>
+  </Avatar>
 }
-function Profile({ profile, refreshing, notice, back, refresh }: { profile: AccountProfile; refreshing: boolean; notice: string | null; back: () => void; refresh: () => void }) {
+function Profile({ profile, avatarAttempt, refreshing, notice, back, refresh }: { profile: AccountProfile; avatarAttempt: number; refreshing: boolean; notice: string | null; back: () => void; refresh: () => void }) {
   const backButton = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => { backButton.current?.focus() }, [])
   const fields = [["用户 ID", profile.userId], ["租户 ID", profile.tenantId], ["登录方式", profile.authMethod]] as const
   return <section className="accountPage" aria-labelledby="accountTitle" onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); back() } }}>
     <header className="accountHeader"><Button ref={backButton} variant="ghost" size="icon" aria-label="返回聊天" onClick={back}><ArrowLeftIcon aria-hidden="true" /></Button><h1 id="accountTitle">个人账户</h1><Button variant="ghost" size="icon" aria-label="刷新账户信息" title="刷新账户信息" disabled={refreshing} onClick={refresh}><RefreshCwIcon aria-hidden="true" /></Button></header>
     <div className="accountProfile">
-      <Avatar name={profile.displayName} large />
+      <AccountAvatarView key={avatarAttempt} name={profile.displayName} avatar={profile.avatar} large />
       <h2>{profile.displayName?.trim() || "CodeM 用户"}</h2>
       <p className="accountConnected"><span aria-hidden="true" />已登录</p>
       <dl className="accountFields">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "未提供"}</dd></div>)}</dl>
-      <p className="accountFootnote" role="status">{refreshing ? "正在刷新账户信息…" : notice || "账户信息由登录服务提供。"}</p>
+      <p className="accountFootnote" role="status">{refreshing ? "正在刷新账户信息…" : notice || (profile.avatar.kind === "unavailable" ? "暂时无法读取头像，可刷新重试。" : "账户信息由登录服务提供。")}</p>
     </div>
   </section>
 }
 
 function AccountView({ state, avatarHost, chat, logo, post }: { state: AccountState; avatarHost: HTMLElement; chat: HTMLElement; logo: string; post: (action: AccountAction) => void }) {
   const [profileOpen, setProfileOpen] = useState(false)
+  const [avatarAttempt, setAvatarAttempt] = useState(0)
+  const refreshAccount = () => { setAvatarAttempt(value => value + 1); post({ type: "refreshAccount" }) }
   const authenticated = state.status === "signedIn"
   const avatarButton = useRef<HTMLButtonElement>(null)
   const wasProfileOpen = useRef(false)
@@ -44,8 +50,8 @@ function AccountView({ state, avatarHost, chat, logo, post }: { state: AccountSt
     previousStatus.current = state.status
   }, [authenticated, profileOpen, chat, state.status])
   if (state.status === "signedIn") return <>
-    {createPortal(<Button ref={avatarButton} className="accountTrigger" variant="ghost" size="icon" aria-label={`个人账户：${state.profile.displayName || "CodeM 用户"}`} title="个人账户" onClick={() => { setProfileOpen(true); post({ type: "refreshAccount" }) }}><Avatar name={state.profile.displayName} /></Button>, avatarHost)}
-    {profileOpen && <Profile profile={state.profile} refreshing={state.refreshing} notice={state.notice} back={() => setProfileOpen(false)} refresh={() => post({ type: "refreshAccount" })} />}
+    {createPortal(<Button ref={avatarButton} className="accountTrigger" variant="ghost" size="icon" aria-label={`个人账户：${state.profile.displayName || "CodeM 用户"}`} title="个人账户" onClick={() => { setProfileOpen(true); refreshAccount() }}><AccountAvatarView key={avatarAttempt} name={state.profile.displayName} avatar={state.profile.avatar} /></Button>, avatarHost)}
+    {profileOpen && <Profile profile={state.profile} avatarAttempt={avatarAttempt} refreshing={state.refreshing} notice={state.notice} back={() => setProfileOpen(false)} refresh={refreshAccount} />}
   </>
   const signingIn = state.status === "signingIn"
   const progress = signingIn ? ({ opening: "正在打开登录页面…", waiting: "请在浏览器中完成登录", binding: "正在确认登录…", cancelling: "正在取消登录…" } as const)[state.progress] : null

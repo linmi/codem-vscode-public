@@ -1,13 +1,16 @@
 import type { AppServerAuthStatus } from "@codem/app-server"
-import type { AccountState } from "../shared/accountTypes.ts"
+import type { AccountAvatar, AccountState } from "../shared/accountTypes.ts"
+
+export interface AccountIdentity extends AppServerAuthStatus { avatar: AccountAvatar }
 
 export interface AccountOperations {
-  read: (signal: AbortSignal) => Promise<AppServerAuthStatus>
-  login: (signal: AbortSignal, progress: (stage: "opening" | "waiting" | "binding") => void) => Promise<AppServerAuthStatus>
+  read: (signal: AbortSignal) => Promise<AccountIdentity>
+  login: (signal: AbortSignal, progress: (stage: "opening" | "waiting" | "binding") => void) => Promise<AccountIdentity>
 }
 
 /** Account display only. Every protected runtime operation still validates its own auth. */
 export class AccountController {
+  private avatarOwner: string | null = null
   private state: AccountState = { status: "checking" }
   private operation: { abort: AbortController; promise: Promise<void> } | null = null
   private disposed = false
@@ -41,14 +44,18 @@ export class AccountController {
   observe(status: AppServerAuthStatus): void {
     if (this.disposed) return
     this.operation?.abort.abort()
-    this.apply(status)
+    const owner = accountKey(status)
+    const avatar: AccountAvatar = owner && owner === this.avatarOwner && this.state.status === "signedIn" ? this.state.profile.avatar : { kind: "none" }
+    this.apply({ ...status, avatar })
   }
-  private apply(status: AppServerAuthStatus): void {
+  private apply(status: AccountIdentity): void {
+    this.avatarOwner = accountKey(status)
     this.set(status.loggedIn && status.routerCredential === true
-      ? { status: "signedIn", profile: { displayName: status.displayName, userId: status.userId, tenantId: status.tenantId, authMethod: status.authMethod }, refreshing: false, notice: null }
+      ? { status: "signedIn", profile: { avatar: status.avatar, displayName: status.displayName, userId: status.userId, tenantId: status.tenantId, authMethod: status.authMethod }, refreshing: false, notice: null }
       : { status: "signedOut", notice: status.loggedIn ? "登录已失效，请重新登录。" : null })
   }
   invalidate(): void {
+    this.avatarOwner = null
     this.operation?.abort.abort()
     this.set({ status: "signedOut", notice: "登录已失效，请重新登录。" })
   }
@@ -95,4 +102,9 @@ export class AccountController {
     this.state = state
     this.publish()
   }
+}
+
+function accountKey(status: AppServerAuthStatus): string | null {
+  return status.loggedIn && status.routerCredential === true && status.serverUrl && status.tenantId && status.userId
+    ? JSON.stringify([status.serverUrl, status.tenantId, status.userId]) : null
 }

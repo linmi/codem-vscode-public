@@ -31,7 +31,7 @@ it("initializes on opening chat by default, once per activation, with explicit r
       export const commands = {registerCommand(name,fn){control.commands[name]=fn;return disposable}};
     ` : `
       import {control} from 'vscode';
-      export function accountOperations(){return {read:async()=>{control.authReads++;return {loggedIn:control.signedIn,routerCredential:control.signedIn,displayName:null,userId:null,tenantId:null,authMethod:null}},login:async()=>{control.logins++;control.signedIn=true;return {loggedIn:true,routerCredential:true,displayName:null,userId:null,tenantId:null,authMethod:null}}}}
+      export function accountOperations(){return {read:async()=>{control.authReads++;return {avatar:{kind:"none"},loggedIn:control.signedIn,routerCredential:control.signedIn,displayName:null,userId:null,tenantId:null,authMethod:null}},login:async()=>{control.logins++;control.signedIn=true;return {avatar:{kind:"none"},loggedIn:true,routerCredential:true,displayName:null,userId:null,tenantId:null,authMethod:null}}}}
       export class ChatController { async connect(){control.calls++;await control.pending} async dispose(){} publish(){} }
       export class ChatSurfaces {constructor(context,panels,dispatch){control.dispatch=dispatch} get available(){return control.available} post(){} async focus(){} dispose(){} }
       export class ConnectionPreferences {}

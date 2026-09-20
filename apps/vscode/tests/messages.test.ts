@@ -14,10 +14,12 @@ it("accepts only supported actions and bounded text; refuses raw RPC, paths and 
   }
 })
 
-it("uses a fresh CSP nonce, escapes resources and prohibits inline handlers and remote requests", () => {
+it("uses a fresh CSP nonce, escapes resources and prohibits inline handlers and restricts remote images to avatar CDNs", () => {
   const options = { surface: "editor" as const, script: 'resource/script.js" onload="bad()', style: "resource/style.css", logo: "resource/logo.svg", cspSource: "https://resource.test" }
   const first = chatHtml(options)
   const second = chatHtml(options)
+  assert.match(first, /img-src https:\/\/resource\.test data: https:\/\/feishucdn\.com https:\/\/\*\.feishucdn\.com https:\/\/larksuitecdn\.com https:\/\/\*\.larksuitecdn\.com;/)
+  assert.doesNotMatch(first, /img-src[^;]*https:;/)
   assert.match(first, /default-src 'none'/)
   assert.match(first, /form-action 'none'/)
   assert.doesNotMatch(first, /unsafe-inline|unsafe-eval| onload="/)
