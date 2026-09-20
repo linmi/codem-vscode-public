@@ -17,6 +17,7 @@ function Profile({ profile, focusRequest, avatarAttempt, refreshing, notice, bac
   const backButton = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => { backButton.current?.focus() }, [focusRequest])
   const fields = [["用户 ID", profile.userId], ["租户 ID", profile.tenantId], ["登录方式", profile.authMethod]] as const
+  const status = refreshing ? "正在刷新账户信息…" : notice || (profile.avatar.kind === "unavailable" ? "暂时无法读取头像，可刷新重试。" : null)
   return <section className="accountPage" aria-labelledby="accountTitle" onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); back() } }}>
     <header className="accountHeader"><Button ref={backButton} variant="ghost" size="icon" aria-label="返回聊天" onClick={back}><ArrowLeftIcon aria-hidden="true" /></Button><h1 id="accountTitle">个人账户</h1><Button variant="ghost" size="icon" aria-label="刷新账户信息" title="刷新账户信息" disabled={refreshing} onClick={refresh}><RefreshCwIcon aria-hidden="true" /></Button></header>
     <div className="accountProfile">
@@ -24,7 +25,7 @@ function Profile({ profile, focusRequest, avatarAttempt, refreshing, notice, bac
       <h2>{profile.displayName?.trim() || "CodeM 用户"}</h2>
       <p className="accountConnected"><span aria-hidden="true" />已登录</p>
       <dl className="accountFields">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "未提供"}</dd></div>)}</dl>
-      <p className="accountFootnote" role="status">{refreshing ? "正在刷新账户信息…" : notice || (profile.avatar.kind === "unavailable" ? "暂时无法读取头像，可刷新重试。" : "账户信息由登录服务提供。")}</p>
+      {status && <p className="accountFootnote" role="status">{status}</p>}
       <div className="accountLogout"><Button type="button" variant="outline" onClick={logout}><LogOutIcon aria-hidden="true" />退出登录</Button><p className="accountFootnote">将结束当前连接并清空草稿，已保存的聊天记录保留。</p></div>
     </div>
   </section>

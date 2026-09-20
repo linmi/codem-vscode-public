@@ -18,6 +18,7 @@ export default async function accountPreviewChecks(page) {
       await page.locator('#prompt').fill('保留草稿')
       await avatar.click()
       await page.getByRole('heading', {name:'个人账户',exact:true}).waitFor()
+      if (await page.locator('.accountProfile > [role=status]').count()) throw Error('Normal account retains a footnote or empty status placeholder')
       const layout = await page.evaluate(() => ({
         header:document.querySelector('.accountHeader').getBoundingClientRect().height,
         bottom:document.querySelector('.accountPage').getBoundingClientRect().bottom,
@@ -60,6 +61,19 @@ export default async function accountPreviewChecks(page) {
     await fallback.waitFor()
     await page.getByRole('button', {name:'返回聊天',exact:true}).click()
     await page.locator('.accountTrigger [data-slot="avatar-fallback"]').waitFor()
+    await page.goto('http://127.0.0.1:4318/?scenario=accountProfile&theme=light')
+    await page.getByRole('heading', {name:'个人账户',exact:true}).waitFor()
+    for (const [refreshing, notice, avatar, expected] of [
+      [true, null, {kind:'none'}, '正在刷新账户信息…'],
+      [false, '刷新失败，请重试。', {kind:'none'}, '刷新失败，请重试。'],
+      [false, null, {kind:'unavailable'}, '暂时无法读取头像，可刷新重试。'],
+      [false, null, {kind:'none'}, null],
+    ]) {
+      await page.evaluate(({refreshing, notice, avatar}) => window.postMessage({type:'account',state:{status:'signedIn',refreshing,notice,profile:{displayName:'林晓',userId:'preview-user',tenantId:'preview-team',authMethod:'browser',avatar}}}, '*'), {refreshing, notice, avatar})
+      const status = page.locator('.accountProfile > [role=status]')
+      if (expected) await status.getByText(expected, {exact:true}).waitFor()
+      else await status.waitFor({state:'detached'})
+    }
     await page.goto('http://127.0.0.1:4318/?scenario=accountFailure&theme=dark')
     await page.getByRole('alert').waitFor()
     await page.getByRole('button', {name:'重新检查登录状态',exact:true}).click()
