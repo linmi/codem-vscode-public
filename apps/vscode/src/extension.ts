@@ -22,11 +22,17 @@ export function activate(context: vscode.ExtensionContext): void {
   const panels = new PanelBroker()
   let settingsAbort: AbortController | null = null
   let view: vscode.WebviewView | undefined
+  let viewResolvedAt = 0
+  let connectingAt: number | null = null
   let previousPhase: string | null = null
   const openSession = async (signIn: boolean, signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
+    const runtimeStarted = performance.now()
     const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signIn, signal, target, directory)
+    output.appendLine(`Connection runtime: ${Math.round(performance.now() - runtimeStarted)}ms`)
     try {
+      const mcpStarted = performance.now()
       session.mcpServers = await features.loadMcp()
+      output.appendLine(`Connection MCP settings: ${Math.round(performance.now() - mcpStarted)}ms`)
       return session
     } catch (error) { await session.host.close(); throw error }
   }
@@ -49,7 +55,14 @@ export function activate(context: vscode.ExtensionContext): void {
     publish: (state) => {
       if (state.phase !== "configuring") settingsAbort?.abort()
       if (state.phase === "disconnected") panels.cancel()
-      if (state.phase !== previousPhase) { output.appendLine(`UI phase: ${state.phase}`); previousPhase = state.phase }
+      if (state.phase !== previousPhase) {
+        if (state.phase === "connecting") connectingAt = performance.now()
+        else if (connectingAt !== null) {
+          output.appendLine(`Connection ${state.phase}: ${Math.round(performance.now() - connectingAt)}ms`)
+          connectingAt = null
+        }
+        output.appendLine(`UI phase: ${state.phase}`); previousPhase = state.phase
+      }
       void view?.webview.postMessage(state)
     },
     report: (operation, error) => {
@@ -67,7 +80,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => { void autoConnect() }))
   const dispatch = async (action: ViewAction, reply: (result: SendResult | FileSearchResult | FileSelected | ImageResult) => void): Promise<void> => {
     switch (action.type) {
-      case "ready": chat.publish(); panels.replay(); await autoConnect(); break
+      case "ready": output.appendLine(`Webview ready: ${Math.round(performance.now() - viewResolvedAt)}ms`); chat.publish(); panels.replay(); await autoConnect(); break
       case "panelReply": break
       case "connect": await chat.connect(); break
       case "signIn": await chat.connect(true); break
@@ -150,6 +163,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(output, vscode.window.registerWebviewViewProvider("codem.chat", {
     resolveWebviewView(resolved) {
       view = resolved
+      viewResolvedAt = performance.now()
       panels.bind(resolved, message => { void resolved.webview.postMessage(message) })
       resolved.webview.options = {
         enableScripts: true,

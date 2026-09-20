@@ -65,6 +65,8 @@ The pinned Core unsubscribe acknowledgement contains a `status` of `unsubscribed
 
 Space integration uses the pinned CLI's private credential-broker tools `project_list`, `space_prepare`, and `space_commit` over its temporary `__host-serve` channel. This is a broker control channel, not an additional agent transport. Only `{projectKey, displayName}` leaves the host as space metadata; managed-directory paths remain host-only. No credential files are read or written by this package.
 
+For initial connections, `prepareInitialAppServerSpace(options, requestedKey?)` lists and prepares an available remembered/current space on one temporary broker, returning `prepared` launch material or `selection-required` with its catalog. The broker is closed before either result returns, including before any user prompt. Applications must renew authentication after user selection and call standalone preparation for that new transaction. Startup launch material is consumed only once; directory refresh and later connections retain fresh validation. See [startup measurements and lifecycle checks](../../docs/connectionGovernance.md).
+
 Provide `AppServerHost.prepareSpace` to bind each Core process to broker-validated launch material: `--project-key` and `CODEM_MANAGED_DIR`. A null managed directory explicitly disables the managed layer. Ambient managed-directory, space-list and broker-command variables cannot override the selected space. Hosts without a space preparer have no managed layer. Each application must supply its own selection UI and explicitly bind its selected space.
 
 ### Historical turn recovery

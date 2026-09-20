@@ -28,14 +28,34 @@ export interface AppServerSpaceOptions {
 }
 
 export async function listAppServerSpaces(options: AppServerSpaceOptions): Promise<AppServerSpaceList> {
-  return parseAppServerSpaces(await callSpaceBroker(options, "project_list", {}))
+  return withSpaceBroker(options, "project_list", async call => parseAppServerSpaces(await call("project_list", {})))
+}
+
+export type AppServerSpacePreparation =
+  | { readonly kind: "prepared"; readonly catalog: AppServerSpaceList; readonly space: AppServerPreparedSpace }
+  | { readonly kind: "selection-required"; readonly catalog: AppServerSpaceList }
+
+/** One startup transaction; close the broker before any user selection prompt. */
+export async function prepareInitialAppServerSpace(options: AppServerSpaceOptions, requestedKey?: string): Promise<AppServerSpacePreparation> {
+  if (requestedKey !== undefined) spaceKey(requestedKey)
+  return withSpaceBroker(options, "project_list", async call => {
+    const catalog = parseAppServerSpaces(await call("project_list", {}))
+    const key = requestedKey ?? catalog.current
+    if (!key || !catalog.spaces.some(space => space.projectKey === key)) return { kind: "selection-required", catalog }
+    const space = parsePreparedSpace(await call("space_prepare", { project_key: key }), key)
+    return { kind: "prepared", catalog, space }
+  })
 }
 
 export async function prepareAppServerSpace(
   options: AppServerSpaceOptions,
   projectKey: string,
 ): Promise<AppServerPreparedSpace> {
-  const payload = await callSpaceBroker(options, "space_prepare", { project_key: spaceKey(projectKey) })
+  spaceKey(projectKey)
+  return withSpaceBroker(options, "space_prepare", async call => parsePreparedSpace(await call("space_prepare", { project_key: projectKey }), projectKey))
+}
+
+function parsePreparedSpace(payload: JsonObject, projectKey: string): AppServerPreparedSpace {
   if (payload.project_key !== projectKey || !["ok", "empty"].includes(String(payload.status)))
     throw new Error("CodeM space_prepare returned an invalid space or status")
   const directory = payload.managed_dir
@@ -52,7 +72,7 @@ export async function prepareAppServerSpace(
 export async function commitAppServerSpace(options: AppServerSpaceOptions, projectKey: string): Promise<void> {
   const key = spaceKey(projectKey)
   try {
-    await callSpaceBroker(options, "space_commit", { project_key: key })
+    await withSpaceBroker(options, "space_commit", call => call("space_commit", { project_key: key }))
   } catch {
     throw new Error(
       "CodeM space commit was not confirmed. The account selection may have changed; reopen Select Space and retry.",
@@ -87,11 +107,14 @@ export function appServerSpaceLaunch(space: AppServerPreparedSpace): {
   }
 }
 
-async function callSpaceBroker(
+type SpaceBrokerMethod = "project_list" | "space_prepare" | "space_commit"
+type SpaceBrokerCall = (name: SpaceBrokerMethod, args: JsonObject) => Promise<JsonObject>
+
+async function withSpaceBroker<T>(
   options: AppServerSpaceOptions,
-  name: "project_list" | "space_prepare" | "space_commit",
-  args: JsonObject,
-): Promise<JsonObject> {
+  name: SpaceBrokerMethod,
+  run: (call: SpaceBrokerCall) => Promise<T>,
+): Promise<T> {
   if (!isAbsolute(options.workingDirectory)) throw new Error("CodeM space workingDirectory must be absolute")
   const timeout = options.timeoutMs ?? 180_000
   if (!Number.isFinite(timeout) || timeout <= 0) throw new Error("Invalid CodeM space timeout")
@@ -144,20 +167,25 @@ async function callSpaceBroker(
     )
       throw new Error("CodeM space broker version/protocol mismatch; reinstall the pinned runtime")
     peer.notify("notifications/initialized", {})
-    const result = object(await peer.request("tools/call", { name, arguments: args }))
-    if (result.isError === true || !Array.isArray(result.content) || result.content.length !== 1)
-      throw new Error(`CodeM ${name} broker rejected the request; refresh your login and retry`)
-    const content = object(result.content[0])
-    if (content.type !== "text" || typeof content.text !== "string") throw new Error(`Invalid CodeM ${name} response`)
-    let payload: JsonObject
-    try {
-      payload = object(JSON.parse(content.text))
-    } catch {
-      throw new Error(`Invalid CodeM ${name} payload`)
-    }
-    if (payload.ok !== true) throw new Error(`CodeM ${name} failed; refresh your space list and login before retrying`)
-    if (failure) throw failure
-    return payload
+    return await run(async (method, args) => {
+      name = method
+      options.signal?.throwIfAborted()
+      if (failure) throw failure
+      const result = object(await peer.request("tools/call", { name, arguments: args }))
+      if (result.isError === true || !Array.isArray(result.content) || result.content.length !== 1)
+        throw new Error(`CodeM ${name} broker rejected the request; refresh your login and retry`)
+      const content = object(result.content[0])
+      if (content.type !== "text" || typeof content.text !== "string") throw new Error(`Invalid CodeM ${name} response`)
+      let payload: JsonObject
+      try {
+        payload = object(JSON.parse(content.text))
+      } catch {
+        throw new Error(`Invalid CodeM ${name} payload`)
+      }
+      if (payload.ok !== true) throw new Error(`CodeM ${name} failed; refresh your space list and login before retrying`)
+      if (failure) throw failure
+      return payload
+    })
   } catch (error: unknown) {
     // Do not propagate RPC error text/data from the credential broker.
     if (failure) throw failure

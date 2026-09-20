@@ -23,7 +23,7 @@
 | 新首次连接 | 1 | 1 | 1 | 1 |
 | 主动刷新目录 | 1 | 1 | 0 | 0 |
 
-原链路次数来自修改前的调用链：previous.authorize、连接认证、Host 启动认证各一次，菜单与连接各读取一次目录。改后真实预检脚本断言上述正常路径调用次数；包内相应函数当前各启动一个短生命周期子进程。没有声称消除了所有子进程，也未引入未经协议验证的常驻 broker。
+原链路次数来自修改前的调用链：previous.authorize、连接认证、Host 启动认证各一次，菜单与连接各读取一次目录。改后真实预检脚本断言上述正常路径调用次数。这张表统计业务请求，不等于子进程数；下文的首次连接优化进一步合并目录与准备所用的临时 broker，不改变表中的业务请求次数。
 
 ## 实测与可复现证据
 
@@ -43,3 +43,42 @@ node --experimental-strip-types apps/vscode/scripts/profileConnection.ts --works
 - 模拟界面：空间刷新、加载反馈、关闭与重新打开通过。该证据只覆盖 Webview 样式与交互。
 - 真实 Core：上述 CONNECTION_PROFILE_OK 两次通过，使用当前空间进行连接预检；不依赖模型输出判断结果。
 - 真实 VS Code：本轮自动化只能定位仓库主窗口，窗口菜单未列出开发宿主；未新开窗口，真实菜单点击及重载体验尚未验收，不能标为全流程完成。
+
+## 首次连接的代理启动优化（2026-09-20）
+
+首次打开面板的调用链为 Webview ready → connect → 校验安装包完整性 → auth status → project_list → space_prepare → Core initialize → model/list → MCP SecretStorage → 恢复设置 → ready。每阶段的结果仍由原有所有者管理：Core 拥有连接与线程，Host 保存目录，VS Code 保存工作区设置和加密 MCP 配置。
+
+本次细分样本约 2211ms：安装包校验 35ms、auth 932ms、目录 392ms、空间准备 665ms、Core 启动约 186ms、模型读取不足 1ms。空间目录与准备分别启动一次认证 CLI，重复支付进程与协议初始化开销。
+
+新的 `prepareInitialAppServerSpace` 在一个临时 broker 中串行执行目录查询和所选空间准备。准备成功后关闭 broker，再把只用一次的启动材料交给 Core；不是常驻连接或授权缓存。已保存空间或 CLI 当前空间仍须存在于最新目录，最终访问权仍由 space_prepare 与 Core 校验。
+
+| 行为 | 结果 |
+| --- | --- |
+| 首次连接，有可自动选择的空间 | 1 次 auth 子进程 + 1 次 broker + 1 次 Core；broker initialize 从 2 次降为 1 次，project_list/space_prepare 各 1 次 |
+| 没有可用的自动选择 | 返回目录前关闭 broker；用户选择后重新 auth，再用新的 broker 准备空间 |
+| 取消选择或取消连接 | 不创建 Core；在途 broker 超时/取消会退出并被等待回收 |
+| 空间准备、模型读取失败 | 不发布 ready；broker/Core 分别由其拥有者清理，重试重新验证 |
+| 重复连接、重载 | 不复用上一次启动材料或认证结果 |
+| 切换空间，已有同账号目录 | 保持 1 次 auth + 1 次 prepare，目录显示不增加 IO |
+
+同一 CLI 0.1.208 的真实 broker 已验证一次 initialize 后可以依次调用两个工具，遵守其协商版本 [MCP 2025-03-26 生命周期](https://modelcontextprotocol.io/specification/2025-03-26/basic/lifecycle)。本次没有新增 space_commit 或修改全局空间选择。独立 list/prepare 入口保留给主动刷新、已有目录以及用户选择后的新事务，底层共用同一实现。
+
+改前/改后 bundle 使用同一测试工作区、同一已选空间交替测量三次（毫秒）：
+
+| 次数 | 改前首次连接 | 改后首次连接 |
+| --- | ---: | ---: |
+| 1 | 1355 | 1669 |
+| 2 | 2577 | 1077 |
+| 3 | 1202 | 1105 |
+
+这三次中位数为 1355 → 1105ms。第一组反而变慢，说明认证、网络和系统调度仍有明显波动；不把这组小样本当成稳定降幅或冷磁盘启动指标。确定性门槛是首次连接 broker 启动和 initialize 均只有一次、每项业务请求只有一次、取消和失败后无遗留进程。
+
+性能脚本现在提供各阶段耗时、broker 次数，且支持未设置全局默认空间的账号显式传 `--space <已选空间的项目 key>`。工作区路径会先规范化，避免 macOS 临时路径别名触发错误的工作区选择。只输出阶段名、次数和耗时，不输出账号、令牌或 broker 原始响应。
+
+```bash
+node --experimental-strip-types apps/vscode/scripts/profileConnection.ts --workspace /absolute/path/to/existing/trusted/workspace --space <project-key>
+```
+
+CodeM 输出面板新增 `Webview ready`、`Connection runtime`、`Connection MCP settings`、`Connection ready/disconnected` 耗时，可区分界面启动、后端和 SecretStorage 等待。runtime 时间包含用户登录/选择对话框的等待；它与完整 connection 时间有包含关系，不应相加。
+
+新增 9 个默认回归测试覆盖：同一 broker 只初始化一次、启动材料不重复准备、目录失效后选择、选择后重新认证、选择取消、准备后取消、第二次 RPC 挂起/失败时回收与脱敏、模型读取失败关闭 Core、重试不复用旧授权。`pnpm check` 的静态检查、类型检查及 228 个测试通过，`pnpm build:vscode` 通过。真实 Core 只做连接预检，未发送模型消息。模拟界面未运行；真实 VS Code 自动化仍只能定位主窗口，无法选中已有开发宿主，未新开窗口，完整首次打开体验尚未验收。

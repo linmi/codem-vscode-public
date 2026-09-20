@@ -1,5 +1,7 @@
 export {
   listAppServerSpaces,
+  prepareInitialAppServerSpace,
+  type AppServerSpacePreparation,
   prepareAppServerSpace,
   commitAppServerSpace,
   type AppServerSpace,

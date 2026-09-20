@@ -1,7 +1,7 @@
 import { SpaceDirectory } from "./spaceDirectory.ts"
 import * as vscode from "vscode"
 import { realpath } from "node:fs/promises"
-import { AppServerHost, assertAppServerAuthenticated, listAppServerSpaces, prepareAppServerSpace, readAppServerAuthStatus, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
+import { AppServerHost, assertAppServerAuthenticated, listAppServerSpaces, prepareAppServerSpace, prepareInitialAppServerSpace, readAppServerAuthStatus, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
 import { resolveSessionsRoot } from "@codem/session-history"
 import { createSessionHistoryReader } from "./sessionHistory.ts"
 import { UserVisibleError, type ChatSession } from "./chatController.ts"
@@ -50,7 +50,9 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   assertTrusted()
   signal.throwIfAborted()
   const reusableSpaces = knownSpaces?.matchesAccount(status) ? knownSpaces : undefined
-  const spaces = reusableSpaces ? { current: target?.key ?? null, spaces: reusableSpaces.list() } : await listAppServerSpaces({ ...options, signal })
+  const initial = reusableSpaces ? null : await prepareInitialAppServerSpace(options, target?.key)
+  const spaces = initial ? initial.catalog : { current: target?.key ?? null, spaces: reusableSpaces!.list() }
+  let prepared = initial?.kind === "prepared" ? initial.space : null
   const requestedKey = target?.key ?? spaces.current
   const needsSelection = !spaces.spaces.some(space => space.projectKey === requestedKey)
   const key = !needsSelection ? requestedKey : (await vscode.window.showQuickPick(spaces.spaces.map((space) => ({ label: space.displayName, key: space.projectKey })), { title: requestedKey ? "上次空间已不可用，请重新选择 CodeM 空间" : "选择本次连接使用的 CodeM 空间" }))?.key
@@ -83,7 +85,11 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
     runtime,
     clientInfo: { name: "codem-vscode", version },
     assertAuthenticated: async () => { assertTrusted(); signal.throwIfAborted(); if (starting) assertAppServerAuthenticated(status); else await authorize() },
-    prepareSpace: () => prepareAppServerSpace({ ...options, signal }, key),
+    prepareSpace: () => {
+      // Consume launch material once, within the startup transaction that verified it.
+      if (prepared) { const space = prepared; prepared = null; return Promise.resolve(space) }
+      return prepareAppServerSpace({ ...options, signal }, key)
+    },
   })
   try {
     await host.prepareConnection(cwd)

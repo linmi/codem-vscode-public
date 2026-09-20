@@ -1,17 +1,20 @@
 /** Explicit real-Core preflight profiling; no model turns and no VS Code windows. */
 import { build } from "esbuild"
-import { readFile } from "node:fs/promises"
+import { readFile, realpath } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { spawn } from "node:child_process"
 import { resolve } from "node:path"
 const root = fileURLToPath(new URL("..", import.meta.url))
 const argument = process.argv.indexOf("--workspace")
 if (argument < 0 || !process.argv[argument + 1]) throw new Error("Pass --workspace <existing trusted test workspace>")
-const workspace = resolve(process.argv[argument + 1]!)
+const workspace = await realpath(resolve(process.argv[argument + 1]!))
+const spaceArgument = process.argv.indexOf("--space")
+if (spaceArgument >= 0 && !process.argv[spaceArgument + 1]) throw new Error("Pass --space <existing project key>")
+const space = spaceArgument < 0 ? null : process.argv[spaceArgument + 1]!
 const outfile = resolve(root, "dist/connectionProfile.cjs")
 await build({
   absWorkingDir: root, entryPoints: ["tests/connectionProfile.ts"], outfile, bundle: true, platform: "node", format: "cjs", target: "node22", logLevel: "silent",
-  define: { PROFILE_WORKSPACE: JSON.stringify(workspace), PROFILE_EXTENSION: JSON.stringify(root) },
+  define: { PROFILE_WORKSPACE: JSON.stringify(workspace), PROFILE_EXTENSION: JSON.stringify(root), PROFILE_SPACE: JSON.stringify(space) },
   plugins: [{ name: "profileAdapters", setup(builder) {
     builder.onResolve({ filter: /^(vscode|observedAppServer)$/ }, args => ({ path: args.path, namespace: "profile" }))
     builder.onLoad({ filter: /.*/, namespace: "profile" }, args => ({ resolveDir: root, contents: args.path === "vscode" ? `
@@ -23,10 +26,21 @@ await build({
     ` : `
       import * as api from '@codem/app-server';
       export * from '@codem/app-server';
-      export const counts = { auth: 0, list: 0, prepare: 0 };
-      export const readAppServerAuthStatus = options => { counts.auth++; return api.readAppServerAuthStatus(options) };
-      export const listAppServerSpaces = options => { counts.list++; return api.listAppServerSpaces(options) };
-      export const prepareAppServerSpace = (options, key) => { counts.prepare++; return api.prepareAppServerSpace(options, key) };
+      export const counts = { auth: 0, list: 0, prepare: 0, brokers: 0 };
+      export const timings = [];
+      const measure = async (stage, run) => { const start = performance.now(); try { return await run() } finally { timings.push({stage, ms: Math.round(performance.now() - start)}) } };
+      export const resolveBundledAppServerRuntime = options => { const start = performance.now(); try { return api.resolveBundledAppServerRuntime(options) } finally { timings.push({stage:'runtimeIntegrity',ms:Math.round(performance.now()-start)}) } };
+      export class AppServerHost extends api.AppServerHost {
+        prepareConnection(cwd) { return measure('prepareConnectionIncludingSpace', () => super.prepareConnection(cwd)) }
+        listModels(cwd) { return measure('modelList', () => super.listModels(cwd)) }
+      }
+      export const readAppServerAuthStatus = options => { counts.auth++; return measure("auth", () => api.readAppServerAuthStatus(options)) };
+      export const listAppServerSpaces = options => { counts.list++; counts.brokers++; return measure("spaceList", () => api.listAppServerSpaces(options)) };
+      export const prepareInitialAppServerSpace = (options, key) => {
+        counts.list++; counts.brokers++;
+        return measure('spaceListAndPrepare', async () => { const result = await api.prepareInitialAppServerSpace(options, key); if (result.kind === 'prepared') counts.prepare++; return result });
+      };
+      export const prepareAppServerSpace = (options, key) => { counts.prepare++; counts.brokers++; return measure("spacePrepare", () => api.prepareAppServerSpace(options, key)) };
     ` }))
     builder.onLoad({ filter: /[/\\]runtimeSession\.ts$/ }, async args => ({ contents: (await readFile(args.path, "utf8")).replace('from "@codem/app-server"', 'from "observedAppServer"'), loader: "ts" }))
   } }],
