@@ -89,21 +89,21 @@ export async function runLiveInteractions(adapter: { connect: (signal: AbortSign
       mode = decision
       const path = join(dirname(connected.cwd), `${decision}Approval.txt`)
       command = `printf CODEM_${decision.toUpperCase()} > '${path}'`
-      await turn(`这是临时目录内的客户端审批验收。请仅使用 run_bash 执行一次下面的原样命令，工作区外的这个文件也是专用测试文件：\n${command}\n遇到拒绝就停止，不要重试、改用其他工具或读取文件。最后调用 final_answer 简短结束。`)
+      await turn(`这是临时目录内的客户端审批验收。请仅使用 run_bash 执行一次下面的原样命令，工作区外的这个文件也是专用测试文件：\n${command}\n遇到拒绝就停止，不要重试、改用其他工具或读取文件。最后简短回复并结束。`)
       assert.ok(observed.includes(`${decision}:permission`), `Core did not issue a real ${decision} approval`)
       if (decision === "allow") assert.equal(await readFile(path, "utf8"), "CODEM_ALLOW")
       else await assert.rejects(stat(path), { code: "ENOENT" })
       await controller.newChat()
     }
     mode = "question"
-    await turn("客户端多题回退验收：请实际调用 ask_user，一次包含两个问题。问题一标题第一题，问题二标题第二题，各有 A 和 B 两个选项。拿到答复后只用 final_answer 简短复述最终选择和补充文字，不要再提问或执行任何操作。")
+    await turn("客户端多题回退验收：请实际调用 ask_user，一次包含两个问题。问题一标题第一题，问题二标题第二题，各有 A 和 B 两个选项。拿到答复后简短复述最终选择和补充文字并结束，不要再提问或执行任何操作。")
     assert.equal(questionStep, 4)
     await controller.newChat(); mode = "cancel"
-    await turn("客户端取消验收：请实际调用 ask_user 提一个问题，选项 A 和 B。用户取消后直接 final_answer 结束，不再提问、不执行其他操作。")
+    await turn("客户端取消验收：请实际调用 ask_user 提一个问题，选项 A 和 B。用户取消后简短回复并结束，不再提问、不执行其他操作。")
     assert.ok(observed.includes("cancel:question"))
     await controller.newChat(); mode = "plan"
     await controller.configure(async settings => ({ ...settings, workMode: "plan" }))
-    await turn("客户端计划审批验收：不要读取或修改文件。请制定只包含新增一份临时说明文档的简短计划，并实际调用 exit_plan_mode 请求用户审批。如果被拒绝，final_answer 说明收到反馈并结束，不要重复请求或执行计划。")
+    await turn("客户端计划审批验收：不要读取或修改文件。请制定只包含新增一份临时说明文档的简短计划，并实际调用 exit_plan_mode 请求用户审批。如果被拒绝，简短说明收到反馈并结束，不要重复请求或执行计划。")
     assert.ok(observed.includes("plan:plan"))
     console.log(`CODEM_LIVE_INTERACTIONS_OK ${JSON.stringify(observed)}`)
   } finally { panels.cancel(); await controller.dispose() }

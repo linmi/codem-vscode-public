@@ -137,13 +137,17 @@ it("stale native approval results cannot authorize a finished turn", async () =>
   await controller.dispose()
 })
 
-it("projects the final-answer tool into the existing reply instead of exposing protocol machinery", async () => {
+it("preserves the tool list when a structured final answer follows the original reply", async () => {
   const fixture = setup()
   await fixture.controller.connect(); await fixture.controller.send("hello")
-  fixture.emit({ type: "text-delta", threadId: "thread-1", turnId: "turn-1", itemId: "answer", delta: "partial" })
+  const original = "可用工具：\n- read_files\n- run_bash\n- tool_search"
+  fixture.emit({ type: "text-delta", threadId: "thread-1", turnId: "turn-1", itemId: "answer", delta: original })
   fixture.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "final", type: "toolCall", tool: "final_answer", status: "completed", arguments: { status: "complete", kind: "chat", summary: "final reply", artifacts: [] } }, "fixture") })
   const answers = fixture.controller.snapshot().messages.filter((message) => message.role !== "user")
-  assert.deepEqual(answers, [{ id: "turn-1:answer", turnId: "turn-1", role: "assistant", label: "CodeM", text: "final reply" }])
+  assert.deepEqual(answers.map(message => message.text), [original, "final reply"])
+  assert.notEqual(answers[0]!.id, answers[1]!.id)
+  fixture.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "answer", type: "agentMessage", status: "completed", text: original }, "fixture") })
+  assert.deepEqual(fixture.controller.snapshot().messages.filter(message => message.role === "assistant").map(message => message.text), [original, "final reply"])
   await fixture.controller.dispose()
 })
 
@@ -462,7 +466,7 @@ it("keeps late reasoning and tool completion before the terminal reply without r
     f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "final", type: "toolCall", tool: "final_answer", status: "completed", arguments: { status: "complete", kind: "chat", summary: "final reply", artifacts: [] } }, "fixture") })
     f.emit({ type: "reasoning-delta", threadId: "thread-1", turnId: "turn-1", itemId: "lateThought", delta: "thought" })
     f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "lateTool", type: "toolCall", tool: "read_files", status: "completed" }, "fixture") })
-    assert.deepEqual(f.controller.snapshot().messages.map(m => m.role), ["user", "reasoning", "tool", "assistant"])
+    assert.deepEqual(f.controller.snapshot().messages.map(m => m.role), ["user", "assistant", "reasoning", "tool", "assistant"])
     assert.equal(f.controller.snapshot().messages.at(-1)?.text, "final reply")
   } finally { await f.controller.dispose() }
 })

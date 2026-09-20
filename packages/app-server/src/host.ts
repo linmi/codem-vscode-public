@@ -1100,7 +1100,7 @@ export class AppServerHost {
       runtime: this.options.runtime,
       workingDirectory: cwd,
       clientInfo: this.options.clientInfo,
-      arguments: ["--final-answer-tool", ...(space?.arguments ?? [])],
+      arguments: space?.arguments ?? [],
       environment: {
         ...appServerHostEnvironment(this.options.runtime, this.options.environment),
         ...space?.environment,

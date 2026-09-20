@@ -505,8 +505,9 @@ export class ChatController {
       if (item.toolName === "final_answer") {
         if (item.callId) active.finalAnswerCalls.add(item.callId)
         if (item.finalAnswer?.summary) {
-          const answer = [...this.state.messages].reverse().find((message) => message.role === "assistant" && message.id.startsWith(`${event.turnId}:`))
-          active.finalReplyId = answer?.id ?? `${event.turnId}:finalAnswer`
+          // A structured delivery is a separate Core item, not a replacement for
+          // assistant text. Keep both, matching the durable history projection.
+          active.finalReplyId = `${event.turnId}:final:${item.id}`
           this.upsert(active.finalReplyId, "assistant", "CodeM", item.finalAnswer.summary, false)
           if (item.finalAnswer.artifacts.length) {
             const previous = this.state.messages.find(message => message.id === active.finalReplyId)
