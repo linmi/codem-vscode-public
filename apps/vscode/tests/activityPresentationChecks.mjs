@@ -17,6 +17,7 @@ export default async function activityPresentationChecks(page) {
 
     await page.goto('http://127.0.0.1:4318/?scenario=tools');
     const tool = page.locator('.activityMessage[data-role="tool"]');
+    if (await tool.locator('.activityStatus').isVisible()) throw new Error('Running tool repeats an in-progress badge');
     await page.locator('.workGroup > summary').click();
     await page.locator('.workGroup > summary').click();
     await tool.locator('summary').press('Enter');
