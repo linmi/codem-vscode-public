@@ -15,7 +15,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
 <body>
 <div class="app" data-phase="initializing">
   <header class="sessionHeader"><span class="sessionTitle"><span class="projectIcon">${uiIcon("folder")}</span><span id="sessionTitle">新会话</span><span class="statusDot" id="statusDot" title="连接状态"></span></span><div class="headerActions">
-    <button class="iconButton" id="toggleResources" title="文件与工具" aria-label="文件与工具" aria-controls="activityPanel" aria-expanded="false">${uiIcon("panel")}</button>
+    <div id="resourceToolsHost"></div>
     <button class="iconButton" id="newChat" title="新建会话" aria-label="新建会话">${uiIcon("plus")}</button>
     <button class="iconButton" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志">${uiIcon("terminal")}</button>
   </div></header>
@@ -33,12 +33,6 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
   </div>
   <footer>
     <div id="connection" class="connection"><p>连接工作区，开始与 CodeM 协作。</p><div><button id="connect" class="primaryButton">连接工作区</button><button id="signIn" class="textButton">登录 CodeM</button></div></div>
-    <section class="activityPanel" id="activityPanel" hidden aria-label="文件与工具"><div class="resourceHeader"><strong>文件与工具</strong><button type="button" id="closeResources" class="iconButton" aria-label="关闭文件与工具">${uiIcon("close")}</button></div>
-      <div class="resourceTabs" role="tablist" aria-label="资源分类"><button type="button" role="tab" id="filesTab" aria-controls="filesSection" aria-selected="true">文件</button><button type="button" role="tab" id="backgroundTab" aria-controls="backgroundSection" aria-selected="false" tabindex="-1">任务</button><button type="button" role="tab" id="toolsTab" aria-controls="toolsSection" aria-selected="false" tabindex="-1">工具</button></div>
-      <section id="filesSection" role="tabpanel" aria-labelledby="filesTab"><h2>文件差异</h2><div id="diffs">尚无文件差异</div></section>
-      <section id="backgroundSection" role="tabpanel" aria-labelledby="backgroundTab" hidden><h2>后台任务</h2><div class="panelActions"><button type="button" id="refreshBackground">刷新</button><button type="button" id="cleanBackground" title="清理后台终端资源">清理终端</button></div><div id="background">尚无后台进程</div><div id="backgroundTasks"></div></section>
-      <section id="toolsSection" role="tabpanel" aria-labelledby="toolsTab" hidden><h2>MCP 与工具</h2><div id="mcpNames">未启用额外 MCP 服务器</div><div class="panelActions"><button type="button" id="manageMcp">管理 MCP</button><button type="button" id="refreshTools">加载可用工具</button></div><p class="toolHint">Core 按需发现 MCP 工具；可在对话中请求使用服务器，工具列表不代表连接状态。</p><div id="tools"></div></section>
-    </section>
     <p id="notice" class="notice" role="status" hidden></p>
     <form id="composer" class="composer">
       <div id="attachments" class="attachments" aria-label="待发送附件"></div>

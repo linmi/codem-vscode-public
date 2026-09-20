@@ -1,3 +1,4 @@
+@import "./toolPanels.css";
 @import "./shadcnStyles.css";
 @import "./synaraTokens.css";
 @import "./history.css";
@@ -109,15 +110,6 @@ textarea::placeholder { color: color-mix(in srgb, var(--muted) 40%, transparent)
 .attachments { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 12px 0; }
 .attachments:empty { display: none; }
 .attachments button { max-width: 100%; overflow-wrap: anywhere; text-align: left; border: 1px solid var(--line); background: var(--soft); padding: 5px 8px; border-radius: 8px; font-size: 11px; }
-.activityPanel { position: fixed; z-index: 5; right: 12px; top: 50px; width: min(370px, calc(100% - 24px)); max-height: calc(100% - 70px); overflow: auto; padding: 12px; background: color-mix(in srgb, var(--popover) 90%, transparent); backdrop-filter: blur(40px) saturate(150%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--composerShadow); font-size: 11px; }
-.resourceHeader { display: flex; align-items: center; justify-content: space-between; }
-.activityPanel section { padding: 12px 0; border-top: 1px solid var(--line); margin-top: 10px; }
-.activityPanel h2 { font-size: 11px; margin: 0 0 8px; font-weight: 500; }
-.panelActions { display: flex; gap: 6px; }
-.panelActions button, .resourceRow button { font-size: 11px; color: var(--muted); border-radius: 6px; padding: 5px; }
-.resourceRow { padding: 8px 0; display: flex; flex-wrap: wrap; gap: 4px; }
-.resourceRow > span { flex: 1 1 100%; overflow-wrap: anywhere; }
-#tools, #mcpNames, .toolHint { overflow-wrap: anywhere; color: var(--muted); line-height: 1.625; }
 .jumpLatest { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: var(--popover); box-shadow: var(--composerShadow); color: var(--muted); }
 .jumpLatest svg { transform: rotate(180deg); }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -197,10 +189,6 @@ body.vscode-high-contrast-light { color-scheme: light; }
 @keyframes messageEnter { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .messageEnter { animation: none; } }
 
-.resourceTabs { display: flex; gap: 4px; margin: 10px 0 12px; border-bottom: 1px solid var(--line); }
-.resourceTabs [role="tab"] { padding: 7px 10px; font-size: 12px; border-bottom: 2px solid transparent; color: var(--muted); }
-.resourceTabs [aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
-.toolCatalogEntry { padding: 7px 8px; border-bottom: 1px solid var(--line); font: 11px/1.5 var(--codeFont); overflow-wrap: anywhere; }
 
 .fileMentions { max-height: 240px; overflow-y: auto; }
 .fileSearchStatus { padding: 8px; font-size: 12px; color: var(--muted); }

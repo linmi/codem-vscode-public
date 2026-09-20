@@ -1,3 +1,4 @@
+import { createResourceTools } from "./components/resourceTools.tsx"
 import { createSessionTools, type ToolsDraft } from "./components/sessionTools.tsx"
 import { createCapabilityStatus } from "./components/capabilityStatus.tsx"
 import { createLoadingStatus } from "./loadingStatusView.ts"
@@ -31,27 +32,6 @@ const newChat = element<HTMLButtonElement>("newChat")
 const scroller = element("scrollArea")
 const messages = element("messages")
 const jumpLatest = element<HTMLButtonElement>("jumpLatest")
-const resources = element("activityPanel")
-const resourceTabs = [...document.querySelectorAll<HTMLButtonElement>(".resourceTabs [role=tab]")]
-function selectResourceTab(selected: HTMLButtonElement): void {
-  for (const tab of resourceTabs) { const active = tab === selected; tab.setAttribute("aria-selected", String(active)); tab.tabIndex = active ? 0 : -1; element(tab.getAttribute("aria-controls")!).hidden = !active }
-}
-for (const [index, tab] of resourceTabs.entries()) {
-  tab.addEventListener("click", () => selectResourceTab(tab))
-  tab.addEventListener("keydown", event => {
-    if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); const next = resourceTabs[(index + (event.key === "ArrowRight" ? 1 : resourceTabs.length - 1)) % resourceTabs.length]!; selectResourceTab(next); next.focus() }
-  })
-}
-const toggleResources = element<HTMLButtonElement>("toggleResources")
-function showResources(open: boolean): void {
-  resources.hidden = !open
-  toggleResources.setAttribute("aria-expanded", String(open))
-  if (open) element("closeResources").focus()
-  else toggleResources.focus()
-}
-toggleResources.addEventListener("click", () => showResources(resources.hasAttribute("hidden")))
-element("closeResources").addEventListener("click", () => showResources(false))
-resources.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.stopPropagation(); showResources(false) } })
 function updateJump(): void { jumpLatest.hidden = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 70 }
 scroller.addEventListener("scroll", updateJump, { passive: true })
 jumpLatest.addEventListener("click", () => { scroller.scrollTop = scroller.scrollHeight; updateJump() })
@@ -60,6 +40,7 @@ if (!headerActions) throw new Error("Missing CodeM header actions")
 const toolsHost = document.createElement("div"); headerActions.prepend(toolsHost)
 let toolsDraft = vscode.getState()?.tools
 const renderSessionTools = createSessionTools(toolsHost, post, () => toolsDraft, value => { toolsDraft = value; vscode.setState({ draft: prompt.value, tools: value }) })
+const renderResourceTools = createResourceTools(element("resourceToolsHost"), post)
 const renderHistory = createHistoryView(headerActions, scroller, post)
 const statusHost = document.createElement("div")
 statusHost.className = "capabilityStatusHost"
@@ -121,16 +102,9 @@ newChat.addEventListener("click", () => post({ type: "newChat" }))
 stop.addEventListener("click", () => post({ type: "stop" }))
 element("showOutput").addEventListener("click", () => post({ type: "showOutput" }))
 
-const configurationActions = ["selectSpace", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "manageMcp", "refreshTools", "addAttachment"] as const
+const configurationActions = ["selectSpace", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment"] as const
 for (const type of configurationActions) element(type).addEventListener("click", () => post({ type }))
-for (const type of ["refreshBackground", "cleanBackground"] as const) element(type).addEventListener("click", () => post({ type }))
-function button(label: string, action: ViewAction, disabled = false): HTMLButtonElement {
-  const node = document.createElement("button")
-  node.type = "button"; node.textContent = label; node.disabled = disabled
-  node.addEventListener("click", () => post(action))
-  return node
-}
-let resourcesKey = ""
+let attachmentsKey = ""
 function renderResources(): void {
   const ready = state.phase === "ready" && !state.backgroundBusy && !state.sessionTools.busy
   for (const type of configurationActions) element<HTMLButtonElement>(type).disabled = !ready
@@ -142,46 +116,13 @@ function renderResources(): void {
   permission.setAttribute("aria-label", `权限模式：${permission.title}`)
   permission.dataset.mode = state.permission
   permission.innerHTML = uiIcon(permissionIcons[state.permission])
-  const blocked = state.backgroundBusy || state.phase === "disconnected" || state.phase === "connecting" || state.phase === "configuring"
-  const nextKey = JSON.stringify([state.attachments, state.diffs, state.background, state.backgroundTasks, state.mcpNames, state.tools])
-  // Streaming deltas and refresh acknowledgements must not replace focused resource buttons.
-  if (nextKey !== resourcesKey) {
-    resourcesKey = nextKey
-  const attachments = element("attachments")
-  attachments.replaceChildren(...state.attachments.map(item => attachmentCard(item, () => post({ type: "removeAttachment", id: item.id }))))
-  const diffs = element("diffs")
-  diffs.replaceChildren(...state.diffs.map((diff) => {
-    const row = document.createElement("div"); row.className = "resourceRow"
-    const title = document.createElement("span"); title.textContent = `${diff.label} +${diff.added} −${diff.removed}${diff.preview === "complete" ? "" : ` · ${{ partial: "部分差异", "raw-partial": "部分差异", binary: "二进制", omitted: "无预览" }[diff.preview] ?? "差异"}`}`
-    row.append(title, button("查看差异", { type: "openDiff", id: diff.id }), button("打开文件", { type: "openChangedFile", id: diff.id }))
-    return row
-  }))
-  if (!state.diffs.length) diffs.textContent = "尚无文件差异"
-  const background = element("background")
-  background.replaceChildren(...state.background.map((terminal) => {
-    const row = document.createElement("div"); row.className = "resourceRow"
-    const title = document.createElement("span"); title.textContent = `${terminal.label} · ${terminal.inProgress ? "运行中" : "已退出"}`
-    row.append(title, button("日志", { type: "openBackgroundLog", id: terminal.id }, blocked))
-    if (terminal.inProgress) row.append(button("终止", { type: "terminateBackground", id: terminal.id }, blocked))
-    return row
-  }))
-  if (!state.background.length) background.textContent = "尚无后台进程"
-  element("backgroundTasks").replaceChildren(...state.backgroundTasks.map((task) => {
-    const row = document.createElement("div"); row.className = "resourceRow"
-    const title = document.createElement("span"); title.textContent = `${task.label} · ${{ queued: "等待唤醒", started: "已唤醒", skipped: "已跳过", cancelled: "已取消", notFound: "已不存在", noop: "无需取消" }[task.phase]}`
-    row.append(title)
-    if (task.phase === "queued" || task.phase === "started") row.append(button("取消任务", { type: "cancelBackgroundTask", id: task.id }, blocked))
-    return row
-  }))
-  element("mcpNames").textContent = state.mcpNames.length ? `已配置：${state.mcpNames.join("、")}` : "未启用额外 MCP 服务器"
-  element("tools").replaceChildren(...state.tools.map(name => { const row = document.createElement("div"); row.className = "toolCatalogEntry"; row.textContent = name; return row }))
-  element("filesTab").textContent = `文件${state.diffs.length ? ` · ${state.diffs.length}` : ""}`
-  element("backgroundTab").textContent = `任务${state.background.length + state.backgroundTasks.length ? ` · ${state.background.length + state.backgroundTasks.length}` : ""}`
-  element("toolsTab").textContent = `工具${state.tools.length ? ` · ${state.tools.length}` : ""}`
+  const nextKey = JSON.stringify(state.attachments)
+  if (nextKey !== attachmentsKey) {
+    attachmentsKey = nextKey
+    element("attachments").replaceChildren(...state.attachments.map(item => attachmentCard(item, () => post({ type: "removeAttachment", id: item.id }))))
   }
   for (const node of element("attachments").querySelectorAll("button")) node.disabled = !ready
-  for (const id of ["refreshBackground", "cleanBackground"]) element<HTMLButtonElement>(id).disabled = blocked
-  for (const id of ["background", "backgroundTasks"]) for (const node of element(id).querySelectorAll("button")) node.disabled = blocked
+  renderResourceTools(state)
 }
 
 function render(next: ChatSnapshot): void {

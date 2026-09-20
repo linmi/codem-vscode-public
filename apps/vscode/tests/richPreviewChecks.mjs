@@ -19,7 +19,7 @@ export default async function richPreviewChecks(page) {
       await page.getByRole('list',{name:'执行计划',exact:true}).waitFor()
       await page.getByText('Token · 输入 18240', {exact:false}).waitFor()
       await page.screenshot({animations:'disabled',path:`output/playwright/richRuntime-${theme}.png`})
-      for (const [scenario, selector] of [['resourceFiles','#filesSection'],['resourceTools','#toolsSection'],['resourceBackground','#backgroundSection']]) {
+      for (const [scenario, selector] of [['resourceFiles','[data-resource-section="files"]'],['resourceTools','[data-resource-section="tools"]'],['resourceBackground','[data-resource-section="background"]']]) {
         await page.goto(`http://127.0.0.1:4318/?scenario=${scenario}&theme=${theme}`)
         await page.locator(selector).waitFor()
         if (!(await page.locator(selector).innerText()).trim()) throw Error('Empty resource fixture')
@@ -65,8 +65,9 @@ export default async function richPreviewChecks(page) {
     // Reuse the same document: surface selection, theme preservation and reset ownership.
     await page.setViewportSize({width:1440,height:900})
     await page.goto('http://127.0.0.1:4318/?scenario=resourceTools')
-    await page.locator('#toolsSection').waitFor()
+    await page.locator('[data-resource-section="tools"]').waitFor()
     const toc=page.getByRole('navigation',{name:'场景目录'})
+    await page.getByRole('button',{name:'关闭文件与工具',exact:true}).click()
     await toc.getByRole('link',{name:'新会话',exact:true}).click()
     await page.locator('#activityPanel').waitFor({state:'hidden'})
     await toc.getByRole('link',{name:'六类工具 · 参数与输出',exact:true}).click()

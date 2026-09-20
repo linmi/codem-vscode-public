@@ -47,21 +47,19 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     // rather than assuming a fixed number of frames means both roots have committed.
     nextFrame(() => {
       if (surface === "sessionTools") {
-        whenRendered('#sessionTools[data-state="closed"]', node => {
+        whenRendered(`#sessionTools[data-state="closed"][data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, node => {
           node.click()
           const kind = demo.sessionTools.catalog?.kind
-          const revealCatalog = () => whenRendered('[role="dialog"] .sessionToolSection', () => {
-            document.querySelectorAll<HTMLElement>('[role="dialog"] .sessionToolSection')[2]?.scrollIntoView({ block: "start" })
-          })
-          if (kind && kind !== "skills") whenRendered('[role="dialog"] [aria-label="目录类型"]', trigger => {
-            trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
-            whenRendered('[role="listbox"] [role="option"]', () => {
-              document.querySelectorAll<HTMLElement>('[role="listbox"] [role="option"]')[catalogKinds.indexOf(kind)]!.click()
-              whenRendered('[role="dialog"] .catalogRows', revealCatalog)
+          if (kind || search.scenario.startsWith("catalog")) whenRendered('[data-session-tab="catalog"]', node => {
+            node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
+            if (kind && kind !== "skills") whenRendered('[role="dialog"] [aria-label="目录类型"]', trigger => {
+              trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
+              whenRendered('[role="listbox"] [role="option"]', () => {
+                document.querySelectorAll<HTMLElement>('[role="listbox"] [role="option"]')[catalogKinds.indexOf(kind)]!.click()
+              })
             })
           })
-          else if (search.scenario.startsWith("catalog")) revealCatalog()
-          if (demo.sessionTools.sideQuestion) whenRendered('.sideQuestion', node => node.scrollIntoView({ block: "center" }))
+          else if (demo.sessionTools.sideQuestion) whenRendered('[data-session-tab="instructions"]', node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })))
         })
       } else if (surface === "capabilities") {
         whenRendered('.capabilityStatus button[aria-expanded="false"]', node => node.click())
@@ -70,8 +68,10 @@ export function createPreviewRuntime(initial: PreviewSearch) {
           if (!detail.open) detail.querySelector<HTMLElement>(":scope > summary")?.click()
         }
       } else if (surface) {
-        if (document.querySelector<HTMLElement>("#activityPanel")?.hidden) document.querySelector<HTMLButtonElement>("#toggleResources")?.click()
-        document.querySelector<HTMLButtonElement>(`#${surface}Tab`)?.click()
+        whenRendered(`#toggleResources[data-state="closed"][data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, node => {
+          node.click()
+          whenRendered(`[data-resource-tab="${surface}"]`, node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })))
+        })
       }
       if (search.scenario === "sendFailure") {
         const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
@@ -84,7 +84,8 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     for (const id of frames) cancelAnimationFrame(id)
     frames.clear(); imageAttempts.clear()
     for (const cancel of pendingElements) cancel()
-    if (!document.querySelector<HTMLElement>("#activityPanel")?.hidden) document.querySelector<HTMLButtonElement>("#closeResources")?.click()
+    document.querySelector<HTMLButtonElement>("#closeResources")?.click()
+    document.querySelector<HTMLButtonElement>('#sessionTools[data-state="open"]')?.click()
     generation++
     const next = createPreviewState(search)
     demo = next.demo; panels = next.panels; activePanel = next.activePanel; surface = next.surface

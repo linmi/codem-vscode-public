@@ -1,0 +1,81 @@
+/* Shared layout for the two shadcn Dialog / Tabs surfaces. */
+.toolPanelTrigger[data-slot="button"] { width: 28px; height: 28px; padding: 6px; border-radius: 8px; color: var(--muted); }
+.toolPanelTrigger[data-state="open"] { background: var(--soft); color: var(--ink); }
+.toolPanelTrigger svg { width: 16px; height: 16px; stroke-width: 1.7; }
+.toolDialog[data-slot="dialog-content"] { width: min(600px, calc(100vw - 24px)); max-width: none; height: min(620px, calc(100dvh - 32px)); max-height: calc(100dvh - 32px); padding: 0; gap: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; box-shadow: var(--composerShadow); }
+.toolDialogHeading { display: flex; align-items: center; gap: 12px; padding: 24px 52px 20px 24px; flex-shrink: 0; }
+.toolDialogHeading > div { min-width: 0; }
+.toolDialogHeading [data-slot="dialog-description"] { font-size: 12px; margin-top: 4px; overflow-wrap: anywhere; color: var(--muted); }
+.toolDialogIcon { display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; background: var(--soft); border: 1px solid var(--line); border-radius: 11px; }
+.toolDialogIcon svg { width: 20px; height: 20px; stroke-width: 1.6; }
+.toolDialogClose { position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; }
+.toolTabs[data-slot="tabs"], .sessionToolsBody { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 0; }
+.toolPanelNotice, .sessionToolsBody > [role="status"] { margin: 0 24px 12px; color: var(--muted); overflow-wrap: anywhere; max-height: 80px; flex-shrink: 0; overflow: auto; }
+.toolTabs > [data-slot="tabs-list"] { display: flex; flex-shrink: 0; width: auto; height: 38px; margin: 0 24px 16px; padding: 3px; gap: 3px; background: var(--soft); border: 1px solid var(--line); border-radius: 9px; }
+.toolTabs [data-slot="tabs-trigger"] { height: 30px; padding: 4px 8px; font: 12px/20px var(--uiFont); color: var(--muted); border-radius: 6px; }
+.toolTabs [data-slot="tabs-trigger"][data-state="active"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px #00000012; }
+.toolCount { font-size: 10px; min-width: 16px; line-height: 16px; border-radius: 4px; background: var(--soft); color: var(--muted); }
+.toolTabs > .toolTabBody { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 4px 24px 24px; scrollbar-gutter: stable; }
+.toolTabBody[hidden] { display: none; }
+.toolSectionHeading { margin: 0 0 16px; }
+.toolSectionHeading h3 { font-size: 13px; line-height: 20px; margin: 0; font-weight: 600; }
+.toolSectionHeading p, .sessionToolSection p { font-size: 12px; line-height: 1.7; color: var(--muted); margin: 4px 0 0; }
+.toolSectionDivider { padding-top: 20px; border-top: 1px solid var(--line); margin: 12px 0 0; }
+.sessionToolSection { display: grid; gap: 12px; min-width: 0; }
+.sessionToolSection > [data-slot="button"] { justify-self: start; }
+.sessionToolSection pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 220px; overflow: auto; }
+.sessionToolSection [data-slot="select-trigger"] { width: 100%; min-width: 0; max-width: 100%; }
+.sessionToolSection [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sessionToolActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sessionToolActions > [data-slot="select-trigger"] { width: auto; flex: 1; }
+.toolDialog [data-slot="button"] { font-size: 12px; }
+.toolDialog [data-slot="input"], .toolDialog [data-slot="textarea"] { box-sizing: border-box; color: var(--ink); font: inherit; border: 1px solid var(--line); min-width: 0; background: var(--surface); }
+.toolDialog [data-slot="textarea"] { min-height: 144px; resize: vertical; padding: 12px; border-radius: 9px; }
+.toolFieldLabel { margin-bottom: -8px; font-size: 11px; color: var(--muted); }
+.sessionToolsBody > .sessionToolSection { margin: 4px 24px 24px; overflow: auto; }
+.catalogRows { margin: 0; overflow-wrap: anywhere; }
+.catalogRows > div { border-top: 1px solid var(--line); padding: 12px 0; }
+.catalogRows dt { font-weight: 600; }
+.catalogRows dd { margin: 4px 0 0; color: var(--muted); }
+.sideQuestion { border: 1px solid var(--line); background: var(--soft); padding: 12px; border-radius: 10px; }
+.toolDirectoryRow { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; }
+.toolDirectoryRow > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.toolCardList { display: grid; gap: 10px; }
+.toolResourceCard { padding: 14px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 10px; }
+.toolResourceTitle { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.toolResourceTitle > svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--muted); }
+.toolResourceTitle strong { min-width: 0; flex: 1; font-size: 12px; overflow-wrap: anywhere; font-weight: 500; }
+.toolResourceMeta { display: flex; gap: 10px; font: 11px/18px var(--codeFont); color: var(--muted); }
+.diffAdded { color: var(--vscode-gitDecoration-addedResourceForeground, #16833e); }
+.diffRemoved { color: var(--vscode-gitDecoration-deletedResourceForeground, #d54040); }
+.toolStatus { flex-shrink: 0; color: var(--muted); background: var(--soft); border-radius: 5px; padding: 2px 6px; font-size: 10px; }
+.toolStatus[data-running="true"] { color: var(--vscode-charts-green, #16833e); }
+.toolEmpty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 42px 16px; gap: 10px; color: var(--muted); }
+.toolEmpty > svg { width: 28px; height: 28px; stroke-width: 1.3; margin-bottom: 4px; }
+.toolEmpty strong { color: var(--ink); font-size: 13px; font-weight: 500; }
+.toolEmpty p { margin: 0; max-width: 280px; }
+.toolEmptyCompact { padding: 14px; border: 1px dashed var(--line); border-radius: 9px; color: var(--muted); }
+.toolSectionToolbar { margin: 0 0 14px; }
+.toolMcpCard { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; }
+.toolMcpCard #mcpNames { display: flex; flex: 1; flex-wrap: wrap; gap: 6px; color: var(--muted); overflow-wrap: anywhere; }
+.toolServer { padding: 2px 6px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: var(--surface); }
+.toolSearch { display: flex; position: relative; flex: 1; min-width: 160px; }
+.toolSearch > svg { position: absolute; top: 9px; left: 10px; width: 14px; height: 14px; color: var(--muted); }
+.toolSearch input { width: 100%; padding-left: 30px; height: 32px; }
+.toolNameList { border-top: 1px solid var(--line); }
+.toolCatalogEntry { display: flex; align-items: start; gap: 10px; padding: 11px 4px; border-bottom: 1px solid var(--line); font: 11px/18px var(--codeFont); }
+.toolCatalogEntry svg { width: 14px; height: 14px; margin-top: 2px; flex-shrink: 0; color: var(--muted); }
+.toolCatalogEntry span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 440px) {
+  .toolDialogHeading { padding: 18px 44px 16px 16px; gap: 10px; }
+  .toolDialogIcon { width: 32px; height: 32px; }
+  .toolTabs > [data-slot="tabs-list"] { margin: 0 16px 12px; }
+  .toolTabs > .toolTabBody { padding: 4px 16px 20px; }
+  .toolTabs [data-slot="tabs-trigger"] { gap: 4px; padding: 4px; }
+  .sessionToolsBody > [role="status"], .sessionToolsBody > .sessionToolSection { margin-left: 16px; margin-right: 16px; }
+}
+
+.toolDialog [data-slot="button"][data-variant="outline"] { border: 1px solid var(--line); background: var(--surface); }
+.toolDialog [data-slot="button"][data-variant="destructive"] { color: var(--vscode-errorForeground, #d54040); background: var(--surface); border: 1px solid color-mix(in srgb, var(--vscode-errorForeground, #d54040) 32%, var(--line)); }
+.toolDialog [data-slot="button"]:hover:not(:disabled) { background: var(--soft); }
+.toolDialog [data-slot="button"]:focus-visible, .toolTabs [data-slot="tabs-trigger"]:focus-visible { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 2px; }

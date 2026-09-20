@@ -9,9 +9,41 @@ export default async function resourcesViewChecks(page) {
   await page.getByRole('searchbox',{name:'搜索已加载的会话'}).press('Escape');
   await page.getByRole('button',{name:'文件与工具',exact:true}).click();
   await page.getByRole('tab',{name:'工具',exact:true}).click();
-  await page.locator('#toolsSection').waitFor();
-  if(await page.locator('#filesSection').isVisible()) throw new Error('Inactive tab visible');
+  await page.locator('[data-resource-section="tools"]').waitFor();
+  if(await page.locator('[data-resource-section="files"]').isVisible()) throw new Error('Inactive tab visible');
   await page.getByRole('tab',{name:'工具',exact:true}).press('ArrowLeft');
-  await page.locator('#backgroundSection').waitFor();
+  await page.locator('[data-resource-section="background"]').waitFor();
+  await page.getByRole('button', {name:'关闭文件与工具', exact:true}).click();
+  await page.getByRole('link', {name:'MCP 与可用工具', exact:true}).click();
+  await page.locator('[data-resource-section="tools"]').waitFor();
+  const search = page.getByRole('searchbox', {name:'搜索已加载的工具'});
+  await search.fill('mcp');
+  if (await page.locator('.toolCatalogEntry').count() !== 2) throw Error('Tool search did not filter');
+  await search.fill('missing');
+  await page.getByText('没有匹配的工具', {exact:true}).waitFor();
+  await page.getByRole('tab', {name:'任务', exact:true}).click();
+  await page.getByRole('tab', {name:'工具', exact:true}).click();
+  if (await search.inputValue() !== 'missing') throw Error('Switching tabs lost query');
+  await search.press('Escape');
+  await page.locator('#activityPanel').waitFor({state:'hidden'});
+  if (!await page.locator('#toggleResources').evaluate(node => node === document.activeElement)) throw Error('Resource focus not restored');
+  await page.getByRole('button', {name:'文件与工具', exact:true}).click();
+  if (await search.inputValue() !== 'missing') throw Error('Reopening lost query');
+  // Same context updates preserve focus; failed loads remain visible inside the modal.
+  await search.fill('mcp');
+  await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', {data:{...window.demo, notice:'加载工具失败，请重试。'}})));
+  await page.getByRole('dialog').getByText('加载工具失败，请重试。', {exact:true}).waitFor();
+  if (!await search.evaluate(node => node === document.activeElement)) throw Error('Snapshot update lost focus');
+  const brokenRelations = await page.locator('[role="tab"]').evaluateAll(tabs => tabs.some(tab => {
+    const panel = document.getElementById(tab.getAttribute('aria-controls'));
+    return !panel || panel.getAttribute('aria-labelledby') !== tab.id;
+  }));
+  if (brokenRelations) throw Error('Tab accessibility relationship broken');
+  await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', {data:{...window.demo, threadId:'another-thread'}})));
+  await page.locator('#activityPanel').waitFor({state:'hidden'});
+  await page.getByRole('button', {name:'文件与工具', exact:true}).click();
+  await page.locator('[data-resource-section="files"]').waitFor();
+  await page.getByRole('tab', {name:'工具', exact:true}).click();
+  if (await search.inputValue()) throw Error('Query leaked across contexts');
   return 'RESOURCES_VIEW_OK';
 }
