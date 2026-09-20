@@ -21,7 +21,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
   </div></header>
   <div class="timelineArea">
   <main id="scrollArea">
-    <section class="transcriptLoading" id="transcriptLoading" hidden role="status" aria-live="polite"><span class="loadingSpinner" aria-hidden="true"></span><span id="loadingLabel">正在初始化 CodeM…</span><div class="loadingLines" aria-hidden="true"><i></i><i></i><i></i></div></section>
+    <section class="transcriptLoading" id="transcriptLoading" hidden role="status" aria-live="polite"><span class="loadingSpinner" aria-hidden="true"></span><span id="loadingLabel">正在恢复会话记录…</span><div class="loadingLines" aria-hidden="true"><i></i><i></i><i></i></div></section>
     <section class="welcome" id="welcome" aria-labelledby="welcomeTitle">
       <img class="brandMark" src="${escapeHtml(resources.logo)}" alt="CodeM" width="40" height="40">
       <h1 id="welcomeTitle">我们一起做点什么？</h1>

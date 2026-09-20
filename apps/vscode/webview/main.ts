@@ -82,7 +82,8 @@ new ResizeObserver(fitPrompt).observe(prompt)
 
 function post(action: ViewAction): void { vscode.postMessage(action) }
 function saveDraft(): void {
-  const status = workingStatus(state, panels.kind())
+  const status = workingStatus(state, panels.kind(), submission.busy && inputMode === "message")
+  element("welcome").hidden = status !== null || ["connecting", "loadingHistory", "sending", "running", "stopping"].includes(state.phase) || state.messages.length > 0
   element("workingRow").hidden = status === null
   workingIndicator.set(status?.label ?? null, status?.animate)
   if (inputMode === "message") messageDraft = prompt.value
@@ -210,13 +211,11 @@ function render(next: ChatSnapshot): void {
   while (position) { const next = position.nextSibling; position.remove(); position = next }
   renderHistory(state)
   renderCapabilityStatus(state, sendKey)
-  const initializing = state.phase === "connecting"
+  const connecting = state.phase === "connecting"
   const restoring = state.phase === "loadingHistory"
-  element("transcriptLoading").hidden = !restoring && !initializing
-  element("loadingLabel").textContent = restoring ? "正在恢复会话记录…" : "正在连接并加载模型…"
+  element("transcriptLoading").hidden = !restoring
   messages.setAttribute("aria-busy", String(restoring))
-  element("selectModel").setAttribute("aria-busy", String(initializing))
-  element("welcome").hidden = initializing || restoring || ["sending", "running", "stopping"].includes(state.phase) || state.messages.length > 0
+  element("selectModel").setAttribute("aria-busy", String(connecting))
   element("connection").hidden = state.phase !== "disconnected" || !state.notice
   connect.disabled = signIn.disabled = state.phase === "connecting"
   if (newChat) newChat.disabled = isBusy(state.phase) || state.backgroundBusy || Boolean(state.sessionTools.busy)
@@ -230,7 +229,7 @@ function render(next: ChatSnapshot): void {
   element("model").title = state.model ?? "连接后使用 Core 当前模型"
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
-  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : ""
+  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : ""
   fileMentions.refresh()
   renderResources()
   saveDraft()

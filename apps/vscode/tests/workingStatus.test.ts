@@ -23,7 +23,19 @@ it("preserves actionable waiting and stop feedback regardless of existing progre
     assert.deepEqual(workingStatus({ phase: "running", messages }, panel), { label, animate: false })
     assert.deepEqual(workingStatus({ phase: "stopping", messages }, panel), { label: "正在停止…", animate: true })
   }
-  assert.deepEqual(workingStatus({ phase: "sending", messages: [user] }, null), { label: "正在发送…", animate: true })
-  for (const phase of ["ready", "disconnected", "connecting", "configuring", "loadingHistory"] as const)
+  assert.deepEqual(workingStatus({ phase: "sending", messages: [user] }, null), pending)
+  for (const phase of ["ready", "disconnected", "configuring", "loadingHistory"] as const)
     assert.equal(workingStatus({ phase, messages }, "approval"), null)
+})
+
+
+it("keeps one processing indicator throughout first submission, connection and sending", () => {
+  const messages = [user, { ...reasoning, summary: "Previous turn progress" }]
+  for (const phase of ["disconnected", "connecting", "ready", "sending"] as const)
+    assert.deepEqual(workingStatus({ phase, messages }, null, true), pending)
+  assert.deepEqual(workingStatus({ phase: "running", messages: [user] }, null, true), pending)
+  assert.equal(workingStatus({ phase: "running", messages }, null, true), null)
+  for (const phase of ["ready", "disconnected"] as const)
+    assert.equal(workingStatus({ phase, messages: [] }, null, false), null)
+  assert.equal(workingStatus({ phase: "loadingHistory", messages }, null, true), null)
 })
