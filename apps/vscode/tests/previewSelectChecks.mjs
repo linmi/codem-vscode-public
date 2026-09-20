@@ -2,6 +2,7 @@ export default async function previewSelectChecks(page) {
   const errors = []
   const capture = message => { if (message.type() === 'error') errors.push(message.text()) }
   page.on('console', capture)
+  const originalViewport = await page.evaluate(() => ({width: innerWidth, height: innerHeight}))
   try {
     await page.setViewportSize({width: 760, height: 900})
     await page.goto('http://127.0.0.1:4318/?scenario=conversation&theme=light')
@@ -46,8 +47,6 @@ export default async function previewSelectChecks(page) {
     return 'SHADCN_SELECT_OK: mouse, keyboard, Escape/focus, scroll, theme, reload, narrow layout and CSP'
   } finally {
     page.off('console', capture)
-    const cdp = await page.context().newCDPSession(page)
-    await cdp.send('Emulation.clearDeviceMetricsOverride')
-    await cdp.detach()
+    await page.setViewportSize(originalViewport)
   }
 }

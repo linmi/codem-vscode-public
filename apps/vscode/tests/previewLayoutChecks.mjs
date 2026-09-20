@@ -1,4 +1,5 @@
 export default async function previewLayoutChecks(page) {
+  const originalViewport = await page.evaluate(() => ({width: innerWidth, height: innerHeight}))
   try {
     for (const viewport of [{width:1440,height:900}, {width:380,height:800}, {width:760,height:500}]) {
       await page.setViewportSize(viewport)
@@ -15,9 +16,6 @@ export default async function previewLayoutChecks(page) {
     }
     return 'PREVIEW_LAYOUT_OK: centered, full height, visible footer, no outer overflow'
   } finally {
-    // This is a shared Chromium session: do not leave device emulation on the user's tab.
-    const cdp = await page.context().newCDPSession(page)
-    await cdp.send('Emulation.clearDeviceMetricsOverride')
-    await cdp.detach()
+    await page.setViewportSize(originalViewport)
   }
 }
