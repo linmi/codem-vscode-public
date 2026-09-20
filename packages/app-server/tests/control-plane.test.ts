@@ -99,6 +99,15 @@ describe("App Server control-plane projection", () => {
     })
   })
 
+  it("accepts snapshot-only steer receipts without expanding stream item types", () => {
+    const receipt = { id: "thread.record_12", type: "steerAccepted", mode: "soft", recordSeq: 12, status: "completed", text: "  extra instruction\n" }
+    const page = { items: [receipt], nextCursor: null, total: 1 }
+    assert.deepEqual(parseAppServerLiveItems(page, "snapshot"), { entries: [receipt], nextCursor: null, total: 1 })
+    for (const patch of [{ status: "inProgress" }, { recordSeq: -1 }, { mode: "" }, { type: "unknown" }]) {
+      assert.throws(() => parseAppServerLiveItems({ ...page, items: [{ ...receipt, ...patch }] }, "snapshot"))
+    }
+  })
+
   it("rejects malformed control-plane payloads instead of leaking them", () => {
     assert.throws(
       () => parseAppServerToolList({ threadId: "other", model: "x", tools: ["read_files"] }, "thread-1", "tools/list"),

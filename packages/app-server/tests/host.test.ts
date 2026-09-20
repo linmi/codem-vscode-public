@@ -64,6 +64,32 @@ describe("AppServerHost", () => {
     })
   }
 
+  it("uses native structured skill input and rejects blank skill names", { timeout: 5000 }, async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "skill-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath } })
+    try {
+      const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+      await assert.rejects(host.startTurn({ cwd: fixture.root, threadId, submissionId: "invalid", text: "args", skillName: " " }), /skill name/)
+      const completed = new Promise<void>((resolve, reject) => host.onEvent(event => { if (event.type === "turn-completed") resolve(); if (event.type === "protocol-error") reject(new Error(event.message)) }))
+      await host.startTurn({ cwd: fixture.root, threadId, submissionId: "skill", text: "args", skillName: "fixture-skill" })
+      await completed
+      const request = readFileSync(fixture.capturePath, "utf8").trim().split("\n").map(line => JSON.parse(line)).find(entry => entry.method === "turn/start")
+      assert.deepEqual(request.params.input, { type: "skill", name: "fixture-skill", arguments: "args" })
+    } finally { await host.close() }
+  })
+
+  for (const invalid of ["operation", "source", "same-id", "cwd", "status"]) {
+    it(`rejects an invalid clear target (${invalid}) without registering it`, { timeout: 5000 }, async () => {
+      const fixture = createFixture()
+      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "clear-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, INVALID_CLEAR: invalid } })
+      try {
+        const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+        await assert.rejects(host.clearThread(fixture.root, threadId, "operation"), /clear/)
+        await assert.rejects(host.readModes(fixture.root, "cleared-thread"), /not loaded/)
+      } finally { await host.close() }
+    })
+  }
+
   for (const scenario of [
     { method: "thread/unsubscribe", hold: "", stubborn: false },
     { method: "turn/interrupt", hold: "turn", stubborn: false },
@@ -371,6 +397,7 @@ describe("AppServerHost", () => {
     assert.equal(events.filter((event) => event.type === "turn-completed").length, 1)
 
     assert.deepEqual(await host.readThread(fixture.root, threadId), {
+      name: null,
       id: "thread-1",
       cwd: fixture.root,
       archived: false,
@@ -638,14 +665,17 @@ describe("AppServerHost", () => {
         results: [],
       })
       await host.runShellCommand(fixture.root, threadId, "echo hi")
-      await host.clearThread(fixture.root, threadId, "op-clear-1")
+      const clearedId = await host.clearThread(fixture.root, threadId, "op-clear-1")
+      assert.equal(clearedId, "cleared-thread")
+      await assert.rejects(host.readModes(fixture.root, threadId), /not loaded/)
+      await host.listTools(fixture.root, clearedId)
       assert.equal(events.some((event) => event.type === "thread-cleared" && event.threadId === threadId), true)
       const captured = readFileSync(fixture.capturePath, "utf8")
         .trim()
         .split("\n")
         .map((line) => JSON.parse(line) as { method?: string; params?: Record<string, unknown> })
       const clear = captured.find((entry) => entry.method === "thread/clear")
-      assert.deepEqual(clear?.params?.model, { model: "codem-router/auto", intelligence: "medium" })
+      assert.deepEqual(clear?.params?.model, { id: "codem-router/auto", intelligence: "medium" })
       assert.equal(clear?.params?.executionMode, "default")
       assert.equal(clear?.params?.operationId, "op-clear-1")
     } finally {
@@ -847,7 +877,8 @@ lines.on("line", (line) => {
   if (frame.method === "thread/shellCommand") return send({ id: frame.id, result: {} })
   if (frame.method === "thread/clear") {
     send({ method: "thread/cleared", params: { threadId: frame.params.threadId } })
-    return send({ id: frame.id, result: { thread: { id: frame.params.threadId, status: "loaded" } } })
+    const invalid = process.env.INVALID_CLEAR
+    return send({ id: frame.id, result: { operationId: invalid === "operation" ? "wrong" : frame.params.operationId, previousThreadId: invalid === "source" ? "wrong" : frame.params.threadId, thread: { id: invalid === "same-id" ? frame.params.threadId : "cleared-thread", cwd: invalid === "cwd" ? "/foreign" : frame.params.cwd, status: invalid === "status" ? "idle" : "loaded" } } })
   }
   if (frame.method === "thread/turns/list") return send({ id: frame.id, result: { turns: [], nextCursor: null, total: 0 } })
   if (frame.method === "thread/items/list") return send({ id: frame.id, result: { items: [], nextCursor: null, total: 0 } })

@@ -1,3 +1,4 @@
+import { capabilityHostFixture } from "./capabilityHostFixture.ts"
 import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
 import { ConnectionPreferences } from "../src/connectionPreferences.ts"
 import { createHash } from "node:crypto"
@@ -19,6 +20,7 @@ function setup() {
   let closed = 0
   const answers: AppServerInteractionResponse[] = []
   const host: ChatHost = {
+    ...capabilityHostFixture(),
     async listThreads() { return { threads: [], nextCursor: null, total: 0 } },
     async readThread() { throw new Error("No fixture history") },
     async resumeThread() {},

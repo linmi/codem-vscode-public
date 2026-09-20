@@ -21,6 +21,7 @@ import {
   parseAppServerEnvironmentInfo,
   parseAppServerHookList,
   parseAppServerLiveItems,
+  type AppServerLiveItem,
   parseAppServerLiveTurns,
   parseAppServerLoadedThreads,
   parseAppServerModelProviderCapabilities,
@@ -112,6 +113,7 @@ export interface AppServerThreadSummary {
 }
 
 export interface AppServerThreadDetail {
+  readonly name: string | null
   readonly id: string
   readonly cwd: string
   readonly archived: boolean
@@ -502,6 +504,7 @@ export class AppServerHost {
     readonly threadId: string
     readonly submissionId: string
     readonly text: string
+    readonly skillName?: string
     readonly attachments?: readonly AppServerPromptAttachment[]
   }): Promise<string> {
     const thread = this.requireThread(input.cwd, input.threadId)
@@ -509,6 +512,10 @@ export class AppServerHost {
     const submissionId = exactNonBlankString(input.submissionId, "turn/start submissionId")
     const attachments = input.attachments ?? []
     validateAttachments(attachments)
+    if (input.skillName !== undefined) {
+      exactNonBlankString(input.skillName, "skill name")
+      if (attachments.length) throw new Error("Skill submissions must not include attachments")
+    }
     const active: ActiveTurn = createActiveTurn(submissionId)
     thread.activeTurn = active
     try {
@@ -747,6 +754,7 @@ export class AppServerHost {
     )
     const thread = objectValue(result.thread, "thread/read thread")
     const detail: AppServerThreadDetail = {
+      name: nullableString(thread.name, "thread/read thread.name"),
       id: nonBlankString(thread.id, "thread/read thread.id"),
       cwd: nonBlankString(thread.cwd, "thread/read thread.cwd"),
       archived: booleanValue(thread.archived, "thread/read thread.archived"),
@@ -916,14 +924,14 @@ export class AppServerHost {
   /**
    * 按 Core 7 字段契约提交 thread/clear。operationId 由调用方提供，便于对账 journal。
    */
-  async clearThread(cwd: string, threadId: string, operationId: string): Promise<void> {
+  async clearThread(cwd: string, threadId: string, operationId: string): Promise<string> {
     const id = nonBlankString(threadId, "thread/clear threadId")
     const loaded = this.threads.get(id)
     if (loaded?.activeTurn || loaded?.sideQuestion) throw new Error(`Cannot thread/clear active CodeM thread ${id}`)
     if (loaded && loaded.cwd !== cwd) throw new Error(`CodeM thread ${id} belongs to another workspace`)
     const settings = loaded?.settings ?? DEFAULT_APP_SERVER_THREAD_SETTINGS
     const connection = loaded?.connection ?? (await this.connection(cwd))
-    objectValue(
+    const result = objectValue(
       await connection.connection.request("thread/clear", {
         threadId: id,
         operationId: exactNonBlankString(operationId, "thread/clear operationId"),
@@ -941,6 +949,13 @@ export class AppServerHost {
       }),
       "thread/clear result",
     )
+    if (result.operationId !== operationId || result.previousThreadId !== id) throw new Error("CodeM clear changed operation or source identity")
+    const target = objectValue(result.thread, "thread/clear thread")
+    const targetId = exactNonBlankString(target.id, "thread/clear thread.id")
+    if (targetId === id || target.cwd !== cwd || target.status !== "loaded") throw new Error("Invalid CodeM clear target")
+    if (loaded) this.forgetThread(loaded, "thread/clear")
+    this.registerThread(connection, targetId, settings)
+    return targetId
   }
 
   /**
@@ -968,7 +983,7 @@ export class AppServerHost {
     cwd: string,
     threadId: string,
     cursor?: string,
-  ): Promise<AppServerLivePage<AppServerItem>> {
+  ): Promise<AppServerLivePage<AppServerLiveItem>> {
     const thread = this.requireThread(cwd, threadId)
     return parseAppServerLiveItems(
       await thread.connection.connection.request("thread/items/list", {
@@ -988,9 +1003,9 @@ export class AppServerHost {
     const loaded = this.threads.get(threadId)
     if (loaded?.activeTurn || loaded?.sideQuestion) throw new Error(`Cannot ${method} active CodeM thread ${threadId}`)
     if (loaded && loaded.cwd !== cwd) throw new Error(`CodeM thread ${threadId} belongs to another workspace`)
-    if (loaded && method !== "thread/fork" && method !== "thread/name/set") await this.unsubscribeThread(cwd, threadId)
     const connection = loaded?.connection ?? (await this.connection(cwd))
     const result = objectValue(await connection.connection.request(method, { ...params, cwd }), `${method} result`)
+    if (loaded && this.threads.get(threadId) === loaded && (method === "thread/archive" || method === "thread/delete")) this.forgetThread(loaded, method)
     return result
   }
 
@@ -1666,7 +1681,7 @@ function threadParameters(cwd: string, settings: AppServerThreadSettings, isNewT
 }
 
 function turnParameters(
-  input: { readonly threadId: string; readonly text: string },
+  input: { readonly threadId: string; readonly text: string; readonly skillName?: string },
   submissionId: string,
   attachments: readonly AppServerPromptAttachment[],
 ): JsonObject {
@@ -1675,7 +1690,7 @@ function turnParameters(
   return {
     threadId: input.threadId,
     clientUserMessageId: submissionId,
-    input: [
+    input: input.skillName !== undefined ? { type: "skill", name: input.skillName, arguments: input.text } : [
       { type: "text", text: input.text, textElements: [] },
       ...images.map((image) => ({ type: "localImage", path: image.path })),
     ],

@@ -1,3 +1,4 @@
+import { capabilityHostFixture } from "./capabilityHostFixture.ts"
 import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
 import assert from "node:assert/strict"
 import { it } from "node:test"
@@ -18,9 +19,10 @@ function setup() {
   const read: (string | undefined)[] = []
   let starts = 0
   const host: ChatHost = {
+    ...capabilityHostFixture(),
     onEvent(callback) { listener = callback; return () => { listener = () => {} } },
     async listThreads() { return { threads: ["history-1", "history-2"].map((id) => ({ id, cwd: "/workspace", archived: false, model: "model", profile: "default", preview: id, startedAt: at, turnCount: 2 })), nextCursor: null, total: 2 } },
-    async readThread(_cwd, id) { return { id, cwd: "/workspace", archived: false, model: "model", profile: "default", startedAt: at, status: "idle" } },
+    async readThread(_cwd, id) { return { id, cwd: "/workspace", archived: false, model: "model", profile: "default", startedAt: at, name: null, status: "idle" } },
     async resumeThread(_cwd, id) { resumed.push(id) },
     async unsubscribeThread(_cwd, id) { released.push(id) },
     async startThread() { starts++; return "new-thread" },
@@ -163,10 +165,10 @@ it("accepts empty histories and refuses archived or wrong-workspace recovery bef
     f.host.readThread = async () => { throw new Error("belongs to another workspace") }
     await f.chat.resumeThread("history-1")
     assert.deepEqual(f.resumed, [])
-    f.host.readThread = async (_cwd, id) => ({ id, cwd: "/workspace", archived: true, model: "model", profile: "default", startedAt: at, status: "idle" })
+    f.host.readThread = async (_cwd, id) => ({ id, cwd: "/workspace", archived: true, model: "model", profile: "default", startedAt: at, name: null, status: "idle" })
     await f.chat.resumeThread("history-1")
     assert.deepEqual(f.resumed, [])
-    f.host.readThread = async (_cwd, id) => ({ id, cwd: "/workspace", archived: false, model: "model", profile: "default", startedAt: at, status: "idle" })
+    f.host.readThread = async (_cwd, id) => ({ id, cwd: "/workspace", archived: false, model: "model", profile: "default", startedAt: at, name: null, status: "idle" })
     f.session.readHistory = async () => ({ turns: [], nextCursor: null })
     await f.chat.resumeThread("history-1")
     assert.equal(f.chat.snapshot().threadId, "history-1")

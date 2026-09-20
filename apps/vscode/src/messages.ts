@@ -1,3 +1,4 @@
+import { emptySessionTools, parseCapabilityAction, type CapabilityAction, type SessionToolsState, emptyCapabilities, type CapabilityState } from "./capabilityTypes.ts"
 import { parsePanelReply, type PanelReply } from "./panelTypes.ts"
 import { emptyHistoryList, type HistoryAction, type HistoryList } from "./historyTypes.ts"
 
@@ -5,6 +6,7 @@ import { emptyHistoryList, type HistoryAction, type HistoryList } from "./histor
 const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "newChat", "stop", "showOutput", "selectSpace", "selectModel", "selectEffort", "selectPermission", "selectWorkMode", "addAttachment", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
 const handleActions = ["openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask"] as const
 export type ViewAction =
+  | CapabilityAction
   | PanelReply
   | HistoryAction
   | { type: typeof simpleActions[number] }
@@ -22,6 +24,8 @@ export function parseViewAction(value: unknown): ViewAction {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid CodeM action")
   const record = value as Record<string, unknown>
   if (record.type === "panelReply") return parsePanelReply(record)
+  const capability = parseCapabilityAction(record)
+  if (capability) return capability
   const keys = Object.keys(record)
   if (keys.length === 3 && typeof record.requestId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.requestId)) {
     if (record.type === "searchFiles" && typeof record.query === "string" && record.query.length <= 200 && ![...record.query].some(character => character.charCodeAt(0) < 32)) return { type: "searchFiles", query: record.query, requestId: record.requestId }
@@ -34,7 +38,7 @@ export function parseViewAction(value: unknown): ViewAction {
   throw new Error("Unsupported CodeM action")
 }
 
-export type ChatPhase = "loadingHistory" | "disconnected" | "connecting" | "configuring" | "ready" | "sending" | "running" | "stopping"
+export type ChatPhase = "sideQuestion" | "loadingHistory" | "disconnected" | "connecting" | "configuring" | "ready" | "sending" | "running" | "stopping"
 export interface AttachmentView { id: string; label: string; kind: "image" | "file" | "directory"; preview: { kind: "deferred" } | { kind: "none" } | { kind: "image"; dataUrl: string } | { kind: "unavailable"; reason: string } }
 export interface DiffView { id: string; label: string; added: number; removed: number; preview: string }
 export interface BackgroundView { id: string; label: string; inProgress: boolean }
@@ -55,6 +59,8 @@ interface MessageContent {
 export type ActivityMessage = MessageContent & { role: "reasoning" | "tool"; status: ActivityStatus; summary: string; details?: ToolDetails }
 export type ChatMessage = (MessageContent & { role: "user" | "assistant"; attachments?: readonly AttachmentView[] }) | ActivityMessage
 export interface ChatSnapshot {
+  capabilities: CapabilityState
+  sessionTools: SessionToolsState
   type: "state"
   phase: ChatPhase
   space: string | null
@@ -79,7 +85,7 @@ export interface ChatSnapshot {
   historyNeedsRefresh: boolean
 }
 export function initialSnapshot(): ChatSnapshot {
-  return { threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: "medium", permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
+  return { capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: "medium", permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
 }
 export function isBusy(phase: ChatPhase): boolean {
   return phase !== "ready" && phase !== "disconnected"

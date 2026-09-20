@@ -94,6 +94,18 @@ export function activate(context: vscode.ExtensionContext): void {
       case "newChat": await chat.newChat(); break
       case "send": reply({ type: "sendResult", requestId: action.requestId, accepted: await chat.send(action.text) }); break
       case "stop": await chat.stop(); break
+      case "loadCatalog": await chat.loadCatalog(action.kind); break
+      case "selectSkill": chat.selectSkill(action.id); break
+      case "steer": if (action.threadId === chat.snapshot().threadId) await chat.steer(action.text, action.requestId); break
+      case "askSideQuestion": if (action.threadId === chat.snapshot().threadId) await chat.askSideQuestion(action.text, action.requestId); break
+      case "cancelSideQuestion": await chat.cancelSideQuestion(); break
+      case "shellCommand": if (action.threadId === chat.snapshot().threadId) await chat.shellCommand(action.text, action.requestId); break
+      case "compactThread": if (action.threadId === chat.snapshot().threadId) await chat.startControl("compact", action.requestId); break
+      case "rewindThread": if (action.threadId === chat.snapshot().threadId) await chat.startControl("rewind", action.requestId); break
+      case "clearThread": if (action.threadId === chat.snapshot().threadId) await chat.manageThread("clear", action.threadId, "", action.requestId); break
+      case "manageThread": await chat.manageThread(action.operation, action.threadId, action.name, action.requestId); break
+      case "addDirectory": await chat.addDirectory(() => features.pickDirectories()); break
+      case "removeDirectory": await chat.removeDirectory(action.id); break
       case "selectSpace": {
         await chat.selectSpace(async (session, signal) => {
           const abort = new AbortController(); settingsAbort = abort

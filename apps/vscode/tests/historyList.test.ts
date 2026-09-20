@@ -3,6 +3,8 @@ import { it } from "node:test"
 import type { AppServerThreadSummary } from "@codem/app-server"
 import { HistoryListController, type HistoryListContext } from "../src/historyList.ts"
 
+async function readThread(cwd: string, id: string) { return { ...entry(id), cwd, name: id === "a" ? "已保存的名称" : null, status: "idle" } }
+
 function entry(id: string): AppServerThreadSummary {
   return { id, cwd: "/host-only", archived: false, model: "model", profile: "profile", preview: `question ${id}`, startedAt: "2026-09-19T00:00:00Z", turnCount: 1 }
 }
@@ -11,12 +13,13 @@ it("loads and deduplicates Core pages, replaces on refresh, and exposes only dis
   const browser = new HistoryListController(() => {}, () => {})
   let authorizations = 0
   const cursors: (string | undefined)[] = []
-  browser.bind({ cwd: "/host-only", authorize: async () => { authorizations++ }, host: { async listThreads(cwd, cursor) {
+  browser.bind({ cwd: "/host-only", authorize: async () => { authorizations++ }, host: { readThread, async listThreads(cwd, cursor) {
     assert.equal(cwd, "/host-only"); cursors.push(cursor)
     return { threads: cursor ? [entry("b"), entry("c")] : [entry("a"), entry("b")], nextCursor: cursor ? null : "opaque-host-cursor", total: 3 }
   } } })
   await browser.open()
   assert.equal(browser.snapshot().open, true)
+  assert.equal(browser.snapshot().entries[0]?.title, "已保存的名称")
   assert.equal(browser.snapshot().hasMore, true)
   await browser.more()
   await browser.more()
@@ -33,7 +36,7 @@ it("loads and deduplicates Core pages, replaces on refresh, and exposes only dis
 
 it("retains a failed page for retry, rejects repeated cursors and never publishes raw failures", async () => {
   const browser = new HistoryListController(() => {}, () => {})
-  const context: HistoryListContext = { cwd: "/workspace", authorize: async () => {}, host: { async listThreads() { return { threads: [entry("a")], nextCursor: "cursor", total: 2 } } } }
+  const context: HistoryListContext = { cwd: "/workspace", authorize: async () => {}, host: { readThread, async listThreads() { return { threads: [entry("a")], nextCursor: "cursor", total: 2 } } } }
   browser.bind(context)
   await browser.open()
   await browser.more()
@@ -52,7 +55,7 @@ it("ignores duplicate requests and responses from retired connections", async ()
   const browser = new HistoryListController(() => {}, () => {})
   let resolve: (page: { threads: AppServerThreadSummary[]; nextCursor: null; total: number }) => void = () => {}
   let calls = 0
-  browser.bind({ cwd: "/workspace", authorize: async () => {}, host: { listThreads() { calls++; return new Promise((done) => { resolve = done }) } } })
+  browser.bind({ cwd: "/workspace", authorize: async () => {}, host: { readThread, listThreads() { calls++; return new Promise((done) => { resolve = done }) } } })
   const opening = browser.open()
   await new Promise((done) => setImmediate(done))
   await browser.refresh()
@@ -67,7 +70,7 @@ it("ignores duplicate requests and responses from retired connections", async ()
 
 it("does not list threads when authorization fails", async () => {
   const browser = new HistoryListController(() => {}, () => {})
-  browser.bind({ cwd: "/workspace", authorize: async () => { throw new Error("denied") }, host: { async listThreads() { assert.fail("must not list") } } })
+  browser.bind({ cwd: "/workspace", authorize: async () => { throw new Error("denied") }, host: { readThread, async listThreads() { assert.fail("must not list") } } })
   await browser.open()
   assert.ok(browser.snapshot().error)
   assert.deepEqual(browser.snapshot().entries, [])

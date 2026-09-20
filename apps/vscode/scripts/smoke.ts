@@ -5,6 +5,13 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
+if (process.argv.includes("--capabilities")) {
+  if (!process.argv.includes("--live")) throw new Error("Capabilities acceptance requires explicit --live")
+  const { runLiveCapabilities } = await import("../tests/liveCapabilities.ts")
+  const temporary = await mkdtemp(join(tmpdir(), "codemCapabilities"))
+  try { await runLiveCapabilities(root, temporary, process.argv.includes("--compact-only")) }
+  finally { await rm(temporary, { recursive: true, force: true }) }
+} else {
 const temporary = await mkdtemp(join(tmpdir(), "codemExtensionSmoke"))
 try {
   const workspace = join(temporary, "workspace")
@@ -32,3 +39,5 @@ try {
     } finally { clearTimeout(timeout) }
   }
 } finally { await rm(temporary, { recursive: true, force: true }) }
+
+}

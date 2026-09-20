@@ -1,3 +1,7 @@
+import { realpath, stat } from "node:fs/promises"
+import { basename } from "node:path"
+import { projectCatalog } from "./capabilityCatalog.ts"
+import { emptySessionTools, type CatalogKind, type ThreadOperation, type SessionToolsState, emptyCapabilities } from "./capabilityTypes.ts"
 import type { SpaceDirectory } from "./spaceDirectory.ts"
 import type { SettingsPersistence } from "./connectionPreferences.ts"
 import { projectToolDetails } from "./toolDetails.ts"
@@ -17,7 +21,7 @@ import type { SessionHistoryReader } from "./sessionHistory.ts"
 
 import { displayPath, validateAttachment } from "./filePresentation.ts"
 
-export type ChatHost = Pick<AppServerHost, "listThreads" | "readThread" | "resumeThread" | "readModes" | "setModes" | "listTools" | "listBackgroundTerminals" | "terminateBackgroundTerminal" | "cleanBackgroundTerminals" | "cancelBackgroundTask" | "onEvent" | "startThread" | "startTurn" | "interruptTurn" | "unsubscribeThread" | "respondToInteraction" | "close">
+export type ChatHost = Pick<AppServerHost, "control" | "compactThread" | "rewindThread" | "clearThread" | "steerTurn" | "startSideQuestion" | "cancelSideQuestion" | "runShellCommand" | "listSkills" | "readEnvironmentInfo" | "readConfigSnapshot" | "listHooks" | "listPlugins" | "listPermissionProfiles" | "readCoreSpaceSnapshot" | "readModelProviderCapabilities" | "listLoadedThreadIds" | "listLiveThreadTurns" | "listLiveThreadItems" | "listThreads" | "readThread" | "resumeThread" | "readModes" | "setModes" | "listTools" | "listBackgroundTerminals" | "terminateBackgroundTerminal" | "cleanBackgroundTerminals" | "cancelBackgroundTask" | "onEvent" | "startThread" | "startTurn" | "interruptTurn" | "unsubscribeThread" | "respondToInteraction" | "close">
 export interface ChatSession {
   host: ChatHost
   cwd: string
@@ -54,6 +58,11 @@ export interface ChatControllerOptions {
 
 /** One live conversation. Core owns durable history; these are display-only snapshots. */
 export class ChatController {
+  private side: { operationId: string; id: string | null } | null = null
+  private controlTurn: ActiveTurn | null = null
+  private mutatingThread = false
+  private readonly skillNames = new Map<string, string>()
+  private readonly directoryPaths = new Map<string, string>()
   private readonly options: ChatControllerOptions
   private session: ChatSession | null = null
   private threadId: string | null = null
@@ -123,6 +132,7 @@ export class ChatController {
     this.threadId = null
     this.resetResources()
     this.settings = restored.settings
+    this.directoryPaths.clear()
     this.unsubscribe = session.host.onEvent((event) => {
       if (this.session === session && generation === this.generation) this.onEvent(event)
     })
@@ -150,7 +160,7 @@ export class ChatController {
 
   async selectSpace(pick: (session: ChatSession, signal: AbortSignal) => Promise<ChatSession | null>): Promise<void> {
     const previous = this.session
-    if (!previous || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy) return
+    if (!previous || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     this.update({ phase: "configuring", notice: null })
     let next: ChatSession | null = null
     try {
@@ -178,7 +188,7 @@ export class ChatController {
   }
 
   async send(text: string): Promise<boolean> {
-    if (this.disposed || this.state.phase !== "ready" || !this.session) return false
+    if (this.disposed || this.state.phase !== "ready" || !this.session || this.state.sessionTools.busy) return false
     if (!text.trim() || text.length > 32_000) return false
     const session = this.session
     const active: ActiveTurn = { submissionId: randomUUID(), turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
@@ -186,11 +196,12 @@ export class ChatController {
     const consumeAttachments = () => {
       if (this.session !== session || this.disposed) return
       for (const id of attachmentIds) this.attachments.delete(id)
+      this.updateTools({ selectedSkill: null })
       this.update({ attachments: this.state.attachments.filter((item) => !attachmentIds.includes(item.id)) })
     }
     this.active = active
     this.invalidateHistory()
-    this.update({ phase: "sending", notice: null })
+    this.update({ phase: "sending", notice: null, capabilities: { ...this.state.capabilities, plan: [], changes: [], guards: [], hooks: [] } })
     try {
       this.options.assertTrusted()
       for (const attachment of this.attachments.values()) await validateAttachment(attachment)
@@ -203,7 +214,11 @@ export class ChatController {
       this.options.assertTrusted()
       const attachments = [...this.attachments.values()]
       this.update({ messages: [...this.state.messages, { id: active.submissionId, role: "user", label: "你", text, ...(this.state.attachments.length ? { attachments: this.state.attachments } : {}) }] })
-      const turnId = await session.host.startTurn({ cwd: session.cwd, threadId: this.threadId, submissionId: active.submissionId, text, attachments })
+      const skillId = this.state.sessionTools.selectedSkill
+      const skillName = skillId === null ? undefined : this.skillNames.get(skillId)
+      if (skillId !== null && !skillName) throw new UserVisibleError("技能目录已变化，请重新选择技能。")
+      if (skillName && attachments.length) throw new UserVisibleError("技能输入暂不支持附件，请先移除附件。")
+      const turnId = await session.host.startTurn({ cwd: session.cwd, threadId: this.threadId, submissionId: active.submissionId, text, attachments, ...(skillName ? { skillName } : {}) })
       consumeAttachments()
       // Core can complete the turn before turn/start returns. Never revive it.
       if (this.active === active && this.session === session && !this.disposed) {
@@ -231,6 +246,211 @@ export class ChatController {
     }
   }
 
+  private updateTools(patch: Partial<SessionToolsState>): void {
+    this.update({ sessionTools: { ...this.state.sessionTools, ...patch } })
+  }
+
+  async loadCatalog(kind: CatalogKind): Promise<void> {
+    const session = this.session
+    const threadId = this.threadId
+    if (!session || this.disposed || this.state.sessionTools.busy || !["ready", "running"].includes(this.state.phase)) return
+    this.updateTools({ busy: `catalog:${kind}` })
+    try {
+      this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted()
+      if (this.session !== session || this.threadId !== threadId) return
+      if (kind === "skills") {
+        const skills = await session.host.listSkills(session.cwd, threadId ?? undefined)
+        if (this.session !== session || this.threadId !== threadId) return
+        const previous = new Map([...this.skillNames].map(([id, name]) => [name, id]))
+        this.skillNames.clear()
+        const rows = skills.map(skill => { const id = previous.get(skill.name) ?? randomUUID(); this.skillNames.set(id, skill.name); return { id, name: skill.name, description: skill.description } })
+        const selected = this.state.sessionTools.selectedSkill
+        this.updateTools({ skills: rows, selectedSkill: selected && this.skillNames.has(selected) ? selected : null, catalog: { kind, loaded: true, stale: false, rows: rows.map(skill => ({ label: skill.name, detail: skill.description })) } })
+      } else {
+        const rows = await projectCatalog(session.host, session.cwd, threadId, kind)
+        if (this.session !== session || this.threadId !== threadId) return
+        this.updateTools({ catalog: { kind, rows, loaded: true, stale: false } })
+      }
+    } catch (error) {
+      this.options.report("catalog", error)
+      if (this.session === session && this.threadId === threadId) this.update({ notice: "目录读取失败，已有结果保留；请刷新重试。" })
+    } finally { if (this.session === session && this.threadId === threadId) this.updateTools({ busy: null }) }
+  }
+
+  selectSkill(id: string | null): void {
+    if (this.state.phase !== "ready" || (id !== null && !this.skillNames.has(id))) return
+    this.updateTools({ selectedSkill: id })
+  }
+
+  async steer(text: string, requestId: string): Promise<void> {
+    const session = this.session, active = this.active, threadId = this.threadId
+    if (!session || !active?.turnId || !threadId || this.state.phase !== "running" || this.state.sessionTools.busy) return
+    this.updateTools({ busy: "steer", result: null })
+    try {
+      this.options.assertTrusted()
+      await session.host.steerTurn({ cwd: session.cwd, threadId, submissionId: requestId, text })
+      if (this.session !== session || this.threadId !== threadId) return
+      this.update({ messages: [...this.state.messages, { id: requestId, role: "user", label: "补充指令", text, turnId: active.turnId }] })
+      this.updateTools({ result: { requestId, accepted: true } })
+    } catch (error) {
+      this.options.report("steer", error)
+      if (this.session === session && this.threadId === threadId) {
+        this.updateTools({ result: { requestId, accepted: false } })
+        this.update({ notice: "补充指令未能确认，内容已保留；不会自动重发。" })
+      }
+    } finally { if (this.session === session && this.threadId === threadId) this.updateTools({ busy: null }) }
+  }
+
+  async askSideQuestion(text: string, requestId: string): Promise<void> {
+    const session = this.session, threadId = this.threadId
+    if (!session || !threadId || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    const side = { operationId: requestId, id: null as string | null }
+    this.side = side
+    this.update({ phase: "sideQuestion", notice: null })
+    this.updateTools({ sideQuestion: { question: text, answer: "", status: "starting" }, result: null })
+    try {
+      this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted()
+      if (this.session !== session || this.side !== side) return
+      const id = await session.host.startSideQuestion(session.cwd, threadId, requestId, text)
+      if (this.session !== session || this.threadId !== threadId) return
+      if (this.side === side) { side.id = id; this.updateTools({ sideQuestion: { ...this.state.sessionTools.sideQuestion!, status: "running" } }) }
+      this.updateTools({ result: { requestId, accepted: true } })
+    } catch (error) {
+      this.options.report("sideQuestion", error)
+      if (this.session !== session || this.threadId !== threadId) return
+      if (this.side === side && side.id === null) { this.side = null; this.update({ phase: "ready" }); this.updateTools({ sideQuestion: { question: text, answer: "", status: "failed" } }) }
+      this.updateTools({ result: { requestId, accepted: side.id !== null } })
+      this.update({ notice: "旁路提问回执未能确认；内容保留，不自动重试。" })
+    }
+  }
+
+  async cancelSideQuestion(): Promise<void> {
+    const session = this.session, side = this.side, threadId = this.threadId
+    if (!session || !side?.id || !threadId || this.state.sessionTools.sideQuestion?.status !== "running") return
+    this.updateTools({ sideQuestion: { ...this.state.sessionTools.sideQuestion, status: "stopping" } })
+    try { this.options.assertTrusted(); await session.host.cancelSideQuestion(session.cwd, threadId, side.id) }
+    catch (error) {
+      this.options.report("cancelSideQuestion", error)
+      if (this.side === side) { this.updateTools({ sideQuestion: { ...this.state.sessionTools.sideQuestion!, status: "running" } }); this.update({ notice: "取消失败，请重试。" }) }
+    }
+  }
+
+  async startControl(kind: "compact" | "rewind", requestId: string): Promise<void> {
+    const session = this.session, threadId = this.threadId
+    if (!session || !threadId || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    const active: ActiveTurn = { submissionId: requestId, turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
+    this.active = active; this.controlTurn = active
+    this.invalidateHistory()
+    this.update({ phase: "sending", notice: null })
+    try {
+      this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted()
+      if (this.session !== session || this.active !== active) return
+      const turnId = await (kind === "compact" ? session.host.compactThread(session.cwd, threadId) : session.host.rewindThread(session.cwd, threadId))
+      if (this.session !== session || this.threadId !== threadId) return
+      if (this.active === active) { active.turnId = turnId; this.startTiming(turnId, requestId); this.update({ phase: "running" }) }
+      this.updateTools({ result: { requestId, accepted: true } })
+    } catch (error) {
+      this.options.report(kind, error)
+      if (this.session !== session || this.threadId !== threadId) return
+      if (this.active === active && active.turnId === null) { this.active = null; this.controlTurn = null; active.abort.abort(); this.update({ phase: "ready" }) }
+      this.update({ notice: "操作未能确认，已有记录保留；请检查当前状态后重试。" })
+      this.updateTools({ result: { requestId, accepted: active.turnId !== null } })
+    }
+  }
+
+  async manageThread(operation: ThreadOperation | "clear", threadId: string, name: string, requestId: string): Promise<void> {
+    const session = this.session
+    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    if (threadId !== this.threadId && !this.historyList.snapshot().entries.some(entry => entry.id === threadId)) return
+    this.mutatingThread = true
+    this.update({ phase: "configuring", notice: null }); this.updateTools({ busy: operation, result: null })
+    let written = false
+    try {
+      this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted()
+      if (this.session !== session) return
+      await session.host.readThread(session.cwd, threadId)
+      if (this.session !== session || this.active) return
+      this.options.assertTrusted()
+      if (operation === "clear") {
+        if (threadId !== this.threadId) throw new Error("Clear requires current thread")
+        const id = await session.host.clearThread(session.cwd, threadId, requestId)
+        written = true
+        if (this.session !== session) return
+        this.threadId = id; this.invalidateHistory(); this.resetResources()
+        const modes = await session.host.readModes(session.cwd, id)
+        if (this.session !== session || this.threadId !== id) return
+        this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }; this.updateSettings()
+        this.update({ messages: [], turnTimings: [], diffs: [], attachments: [], background: [], backgroundTasks: [], tools: [], historyNeedsRefresh: false })
+      } else {
+        const method = { rename: "thread/name/set", fork: "thread/fork", archive: "thread/archive", unarchive: "thread/unarchive", delete: "thread/delete" } as const
+        const result = await session.host.control(session.cwd, method[operation], { threadId, ...(operation === "rename" ? { name } : {}) })
+        written = true
+        if (this.session !== session) return
+        if (operation === "fork" && (typeof result.threadId !== "string" || !result.threadId.trim())) throw new Error("Invalid fork response")
+      }
+      this.updateTools({ result: { requestId, accepted: true } })
+      await this.historyList.refresh()
+      if (this.session === session) this.update({ notice: operation === "fork" ? "分叉已创建，可从历史列表选择继续。" : "会话操作已完成。" })
+    } catch (error) {
+      this.options.report(operation, error)
+      if (this.session === session) {
+        this.updateTools({ result: { requestId, accepted: written } })
+        this.update({ notice: written ? "操作已提交，但结果刷新失败；请刷新历史列表。" : "操作未能确认，未自动重试；请刷新历史列表核对后再操作。" })
+      }
+    } finally {
+      this.mutatingThread = false
+      if (this.session === session) { this.updateTools({ busy: null }); if (this.snapshot().phase === "configuring") this.update({ phase: "ready" }) }
+    }
+  }
+
+  async shellCommand(command: string, requestId: string): Promise<void> {
+    const session = this.session, threadId = this.threadId
+    if (!session || !threadId || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    this.update({ phase: "configuring", notice: null }); this.updateTools({ busy: "shell", result: null })
+    try {
+      this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted()
+      if (this.session !== session || this.threadId !== threadId || this.active) return
+      await session.host.runShellCommand(session.cwd, threadId, command)
+      if (this.session !== session || this.threadId !== threadId) return
+      this.updateTools({ result: { requestId, accepted: true } })
+      this.update({ notice: "命令已提交；此操作不提供输出预览，可检查文件或后台日志。" })
+    } catch (error) {
+      this.options.report("shellCommand", error)
+      if (this.session === session && this.threadId === threadId) { this.updateTools({ result: { requestId, accepted: false } }); this.update({ notice: "命令未能确认，请核对执行结果后再重试。" }) }
+    } finally {
+      if (this.session === session && this.threadId === threadId) { this.updateTools({ busy: null }); if (this.snapshot().phase === "configuring") this.update({ phase: "ready" }) }
+    }
+  }
+
+  async addDirectory(pick: () => Promise<readonly string[]>): Promise<void> {
+    await this.configure(async settings => {
+      const paths = await pick()
+      if (!paths.length) return null
+      const directories = new Set(settings.additionalDirectories)
+      for (const path of paths) {
+        const canonical = await realpath(path)
+        if (!(await stat(canonical)).isDirectory()) throw new Error("Additional root is not a directory")
+        directories.add(canonical)
+      }
+      return { ...settings, additionalDirectories: [...directories] }
+    })
+    this.projectDirectories()
+  }
+
+  async removeDirectory(id: string): Promise<void> {
+    const path = this.directoryPaths.get(id)
+    if (!path) return
+    await this.configure(async settings => ({ ...settings, additionalDirectories: settings.additionalDirectories.filter(value => value !== path) }))
+    this.projectDirectories()
+  }
+
+  private projectDirectories(): void {
+    const previous = new Map([...this.directoryPaths].map(([id, path]) => [path, id]))
+    this.directoryPaths.clear()
+    const directories = this.settings.additionalDirectories.map(path => { const id = previous.get(path) ?? randomUUID(); this.directoryPaths.set(id, path); return { id, label: basename(path) } })
+    this.updateTools({ directories })
+  }
+
   async stop(): Promise<void> {
     const session = this.session
     const active = this.active
@@ -248,7 +468,7 @@ export class ChatController {
   }
 
   async newChat(): Promise<void> {
-    if (this.disposed || isBusy(this.state.phase) || this.state.backgroundBusy) return
+    if (this.disposed || isBusy(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return
     if (this.session && this.threadId) {
       const session = this.session
       this.update({ phase: "sending" })
@@ -280,7 +500,7 @@ export class ChatController {
 
   async resumeThread(threadId: string): Promise<void> {
     const session = this.session
-    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy) return
+    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     if (this.historyRead) { this.update({ notice: "正在结束上一次历史读取，请稍后重试。" }); return }
     const entry = this.historyList.snapshot().entries.find((thread) => thread.id === threadId)
     if (!entry || entry.archived) {
@@ -352,7 +572,7 @@ export class ChatController {
   private async loadHistoryPage(append: boolean): Promise<void> {
     const session = this.session
     const threadId = this.threadId
-    if (!session || !threadId || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy) return
+    if (!session || !threadId || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     if (this.historyRead) { this.update({ notice: "正在结束上一次历史读取，请稍后重试。" }); return }
     const cursor = append ? this.historyCursor ?? undefined : undefined
     const abort = new AbortController()
@@ -416,6 +636,7 @@ export class ChatController {
     this.poll = null
     this.resetResources()
     this.session = null
+    this.directoryPaths.clear()
     this.generation++
     this.finishActivities("incomplete")
     this.active?.abort.abort()
@@ -434,6 +655,30 @@ export class ChatController {
   }
 
   private onEvent(event: AppServerHostEvent): void {
+    if (event.type === "control-changed" && event.method === "skills/changed" && (event.threadId === null || event.threadId === this.threadId)) {
+      this.skillNames.clear()
+      this.updateTools({ selectedSkill: null, skills: [], catalog: this.state.sessionTools.catalog ? { ...this.state.sessionTools.catalog, stale: true } : null })
+      this.update({ notice: "技能目录已更新，请刷新后重新选择。" })
+      return
+    }
+    if ("threadId" in event && event.threadId === this.threadId && this.side) {
+      const side = this.side
+      if (event.type === "side-question-started" && event.operationId === side.operationId) {
+        side.id = event.sideQuestionId
+        this.updateTools({ sideQuestion: { question: event.question, answer: "", status: "running" } })
+        return
+      }
+      if (event.type === "side-question-delta" && event.sideQuestionId === side.id) {
+        this.updateTools({ sideQuestion: { ...this.state.sessionTools.sideQuestion!, answer: this.state.sessionTools.sideQuestion!.answer + event.delta } })
+        return
+      }
+      if (event.type === "side-question-completed" && event.sideQuestionId === side.id) {
+        this.side = null
+        this.updateTools({ sideQuestion: { ...this.state.sessionTools.sideQuestion!, status: event.status } })
+        this.update({ phase: this.active ? "running" : "ready", notice: event.status === "failed" ? "旁路提问失败，请重试。" : null })
+        return
+      }
+    }
     if (event.type === "connection-closed" || event.type === "protocol-error" || event.type === "authentication-invalidated") {
       const reason = event.type === "protocol-error"
         ? "CORE_PROTOCOL_ERROR：Core 协议处理失败，请更新扩展或查看 CodeM 日志。"
@@ -467,6 +712,37 @@ export class ChatController {
         this.update({ phase: "running" })
       }
     }
+    if (event.type === "warning" && (event.threadId === null || event.threadId === this.threadId)) {
+      this.update({ notice: /^context compacted: replaced \d+ earlier messages, kept \d+$/.test(event.message) ? "Core 已整理上下文，正在等待本轮终态；长时间无变化时可停止并重新加载记录。" : "Core 发出了运行警告，请检查当前任务与诊断信息。" })
+      return
+    }
+    if ("threadId" in event && event.threadId === this.threadId) {
+      if (event.type === "usage-updated") {
+        this.update({ capabilities: { ...this.state.capabilities, usage: { input: event.inputTokens, output: event.outputTokens, cacheRead: event.cacheReadTokens, cacheWrite: event.cacheCreationTokens } } })
+        return
+      }
+      if (event.type === "thread-status-changed") {
+        this.update({ capabilities: { ...this.state.capabilities, threadStatus: event.status } })
+        return
+      }
+      if (event.type === "thread-closed" && event.reason !== "unsubscribed") {
+        this.historyRead?.abort()
+        this.finishActivities("incomplete")
+        this.active?.abort.abort(); this.active = null; this.threadId = null
+        this.invalidateHistory(); this.resetResources()
+        this.update({ attachments: [], diffs: [], background: [], backgroundTasks: [], tools: [], messages: this.state.messages.map(message => message.artifacts ? { ...message, artifacts: message.artifacts.map(artifact => ({ ...artifact, available: false })) } : message), phase: this.mutatingThread ? "configuring" : "ready", notice: "当前会话已关闭或归档。已有内容保留，可从历史列表重新选择会话。" })
+        return
+      }
+      if (event.type === "thread-cleared") {
+        this.invalidateHistory()
+        this.update({ notice: "Core 已清空会话，请重新加载记录。" })
+        return
+      }
+      if (event.type === "control-changed") {
+        this.update({ notice: "Core 会话信息已变化，请刷新历史列表。" })
+        return
+      }
+    }
     const active = this.active
     if (!active) return
     if (event.type === "interaction") {
@@ -487,7 +763,18 @@ export class ChatController {
       return
     }
     if (!("turnId" in event) || event.turnId !== active.turnId) return
-    if (event.type === "file-diff") {
+    if (event.type === "turn-activity") {
+      this.update({ capabilities: { ...this.state.capabilities, activity: event.source === "provider_stream" ? "模型正在生成" : "Core 正在处理" } })
+    } else if (event.type === "plan-updated") {
+      this.update({ capabilities: { ...this.state.capabilities, plan: event.plan.map(step => ({ ...step })) } })
+    } else if (event.type === "diff-updated") {
+      this.update({ capabilities: { ...this.state.capabilities, changes: event.files.map(file => ({ label: displayPath(this.session!.cwd, file.path), added: file.linesAdded, removed: file.linesRemoved })) } })
+    } else if (event.type === "tool-guard") {
+      const guard = { id: event.itemId, tool: event.guard.toolName, status: event.guard.status, returnedBytes: event.guard.returnedResultBytes, rawBytes: event.guard.rawResultBytes, capped: event.guard.globalBackstopApplied }
+      this.update({ capabilities: { ...this.state.capabilities, guards: [...this.state.capabilities.guards.filter(item => item.id !== guard.id), guard] } })
+    } else if (event.type === "hook-completed") {
+      this.update({ capabilities: { ...this.state.capabilities, hooks: [...this.state.capabilities.hooks, { id: randomUUID(), event: event.eventName, tool: event.toolName, outcome: event.outcome, elapsedMs: event.elapsedMs }] } })
+    } else if (event.type === "file-diff") {
       const id = randomUUID()
       this.diffs.set(id, event.diff)
       const messageId = this.toolMessageId(event.turnId, event.diff.source.toolCallId, event.diff.source.toolCallId)
@@ -534,17 +821,21 @@ export class ChatController {
         this.upsertActivity(id, reasoning ? "reasoning" : "tool", reasoning ? "思考过程" : this.toolLabel(item, id), status, item.output || item.text, item.summary, false, reasoning ? undefined : projectToolDetails(this.toolLabel(item, id), item.input, this.session!.cwd) ?? undefined)
       }
     } else if (event.type === "turn-completed") {
+      const reload = this.controlTurn === active
+      this.controlTurn = null
+      this.update({ capabilities: { ...this.state.capabilities, activity: null } })
       this.finishActivities(event.outcome === "completed" ? "completed" : event.outcome === "stopped" ? "interrupted" : "failed")
       active.abort.abort()
       this.active = null
       this.update({ phase: "ready", notice: event.outcome === "completed" ? null : event.outcome === "stopped" ? "已停止生成。" : "本轮任务失败，可以继续发送消息。" })
+      if (reload) void this.reloadHistory()
     }
   }
 
   /** Host owns the settings transaction. Holding this phase prevents sends racing a selection. */
   async configure(pick: (settings: AppServerThreadSettings, session: ChatSession) => Promise<AppServerThreadSettings | null>): Promise<void> {
     const session = this.session
-    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy) return
+    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     this.update({ phase: "configuring", notice: null })
     try {
       this.options.assertTrusted()
@@ -561,10 +852,10 @@ export class ChatController {
       if (this.active) { this.update({ notice: "后台任务已开始新一轮，请结束后再切换。" }); return }
       let confirmedModes = modes
       if (this.threadId) {
-        if (next.model !== this.settings.model || next.intelligence !== this.settings.intelligence || JSON.stringify(next.mcpServers) !== JSON.stringify(this.settings.mcpServers)) {
+        if (next.model !== this.settings.model || next.intelligence !== this.settings.intelligence || JSON.stringify(next.additionalDirectories) !== JSON.stringify(this.settings.additionalDirectories) || JSON.stringify(next.mcpServers) !== JSON.stringify(this.settings.mcpServers)) {
           await session.host.resumeThread(session.cwd, this.threadId, next)
           if (this.session !== session || this.disposed) return
-          this.settings = { ...this.settings, model: next.model, intelligence: next.intelligence, mcpServers: next.mcpServers }
+          this.settings = { ...this.settings, model: next.model, intelligence: next.intelligence, additionalDirectories: next.additionalDirectories, mcpServers: next.mcpServers }
           this.updateSettings()
         }
         if (modes && (modes.permissionMode !== next.permissionMode || modes.workMode !== (next.workMode === "plan" ? "plan" : "normal"))) {
@@ -668,7 +959,7 @@ export class ChatController {
 
   async addAttachments(pick: () => Promise<readonly AppServerPromptAttachment[]>): Promise<void> {
     const session = this.session
-    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy) return
+    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     this.update({ phase: "configuring", notice: null })
     try {
       this.options.assertTrusted()
@@ -774,6 +1065,8 @@ export class ChatController {
   }
 
   private resetResources(): void {
+    this.side = null; this.controlTurn = null; this.skillNames.clear()
+    this.state = { ...this.state, capabilities: emptyCapabilities(), sessionTools: { ...emptySessionTools(), directories: this.state.sessionTools.directories } }
     this.artifacts.clear(); this.references.clear(); this.attachments.clear(); this.diffs.clear(); this.terminals.clear(); this.tasks.clear()
   }
 

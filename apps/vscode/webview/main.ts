@@ -1,3 +1,5 @@
+import { createSessionTools, type ToolsDraft } from "./components/sessionTools.tsx"
+import { createCapabilityStatus } from "./components/capabilityStatus.tsx"
 import { createLoadingStatus } from "./loadingStatusView.ts"
 import { workingStatus } from "./workingStatus.ts"
 import { uiIcon, permissionIcons } from "../src/uiIcons.ts"
@@ -13,7 +15,7 @@ import { ComposerSubmission } from "./composerSubmission.ts"
 import { createMessageView } from "./messageView.ts"
 import { createHistoryView } from "./historyView.ts"
 
-declare function acquireVsCodeApi(): { postMessage(message: ViewAction): void; getState(): { draft?: string } | undefined; setState(state: { draft: string }): void }
+declare function acquireVsCodeApi(): { postMessage(message: ViewAction): void; getState(): { draft?: string; tools?: ToolsDraft } | undefined; setState(state: { draft: string; tools?: ToolsDraft }): void }
 const vscode = acquireVsCodeApi()
 function element<T extends HTMLElement>(id: string): T {
   const found = document.getElementById(id)
@@ -55,7 +57,14 @@ scroller.addEventListener("scroll", updateJump, { passive: true })
 jumpLatest.addEventListener("click", () => { scroller.scrollTop = scroller.scrollHeight; updateJump() })
 const headerActions = document.querySelector<HTMLElement>(".headerActions")
 if (!headerActions) throw new Error("Missing CodeM header actions")
+const toolsHost = document.createElement("div"); headerActions.prepend(toolsHost)
+let toolsDraft = vscode.getState()?.tools
+const renderSessionTools = createSessionTools(toolsHost, post, () => toolsDraft, value => { toolsDraft = value; vscode.setState({ draft: prompt.value, tools: value }) })
 const renderHistory = createHistoryView(headerActions, scroller, post)
+const statusHost = document.createElement("div")
+statusHost.className = "capabilityStatusHost"
+element("composer").before(statusHost)
+const renderCapabilityStatus = createCapabilityStatus(statusHost)
 const renderWorkGroups = createWorkGroups()
 const nodes = new Map<string, ReturnType<typeof createMessageView>>()
 let state: ChatSnapshot = initialSnapshot()
@@ -86,10 +95,10 @@ function saveDraft(): void {
   const status = workingStatus(state, panels.kind())
   element("workingRow").hidden = status === null
   workingIndicator.set(status?.label ?? null, status?.animate)
-  vscode.setState({ draft: prompt.value })
+  vscode.setState({ draft: prompt.value, tools: toolsDraft })
   fitPrompt()
   prompt.disabled = panels.locked()
-  send.disabled = state.phase !== "ready" || !prompt.value.trim() || submission.busy || panels.locked()
+  send.disabled = Boolean(state.sessionTools.busy) || state.phase !== "ready" || !prompt.value.trim() || submission.busy || panels.locked()
 }
 function submit(): void {
   if (send.disabled) return
@@ -123,7 +132,7 @@ function button(label: string, action: ViewAction, disabled = false): HTMLButton
 }
 let resourcesKey = ""
 function renderResources(): void {
-  const ready = state.phase === "ready" && !state.backgroundBusy
+  const ready = state.phase === "ready" && !state.backgroundBusy && !state.sessionTools.busy
   for (const type of configurationActions) element<HTMLButtonElement>(type).disabled = !ready
   element("selectEffort").setAttribute("aria-label", `思考强度：${state.effort}`)
   element("selectEffort").title = `思考强度：${state.effort}`
@@ -200,6 +209,8 @@ function render(next: ChatSnapshot): void {
   }
   while (position) { const next = position.nextSibling; position.remove(); position = next }
   renderHistory(state)
+  renderCapabilityStatus(state.capabilities)
+  renderSessionTools(state)
   const initializing = state.phase === "connecting"
   const restoring = state.phase === "loadingHistory"
   element("transcriptLoading").hidden = !restoring && (!initializing || state.messages.length > 0)
@@ -210,7 +221,7 @@ function render(next: ChatSnapshot): void {
   element("connection").hidden = state.phase !== "disconnected" && state.phase !== "connecting"
   connect.disabled = signIn.disabled = state.phase === "connecting"
   connect.textContent = state.phase === "connecting" ? "正在连接…" : "连接工作区"
-  newChat.disabled = isBusy(state.phase) || state.backgroundBusy
+  newChat.disabled = isBusy(state.phase) || state.backgroundBusy || Boolean(state.sessionTools.busy)
   const generating = state.phase === "running" || state.phase === "stopping"
   stop.hidden = !generating; send.hidden = generating; stop.disabled = state.phase === "stopping"
   element("statusDot").dataset.connected = String(state.phase !== "disconnected" && state.phase !== "connecting")
@@ -221,7 +232,7 @@ function render(next: ChatSnapshot): void {
   element("model").title = state.model ?? "连接后使用 Core 当前模型"
   element("sessionTitle").textContent = (state.history.entries.find((entry) => entry.id === state.threadId)?.title ?? state.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) ?? "新会话"
   const notice = element("notice"); notice.hidden = !state.notice; notice.textContent = state.notice ?? ""
-  element("status").textContent = state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : "Enter 发送 · Shift + Enter 换行"
+  element("status").textContent = state.phase === "sideQuestion" ? "正在旁路提问，可在会话工具中取消…" : state.phase === "connecting" ? "正在连接 CodeM…" : state.phase === "loadingHistory" ? "正在读取历史记录…" : state.phase === "sending" ? "正在发送…" : state.phase === "running" ? "CodeM 正在处理…" : state.phase === "stopping" ? "正在停止…" : "Enter 发送 · Shift + Enter 换行"
   element("status").title = element("status").textContent ?? ""
   fileMentions.refresh()
   renderResources()

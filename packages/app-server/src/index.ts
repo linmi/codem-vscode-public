@@ -136,6 +136,8 @@ export {
   type AppServerHookHandler,
   type AppServerHookList,
   type AppServerLivePage,
+  type AppServerLiveItem,
+  type AppServerSteerAcceptedItem,
   type AppServerLiveTurn,
   type AppServerLoadedThreads,
   type AppServerModelProviderCapabilities,

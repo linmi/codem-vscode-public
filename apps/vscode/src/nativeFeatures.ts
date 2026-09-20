@@ -81,6 +81,13 @@ export class NativeFeatures implements vscode.Disposable {
     return files.filter(uri => uri.scheme === "file").map(uri => uri.fsPath)
   }
 
+  async pickDirectories(): Promise<readonly string[]> {
+    assertTrusted()
+    const selected = await vscode.window.showOpenDialog({ title: "添加当前连接的工作目录（重载后重新选择）", canSelectFiles: false, canSelectFolders: true, canSelectMany: true })
+    assertTrusted()
+    return (selected ?? []).filter(uri => uri.scheme === "file").map(uri => uri.fsPath)
+  }
+
   async pickAttachments(): Promise<readonly AppServerPromptAttachment[]> {
     const kind = await vscode.window.showQuickPick([{ label: "文件或图片", folder: false }, { label: "文件夹", folder: true }], { title: "添加附件" })
     if (!kind) return []

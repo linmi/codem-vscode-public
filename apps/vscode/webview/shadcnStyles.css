@@ -27,3 +27,28 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="select-trigger"], [data-slot="select-content"] { animation: none; transition: none; }
 }
+
+.capabilityStatusHost { width: min(100%, 736px); margin: 0 auto; flex-shrink: 0; }
+.capabilityStatus { border-top: 1px solid var(--line); font: 12px/1.6 var(--uiFont); }
+.capabilityStatusContent { padding: 0 12px 8px; max-height: 180px; overflow: auto; overflow-wrap: anywhere; }
+
+[data-slot="dialog-overlay"] { z-index: 90; }
+[data-slot="dialog-content"] { z-index: 91; background: var(--surface); color: var(--ink); border: 1px solid var(--line); font: 12px/1.6 var(--uiFont); box-sizing: border-box; }
+[data-slot="select-content"] { z-index: 100; }
+.sessionToolsDialog { width: min(680px, calc(100vw - 24px)); max-height: calc(100vh - 24px); padding: 18px; gap: 10px; }
+.sessionToolsBody { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.sessionToolSection { display: grid; gap: 8px; margin: 4px 0 12px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+.sessionToolSection pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 220px; overflow: auto; }
+.sessionToolSection [data-slot="select-trigger"] { max-width: 100%; width: 100%; }
+.sessionToolActions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.sessionToolActions > [data-slot="select-trigger"] { width: auto; }
+.sessionToolsDialog [data-slot="input"], .sessionToolsDialog [data-slot="textarea"] { box-sizing: border-box; color: var(--ink); font: inherit; border: 1px solid var(--line); }
+.catalogRows { max-height: 200px; overflow: auto; margin: 0; overflow-wrap: anywhere; }
+.catalogRows > div { border-top: 1px solid var(--line); padding: 6px 0; }
+.catalogRows dt { font-weight: 600; }
+.catalogRows dd { margin: 2px 0; color: var(--muted); }
+.rewindDialog { width: min(520px, calc(100vw - 24px)); }
+.sessionToolsDialog { display: flex; flex-direction: column; overflow: hidden; }
+.sessionToolsBody { flex: 1 1 auto; }
+[data-slot="dialog-title"], [data-slot="dialog-description"] { margin: 0; flex-shrink: 0; }
+[data-slot="dialog-title"] { font-size: 16px; line-height: 24px; }

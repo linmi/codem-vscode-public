@@ -124,3 +124,22 @@ it("sends plan revision feedback only on an explicit rejection", async () => {
   f.broker.answer(f.owner, f.reply([f.view().choices[1]!.id], "Add validation"))
   assert.deepEqual(await result, { kind: "plan", approved: false, feedback: "Add validation" })
 })
+
+
+it("rewind maps opaque checkpoint and scope choices, with cancellation at either stage", async () => {
+  for (const cancelAt of [0, 1, 2]) {
+    const f = fixture(), abort = new AbortController()
+    const result = showInteraction({ kind: "rewind", requestId: "core-request", threadId: "core-thread", turnId: "core-turn", checkpoints: [{ id: "core-checkpoint", label: "发送前", createdAt: null, fileCount: 1, diffExcerpt: null, warning: null }], modes: ["conversation", "both"] }, abort.signal, f.broker, "/workspace")
+    assert.equal(f.view().kind, "rewind")
+    assert.doesNotMatch(JSON.stringify(f.view()), /core-checkpoint|core-request/)
+    if (cancelAt === 1) abort.abort()
+    else {
+      f.broker.answer(f.owner, f.reply([f.view().choices[0]!.id]))
+      await Promise.resolve()
+      assert.equal(f.view().title, "确认回退范围")
+      if (cancelAt === 2) abort.abort()
+      else f.broker.answer(f.owner, f.reply([f.view().choices[0]!.id]))
+    }
+    assert.deepEqual(await result, cancelAt ? { kind: "rewind", cancelled: true } : { kind: "rewind", cancelled: false, checkpointId: "core-checkpoint", mode: "conversation" })
+  }
+})

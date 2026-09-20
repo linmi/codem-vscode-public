@@ -161,7 +161,7 @@ export interface AppServerBackgroundTerminalClean {
 }
 
 export interface AppServerThreadModelSelection {
-  readonly model: string
+  readonly id: string
   readonly intelligence: string
 }
 
@@ -171,6 +171,17 @@ export interface AppServerLiveTurn {
   readonly status: string | null
   readonly startedAt: string | null
 }
+
+/** Snapshot-only acceptance record; not a streamed AppServerItem or terminal event. */
+export interface AppServerSteerAcceptedItem {
+  readonly id: string
+  readonly type: "steerAccepted"
+  readonly status: "completed"
+  readonly mode: string
+  readonly recordSeq: number
+  readonly text: string
+}
+export type AppServerLiveItem = AppServerItem | AppServerSteerAcceptedItem
 
 export interface AppServerLivePage<T> {
   readonly entries: readonly T[]
@@ -334,12 +345,16 @@ export function parseAppServerLiveTurns(value: unknown, label: string): AppServe
   }
 }
 
-export function parseAppServerLiveItems(value: unknown, label: string): AppServerLivePage<AppServerItem> {
+export function parseAppServerLiveItems(value: unknown, label: string): AppServerLivePage<AppServerLiveItem> {
   const result = objectValue(value, label)
   return {
-    entries: arrayValue(result.items, `${label} items`).map((entry, index) =>
-      parseAppServerItem(entry, `${label} items[${index}]`),
-    ),
+    entries: arrayValue(result.items, `${label} items`).map((entry, index): AppServerLiveItem => {
+      const itemLabel = `${label} items[${index}]`
+      const item = objectValue(entry, itemLabel)
+      if (item.type !== "steerAccepted") return parseAppServerItem(item, itemLabel)
+      if (item.status !== "completed") throw new Error(`Invalid ${itemLabel} steerAccepted status`)
+      return { id: exactNonBlankString(item.id, `${itemLabel}.id`), type: "steerAccepted", status: "completed", mode: exactNonBlankString(item.mode, `${itemLabel}.mode`), recordSeq: nonNegativeInteger(item.recordSeq, `${itemLabel}.recordSeq`), text: stringValue(item.text, `${itemLabel}.text`) }
+    }),
     nextCursor: nullableString(result.nextCursor, `${label} nextCursor`),
     total: nonNegativeInteger(result.total, `${label} total`),
   }
@@ -347,7 +362,7 @@ export function parseAppServerLiveItems(value: unknown, label: string): AppServe
 
 export function threadModelSelection(model: string, intelligence: string): AppServerThreadModelSelection {
   return {
-    model: exactNonBlankString(model, "thread model"),
+    id: exactNonBlankString(model, "thread model"),
     intelligence: exactNonBlankString(intelligence, "thread intelligence"),
   }
 }

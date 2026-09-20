@@ -25,7 +25,12 @@ export async function showInteraction(request: AppServerInteraction, signal: Abo
     }
     return { kind: "question", cancelled: false, answers }
   }
-  if (request.kind === "rewind") return { kind: "rewind", cancelled: true }
+  if (request.kind === "rewind") {
+    const checkpoint = await panels.request({ kind: "rewind", title: "选择回退检查点", description: "选择要回到的记录；下一步选择代码、对话或两者。", choices: request.checkpoints.map(item => ({ value: item.id, label: item.label, description: `${item.createdAt ?? "时间未知"} · ${item.fileCount ?? "未知"} 个文件${item.warning ? " · 此检查点有 Core 警告，请谨慎选择" : ""}` })) }, signal)
+    if (!checkpoint?.values[0]) return { kind: "rewind", cancelled: true }
+    const mode = await panels.request({ kind: "rewind", title: "确认回退范围", description: "代码回退会改写检查点覆盖的文件。仅执行你选择的范围。", confirmLabel: "确认回退", choices: request.modes.map(value => ({ value, label: { code: "只回退代码", conversation: "只回退对话", both: "回退代码和对话" }[value] })) }, signal)
+    return mode?.values[0] ? { kind: "rewind", cancelled: false, checkpointId: checkpoint.values[0], mode: mode.values[0] } : { kind: "rewind", cancelled: true }
+  }
   const answer = await panels.request({ kind: "plan", allowText: request.kind === "plan", title: request.kind === "plan" ? "审阅计划" : "进入计划模式？", detail: request.kind === "plan" ? request.plan : null, choices: [{ value: true, label: "同意", description: request.kind === "plan" ? "按计划继续" : "允许进入计划模式" }, { value: false, label: "拒绝" }] }, signal)
   return request.kind === "plan" ? { kind: "plan", approved: answer?.values[0] ?? false, ...(answer && !answer.values[0] && answer.text ? { feedback: answer.text } : {}) } : { kind: "plan-mode", approved: answer?.values[0] ?? false }
 }

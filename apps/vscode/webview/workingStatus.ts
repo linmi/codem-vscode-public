@@ -7,6 +7,7 @@ export function workingStatus(state: Pick<ChatSnapshot, "phase" | "messages">, p
   if (state.phase === "stopping") return { label: "正在停止…", animate: true }
   if (panel === "approval") return { label: "等待你的批准…", animate: false }
   if (panel === "question") return { label: "等待你的回复…", animate: false }
+  if (panel === "rewind") return { label: "等待选择回退范围…", animate: false }
   if (panel === "plan") return { label: "等待你确认计划…", animate: false }
   if (state.phase === "sending") return { label: "正在发送…", animate: true }
   let lastUser = -1

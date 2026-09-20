@@ -2,7 +2,7 @@ import type { AppServerHost } from "@codem/app-server"
 import { emptyHistoryList, type HistoryList } from "./historyTypes.ts"
 
 export interface HistoryListContext {
-  host: Pick<AppServerHost, "listThreads">
+  host: Pick<AppServerHost, "listThreads" | "readThread">
   cwd: string
   authorize: () => Promise<void>
 }
@@ -57,9 +57,13 @@ export class HistoryListController {
       const page = await context.host.listThreads(context.cwd, cursor)
       if (revision !== this.revision) return
       if (page.nextCursor !== null && (!page.nextCursor || (append && this.cursors.has(page.nextCursor)))) throw new Error("History list cursor did not advance")
+      // Core 0.8.44 omits persisted names from thread/list; read each page's metadata once.
+      const details = await Promise.all(page.threads.map(thread => context.host.readThread(context.cwd, thread.id)))
+      if (revision !== this.revision) return
+      const names = new Map(details.map(thread => [thread.id, thread.name]))
       const entries = new Map((append ? this.state.entries : []).map((entry) => [entry.id, entry]))
       for (const thread of page.threads) entries.set(thread.id, {
-        id: thread.id, title: thread.preview.trim().slice(0, 160) || "未命名会话", startedAt: thread.startedAt, turnCount: thread.turnCount, archived: thread.archived,
+        id: thread.id, title: names.get(thread.id)?.trim().slice(0, 160) || thread.preview.trim().slice(0, 160) || "未命名会话", startedAt: thread.startedAt, turnCount: thread.turnCount, archived: thread.archived,
       })
       if (!append) this.cursors.clear()
       if (page.nextCursor) this.cursors.add(page.nextCursor)

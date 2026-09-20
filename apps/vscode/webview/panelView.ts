@@ -1,18 +1,21 @@
+import { createRewindPanel } from "./components/rewindPanel.tsx"
 import type { PanelReply, PanelView } from "../src/panelTypes.ts"
 import { uiIcon } from "../src/uiIcons.ts"
 import { renderMarkdown } from "./markdownView.ts"
 
-const anchorIds = { space: "selectSpace", model: "selectModel", effort: "selectEffort", permissionMode: "selectPermission", workMode: "selectWorkMode", approval: "prompt", question: "prompt", plan: "prompt" } as const
+const anchorIds = { rewind: "prompt", space: "selectSpace", model: "selectModel", effort: "selectEffort", permissionMode: "selectPermission", workMode: "selectWorkMode", approval: "prompt", question: "prompt", plan: "prompt" } as const
 
 export function createPanelView(post: (reply: PanelReply) => void, changed: () => void) {
   const footer = document.querySelector("footer")!
   const root = document.createElement("section"); root.className = "decisionPanel"; root.hidden = true; root.tabIndex = -1; root.setAttribute("role", "dialog"); root.setAttribute("aria-labelledby", "decisionTitle")
   footer.prepend(root)
+  const rewindHost = document.createElement("div"); footer.prepend(rewindHost)
+  const renderRewind = createRewindPanel(rewindHost, post)
   let current: PanelView | null = null
   let restore: HTMLElement | null = null
   let pending = false
   let cancel = () => {}
-  const locked = () => current !== null && ["approval", "question", "plan"].includes(current.kind)
+  const locked = () => current !== null && ["approval", "question", "plan", "rewind"].includes(current.kind)
   function positionPicker(): void {
     if (!current || locked()) return
     const anchor = document.getElementById(anchorIds[current.kind])!.getBoundingClientRect()
@@ -36,7 +39,9 @@ export function createPanelView(post: (reply: PanelReply) => void, changed: () =
     const ownedFocus = root.contains(document.activeElement)
     current = panel
     pending = false
-    root.hidden = !panel
+    renderRewind(panel?.kind === "rewind" ? panel : null)
+    root.hidden = !panel || panel.kind === "rewind"
+    if (panel?.kind === "rewind") { root.replaceChildren(); changed(); return }
     if (!panel) {
       root.replaceChildren()
       if (previous && ownedFocus) restore = document.getElementById(anchorIds[previous.kind])
