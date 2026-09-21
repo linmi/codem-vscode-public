@@ -47,7 +47,7 @@ describe("App Server runtime", () => {
     const fixture = createRuntimeFixture({ platformVersion: "0.8.37" })
     assert.throws(
       () => resolveAppServerRuntime({ packageRoot: fixture.root, platform: "darwin", arch: "arm64" }),
-      /requires @lark-codem\/codem-core-darwin-arm64@0\.8\.44, resolved 0\.8\.37/u,
+      { message: `CodeM App Server requires @lark-codem/codem-core-darwin-arm64@${APP_SERVER_CORE_VERSION}, resolved 0.8.37` },
     )
   })
 
@@ -55,7 +55,7 @@ describe("App Server runtime", () => {
     const fixture = createRuntimeFixture({ coreVersion: "0.8.37" })
     assert.throws(
       () => resolveAppServerRuntime({ packageRoot: fixture.root, platform: "darwin", arch: "arm64" }),
-      /requires @lark-codem\/codem-core@0\.8\.44, resolved 0\.8\.37/u,
+      { message: `CodeM App Server requires @lark-codem/codem-core@${APP_SERVER_CORE_VERSION}, resolved 0.8.37` },
     )
   })
 

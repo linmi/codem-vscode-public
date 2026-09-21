@@ -32,3 +32,12 @@
 ## 后续独立变更：Core 早停后的轮次隔离
 
 优先级高：已连续观察到上一条输出被标为下一条 turnId，可能污染对话。边界是 Core 的停止完成与新轮次调度，不能由客户端猜测文本内容或等待固定时长修补。交付结果应是停止完成后，新轮次只收到自己的输出；准出标准为上述 `test:live --headless` 在同一连接的五轮流程全部通过，并覆盖停止发生在 provider 启动前和流式输出期间。此次未修改该独立问题。
+
+## 2026-09-21 升级 Core 0.8.45 后复测
+
+根据官方 npm registry 的 latest 元数据，将插件实际打包的 Core 从 0.8.44 升至 0.8.45；CLI 保持 0.1.208。同步更新依赖、锁文件、runtime 版本约束和版本不匹配的负向测试。pnpm 为本次明确指定的新发布版本生成精确的 minimumReleaseAgeExclude，不允许浮动版本或其他包绕过发布时间限制。
+
+- `pnpm build:vscode` 和 `pnpm --filter codem test:runtime` 通过，后者确认实际捆绑 Core 0.8.45 / CLI 0.1.208。
+- `pnpm --filter codem test:live --headless` 仍失败：普通文本、问答、取消问答和显式停止走完；紧接着的 `after-stop` 新轮次预期 completed，实际得到 stopped。保留原严格断言，不自动延迟、重发或改写 Core 终态。
+- 用户本次实际会话的 VS Code 日志也显示：新 submission 有独立 turn-started，之后返回 stopped/cancelled；对应持久历史却继续写入 task_create 和三个 todo_item_added。这说明发送已到 Core，界面只是遵循了服务端终态，并非输入框没有提交。
+- 插件构建已更新；已有 VS Code 开发宿主仍需重载才会启动新二进制。本轮未操作或新建 VS Code 窗口。升级不代表停止后的隔离问题已修复，后续准出标准继续沿用上节。
