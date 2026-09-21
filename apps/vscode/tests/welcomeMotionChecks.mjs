@@ -12,6 +12,7 @@ export default async function welcomeMotionChecks(page) {
     for (const theme of ['light', 'dark']) {
       await page.goto(`http://127.0.0.1:4318/?scenario=disconnected&theme=${theme}`);
       await motion('idle');
+      if (await page.locator('#welcomeTitle').isVisible()) throw new Error('Welcome title appeared before initialization');
       const before = await page.locator('#welcome').boundingBox();
       await page.locator('#prompt').fill('保留输入中的草稿');
       await send('connecting');
@@ -21,7 +22,7 @@ export default async function welcomeMotionChecks(page) {
       if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('Welcome moved during initialization');
       const animations = await page.locator('.welcomePixel').evaluateAll(nodes => nodes.map(node => ({ name: getComputedStyle(node).animationName, delay: getComputedStyle(node).animationDelay })));
       if (animations.some(a => a.name !== 'welcomePixelPulse') || new Set(animations.map(a => a.delay)).size !== 7) throw new Error('Logo blocks do not animate in sequence');
-      if (await page.locator('#welcomeTitle').evaluate(node => getComputedStyle(node).animationName) !== 'welcomeTitleBreathe') throw new Error('Welcome title does not breathe');
+      if (await page.locator('#welcomeTitle').isVisible()) throw new Error('Welcome title appeared while initializing');
       await page.evaluate(() => { window.welcomeAnimation = document.querySelector('.welcomePixel').getAnimations()[0] });
       await send('connecting');
       await page.waitForFunction(() => document.querySelector('.welcomePixel').getAnimations()[0] === window.welcomeAnimation);
@@ -31,6 +32,7 @@ export default async function welcomeMotionChecks(page) {
       await page.emulateMedia({reducedMotion:'no-preference'});
       await send('ready');
       await motion('settled');
+      await page.locator('#welcomeTitle').waitFor();
       await page.waitForFunction(() => document.querySelector('.welcomeMark').getAnimations().every(animation => animation.playState === 'finished'));
       if (await page.locator('.welcomePixel').first().evaluate(node => getComputedStyle(node).animationName) !== 'none') throw new Error('Logo keeps looping after ready');
       if (await page.locator('#prompt').inputValue() !== '保留输入中的草稿') throw new Error('Initialization lost draft');
@@ -40,6 +42,7 @@ export default async function welcomeMotionChecks(page) {
       await page.evaluate(() => window.postMessage({...demo, phase:'disconnected', messages:[], notice:'连接失败，请重试。'}, '*'));
       await motion('idle');
       await page.getByRole('button', {name:'连接工作区', exact:true}).waitFor();
+      if (await page.locator('#welcomeTitle').isVisible()) throw new Error('Failed initialization showed welcome title');
       if (await page.locator('.welcomePixel').first().evaluate(node => getComputedStyle(node).animationName) !== 'none') throw new Error('Failure kept initialization motion');
       await send('connecting');
       await motion('initializing');
@@ -53,13 +56,16 @@ export default async function welcomeMotionChecks(page) {
       if (await page.locator('#welcome').getAttribute('data-motion') !== 'idle') throw new Error('Hidden welcome retains animation');
       await send('ready');
       await motion('idle'); // A new context must not inherit a completion flash.
+      await page.locator('#welcomeTitle').waitFor();
       await send('connecting');
       await page.reload();
       await motion('idle'); // Reload has no connection state until Host supplies it.
     }
     await page.goto('http://127.0.0.1:4318/?scenario=waitingForHost');
-    await motion('idle');
+    await page.locator('#welcome[data-motion="idle"]').waitFor({state:'attached'}); // Account initialization keeps the whole chat hidden until Host replies.
     if (await page.locator('#welcome').getAttribute('aria-busy') !== 'false') throw new Error('Absent Host produced fake initialization');
+    if (await page.locator('#welcomeTitle').isVisible()) throw new Error('Welcome title flashed before Host responded');
+    if (await page.locator('#welcomeTitle').evaluate(node => getComputedStyle(node).visibility) !== 'hidden') throw new Error('Initial welcome title relies on its parent being hidden');
     if (errors.length) throw new Error(errors.join('\n'));
     return 'WELCOME_MOTION_OK';
   } finally {

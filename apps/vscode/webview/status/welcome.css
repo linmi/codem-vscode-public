@@ -1,4 +1,6 @@
 .welcomeMark { position: relative; }
+.welcome h1 { visibility: hidden; }
+.app[data-phase="ready"] .welcome h1 { visibility: visible; }
 .welcomePixel { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 /* Clip the original asset into its seven blocks, preserving its outline and gradient. */
 .welcomePixel:nth-child(1) { clip-path: inset(0 80% 0 0); animation-delay: 0ms; }
@@ -9,11 +11,9 @@
 .welcomePixel:nth-child(6) { clip-path: inset(50% 20% 0 60%); animation-delay: 700ms; }
 .welcomePixel:nth-child(7) { clip-path: inset(0 0 0 80%); animation-delay: 560ms; }
 .welcome[data-motion="initializing"] .welcomePixel { animation-name: welcomePixelPulse; animation-duration: 2100ms; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
-.welcome[data-motion="initializing"] h1 { animation: welcomeTitleBreathe 2800ms ease-in-out infinite; }
 .welcome[data-motion="settled"] .welcomeMark { animation: welcomeReady 650ms ease-out both; }
 @keyframes welcomePixelPulse { 0%, 100% { opacity: 1; } 45% { opacity: .32; } }
-@keyframes welcomeTitleBreathe { 0%, 100% { opacity: 1; } 50% { opacity: .72; } }
 @keyframes welcomeReady { 0% { opacity: .65; filter: brightness(1); } 45% { opacity: 1; filter: brightness(1.22); } 100% { opacity: 1; filter: brightness(1); } }
 @media (prefers-reduced-motion: reduce) {
-  .welcome .welcomePixel, .welcome h1, .welcome .welcomeMark { animation: none !important; }
+  .welcome .welcomePixel, .welcome .welcomeMark { animation: none !important; }
 }
