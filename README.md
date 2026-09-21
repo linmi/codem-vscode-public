@@ -14,6 +14,10 @@ history/                    完整旧项目归档，仅作参考
 
 `app-server` 是连接已发布 Core 的 Node 客户端包，不是 Core 服务端源码。当前固定 CLI `0.1.208` / Core `0.8.45`，历史格式为 JSONL schema 13。应用通过包公开导出复用服务，不直接引用其他包的内部源码。共享服务不依赖具体应用或界面框架。
 
+## 客户端规划
+
+[IntelliJ IDEA 插件实施方案](docs/jetbrainsImplementationPlan.md)定义 Kotlin 直连 Core、共享 UI/contracts、能力接入台账、分阶段任务与验收门槛；当前为设计，尚未实施。
+
 ## 开发
 
 使用 Node `>=22.23.2`、pnpm `12.4.1`：
