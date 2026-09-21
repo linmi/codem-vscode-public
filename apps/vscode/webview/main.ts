@@ -2,6 +2,7 @@ import type { PasteImagesResult } from "../src/shared/pastedImages.ts"
 import { createAccountView } from "./account/accountView.tsx"
 import type { AccountMessage } from "../src/shared/accountTypes.ts"
 import { createResourceTools } from "./resources/resourceTools.tsx"
+import { createTaskProgress } from "./status/taskProgress.tsx"
 import { createCapabilityStatus } from "./status/capabilityStatus.tsx"
 import { createLoadingStatus } from "./status/loadingStatusView.ts"
 import { workingStatus } from "./status/workingStatus.ts"
@@ -40,6 +41,7 @@ scroller.addEventListener("scroll", updateJump, { passive: true })
 jumpLatest.addEventListener("click", () => { scroller.scrollTop = scroller.scrollHeight; updateJump() })
 const renderResourceTools = createResourceTools(element("resourceToolsHost"), post)
 const renderHistory = createHistoryView(standaloneActions, scroller, post, prompt)
+const renderTaskProgress = createTaskProgress(element("taskProgressHost"))
 const renderCapabilityStatus = createCapabilityStatus(element("runtimeDetailsHost"))
 const renderWorkGroups = createWorkGroups(post)
 const accountView = createAccountView(element("accountRoot"), element("accountMenu"), document.querySelector<HTMLElement>(".app")!, element("accountRoot").dataset.logo!, post)
@@ -121,6 +123,7 @@ function render(next: ChatSnapshot): void {
   while (position) { const next = position.nextSibling; position.remove(); position = next }
   renderHistory(state)
   renderCapabilityStatus(state, composer.sendKey)
+  renderTaskProgress(state)
   const restoring = state.phase === "loadingHistory"
   element("transcriptLoading").hidden = !restoring
   messages.setAttribute("aria-busy", String(restoring))

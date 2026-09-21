@@ -9,7 +9,7 @@ import { ChatController, type ChatHost, type ChatSession } from "../src/chat/cha
 
 const at = "2026-09-19T00:00:00Z"
 function page(index: number, nextCursor: string | null): SessionHistoryPage {
-  return { nextCursor, turns: [{ submissionId: `old-${index}`, turn: { id: `old-turn-${index}`, index, engineTurnIndexes: [index], model: "model", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null, items: [{ id: `user-${index}`, at, kind: "message", role: "user", text: `question ${index}`, attachments: [] }, { id: `answer-${index}`, at, kind: "message", role: "assistant", text: `answer ${index}`, delivery: null }] } }] }
+  return { todoSnapshot: null, nextCursor, turns: [{ submissionId: `old-${index}`, turn: { id: `old-turn-${index}`, index, engineTurnIndexes: [index], model: "model", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null, items: [{ id: `user-${index}`, at, kind: "message", role: "user", text: `question ${index}`, attachments: [] }, { id: `answer-${index}`, at, kind: "message", role: "assistant", text: `answer ${index}`, delivery: null }] } }] }
 }
 function setup(activeConversation?: ActiveConversation) {
   let listener: (event: AppServerHostEvent) => void = () => {}
@@ -223,7 +223,7 @@ it("accepts empty histories and refuses archived or wrong-workspace recovery bef
     await f.chat.resumeThread("history-1")
     assert.deepEqual(f.resumed, [])
     f.host.readThread = async (_cwd, id) => ({ id, cwd: "/workspace", archived: false, model: "model", profile: "default", startedAt: at, name: null, status: "idle" })
-    f.session.readHistory = async () => ({ turns: [], nextCursor: null })
+    f.session.readHistory = async () => ({ todoSnapshot: null, turns: [], nextCursor: null })
     await f.chat.resumeThread("history-1")
     assert.equal(f.chat.snapshot().threadId, "history-1")
     assert.equal(f.chat.snapshot().phase, "ready")
@@ -490,4 +490,22 @@ it("new chat chosen offline suppresses recovery on the next authenticated connec
     assert.deepEqual(f.resumed, [])
     assert.equal(await persistence.load(scope(f.session)), null)
   } finally { await f.chat.dispose() }
+})
+
+it("restores current tasks from history, keeps them on pagination/read failure and clears them on a different session", async t => {
+  const f = setup(); t.after(() => f.chat.dispose())
+  const snapshot = { kind: "added", summary: "当前任务", lastChange: null, counts: { completed: 0, pending: 1, inProgress: 0 }, items: [{ id: "t-check", content: "检查接口", activeForm: null, blockedBy: [], status: "pending" as const, createdAtMs: 1, updatedAtMs: 1 }] }
+  f.session.readHistory = async (threadId, cursor) => ({ ...page(cursor ? 0 : 1, cursor ? null : "older"), todoSnapshot: threadId === "history-1" && !cursor ? snapshot : null })
+  await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+  const plan = [{ content: "检查接口", status: "pending" }]
+  assert.deepEqual(f.chat.snapshot().capabilities.plan, plan)
+  await f.chat.loadOlderMessages()
+  assert.deepEqual(f.chat.snapshot().capabilities.plan, plan)
+  const read = f.session.readHistory
+  f.session.readHistory = async () => { throw new Error("read failed") }
+  await f.chat.reloadHistory()
+  assert.deepEqual(f.chat.snapshot().capabilities.plan, plan)
+  f.session.readHistory = read
+  await f.chat.showHistory(); await f.chat.resumeThread("history-2")
+  assert.deepEqual(f.chat.snapshot().capabilities.plan, [])
 })

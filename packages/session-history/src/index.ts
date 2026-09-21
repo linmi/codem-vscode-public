@@ -8,6 +8,8 @@ import { visitSessionTurns } from "./shared/cli-adapter/records/schema.ts"
 import { projectHashForCwd } from "./shared/cli-adapter/records/cwd.ts"
 import { assertValidCodeMSessionId } from "./shared/session/session-id.ts"
 import { createToolPayload } from "./shared/session/tool-payload.ts"
+import type { TodoSnapshot } from "./shared/session/todo.ts"
+export type { TodoSnapshot } from "./shared/session/todo.ts"
 import type { ConversationTurn } from "./shared/session/model.ts"
 
 export { toolPayloadText } from "./shared/session/tool-payload.ts"
@@ -17,6 +19,8 @@ export interface HistoryTurn {
   readonly submissionId: string | null
 }
 export interface SessionHistoryPage {
+  /** Latest authoritative task list for the whole session, independent of viewport pagination. */
+  readonly todoSnapshot: TodoSnapshot | null
   readonly turns: readonly HistoryTurn[]
   readonly nextCursor: string | null
 }
@@ -121,5 +125,5 @@ export async function readSessionHistory(options: {
     throw new Error(`CodeM history ${threadId} changed during replay; retry after the current write`)
   signal?.throwIfAborted()
   const first = Math.min(end, count) - turns.length
-  return { turns: hydrated, nextCursor: first > 0 ? `${revision}:${first}` : null }
+  return { todoSnapshot: summary.todoSnapshot, turns: hydrated, nextCursor: first > 0 ? `${revision}:${first}` : null }
 }

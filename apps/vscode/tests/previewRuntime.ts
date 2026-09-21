@@ -243,7 +243,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "showHistory") demo.history = {...demo.history, open:true, entries:[{id:"preview",title:"整理登录页面",startedAt:"2026-09-19T12:00:00Z",turnCount:1,archived:false}]}
     if (action.type === "closeHistory") demo.history.open = false
     if (action.type === "removeAttachment") demo.attachments = demo.attachments.filter(item => item.id !== action.id)
-    if (action.type === "newChat") { selectedCode = { current: null, pinned: [] }; demo.messages = []; demo.attachments = []; demo.turnTimings = []; demo.threadId = null; demo.notice = null; activePanel = null; demo.phase = "ready" }
+    if (action.type === "newChat") { selectedCode = { current: null, pinned: [] }; demo.messages = []; demo.capabilities.plan = []; demo.attachments = []; demo.turnTimings = []; demo.threadId = null; demo.notice = null; activePanel = null; demo.phase = "ready" }
     if (action.type === "stop") { demo.messages = demo.messages.map(item => (item.role === "tool" || item.role === "reasoning") && item.status === "running" ? { ...item, status: "interrupted" } : item); demo.turnTimings = demo.turnTimings.map(item => ({ ...item, finishedAt: item.finishedAt ?? Date.now() })); demo.phase = "ready"; activePanel = null; demo.notice = "已停止（模拟）。" }
     if (action.type === "connect") { demo.phase = "ready"; demo.space = "研发团队"; demo.workspace = "codem-plugin"; demo.model = "Auto"; demo.notice = "已恢复连接（模拟），未启动 Core。" }
     if (action.type === "refreshHistory") { demo.history = { ...demo.history, loading: false, error: null }; demo.notice = "已刷新当前样例的历史列表。" }

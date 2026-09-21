@@ -1,4 +1,17 @@
-import type { TaskProgressDetails, TaskProgressRow, TaskStatus } from "../shared/taskProgress.ts"
+import type { ToolDetails } from "../shared/messages.ts"
+
+type TaskStatus = "pending" | "in_progress" | "completed"
+interface TaskProgressRow { id: string | null; content: string | null; activeForm: string | null; status: TaskStatus | null; deleted: boolean; changes: readonly string[] }
+function details(rows: TaskProgressRow[], fields: { label: string; value: string }[]): ToolDetails {
+  for (const row of rows) {
+    fields.push({ label: "任务", value: [row.id, row.content].filter(Boolean).join(" · ") })
+    if (row.deleted) fields.push({ label: "请求操作", value: "移除任务" })
+    else if (row.status) fields.push({ label: "期望状态", value: ({ pending: "待执行", in_progress: "进行中", completed: "已完成" })[row.status] })
+    if (row.activeForm) fields.push({ label: "进行时文案", value: row.activeForm })
+    for (const change of row.changes) fields.push({ label: "请求变更", value: change })
+  }
+  return { kind: "task", fields, code: null }
+}
 
 const record = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null
 const text = (value: unknown): string | null => typeof value === "string" && value.trim() ? value.trim().slice(0, 8000) : null
@@ -6,7 +19,7 @@ const id = (value: unknown): string | null => typeof value === "string" && /^t-[
 const ids = (value: unknown): string[] | null => Array.isArray(value) && value.every(entry => id(entry)) ? value as string[] : null
 
 /** Core 0.8.44 task inputs; project only documented fields, never arbitrary arguments. */
-export function projectTaskDetails(name: "task_create" | "task_update", value: Record<string, unknown>): TaskProgressDetails | null {
+export function projectTaskDetails(name: "task_create" | "task_update", value: Record<string, unknown>): ToolDetails | null {
   const rows: TaskProgressRow[] = []
   const fields: { label: string; value: string }[] = []
   if (name === "task_create") {
@@ -23,7 +36,7 @@ export function projectTaskDetails(name: "task_create" | "task_update", value: R
       if (!replaced) return null
       if (replaced.length) fields.push({ label: "替换任务", value: replaced.join("、") })
     }
-    return { kind: "task", operation: "create", title, rows, fields, code: null }
+    return details(rows, [{ label: "目标", value: title }, { label: "任务数量", value: `${rows.length} 项` }, ...fields])
   }
   // Core explicitly accepts both a batch wrapper and one update object.
   const updates = value.updates === undefined ? [value] : value.updates
@@ -47,5 +60,5 @@ export function projectTaskDetails(name: "task_create" | "task_update", value: R
     if (!["status", "content", "activeForm", "addBlockedBy", "removeBlockedBy"].some(key => item[key] !== undefined)) return null
     rows.push({ id: taskId, content: text(item.content), activeForm: text(item.activeForm), status: (item.status as TaskStatus | undefined) ?? null, deleted: false, changes })
   }
-  return { kind: "task", operation: "update", title: "任务进展", rows, fields, code: null }
+  return details(rows, [{ label: "更新数量", value: `${rows.length} 项` }])
 }

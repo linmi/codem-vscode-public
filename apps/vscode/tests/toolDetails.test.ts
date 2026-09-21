@@ -92,7 +92,7 @@ it("never duplicates MCP identity or publishes arbitrary args, source text and U
 it("restores every tool with the same details as live item projection, without reviving unfinished calls", () => {
   const at = "2026-09-21T00:00:00Z"
   for (const sample of toolInputs) {
-    const page: SessionHistoryPage = { nextCursor: null, turns: [{ submissionId: "s", turn: {
+    const page: SessionHistoryPage = { todoSnapshot: null, nextCursor: null, turns: [{ submissionId: "s", turn: {
       id: "turn", index: 0, engineTurnIndexes: [0], model: "fixture", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null,
       items: [{ id: "call", at, kind: "tool-execution", toolCallId: "call", toolName: sample.label, input: { value: sample.input, preview: "private", previewTruncated: false }, result: null, status: "running" }],
     } }] }

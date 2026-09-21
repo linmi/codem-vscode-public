@@ -45,7 +45,7 @@ function setup() {
     async respondToInteraction(_id, response) { answers.push(response) },
     async close() { closed++ },
   }
-  const session: ChatSession = { authorize: async () => {}, readHistory: async () => ({ turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
+  const session: ChatSession = { authorize: async () => {}, readHistory: async () => ({ todoSnapshot: null, turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
   const controller = new ChatController({ connect: async () => { connections++; return session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   return { controller, host, session, answers, emit: (event: AppServerHostEvent) => listener(event), counts: () => ({ connections, starts, turns, closed }), submission: () => submissionId }
 }
@@ -1466,7 +1466,7 @@ it("keeps task progress attached to its call across results, failures and sessio
   const started = f.controller.snapshot().messages.at(-1)!
   assert.ok("status" in started && started.details?.kind === "task")
   assert.equal(started.status, "running")
-  assert.equal(started.details.rows[0]!.status, "completed")
+  assert.ok(started.details.fields.some(field => field.label === "期望状态" && field.value === "已完成"))
   f.emit({ type: "item-completed", threadId: "thread-1", turnId: "turn-1", item: parseAppServerItem({ id: "task-result", type: "toolResult", status: "failed", callId: "task-id", output: "任务不存在" }, "fixture") })
   const failed = f.controller.snapshot().messages.at(-1)!
   assert.ok("status" in failed)

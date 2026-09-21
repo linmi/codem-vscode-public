@@ -59,7 +59,7 @@ it("control completion before RPC acknowledgement reloads durable history withou
   const f = capabilityFixture(); t.after(() => f.controller.dispose())
   await f.controller.connect(); await f.controller.send("first"); f.finish()
   let reads = 0
-  f.session.readHistory = async () => { reads++; return { turns: [], nextCursor: null } }
+  f.session.readHistory = async () => { reads++; return { todoSnapshot: null, turns: [], nextCursor: null } }
   f.host.compactThread = async () => {
     f.emit({ type: "turn-started", threadId: "thread-1", turnId: "compact", submissionId: null })
     f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "compact", outcome: "completed", stopReason: "end", error: null })
@@ -145,7 +145,7 @@ it("compaction progress never becomes a synthetic terminal; interrupted controls
   const f = capabilityFixture(); t.after(() => f.controller.dispose())
   await f.controller.connect(); await f.controller.send("first"); f.finish()
   let reads = 0
-  f.session.readHistory = async () => { reads++; return { turns: [], nextCursor: null } }
+  f.session.readHistory = async () => { reads++; return { todoSnapshot: null, turns: [], nextCursor: null } }
   f.host.compactThread = async () => { f.emit({ type: "turn-started", threadId: "thread-1", turnId: "compact", submissionId: null }); return "compact" }
   await f.controller.startControl("compact", "request")
   assert.equal(f.controller.snapshot().sessionTools.busy, "compact")

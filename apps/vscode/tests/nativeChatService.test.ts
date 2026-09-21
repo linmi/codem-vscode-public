@@ -32,7 +32,7 @@ function setup() {
     async respondToInteraction(_id, response) { answers.push(response) },
     async close() { closes++ },
   }
-  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "Test" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", supportsVision: false, contextWindowTokens: 10000 }], mcpServers: [], authorize: async () => {}, readHistory: async () => ({ turns: [], nextCursor: null }) }
+  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "Test" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", supportsVision: false, contextWindowTokens: 10000 }], mcpServers: [], authorize: async () => {}, readHistory: async () => ({ todoSnapshot: null, turns: [], nextCursor: null }) }
   let interact: (request: unknown, signal: AbortSignal) => Promise<AppServerInteractionResponse | null> = async () => null
   const service = new NativeChatService({ connect: async () => { connects++; return session }, assertTrusted() { assert.ok(trusted, "workspace trust") }, interact: (r, s) => interact(r, s), report() {} }, () => {}, 25)
   let text = ""

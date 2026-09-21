@@ -10,7 +10,7 @@
 @import "./status/welcome.css";
 @import "./composer/codeSelection.css";
 @import "./transcript/userMessage.css";
-@import "./transcript/taskProgress.css";
+@import "./status/taskProgress.css";
 * { box-sizing: border-box; }
 html { font-size: 16px; }
 /* Own the page gutters: VS Code injects 20px body padding, which modal scroll locking resets.

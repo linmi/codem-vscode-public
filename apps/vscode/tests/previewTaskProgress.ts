@@ -10,7 +10,8 @@ export const taskProgressScenarios = [
 export function applyTaskProgressScenario(state: ChatSnapshot, scenario: string) {
   if (!taskProgressScenarios.some(([id]) => id === scenario)) return
   const message = (id: string, label: string, details: ActivityMessage["details"], status: ActivityStatus): ActivityMessage => ({ id, role: "tool", label, details, turnId: "task-turn", summary: "", status, text: status === "failed" ? "任务更新失败：未知任务 ID。" : "模拟工具调用结果。" })
-  state.phase = "running"
-  state.messages = [state.messages[0]!, message("task-create", "task_create", create, "completed"), message("task-update", "task_update", update, "completed")]
+  state.phase = "ready"
+  state.capabilities.plan = [{ content: "核对接口与现有状态", status: "completed" }, { content: "实现登录页面", status: "in_progress" }, { content: "验证键盘操作和失败恢复", status: "pending" }]
+  state.messages = [state.messages[0]!, message("task-create", "task_create", create, "completed"), message("task-update", "task_update", update, "completed"), { id: "task-answer", role: "assistant", label: "CodeM", text: "已创建任务清单，可以从聊天区右下角查看执行进展。" }]
   if (scenario === "taskProgressFailure") state.messages = [state.messages[0]!, ...(["running", "failed", "declined", "interrupted", "incomplete"] as const).map((status, i) => message(`task-${i}`, "task_update", projectTaskDetails("task_update", { id: "t-check", content: "验证键盘操作和失败恢复", status: "completed" })!, status))]
 }

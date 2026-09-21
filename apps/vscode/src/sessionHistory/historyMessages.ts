@@ -32,3 +32,8 @@ export function historyTurnTimings(page: SessionHistoryPage): TurnTiming[] {
     turnId: turn.id, startedAt: Date.parse(turn.startedAt), finishedAt: Date.parse(turn.completedAt),
   }])
 }
+
+/** Read the current list from the entire durable session, never from visible tool arguments. */
+export function historyPlan(page: SessionHistoryPage): { content: string; status: string }[] {
+  return page.todoSnapshot?.items.map(item => ({ content: item.content, status: item.status })) ?? []
+}

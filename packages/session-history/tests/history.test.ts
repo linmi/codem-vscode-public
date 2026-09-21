@@ -202,3 +202,23 @@ it("rejects repeated user submission identity instead of merging two rounds", as
   await f.save()
   await assert.rejects(readSessionHistory(f.options), /duplicate submission/u)
 })
+
+it("returns the current durable task snapshot even when task creation is outside the visible page", async () => {
+  const f = await fixture()
+  const time = Date.parse(at)
+  f.records.splice(3, 0,
+    { type: "todo_list_reset", reset_at_ms: time, new_summary: "验证任务" },
+    { type: "todo_item_added", item: { id: "t-check", content: "检查接口", status: "pending", active_form: null, blocked_by: [], created_at_ms: time, updated_at_ms: time } },
+  )
+  f.records.splice(f.records.length - 1, 0, { type: "todo_item_updated", id: "t-check", updated_at_ms: time + 1, new_status: "completed", new_content: null, new_active_form: null, add_blocked_by: [], remove_blocked_by: [], evidence: "测试通过" })
+  await f.save()
+  const latest = await readSessionHistory({ ...f.options, limit: 1 })
+  assert.equal(latest.turns.length, 1)
+  assert.equal(latest.todoSnapshot?.items[0]?.status, "completed")
+  assert.equal(latest.todoSnapshot?.summary, "验证任务")
+  const older = await readSessionHistory({ ...f.options, limit: 1, cursor: latest.nextCursor! })
+  assert.deepEqual(older.todoSnapshot, latest.todoSnapshot)
+  f.records.push({ type: "todo_list_reset", reset_at_ms: time + 2, new_summary: null })
+  await f.save()
+  assert.deepEqual((await readSessionHistory(f.options)).todoSnapshot?.items, [])
+})

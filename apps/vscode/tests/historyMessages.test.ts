@@ -65,7 +65,7 @@ it("requires fresh authorization and cancellation checks before reading local hi
 })
 
 it("renders reasoning and tool results without exposing execution inputs or diagnostic objects", () => {
-  const page: SessionHistoryPage = { nextCursor: null, turns: [{ submissionId: "submission", turn: {
+  const page: SessionHistoryPage = { todoSnapshot: null, nextCursor: null, turns: [{ submissionId: "submission", turn: {
     id: "turn", index: 0, engineTurnIndexes: [0], model: "fixture", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null,
     items: [
       { id: "reasoning", at, kind: "activity", activityType: "reasoning", redacted: false, text: "reasoning text" },
@@ -80,7 +80,7 @@ it("renders reasoning and tool results without exposing execution inputs or diag
 })
 
 it("keeps history tool outcomes explicit, including missing results and redacted reasoning", () => {
-  const page: SessionHistoryPage = { nextCursor: null, turns: [{ submissionId: "submission", turn: {
+  const page: SessionHistoryPage = { todoSnapshot: null, nextCursor: null, turns: [{ submissionId: "submission", turn: {
     id: "turn", index: 0, engineTurnIndexes: [0], model: "fixture", provider: "fixture", startedAt: at, completedAt: at, state: "stopped", usage: null,
     items: [
       { id: "redacted", at, kind: "activity", activityType: "reasoning", redacted: true, text: "Reasoning content is redacted." },
@@ -96,7 +96,7 @@ it("keeps history tool outcomes explicit, including missing results and redacted
 
 
 it("places persisted late reasoning before a structured final reply within its own turn", () => {
-  const page: SessionHistoryPage = { nextCursor: null, turns: [{ submissionId: "s", turn: {
+  const page: SessionHistoryPage = { todoSnapshot: null, nextCursor: null, turns: [{ submissionId: "s", turn: {
     id: "t", index: 0, engineTurnIndexes: [0], model: "fixture", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null,
     items: [
       { id: "comment", at, kind: "message", role: "assistant", text: "Checking", delivery: null },
@@ -108,7 +108,7 @@ it("places persisted late reasoning before a structured final reply within its o
 })
 
 it("restores skill names and plugin identity with the same safe projection as live events", () => {
-  const page: SessionHistoryPage = { nextCursor: null, turns: [{ submissionId: "s", turn: {
+  const page: SessionHistoryPage = { todoSnapshot: null, nextCursor: null, turns: [{ submissionId: "s", turn: {
     id: "turn", index: 0, engineTurnIndexes: [0], model: "fixture", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null,
     items: [{ id: "skill", at, kind: "tool-execution", toolCallId: "call", toolName: "skill", input: { value: { name: "codem-plugin:codem-wiki", path: "/private/SKILL.md" }, preview: "private input", previewTruncated: false }, result: { value: "Skill loaded.", preview: "Skill loaded.", previewTruncated: false }, status: "succeeded" }],
   } }] }

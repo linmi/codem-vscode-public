@@ -11,8 +11,8 @@ export default async function toolCoverageChecks(page) {
       await page.getByRole('navigation', {name: '场景目录'}).getByRole('link', {name: '全部工具 · 真实参数投影', exact: true}).click()
       await page.getByText('src/auth.ts（第 12–48 行）', {exact: true}).waitFor()
       const tools = page.locator('.activityMessage[data-role="tool"]')
-      if (await tools.count() !== 33) throw Error('Missing generic tool rows')
-      if (await tools.locator('.toolOutput:visible').count() !== 33) throw Error('Not all tool details can expand')
+      if (await tools.count() !== 35) throw Error('Missing generic tool rows')
+      if (await tools.locator('.toolOutput:visible').count() !== 35) throw Error('Not all tool details can expand')
       for (const text of ['第 12–14 行', '1024 字节', '持续协作', '安装成功后需重新加载 MCP 或开启新会话', 'assets/login.png', '24 条记录', '8 条记录']) {
         if (!await tools.getByText(text, {exact: true}).count()) throw Error(`Missing detail: ${text}`)
       }

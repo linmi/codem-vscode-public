@@ -24,7 +24,7 @@ import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServ
 import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatMessage, type ChatSnapshot } from "../shared/messages.ts"
 
 import { HistoryListController } from "../sessionHistory/historyList.ts"
-import { historyTurnTimings } from "../sessionHistory/historyMessages.ts"
+import { historyTurnTimings, historyPlan } from "../sessionHistory/historyMessages.ts"
 import type { SessionHistoryReader } from "../sessionHistory/sessionHistory.ts"
 
 import { displayPath } from "../resources/filePresentation.ts"
@@ -358,7 +358,7 @@ export class ChatController {
     }
     this.active = active
     this.invalidateHistory()
-    this.update({ phase: "sending", notice: null, capabilities: { ...this.state.capabilities, plan: [], changes: [], guards: [], hooks: [] } })
+    this.update({ phase: "sending", notice: null, capabilities: { ...this.state.capabilities, changes: [], guards: [], hooks: [] } })
     try {
       this.options.assertTrusted()
       // Core accepts localImage independently of native model vision (e.g. describe_image).
@@ -774,7 +774,7 @@ export class ChatController {
         this.threadId = threadId
         restored = true
         saved = this.rememberActiveConversation(session, threadId)
-        this.update({ phase: "ready", messages, turnTimings: historyTurnTimings(page), permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs, background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
+        this.update({ phase: "ready", capabilities: { ...this.state.capabilities, plan: historyPlan(page) }, messages, turnTimings: historyTurnTimings(page), permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs, background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
         this.historyList.close()
       })
       await saved
@@ -807,7 +807,7 @@ export class ChatController {
         const messages = this.resources.projectHistory(threadId, page, session.cwd)
         if (append && messages.some(message => this.state.messages.some(old => old.id === message.id))) throw new Error("History page overlaps the current snapshot")
         const diffs = this.resources.restoreDiffs(session.cwd, page, !append, this.state.diffs)
-        this.update({ diffs, messages: append ? [...messages, ...this.state.messages] : messages, turnTimings: append ? [...historyTurnTimings(page), ...this.state.turnTimings] : historyTurnTimings(page), hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
+        this.update({ capabilities: { ...this.state.capabilities, plan: append ? this.state.capabilities.plan : historyPlan(page) }, diffs, messages: append ? [...messages, ...this.state.messages] : messages, turnTimings: append ? [...historyTurnTimings(page), ...this.state.turnTimings] : historyTurnTimings(page), hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
       })
     } catch {
       if (this.session !== session || this.disposed) return
@@ -981,7 +981,7 @@ export class ChatController {
       }
       if (event.type === "thread-cleared") {
         this.invalidateHistory()
-        this.update({ notice: "Core 已清空会话，请重新加载记录。" })
+        this.update({ capabilities: { ...this.state.capabilities, plan: [] }, notice: "Core 已清空会话，请重新加载记录。" })
         return
       }
       if (event.type === "control-changed") {

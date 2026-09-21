@@ -13,7 +13,7 @@
 - `/?scenario=imageGallery`：960×540 的本地 PNG、文件和目录附件；图片可放大并恢复焦点。`imageUnavailable` 首次加载失败，重试后成功。
 - `/?scenario=resourceBackground`：运行/退出终端及六种唤醒任务状态。`resourceFiles` 展示完整、部分、二进制、无预览差异；`resourceTools` 展示 MCP 与工具列表。
 - `/?scenario=catalogEnvironment`：运行环境与依赖；同组提供技能、配置、Hooks、插件、权限、空间、模型能力、实时快照共九类目录，以及加载中、空结果、过期失败。
-- `/?scenario=runtimeDetails`：展开执行计划、Token 用量、修改汇总、输出保护及 Hooks。
+- `/?scenario=runtimeDetails`：展开 Token 用量、修改汇总、输出保护及 Hooks；执行计划从聊天区右下角的任务按钮打开。
 - `/?scenario=richMarkdown`：标题、引用、任务列表、表格、链接、TypeScript 和 diff 代码块。
 
 所有链接均可加 `&theme=dark`。左侧目录使用既有 shadcn Button / Collapsible；窄窗口从顶部目录按钮选择场景。
@@ -60,3 +60,5 @@
 上述扫描记录的是原展示扩充 Cycle 的状态。后续「同类界面整理」已限制附件和长交互面板的展示高度，内容仍完整保留并可滚动访问；最新验证见 `sessionCommandsAndChanges.md`。
 
 新增 `turnChanges` 场景验证每轮末尾差异：中断、同文件多次修改、不可用预览和无修改轮次。目录与会话操作场景通过真实 `/` 命令入口进入，不使用已移除的顶栏会话工具。
+
+- `/?scenario=taskProgress`：聊天区右下角任务按钮（与回到最新按钮平齐）、完整任务清单及状态；`taskProgressFailure` 展示失败调用不会改变已确认任务进展。

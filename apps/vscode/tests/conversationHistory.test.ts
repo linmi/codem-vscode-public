@@ -7,7 +7,7 @@ import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from 
 function fixture() {
   const calls: string[] = []
   const history = new ConversationHistory(() => {})
-  const page: SessionHistoryPage = { turns: [], nextCursor: "older" }
+  const page: SessionHistoryPage = { todoSnapshot: null, turns: [], nextCursor: "older" }
   const context: HistoryContext = {
     cwd: "/workspace", connected: () => true, assertCurrent() {},
     async authorize() { calls.push("authorize") },
@@ -73,7 +73,7 @@ it("reset and late read completion cannot clear a replacement read lease or comm
   resolve[0]!(f.page); await first
   assert.equal(f.history.busy, true)
   assert.equal(f.history.hasOlder, false)
-  resolve[1]!({ turns: [], nextCursor: null }); await second
+  resolve[1]!({ todoSnapshot: null, turns: [], nextCursor: null }); await second
   assert.equal(f.history.busy, false)
   assert.equal(f.history.hasOlder, false)
 })

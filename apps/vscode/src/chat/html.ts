@@ -32,6 +32,7 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
     <div id="workingRow" class="workingRow" role="status" aria-live="polite" hidden><span id="workingLabel"></span></div>
   </main>
   <button class="jumpLatest" id="jumpLatest" hidden aria-label="回到最新消息">${uiIcon("arrowUp")}</button>
+  <div id="taskProgressHost" hidden></div>
   </div>
   <footer>
     <div id="connection" class="connection" hidden><p>连接工作区，开始与 CodeM 协作。</p><div><button id="connect" class="primaryButton">连接工作区</button></div></div>
