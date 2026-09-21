@@ -1,0 +1,108 @@
+{
+  "id": "core.initialize.handshake.v1",
+  "capabilityId": "A02",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": [
+      "packages/app-server/src/connection.ts",
+      "packages/app-server/src/preflight.ts"
+    ],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "input": {
+    "arguments": ["app-server"],
+    "workingDirectory": "${tmpWorkspace}",
+    "clientInfo": { "name": "codem-intellij", "version": "0.1.0" },
+    "frames": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": { "clientInfo": { "name": "codem-intellij", "version": "0.1.0" } }
+      }
+    ]
+  },
+  "events": [
+    {
+      "direction": "core-to-host",
+      "frame": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "protocolVersion": 1,
+          "agentInfo": { "version": "0.8.45" },
+          "capabilities": {
+            "threads": {
+              "list": true,
+              "read": true,
+              "fork": true,
+              "archive": true,
+              "delete": true,
+              "setName": true,
+              "compact": true,
+              "turnsList": true,
+              "itemsList": true,
+              "shellCommand": true,
+              "backgroundTerminals": true,
+              "backgroundTaskCancel": true,
+              "rewind": true,
+              "initialPlanMode": true,
+              "modelSelection": true,
+              "sessionModes": true
+            },
+            "turns": { "steer": true, "interrupt": true, "attachments": true },
+            "items": {
+              "streaming": true,
+              "types": [
+                "userMessage",
+                "agentMessage",
+                "reasoning",
+                "commandExecution",
+                "fileChange",
+                "mcpToolCall",
+                "webSearch",
+                "contextCompaction",
+                "toolCall",
+                "subagent"
+              ],
+              "statuses": ["inProgress", "completed", "failed", "declined", "interrupted"]
+            },
+            "clientRequests": {
+              "commandExecutionApproval": true,
+              "fileChangeApproval": true,
+              "permissionsApproval": true,
+              "planApproval": true,
+              "rewindSelection": true,
+              "userInput": true
+            },
+            "controlPlane": {
+              "configRead": true,
+              "environment": true,
+              "hooks": true,
+              "models": true,
+              "permissionProfiles": true,
+              "plugins": true,
+              "skills": true,
+              "spaces": true,
+              "tools": true
+            },
+            "mcp": { "stdio": true }
+          }
+        }
+      }
+    },
+    {
+      "direction": "host-to-core",
+      "frame": { "jsonrpc": "2.0", "method": "initialized", "params": {} }
+    }
+  ],
+  "expected": {
+    "kind": "ready",
+    "protocolVersion": 1,
+    "agentVersion": "0.8.45",
+    "responseJsonrpc": "2.0"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@codem/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "README.md",
+    "manifest.json",
+    "core",
+    "webview",
+    "history"
+  ],
+  "exports": {
+    "./manifest.json": "./manifest.json",
+    "./core/*": "./core/*",
+    "./webview/*": "./webview/*",
+    "./history/*": "./history/*"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@codem/app-server": "workspace:*",
+    "@codem/history": "workspace:*",
+    "@codem/protocol": "workspace:*",
+    "@codem/ui": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

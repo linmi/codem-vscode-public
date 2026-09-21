@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
+import { existsSync } from "node:fs"
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -17,7 +18,7 @@ async function put(root: string, path: string, content: string): Promise<void> {
 async function fixture(t: TestContext): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "codem-architecture-"))
   t.after(() => rm(root, { recursive: true, force: true }))
-  for (const name of ["app-server", "session-history", "protocol"]) {
+  for (const name of ["app-server", "history", "protocol"]) {
     await put(root, `packages/${name}/src/index.ts`, "export const value = 1")
     await put(root, `packages/${name}/package.json`, JSON.stringify({ name: `@codem/${name}` }))
     await put(root, `packages/${name}/tsconfig.json`, JSON.stringify({ compilerOptions: { lib: ["ES2023"], types: name === "protocol" ? [] : ["node"] } }))
@@ -29,6 +30,14 @@ async function fixture(t: TestContext): Promise<string> {
 
 it("architecture gate: active workspace respects source and platform boundaries", async () => {
   await checkWorkspaceArchitecture(workspace)
+})
+
+it("jetbrains directories follow the documented duty split", () => {
+  for (const directory of ["core", "account", "session", "history", "ide", "webview"]) {
+    assert.ok(existsSync(join(workspace, "apps/jetbrains/src/main/kotlin/com/codem/intellij", directory)))
+  }
+  assert.ok(existsSync(join(workspace, "apps/jetbrains/src/plugin/kotlin/com/codem/intellij/bootstrap")))
+  assert.ok(existsSync(join(workspace, "apps/jetbrains/tests")))
 })
 
 it("architecture gate: accepts Node services, local protocol code and public package imports", async t => {
@@ -93,6 +102,13 @@ for (const source of [
   })
 }
 
+it("architecture gate: allows the active history package without treating it as the archive", async t => {
+  const root = await fixture(t)
+  await put(root, "packages/history/src/index.ts", "export const value = 1")
+  await put(root, "apps/vscode/src/index.ts", 'export { value } from "@codem/protocol"')
+  await checkWorkspaceArchitecture(root)
+})
+
 it("architecture gate: rejects history reached through a TS alias or symlink", async t => {
   const root = await fixture(t)
   await put(root, "history/old.ts", "export const value = 1")
@@ -102,6 +118,23 @@ it("architecture gate: rejects history reached through a TS alias or symlink", a
   await put(root, "apps/vscode/src/index.ts", 'export { value } from "./linked.ts"')
   await symlink(join(root, "history/old.ts"), join(root, "apps/vscode/src/linked.ts"))
   await assert.rejects(checkWorkspaceArchitecture(root), /source resolves into history/)
+})
+
+it("architecture gate: UI may use React and must reject Node, VS Code and App Server", async t => {
+  const root = await fixture(t)
+  await put(root, "packages/ui/package.json", JSON.stringify({
+    name: "@codem/ui",
+    dependencies: { "@codem/protocol": "workspace:*", react: "19.3.0", marked: "18.0.13", dompurify: "3.4.15" },
+  }))
+  await put(root, "packages/ui/src/index.ts", 'import { useState } from "react"; export const hook = useState')
+  await checkWorkspaceArchitecture(root)
+  await put(root, "packages/ui/src/index.ts", 'export { window } from "vscode"')
+  await assert.rejects(checkWorkspaceArchitecture(root), /UI cannot import Node or editor hosts/)
+  await put(root, "packages/ui/src/index.ts", 'export { join } from "node:path"')
+  await assert.rejects(checkWorkspaceArchitecture(root), /UI cannot import Node or editor hosts/)
+  await put(root, "packages/ui/src/index.ts", "export const value = 1")
+  await put(root, "packages/ui/package.json", JSON.stringify({ name: "@codem/ui", dependencies: { "@codem/app-server": "workspace:*" } }))
+  await assert.rejects(checkWorkspaceArchitecture(root), /UI cannot depend on/)
 })
 
 for (const source of ['export { window } from "vscode"', 'export const load = () => import("electron")']) {
@@ -114,7 +147,7 @@ for (const source of ['export { window } from "vscode"', 'export const load = ()
 
 it("architecture gate: rejects shared code reaching application internals", async t => {
   const root = await fixture(t)
-  await put(root, "packages/session-history/src/index.ts", 'export { value } from "../../../apps/vscode/src/index.ts"')
+  await put(root, "packages/history/src/index.ts", 'export { value } from "../../../apps/vscode/src/index.ts"')
   await assert.rejects(checkWorkspaceArchitecture(root), /crossing source directories/)
 })
 

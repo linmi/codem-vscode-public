@@ -1,0 +1,67 @@
+/* 对照 apps/vscode/webview/styles/synaraTokens.css：Synara 33333439 舒适密度。 */
+:root, .codem-light {
+  color-scheme: light;
+  --surface: #ffffff;
+  --ink: #0d0d0d;
+  --muted: rgba(13, 13, 13, 0.598);
+  --tertiary: rgba(13, 13, 13, 0.398);
+  --line: rgba(13, 13, 13, 0.069);
+  --heavyLine: rgba(13, 13, 13, 0.059);
+  --soft: rgba(13, 13, 13, 0.03);
+  --hover: rgba(13, 13, 13, 0.03);
+  --popover: rgb(255, 255, 255);
+  --primary: #0d0d0d;
+  --onPrimary: #ffffff;
+  --codeSurface: rgba(13, 13, 13, 0.03);
+  --accent: #6554ee;
+  --button: #6554ee;
+  --buttonInk: #fff;
+  --buttonHover: #5546d3;
+  --focus: #0169cc;
+  --vscode-focusBorder: #0169cc;
+  --vscode-button-background: #6554ee;
+  --vscode-button-foreground: #fff;
+  --vscode-button-hoverBackground: #5546d3;
+  --vscode-errorForeground: #c63737;
+  --vscode-charts-green: #16833e;
+  --vscode-descriptionForeground: var(--muted);
+  --vscode-toolbar-hoverBackground: var(--hover);
+  --vscode-editorWarning-foreground: #e47140;
+}
+.codem-dark, .vscode-dark {
+  color-scheme: dark;
+  --surface: #111111;
+  --ink: #fcfcfc;
+  --muted: rgba(252, 252, 252, 0.58);
+  --tertiary: rgba(252, 252, 252, 0.329);
+  --line: rgba(252, 252, 252, 0.072);
+  --heavyLine: rgba(252, 252, 252, 0.118);
+  --soft: rgba(252, 252, 252, 0.026);
+  --hover: rgba(252, 252, 252, 0.039);
+  --popover: rgb(23, 23, 23);
+  --primary: #fcfcfc;
+  --onPrimary: #111111;
+  --codeSurface: rgba(252, 252, 252, 0.026);
+  --composerShadow: 0 6px 24px -10px rgba(0, 0, 0, 0.3);
+  --surfaceBorder: color-mix(in srgb, var(--line) 55%, transparent);
+}
+
+:root, .codem-light, .codem-dark, .vscode-dark {
+  --chatWidth: 736px;
+  --composerRadius: 19.2px;
+  --bubbleRadius: 16px;
+  --chatFont: 14px;
+  --uiFontSize: 13px;
+  --detailFontSize: 12px;
+  --captionFontSize: 11px;
+  --codeFontSize: 12px;
+  --chatLeading: 1.625;
+  --surfaceBorder: color-mix(in srgb, color-mix(in srgb, var(--heavyLine) 95%, var(--ink) 5%) 55%, transparent);
+  --composerShadow: 0 4px 18px -6px color-mix(in srgb, var(--ink) 7%, transparent);
+  --uiFont: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  --codeFont: "JetBrains Mono", "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+.codem-dark, .vscode-dark {
+  --surfaceBorder: color-mix(in srgb, var(--line) 55%, transparent);
+  --composerShadow: 0 6px 24px -10px rgba(0, 0, 0, .30);
+}

@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | `history/packages/app-server/` | `packages/app-server/` | 运行时、认证、空间代理、协议与生命周期实现，配置及全部测试 |
 | `history/packages/protocol/` | `packages/protocol/` | 无运行时依赖的共享协议，配置及全部测试 |
-| `history/packages/session-history/` | `packages/session-history/` | JSONL schema 13 读取及 reducer，配置及全部测试 |
+| `history/packages/session-history/` | `packages/history/` | JSONL schema 13 读取及 reducer，配置及全部测试 |
 | `history/LICENSE` | `LICENSE` | 原样保留原仓库 MIT 许可及 Kilo Code / opencode 版权声明 |
 
 三个包的生产源码、测试及包版本原样迁入；README 更新为新工作区实际边界。根 workspace、脚本和锁文件重新建立，只保留所需依赖。CLI `0.1.208`、Core `0.8.37`、TypeScript `7.0.2`、Node types `24.12.4`、Zod `4.1.8` 延续来源中的版本，无依赖升级。

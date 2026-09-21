@@ -5,10 +5,13 @@
 ```text
 apps/
   vscode/                   VS Code 插件：Host、Webview、品牌素材与测试
+  jetbrains/                IntelliJ IDEA 插件：Kotlin 宿主、JCEF、域测试
 packages/
   app-server/               Core 运行时、认证代理、stdio RPC 与会话管理
   protocol/                 Host 与界面共享的类型、常量和校验
-  session-history/          Core JSONL 历史只读解析
+  contracts/                跨语言契约样例与版本基线
+  history/                  Core JSONL 历史只读解析
+  ui/                       共享聊天挂载
 history/                    完整旧项目归档，仅作参考
 ```
 
@@ -16,7 +19,7 @@ history/                    完整旧项目归档，仅作参考
 
 ## 客户端规划
 
-[IntelliJ IDEA 插件实施方案](docs/jetbrainsImplementationPlan.md)定义 Kotlin 直连 Core、共享 UI/contracts、能力接入台账、分阶段任务与验收门槛；当前为设计，尚未实施。
+[IntelliJ IDEA 插件实施方案](docs/jetbrainsImplementationPlan.md)定义 Kotlin 直连 Core、共享 UI/contracts、能力接入台账与分阶段门槛。工程基线、contracts、Kotlin 域层和 `@codem/ui` 已落地；真实 IDEA 加载与有模型闭环见 [JetBrains README](apps/jetbrains/README.md)。
 
 ## 开发
 

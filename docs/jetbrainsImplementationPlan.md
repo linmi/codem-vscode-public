@@ -1,6 +1,6 @@
 # CodeM IntelliJ IDEA 插件实施方案
 
-状态：设计基线，尚未实施。更新日期：2026-09-21。
+状态：领域骨架与契约已落地；A01–A11 / B01–B14 的真实 IDEA 准出仍受阻。更新日期：2026-09-21。
 
 本文指导 AI 按独立 Cycle 实现、验证和交付 IDEA 插件，不是已有功能的验收报告。实施仍遵守根目录 [AGENTS.md](../AGENTS.md) 和当次用户请求；本文不授权外部发布、账户变更或真实模型消费。
 
@@ -29,7 +29,7 @@
 | 传输与进程 | [connection.ts](../packages/app-server/src/connection.ts)、[rpc.ts](../packages/app-server/src/rpc.ts) | 核实帧格式、请求关联、abandon、关闭与异常语义 |
 | Agent 领域能力 | [host.ts](../packages/app-server/src/host.ts)、[control-plane.ts](../packages/app-server/src/control-plane.ts)、[items.ts](../packages/app-server/src/items.ts) | 从入口、请求、事件到状态完整追踪，不只搬方法名 |
 | 认证与空间 | [authentication.ts](../packages/app-server/src/authentication.ts)、[spaces.ts](../packages/app-server/src/spaces.ts)、[连接治理](connectionGovernance.md) | 核实 broker 协议，保留一次启动事务内的有效结果复用 |
-| 历史 | [当前历史包](../packages/session-history/README.md)、[来源记录](../UPSTREAM.md) | 重放与完整性规则均需迁移，不只逐行显示 JSON |
+| 历史 | [当前历史包](../packages/history/README.md)、[来源记录](../UPSTREAM.md) | 重放与完整性规则均需迁移，不只逐行显示 JSON |
 | 会话与 UI | [chatController.ts](../apps/vscode/src/chat/chatController.ts)、[messages.ts](../apps/vscode/src/shared/messages.ts)、[Webview 入口](../apps/vscode/webview/main.ts) | 区分业务不变量与平台适配，按边界抽取 |
 | 功能与验证 | [VS Code README](../apps/vscode/README.md)、[能力接入](appServerCapabilities.md)、[交互验收](interactionAcceptance.md) | 逐项核实生产链路及未完成验证 |
 | 旧审计 | [固定基线审计](appServerCapabilityAudit.md) 针对 0.8.37，后续记录有 0.8.44 | 仅作线索；不把旧版本缺陷或“未接入”直接当成 0.8.45 事实 |

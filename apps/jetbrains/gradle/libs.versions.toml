@@ -1,0 +1,13 @@
+[versions]
+kotlin = "2.0.21"
+junit = "5.11.4"
+intellijPlatform = "2.5.0"
+idea = "2024.3.6"
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+intellij-platform = { id = "org.jetbrains.intellij.platform", version.ref = "intellijPlatform" }
+
+[libraries]
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.11.4" }

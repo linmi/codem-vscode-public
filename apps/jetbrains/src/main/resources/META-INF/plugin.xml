@@ -1,0 +1,31 @@
+<!-- JCEF Tool Window 不能动态卸载；装包后由 scripts/installAndReload.ts 重载同一 IU，不要让用户手点重启。 -->
+<idea-plugin require-restart="true">
+    <id>com.codem.intellij</id>
+    <name>CodeM</name>
+    <vendor>CodeM</vendor>
+    <!-- 侧栏与插件列表共用 template 单色 mark（#000），不要放彩色 codemMark。 -->
+    <icon>icons/codem.svg</icon>
+    <description><![CDATA[
+        CodeM coding assistant for IntelliJ IDEA. The host talks to Core over stdio
+        and renders the shared UI in JCEF. Remote development and other JetBrains IDEs
+        are out of scope for this first local-only package.
+    ]]></description>
+    <!-- 编译 SDK 仍锁定 243；until-build 放到 262 才能装进本机 2026.2.3，不改 SDK。 -->
+    <idea-version since-build="243" until-build="262.*"/>
+    <depends>com.intellij.modules.platform</depends>
+    <!-- 2026.2 起 JCEF 是独立插件 Web Browser (JCEF)。不声明则点击 Tool Window 会 ClassNotFound JBCefApp。 -->
+    <depends>com.intellij.modules.jcef</depends>
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="CodeM"
+                    anchor="right"
+                    factoryClass="com.codem.intellij.bootstrap.CodemToolWindowFactory"
+                    icon="/icons/codem.svg"/>
+        <notificationGroup id="CodeM" displayType="BALLOON"/>
+    </extensions>
+    <actions>
+        <action id="codem.open"
+                class="com.codem.intellij.bootstrap.OpenCodemAction"
+                text="Open CodeM"
+                description="Open the CodeM tool window"/>
+    </actions>
+</idea-plugin>

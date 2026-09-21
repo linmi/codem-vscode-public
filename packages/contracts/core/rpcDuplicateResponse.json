@@ -1,0 +1,24 @@
+{
+  "id": "core.rpc.duplicate-response.v1",
+  "capabilityId": "A04",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/rpc.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "input": {
+    "pending": [{ "id": 1, "method": "thread/start" }],
+    "frames": [
+      { "jsonrpc": "2.0", "id": 1, "result": { "thread": { "id": "thread-1" } } },
+      { "jsonrpc": "2.0", "id": 1, "result": { "thread": { "id": "thread-1" } } }
+    ]
+  },
+  "expected": {
+    "kind": "protocol-error",
+    "class": "unknown-request-id",
+    "firstResult": { "thread": { "id": "thread-1" } }
+  }
+}

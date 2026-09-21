@@ -1,7 +1,7 @@
 import { SpaceDirectory } from "../src/connection/spaceDirectory.ts"
 import { realpath } from "node:fs/promises"
 import { AppServerHost, assertAppServerAuthenticated, readAppServerAuthStatus, listAppServerSpaces, prepareAppServerSpace, resolveBundledAppServerRuntime } from "@codem/app-server"
-import { resolveSessionsRoot } from "@codem/session-history"
+import { resolveSessionsRoot } from "@codem/history"
 import { createSessionHistoryReader } from "../src/sessionHistory/sessionHistory.ts"
 import type { ChatSession } from "../src/chat/chatController.ts"
 

@@ -1,0 +1,14 @@
+{
+  "name": "@codem/jetbrains",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --experimental-strip-types scripts/checkJetbrains.ts",
+    "test": "node --experimental-strip-types scripts/checkJetbrains.ts",
+    "typecheck": "node --experimental-strip-types scripts/checkJetbrains.ts --compile-only",
+    "build": "node --experimental-strip-types scripts/checkJetbrains.ts --compile-only",
+    "build:plugin": "node --experimental-strip-types scripts/checkJetbrains.ts --plugin",
+    "reload": "node --experimental-strip-types scripts/installAndReload.ts"
+  }
+}

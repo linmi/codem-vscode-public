@@ -1,0 +1,29 @@
+{
+  "id": "core.turn.completed.terminal.v1",
+  "capabilityId": "A04",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/host.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "events": [
+    { "method": "turn/started", "params": { "threadId": "thread-1", "turn": { "id": "turn-1" } } },
+    { "method": "turn/activity", "params": { "threadId": "thread-1", "turnId": "turn-1", "activity": "working" } },
+    {
+      "method": "turn/completed",
+      "params": {
+        "threadId": "thread-1",
+        "turn": { "id": "turn-1", "status": "completed", "stopReason": "EndTurn", "items": [] }
+      }
+    }
+  ],
+  "expected": {
+    "kind": "turn-terminal",
+    "turnId": "turn-1",
+    "status": "completed",
+    "activityIsNotTerminal": true
+  }
+}

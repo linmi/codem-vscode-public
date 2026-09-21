@@ -5,10 +5,11 @@
 ## 运行入口
 
 ```bash
-pnpm check                 # lint、类型检查、全部 fixture 测试，包含以下两项
+pnpm check                 # lint、类型检查、全部 fixture 测试，以及 JetBrains 域检查
 pnpm test:architecture     # 架构边界及门禁自身的正反向验证
 pnpm test:shutdown         # 退出生命周期故障场景
 pnpm build:vscode          # 验证插件可以构建
+pnpm check:jetbrains       # JDK 21 + Gradle 域测试；JDK 缺失必须失败
 ```
 
 `.github/workflows/quality.yml` 在 PR 和 main 推送时运行检查与构建。使用 Node 22.23.2、pnpm 12.4.1 和冻结锁文件；只读仓库权限，不调用模型。工作流仅在推送后才会执行；要禁止绕过失败检查合并，需要仓库管理员将 `Quality gate` 配为必需检查，本轮未修改远端设置。
@@ -20,7 +21,7 @@ Actions 的选型和参数依据 [checkout 官方文档](https://github.com/acti
 | 约束 | 执行机制 | 故障注入 |
 | --- | --- | --- |
 | 活跃生产代码不能依赖 `history/` | esbuild 在内存中解析生产入口；检查原始引用、实际解析路径及符号链接；静态 import/export 同时受 lint 约束 | import、export、字面量动态 import、require、TS 路径别名、符号链接 |
-| 共享包保持独立于应用和编辑器 | 拒绝 VS Code、Electron、React 引用；相对路径不能跨出本包源码，跨包需用公开导出 | 编辑器类型导入、Electron 动态导入、相对路径进入应用 |
+| 共享包保持独立于应用和编辑器 | Node 服务拒绝 VS Code、Electron、React；`@codem/ui` 可用 React/shadcn，仍禁止 Node/VS Code/Electron/app-server/history | 编辑器类型导入、Electron 动态导入、相对路径进入应用 |
 | 共享包没有 DOM 环境 | 明确的 ES lib 和 Node/空 types；默认 tsc 检查 API 使用 | 添加 DOM lib 或 vscode ambient types |
 | 协议包保持可移植、无运行时依赖 | 拒绝外部运行时导入及 dependencies/peerDependencies/optionalDependencies | Node 内置导入及三种依赖声明 |
 

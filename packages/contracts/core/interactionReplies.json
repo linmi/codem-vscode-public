@@ -1,0 +1,52 @@
+{
+  "id": "core.interaction.replies.v1",
+  "capabilityId": "A07",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/host.ts"],
+    "revision": "ff8835640892342534db42e50d9dc1057930831e"
+  },
+  "cases": [
+    {
+      "name": "question-answers",
+      "method": "item/tool/requestUserInput",
+      "expected": {
+        "answers": [
+          {
+            "question": "Which files?",
+            "selected": ["src"],
+            "freeText": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "question-cancel",
+      "method": "item/tool/requestUserInput",
+      "expected": { "cancelled": true }
+    },
+    {
+      "name": "plan-approved",
+      "method": "item/plan/requestApproval",
+      "expected": { "approved": true }
+    },
+    {
+      "name": "plan-rejected",
+      "method": "item/plan/requestApproval",
+      "expected": { "approved": false, "feedback": "need a smaller change" }
+    },
+    {
+      "name": "rewind-selected",
+      "method": "item/rewind/requestSelection",
+      "expected": { "status": "selected", "checkpointId": "cp-1", "mode": "both" }
+    },
+    {
+      "name": "rewind-cancel",
+      "method": "item/rewind/requestSelection",
+      "expected": { "status": "cancelled" }
+    }
+  ]
+}

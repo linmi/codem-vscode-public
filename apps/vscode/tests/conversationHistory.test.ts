@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import { DEFAULT_APP_SERVER_THREAD_SETTINGS } from "@codem/app-server"
-import type { SessionHistoryPage } from "@codem/session-history"
+import type { SessionHistoryPage } from "@codem/history"
 import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from "../src/sessionHistory/conversationHistory.ts"
 
 function fixture() {

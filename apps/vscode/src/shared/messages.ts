@@ -7,7 +7,7 @@ import { parsePanelReply, type PanelReply } from "./panelTypes.ts"
 import { emptyHistoryList, type HistoryAction, type HistoryList } from "./historyTypes.ts"
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
-const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground"] as const
+const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground", "pinSelection"] as const
 const handleActions = ["chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask", "removeCodeSelection", "revealCodeSelection", "pinCodeSelection"] as const
 export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" } }
 export interface CodeSelectionView { id: string; label: string; path: string; startLine: number; endLine: number; error: string | null }
@@ -26,6 +26,7 @@ export type ViewAction =
   | { type: typeof handleActions[number]; id: string }
   | { type: "searchFiles"; query: string; requestId: string }
   | { type: "selectFile"; id: string; requestId: string }
+  | { type: "setTheme"; theme: "light" | "dark" }
   | { type: "send"; text: string; requestId: string; selectionIds?: readonly string[] }
 
 export interface ImageResult { type: "imageResult"; id: string; preview: AttachmentView["preview"] }
@@ -54,6 +55,7 @@ export function parseViewAction(value: unknown): ViewAction {
     return { type: record.type, value }
   }
   if (record.type === "setWorkMode" && Object.keys(record).length === 2) return { type: "setWorkMode", workMode: parseWorkMode(record.workMode) }
+  if (record.type === "setTheme" && Object.keys(record).length === 2 && (record.theme === "light" || record.theme === "dark")) return { type: "setTheme", theme: record.theme }
   if (record.type === "setPermission" && Object.keys(record).length === 2) return { type: "setPermission", permission: parseCodemPermissionMode(record.permission) }
   if (record.type === "pickAttachment" && Object.keys(record).length === 2 && (record.kind === "file" || record.kind === "directory")) return { type: "pickAttachment", kind: record.kind }
   if (record.type === "setEffort" && Object.keys(record).length === 2) return { type: "setEffort", effort: parseCodemIntelligence(record.effort) }

@@ -1,0 +1,20 @@
+{
+  "id": "core.rpc.retired-connection.v1",
+  "capabilityId": "A04",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/rpc.ts", "packages/app-server/src/connection.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "input": {
+    "action": "close-then-request",
+    "method": "model/list"
+  },
+  "expected": {
+    "kind": "connection-error",
+    "class": "stdin-not-writable"
+  }
+}

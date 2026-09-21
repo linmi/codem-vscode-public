@@ -5,7 +5,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { AppServerHost, DEFAULT_APP_SERVER_THREAD_SETTINGS, resolveAppServerRuntime } from "@codem/app-server"
-import { projectHashForCwd } from "../../../packages/session-history/src/shared/cli-adapter/records/cwd.ts"
+import { projectHashForCwd } from "../../../packages/history/src/shared/cli-adapter/records/cwd.ts"
 import { LiveSnapshotCatalog } from "../src/chat/liveSnapshotCatalog.ts"
 import type { LiveCatalogView } from "../src/shared/capabilityTypes.ts"
 

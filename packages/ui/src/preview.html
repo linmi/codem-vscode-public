@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'none'; frame-src 'none'" />
+    <title>CodeM dual-host preview</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      .previewBar { display: flex; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); align-items: center; }
+      .previewBar { background: var(--soft); color: var(--muted); font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="previewBar" data-testid="hostBar" data-host="jetbrains">
+      <strong data-testid="hostLabel">JetBrains 预览宿主</strong>
+      <a href="/?host=jetbrains">JetBrains</a>
+      <a href="/?host=vscode">VS Code</a>
+      <a href="/?host=jetbrains&scene=failed">失败可重试</a>
+      <a href="/?host=jetbrains&scene=resume">恢复/更早</a>
+      <a href="/?host=jetbrains&scene=approval">审批</a>
+      <a href="/?host=jetbrains&scene=markdown">安全 Markdown</a>
+      <a href="/?host=jetbrains&scene=streaming">流式正文</a>
+      <a href="/?host=jetbrains&scene=work">思考/工具分组</a>
+      <a href="/?host=jetbrains&scene=account">未登录</a>
+      <a href="/?host=jetbrains&scene=signingIn">登录中</a>
+      <a href="/?host=jetbrains&scene=accountError">登录失败</a>
+      <a href="/?host=jetbrains&scene=checking">检查登录</a>
+      <a href="/?host=jetbrains&scene=accountProfile">账户资料</a>
+    </div>
+    <div id="codem-root"></div>
+    <script src="./preview.js"></script>
+  </body>
+</html>

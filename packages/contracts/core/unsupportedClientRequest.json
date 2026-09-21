@@ -1,0 +1,21 @@
+{
+  "id": "core.client-request.unsupported.v1",
+  "capabilityId": "A06",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/connection.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "input": {
+    "request": { "jsonrpc": "2.0", "id": "req-unknown", "method": "item/unknown/request", "params": {} }
+  },
+  "expected": {
+    "kind": "protocol-error-response",
+    "code": -32601,
+    "message": "Unsupported client request: item/unknown/request",
+    "mustNotAutoApprove": true
+  }
+}

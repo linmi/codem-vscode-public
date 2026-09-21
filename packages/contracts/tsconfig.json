@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "lib": ["ES2023"]
+  },
+  "include": ["tests/**/*.ts"]
+}

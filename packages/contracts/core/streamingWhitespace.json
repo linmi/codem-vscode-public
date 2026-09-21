@@ -1,0 +1,23 @@
+{
+  "id": "core.item.text-delta.whitespace.v1",
+  "capabilityId": "A05",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/host.ts", "packages/app-server/src/items.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "events": [
+    { "method": "item/agentMessage/delta", "params": { "itemId": "item-1", "delta": "FIRST LINE\n" } },
+    { "method": "item/agentMessage/delta", "params": { "itemId": "item-1", "delta": "\n" } },
+    { "method": "item/agentMessage/delta", "params": { "itemId": "item-1", "delta": "\tLAST LINE" } },
+    { "method": "item/agentMessage/delta", "params": { "itemId": "item-1", "delta": "" } }
+  ],
+  "expected": {
+    "kind": "text",
+    "text": "FIRST LINE\n\n\tLAST LINE",
+    "emptyDelta": "no-op"
+  }
+}

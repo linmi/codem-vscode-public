@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import { projectToolDetails } from "../src/chat/toolDetails.ts"
-import { activityTitle } from "../webview/transcript/toolPresentation.ts"
+import { activityTitle } from "../../../packages/ui/src/chat/toolPresentation.ts"
 import type { ActivityMessage } from "../src/shared/messages.ts"
 const tool: ActivityMessage = { id: "t", role: "tool", label: "run_bash", status: "completed", summary: "", text: "private output", details: { kind: "command", code: "pnpm\ncheck", fields: [] } }
 it("summarizes safe input with the real activity status, never tool output", () => {

@@ -1,0 +1,48 @@
+{
+  "id": "webview.action.send.v1",
+  "capabilityId": "A04",
+  "coreVersion": "0.8.45",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["apps/vscode/src/shared/messages.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "cases": [
+    {
+      "name": "valid-send",
+      "input": { "type": "send", "text": "hello", "requestId": "req-1" },
+      "expected": { "kind": "accepted", "type": "send" }
+    },
+    {
+      "name": "blank-text",
+      "input": { "type": "send", "text": "   ", "requestId": "req-1" },
+      "expected": { "kind": "rejected", "class": "invalid-action" }
+    },
+    {
+      "name": "missing-request-id",
+      "input": { "type": "send", "text": "hello" },
+      "expected": { "kind": "rejected", "class": "invalid-action" }
+    },
+    {
+      "name": "ready-before-host",
+      "input": { "type": "ready" },
+      "expected": { "kind": "accepted", "type": "ready" }
+    },
+    {
+      "name": "set-work-mode",
+      "input": { "type": "setWorkMode", "workMode": "plan" },
+      "expected": { "kind": "accepted", "type": "setWorkMode" }
+    },
+    {
+      "name": "send-skill",
+      "input": { "type": "send", "text": "review this", "requestId": "req-2", "skillName": "review" },
+      "expected": { "kind": "accepted", "type": "send" }
+    },
+    {
+      "name": "skill-with-attachments-rejected",
+      "input": { "type": "send", "text": "review this", "requestId": "req-2", "skillName": "review", "attachmentIds": ["file-1"] },
+      "expected": { "kind": "rejected", "class": "invalid-action" }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "webview.snapshot.initial.v1",
+  "capabilityId": "A04",
+  "coreVersion": "0.8.45",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["apps/vscode/src/shared/messages.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "input": { "mount": true, "hostReady": false },
+  "expected": {
+    "type": "state",
+    "phase": "disconnected",
+    "threadId": null,
+    "hasOlderMessages": false,
+    "historyNeedsRefresh": false,
+    "canRetry": false,
+    "canResume": false,
+    "canLoadOlder": false,
+    "hiddenUntilReady": ["olderMessages", "retryConnect", "resumeThread"]
+  }
+}

@@ -2,7 +2,7 @@ import { it } from "node:test"
 import assert from "node:assert/strict"
 import { elapsedTime } from "../webview/status/elapsedTime.ts"
 import { historyTurnTimings } from "../src/sessionHistory/historyMessages.ts"
-import type { SessionHistoryPage } from "@codem/session-history"
+import type { SessionHistoryPage } from "@codem/history"
 
 it("formats elapsed duration, freezes completed turns and never displays negative elapsed time", () => {
   const running = { turnId: "turn", startedAt: 1000, finishedAt: null }

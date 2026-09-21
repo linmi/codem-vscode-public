@@ -1,5 +1,5 @@
 import type { AppServerHost, AppServerThreadSettings } from "@codem/app-server"
-import type { SessionHistoryPage } from "@codem/session-history"
+import type { SessionHistoryPage } from "@codem/history"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
 import type { SessionHistoryReader } from "./sessionHistory.ts"
 

@@ -116,7 +116,7 @@ export class BackgroundTasks {
     } finally {
       if (revision === this.revision) {
         this.busy = false
-        this.changed(this.snapshot())
+        this.changed(this.snapshot()) 
       }
     }
   }

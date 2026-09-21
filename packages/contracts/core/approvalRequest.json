@@ -1,0 +1,37 @@
+{
+  "id": "core.interaction.command-approval.v1",
+  "capabilityId": "A06",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/host.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "input": {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": "approval-1",
+      "method": "item/tool/requestApproval",
+      "params": {
+        "threadId": "thread-1",
+        "turnId": "turn-1",
+        "itemId": "item-cmd",
+        "kind": "command",
+        "title": "Run tests",
+        "options": [
+          { "id": "approve", "label": "Allow" },
+          { "id": "reject", "label": "Reject" }
+        ]
+      }
+    },
+    "allowedChoiceIds": ["approve", "reject"]
+  },
+  "expected": {
+    "kind": "pending-interaction",
+    "requestId": "approval-1",
+    "crossSessionRejected": true,
+    "unknownChoiceRejected": true
+  }
+}

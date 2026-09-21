@@ -1,0 +1,34 @@
+{
+  "id": "core.rpc.invalid-frame.v1",
+  "capabilityId": "A04",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/rpc.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "cases": [
+    {
+      "name": "not-json",
+      "frameText": "{",
+      "expected": { "kind": "protocol-error", "class": "invalid-json" }
+    },
+    {
+      "name": "wrong-jsonrpc",
+      "frame": { "jsonrpc": "1.0", "id": 1, "result": {} },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    },
+    {
+      "name": "missing-id-on-response",
+      "frame": { "jsonrpc": "2.0", "result": {} },
+      "expected": { "kind": "protocol-error", "class": "uncorrelated-response" }
+    },
+    {
+      "name": "blank-method",
+      "frame": { "jsonrpc": "2.0", "method": "   ", "params": {} },
+      "expected": { "kind": "protocol-error", "class": "invalid-method-frame" }
+    }
+  ]
+}

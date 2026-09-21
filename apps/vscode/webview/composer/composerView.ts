@@ -2,10 +2,9 @@ import { installImagePaste } from "./imagePaste.ts"
 import type { PasteImagesResult } from "../../src/shared/pastedImages.ts"
 import type { ChatSnapshot, CodeSelectionsView, ComposerDraft, EditorMessage, FileSearchResult, FileSelected, SendResult, ViewAction } from "../../src/shared/messages.ts"
 import { initialSnapshot } from "../../src/shared/messages.ts"
-import { commandUnavailable, inputUnavailable, inputModes, slashQuery, type ComposerMode, type SessionCommandId, type SessionPanelCommand } from "../../src/shared/sessionCommands.ts"
+import { inputUnavailable, slashQuery, type ComposerMode } from "../../src/shared/sessionCommands.ts"
 import { createComposerMode, modeLabels } from "./composerMode.tsx"
 import { createSessionCommandPanel } from "./sessionCommandPanel.tsx"
-import { createSlashCommands } from "./slashCommands.tsx"
 import { ComposerState } from "./composerState.ts"
 import { installFileMentions } from "./fileMentions.ts"
 import { createCodeSelection } from "./codeSelection.tsx"
@@ -23,7 +22,7 @@ interface ComposerElements {
 }
 
 /** One input surface for the lifetime of its Webview; state rules stay in ComposerState. */
-export function createComposerView(elements: ComposerElements, transport: ComposerTransport, locked: () => boolean, changed: () => void, openMenu: (menu: "files" | "model" | "mode") => void, pasteStatus: (text: string | null) => void) {
+export function createComposerView(elements: ComposerElements, transport: ComposerTransport, locked: () => boolean, changed: () => void, _openMenu: (menu: "files" | "model" | "mode") => void, pasteStatus: (text: string | null) => void) {
   const { form, prompt, send, attachments } = elements
   const draft = new ComposerState(transport.getState() ?? {})
   let state: ChatSnapshot = initialSnapshot()
@@ -42,8 +41,6 @@ export function createComposerView(elements: ComposerElements, transport: Compos
   const modeHost = document.createElement("div"); form.prepend(modeHost)
   const renderMode = createComposerMode(modeHost, () => setMode("message"), post)
   const fileMentions = installFileMentions(prompt, () => draft.mode === "message" && state.phase === "ready" && !locked(), post)
-  const commandsHost = document.createElement("span"); commandsHost.id = "slashCommandsHost"; commandsHost.hidden = true; form.append(commandsHost)
-  const commands = createSlashCommands(commandsHost, form, prompt, chooseCommand)
   const imagePaste = installImagePaste(prompt, () => ({ state, messageMode: draft.mode === "message", blocked: locked() || draft.busy }), post, pasteStatus, refresh)
 
   function fitPrompt(): void {
@@ -89,18 +86,7 @@ export function createComposerView(elements: ComposerElements, transport: Compos
     draft.setMode(mode)
     persist(); refresh(); prompt.focus()
   }
-  function chooseCommand(id: SessionCommandId): void {
-    if (commandUnavailable(id, state)) return
-    if (isSlashInput()) { draft.edit(""); persist(); refresh() }
-    const mode = inputModes[id]
-    if (mode) { setMode(mode); return }
-    if (id === "files" || id === "model" || id === "mode") openMenu(id)
-    else if (id === "history") post({ type: "showHistory" })
-    else commandPanels.open(id as SessionPanelCommand)
-  }
   function submit(): void {
-    if (document.activeElement?.closest(".slashMenu")) return
-    if (isSlashInput()) { commands.open(slashQuery(draft.text)!); return }
     if (send.disabled) return
     const requestId = crypto.randomUUID()
     const text = draft.text
@@ -116,9 +102,8 @@ export function createComposerView(elements: ComposerElements, transport: Compos
     else submitInput()
   }
   form.addEventListener("submit", event => { event.preventDefault(); submit() })
-  prompt.addEventListener("input", event => {
+  prompt.addEventListener("input", () => {
     draft.edit(prompt.value); persist(); refresh()
-    if (!(event as InputEvent).isComposing && isSlashInput() && !locked()) commands.open(slashQuery(draft.text)!)
   })
   prompt.addEventListener("keydown", event => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing && (sendKey === "enter" ? !event.ctrlKey && !event.metaKey : event.ctrlKey || event.metaKey)) { event.preventDefault(); submit() }
@@ -136,7 +121,7 @@ export function createComposerView(elements: ComposerElements, transport: Compos
       draft.setContext(next)
       if (next.sessionTools.result) draft.settle({ type: "sendResult", ...next.sessionTools.result })
       state = next
-      commandPanels.update(state); commands.update(state)
+      commandPanels.update(state)
       persist(); refresh()
     },
     receive(message: PasteImagesResult | EditorMessage | SendResult | FileSearchResult | FileSelected): void {

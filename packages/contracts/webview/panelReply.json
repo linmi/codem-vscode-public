@@ -1,0 +1,28 @@
+{
+  "id": "webview.action.panel-reply.v1",
+  "capabilityId": "A06",
+  "coreVersion": "0.8.45",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["apps/vscode/src/shared/panelTypes.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "cases": [
+    {
+      "name": "approve",
+      "input": { "type": "panelReply", "id": "approval-1", "choiceIds": ["approve"], "text": "", "cancelled": false },
+      "expected": { "kind": "accepted" }
+    },
+    {
+      "name": "cancel",
+      "input": { "type": "panelReply", "id": "approval-1", "choiceIds": [], "text": "", "cancelled": true },
+      "expected": { "kind": "accepted" }
+    },
+    {
+      "name": "cancel-with-choice",
+      "input": { "type": "panelReply", "id": "approval-1", "choiceIds": ["approve"], "text": "", "cancelled": true },
+      "expected": { "kind": "rejected", "class": "invalid-action" }
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, appendFile, rm, realpath } from "node:fs/pro
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { it } from "node:test"
-import type { SessionHistoryPage } from "@codem/session-history"
+import type { SessionHistoryPage } from "@codem/history"
 import { historyMessages } from "../src/sessionHistory/historyMessages.ts"
 import { createSessionHistoryReader } from "../src/sessionHistory/sessionHistory.ts"
 

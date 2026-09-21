@@ -1,0 +1,12 @@
+{"type":"header","schema_version":13,"session_id":"thread-1","cwd":"${cwd}","started_at":"2026-09-16T00:00:00Z","model":"codem-router/auto","provider":"openai_compat","record_seq":1}
+{"type":"user_invocation","at":"2026-09-16T00:00:00Z","submission_id":"s0","input":{"kind":"message","content":"question 0"},"record_seq":2}
+{"type":"turn_request","at":"2026-09-16T00:00:00Z","turn_index":0,"model":"codem-router/auto","record_seq":3}
+{"type":"user_message","at":"2026-09-16T00:00:00Z","origin":"synthetic","content":"hidden reminder","record_seq":4}
+{"type":"assistant_text","at":"2026-09-16T00:00:00Z","text":"FIRST LINE\n\nLAST LINE","record_seq":5}
+{"type":"tool_call","at":"2026-09-16T00:00:00Z","id":"call-0","name":"final_answer","input":{"kind":"chat","status":"complete","summary":"summary 0"},"record_seq":6}
+{"type":"tool_result","at":"2026-09-16T00:00:00Z","id":"call-0","status":"completed","content":"accepted","record_seq":7}
+{"type":"turn_end","at":"2026-09-16T00:00:00Z","turn_index":0,"stop_reason":"EndTurn","record_seq":8}
+{"type":"user_invocation","at":"2026-09-16T00:00:00Z","submission_id":"s1","input":{"kind":"message","content":"question 1"},"record_seq":9}
+{"type":"turn_request","at":"2026-09-16T00:00:00Z","turn_index":1,"model":"codem-router/auto","record_seq":10}
+{"type":"assistant_text","at":"2026-09-16T00:00:00Z","text":"answer 1","record_seq":11}
+{"type":"turn_end","at":"2026-09-16T00:00:00Z","turn_index":1,"stop_reason":"EndTurn","record_seq":12}

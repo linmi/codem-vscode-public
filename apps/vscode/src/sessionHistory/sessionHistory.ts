@@ -1,4 +1,4 @@
-import { readSessionHistory, type SessionHistoryPage } from "@codem/session-history"
+import { readSessionHistory, type SessionHistoryPage } from "@codem/history"
 
 export type SessionHistoryReader = (threadId: string, cursor: string | undefined, signal: AbortSignal) => Promise<SessionHistoryPage>
 

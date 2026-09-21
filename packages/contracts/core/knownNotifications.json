@@ -1,0 +1,56 @@
+{
+  "id": "core.notifications.known-set.v1",
+  "capabilityId": "B14",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/control-plane.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "methods": [
+    "warning",
+    "auth/invalidated",
+    "skills/changed",
+    "thread/started",
+    "thread/cleared",
+    "thread/closed",
+    "thread/archived",
+    "thread/deleted",
+    "thread/name/updated",
+    "thread/unarchived",
+    "thread/status/changed",
+    "thread/mode/changed",
+    "thread/tokenUsage/updated",
+    "thread/sideQuestion/started",
+    "thread/sideQuestion/delta",
+    "thread/sideQuestion/completed",
+    "serverRequest/resolved",
+    "turn/started",
+    "turn/activity",
+    "turn/completed",
+    "turn/diff/updated",
+    "turn/plan/updated",
+    "item/started",
+    "item/completed",
+    "item/agentMessage/delta",
+    "item/reasoning/textDelta",
+    "item/commandExecution/outputDelta",
+    "item/subagent/progress",
+    "item/toolCall/progress",
+    "item/toolCall/guardUpdated",
+    "item/fileChange/delta",
+    "hook/completed",
+    "backgroundTask/wakeQueued",
+    "backgroundTask/wakeStarted",
+    "backgroundTask/wakeSkipped"
+  ],
+  "expected": {
+    "unknownMethod": {
+      "kind": "protocol-error",
+      "class": "unknown-notification",
+      "mustNotDisconnectAsTransportFailure": false
+    }
+  }
+}

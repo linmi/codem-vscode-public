@@ -431,7 +431,8 @@
   "dependencies": {
     "@codem/app-server": "workspace:*",
     "@codem/protocol": "workspace:*",
-    "@codem/session-history": "workspace:*",
+    "@codem/history": "workspace:*",
+    "@codem/ui": "workspace:*",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "1.1.1",

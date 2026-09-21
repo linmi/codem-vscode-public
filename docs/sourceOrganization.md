@@ -6,6 +6,8 @@
 
 首次启动、重复操作、取消、失败重试、重载和工作区/空间/会话切换继续执行原有实现；输入区行为和所有权见 `qualityGates.md`。没有新增认证、网络、RPC、子进程或缓存。验证重点是路径解析、两种扩展构建、Webview 样式扫描、实际展开的菜单以及既有生命周期测试。
 
+JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是无 IDE 依赖的领域层，`ide`/`webview` 提供端口，`src/plugin/kotlin` 才引用 IntelliJ/JCEF。测试在应用根 `tests/`。
+
 ## 目标目录
 
 | 目录 | 职责 |

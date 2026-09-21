@@ -1,0 +1,6 @@
+{"type":"header","schema_version":13,"session_id":"thread-1","cwd":"${cwd}","started_at":"2026-09-16T00:00:00Z","model":"codem-router/auto","provider":"openai_compat","record_seq":1}
+{"type":"user_invocation","at":"2026-09-16T00:00:00Z","submission_id":"s0","input":{"kind":"message","content":"question 0"},"record_seq":2}
+{"type":"turn_request","at":"2026-09-16T00:00:00Z","turn_index":0,"model":"codem-router/auto","record_seq":3}
+{"type":"assistant_text","at":"2026-09-16T00:00:00Z","text":"ok","record_seq":4}
+{"type":"turn_end","at":"2026-09-16T00:00:00Z","turn_index":0,"stop_reason":"EndTurn","record_seq":5}
+{"type":

@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | Core App Server | Agent 执行、thread/turn 身份、工具与审批事件、Core 历史写入 | [运行连接][connection]、[Host][host] |
 | `@codem/app-server` | Node 客户端；二进制版本与完整性、stdio RPC、DTO 校验、连接和订阅生命周期、CLI broker 适配 | [运行时][runtime]、[Host][host]、[认证][auth]、[空间][spaces] |
-| `@codem/session-history` | 只读 Core JSONL schema 13 的历史投影、分页和完整性检查 | [历史包说明][historyPackage] |
+| `@codem/history` | 只读 Core JSONL schema 13 的历史投影、分页和完整性检查 | [历史包说明][historyPackage] |
 | VS Code | 工作区信任、原生文件与凭据保护、设置保存、白名单界面消息、用户交互 | [扩展入口][extension]、[控制器][controller]、[消息边界][messages] |
 
 ## 会话、对话与执行
@@ -107,7 +107,7 @@
 | 空间目录 / 启动材料 | CLI `__host-serve` 上的 project_list / space_prepare；`prepareInitialAppServerSpace` 等 | 已接入首次连接、目录刷新和切换；选定 projectKey / managed directory 由 Host 注入 Core |
 | 修改 CLI 全局空间 | `commitAppServerSpace` → space_commit | 未调用是当前产品边界；VS Code 只切换本连接空间，不应为了「接满接口」顺带改写全局选择 |
 | Core 运行时凭据 broker | `appServerHostEnvironment` 设置 bundled CLI 的 `__host-serve` 命令 | Core 直接运行，CLI 提供凭据控制通道；不构成第二套 Agent 传输 |
-| 持久历史消息 | `@codem/session-history` 只读 Core JSONL schema 13 | 已接入恢复与分页；实时 RPC 快照不能成为第二个历史来源 |
+| 持久历史消息 | `@codem/history` 只读 Core JSONL schema 13 | 已接入恢复与分页；实时 RPC 快照不能成为第二个历史来源 |
 | 文件打开 / 日志快照 / 附件预览 / @ 文件名查找 | VS Code 与本地文件系统适配 | 属于应用能力，不是 Core 声明的编辑器界面功能 |
 
 证据：[认证][auth]、[空间 broker][spaces]、[运行时连接][session]、[历史包][historyPackage]、[原生功能][native]。认证、目录刷新和连接的调用次数已有专门的 [连接治理记录][governance]，本次不重复登录或查询用户账户。
@@ -148,7 +148,7 @@
 [controlPlane]: ../packages/app-server/src/control-plane.ts
 [auth]: ../packages/app-server/src/authentication.ts
 [spaces]: ../packages/app-server/src/spaces.ts
-[historyPackage]: ../packages/session-history/README.md
+[historyPackage]: ../packages/history/README.md
 [hostTests]: ../packages/app-server/tests/host.test.ts
 [controller]: ../apps/vscode/src/chat/chatController.ts
 [extension]: ../apps/vscode/src/extension.ts

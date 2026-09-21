@@ -1,0 +1,18 @@
+{
+  "id": "history.replay.trailing-fragment.v1",
+  "capabilityId": "A08",
+  "historySchema": 13,
+  "coreVersion": "0.8.45",
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/history/src/index.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3"
+  },
+  "fixture": "trailingFragment.jsonl",
+  "threadId": "thread-1",
+  "expected": {
+    "kind": "success",
+    "turnCount": 1,
+    "ignoreUncommittedTail": true
+  }
+}

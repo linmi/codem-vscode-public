@@ -961,7 +961,7 @@ export class AppServerHost {
   }
 
   /**
-   * 实时 `thread/turns/list` 快照。Durable history 仍只读 `@codem/session-history` JSONL。
+   * 实时 `thread/turns/list` 快照。Durable history 仍只读 `@codem/history` JSONL。
    */
   async listLiveThreadTurns(
     cwd: string,
@@ -981,7 +981,7 @@ export class AppServerHost {
   }
 
   /**
-   * 实时 `thread/items/list` 快照。Durable history 仍只读 `@codem/session-history` JSONL。
+   * 实时 `thread/items/list` 快照。Durable history 仍只读 `@codem/history` JSONL。
    */
   async listLiveThreadItems(
     cwd: string,

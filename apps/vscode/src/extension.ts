@@ -195,6 +195,8 @@ export function activate(context: vscode.ExtensionContext): void {
       case "cancelBackgroundTask": await chat.cancelTask(action.id); break
       case "openBackgroundLog": await chat.showBackgroundLog(action.id, (path) => features.showLog(path)); break
       case "showOutput": output.show(); break
+      case "setTheme":
+      case "pinSelection": break
     }
   }
   selection = new EditorSelection(value => surfaces?.post({ type: "codeSelection", value }))

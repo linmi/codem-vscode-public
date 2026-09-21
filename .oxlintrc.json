@@ -20,7 +20,7 @@
     {
       "files": [
         "packages/app-server/src/**/*.ts",
-        "packages/session-history/src/**/*.ts"
+        "packages/history/src/**/*.ts"
       ],
       "rules": {
         "no-restricted-imports": [
@@ -32,7 +32,11 @@
                 "message": "Shared services must not depend on editor or UI runtimes."
               },
               {
-                "regex": "(^|/)(history|apps)(/|$)",
+                "group": [
+                  "**/apps/**",
+                  "**/history/**",
+                  "!**/packages/history/**"
+                ],
                 "message": "Shared services must not depend on archived or application code."
               }
             ]
@@ -54,7 +58,11 @@
                 "message": "Protocol source must be portable and use only local modules."
               },
               {
-                "regex": "(^|/)(history|apps)(/|$)",
+                "group": [
+                  "**/apps/**",
+                  "**/history/**",
+                  "!**/packages/history/**"
+                ],
                 "message": "Protocol source must not depend on archived or application code."
               }
             ]
@@ -80,7 +88,11 @@
                 "message": "Webview may import only shared Host contracts, never Host implementations."
               },
               {
-                "regex": "(^|/)history(/|$)",
+                "group": [
+                  "**/history/**",
+                  "!**/packages/history/**",
+                  "!@codem/history"
+                ],
                 "message": "Active code must not import archived source."
               }
             ]
@@ -174,6 +186,25 @@
           }
         ]
       }
+    },
+    {
+      "files": [
+        "packages/ui/src/**/*.ts",
+        "packages/ui/src/**/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(node:|@codem/app-server|@codem/history|vscode|electron)(/|$)",
+                "message": "Shared UI must not depend on Node, App Server, history or editor hosts."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "rules": {
@@ -182,7 +213,12 @@
       {
         "patterns": [
           {
-            "regex": "(^|/)(history)(/|$)",
+            "group": [
+              "**/history/**",
+              "!**/packages/history/**",
+              "!@codem/history",
+              "!@codem/history/**"
+            ],
             "message": "Active code must not import archived source."
           }
         ]

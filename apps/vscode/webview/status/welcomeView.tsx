@@ -28,3 +28,4 @@ export function createWelcomeView(host: HTMLElement) {
     return next === "initializing"
   }
 }
+

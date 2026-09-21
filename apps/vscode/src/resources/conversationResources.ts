@@ -4,7 +4,7 @@ import { MAX_ATTACHMENTS, parsePastedImages, type PastedImage } from "../shared/
 import { basename, join } from "node:path"
 import { randomUUID } from "node:crypto"
 import type { AppServerPromptAttachment } from "@codem/app-server"
-import { readSessionImage, resolveSessionsRoot, type ConversationAttachment, type SessionHistoryPage } from "@codem/session-history"
+import { readSessionImage, resolveSessionsRoot, type ConversationAttachment, type SessionHistoryPage } from "@codem/history"
 import type { AttachmentView, ChatMessage, DiffView } from "../shared/messages.ts"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
 import { historyMessages } from "../sessionHistory/historyMessages.ts"

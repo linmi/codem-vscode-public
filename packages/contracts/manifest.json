@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "historySchema": 13,
+  "spaceBrokerProtocol": "2025-03-26",
+  "clientInfo": {
+    "jetbrains": {
+      "name": "codem-intellij",
+      "version": "0.1.0"
+    }
+  },
+  "source": {
+    "kind": "pinned-workspace",
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3",
+    "paths": [
+      "packages/app-server/src/runtime.ts",
+      "packages/app-server/src/preflight.ts",
+      "packages/app-server/src/rpc.ts",
+      "packages/app-server/src/control-plane.ts"
+    ]
+  }
+}

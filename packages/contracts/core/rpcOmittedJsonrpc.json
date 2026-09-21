@@ -1,0 +1,23 @@
+{
+  "id": "core.rpc.omitted-jsonrpc.v1",
+  "capabilityId": "A04",
+  "coreVersion": "0.8.45",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/rpc.ts", "packages/app-server/src/preflight.ts"],
+    "revision": "172000aadd6f580f647a4d5d67e1ea88280616e3",
+    "note": "Pinned Core may omit jsonrpc on responses. Compatibility is limited to that field; other missing fields remain fatal."
+  },
+  "input": {
+    "method": "initialize",
+    "requestId": 1,
+    "frame": { "id": 1, "result": { "protocolVersion": 1 } }
+  },
+  "expected": {
+    "kind": "success",
+    "responseJsonrpc": "omitted",
+    "result": { "protocolVersion": 1 }
+  }
+}

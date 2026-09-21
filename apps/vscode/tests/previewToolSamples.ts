@@ -1,4 +1,4 @@
-import type { ConversationItem } from "@codem/session-history"
+import type { ConversationItem } from "@codem/history"
 import { projectToolDetails } from "../src/chat/toolDetails.ts"
 
 // Core 0.8.44 input shapes. Build projects these in Node; only display DTOs enter the preview bundle.

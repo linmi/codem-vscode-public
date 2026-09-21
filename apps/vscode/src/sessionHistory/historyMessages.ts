@@ -2,7 +2,7 @@ import { projectToolDetails } from "../chat/toolDetails.ts"
 import type { ArtifactInput } from "../resources/artifacts.ts"
 import { terminalReplyLast } from "../shared/timelineOrder.ts"
 import { stoppedTurnMessage } from "../shared/turnStatus.ts"
-import { toolPayloadText, type ConversationAttachment, type SessionHistoryPage } from "@codem/session-history"
+import { toolPayloadText, type ConversationAttachment, type SessionHistoryPage } from "@codem/history"
 import type { ArtifactView, AttachmentView, ActivityStatus, ChatMessage, TurnTiming } from "../shared/messages.ts"
 
 /** Project durable history into display text. Raw records and host handles never cross this boundary. */
