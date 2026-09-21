@@ -42,7 +42,7 @@ export default async function activityPresentationChecks(page) {
     await tool.locator('.toolOutput').waitFor({state:'hidden'});
     await page.goto('http://127.0.0.1:4318/?scenario=failed&theme=dark');
     await page.locator('.toolOutput').waitFor();
-    await page.locator('.activityStatus').getByText('失败',{exact:true}).waitFor();
+    await page.locator('.activityStatus.visuallyHidden').getByText('失败',{exact:true}).waitFor({state:'attached'});
     await page.screenshot({animations:'disabled',path:'output/playwright/activityFailureDark.png'});
     return 'ACTIVITY_PRESENTATION_OK';
   } finally {

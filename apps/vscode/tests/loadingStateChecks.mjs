@@ -68,7 +68,8 @@ export default async function loadingStateChecks(page) {
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Narrow loading layout overflows');
     await page.screenshot({path:'output/playwright/beautifulLoadingDark.png'});
     await page.goto('http://127.0.0.1:4318/?scenario=failed');
-    await page.locator('.activityStatus:visible').getByText('失败',{exact:true}).waitFor();
+    await page.locator('.activityMessage[data-status="failed"] .activityStatus.visuallyHidden').getByText('失败',{exact:true}).waitFor({state:'attached'});
+    if (await page.locator('.activityMessage[data-status="failed"] .activityStatus:not(.visuallyHidden):visible').count()) throw new Error('Failure repeats a visible status badge');
     await checkActivityAlignment(page);
     if (errors.length) throw new Error(errors.join('\n'));
     return 'LOADING_STATE_OK';

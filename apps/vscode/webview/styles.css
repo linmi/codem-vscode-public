@@ -74,7 +74,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .activityMessage[data-role="tool"] .messageBody { padding: 10px 12px 12px; font: 400 var(--codeFontSize)/1.625 var(--codeFont); white-space: pre-wrap; overflow-wrap: anywhere; }
 .activityNote { margin: 6px 0; font-size: var(--chatFont); color: var(--ink); white-space: pre-wrap; }
 .activityMessage[data-status="running"] .activityIcon { animation: workingPulse 1.6s ease-in-out infinite; }
-.activityMessage[data-status="failed"] .activityStatus { color: var(--vscode-errorForeground, #e02e2a); }
+.activityMessage[data-role="tool"][data-status="failed"] .activityTitle, .activityMessage[data-status="failed"] .activityStatus { color: var(--vscode-errorForeground, #e02e2a); }
 .activityMessage[data-status="incomplete"] .activityStatus, .activityMessage[data-status="declined"] .activityStatus { color: var(--vscode-editorWarning-foreground, #d97706); }
 .emptyOutput { color: var(--muted); }
 .welcome { max-width: var(--chatWidth); width: 100%; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; user-select: none; }
