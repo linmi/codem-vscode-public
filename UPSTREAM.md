@@ -99,3 +99,7 @@
 基于已安装 Core 0.8.44 的临时工作区请求/响应核实并修正：`thread/clear` 的 model 使用 `{id,intelligence}`，回执包含新 thread ID、原 ID 和 operationId；持久名称来自 `thread/read.name`；结构化技能输入为 `{type:"skill",name,arguments}`；`thread/items/list` 额外包含 snapshot-only `steerAccepted` 记录。它们均由客户端边界校验，不扩充原始流式 item 枚举或另建历史存储。
 
 新会话工具/回退边界使用 shadcn/ui 官方 new-york-v4 Dialog、Input、Textarea，沿用现有 MIT 许可证；来源和修改范围见 `docs/shadcnIntegration.md`。无新增生产依赖。实测 Core 压缩缺少正常终态，客户端不伪造成功；复现和验收见 `docs/appServerCapabilities.md`。
+
+## 2026-09-21：通用工具图标
+
+`apps/vscode/src/shared/uiIcons.ts` 的 `tool` 路径替换为已安装 `lucide-react@1.47.0` 的 `dist/esm/icons/wrench.mjs` 标准 Wrench 路径，保留 24×24 viewBox 和现有 14×14 显示尺寸。仅复用静态路径，不引入 React 到共享模块。ISC 版权及许可保留在 `apps/vscode/packaging/uiNotices.txt`，随现有构建写入第三方声明。
