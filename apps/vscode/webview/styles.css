@@ -55,8 +55,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .copyMessage:hover:not(:disabled) { background: transparent; }
 .copyFeedback { font-size: var(--captionFontSize); color: var(--muted); }
 .activityMessage { margin: 2px 0; }
-.activityMessage summary { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; list-style: none; font-size: var(--uiFontSize); line-height: 20px; color: var(--muted); border-radius: 6px; }
-.activityMessage[data-role="tool"] summary { font-size: var(--chatFont); }
+.activityMessage summary { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; list-style: none; font-size: var(--chatFont); line-height: 20px; color: var(--muted); border-radius: 6px; }
 .activityMessage summary::-webkit-details-marker { display: none; }
 .activityMessage summary:hover { color: var(--ink); }
 .activityIcon { display: flex; align-items: center; width: 16px; flex-shrink: 0; }
@@ -66,7 +65,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .activityMessage summary:hover .activityChevron, .activityMessage summary:focus-visible .activityChevron, .activityMessage details[open] .activityChevron { opacity: 1; }
 .activityMessage details[open] .activityChevron { transform: rotate(90deg); }
 .activityLoading { display: flex; align-items: center; min-width: 0; }
-.activityLoading .beautifulLoading { max-width: 100%; }
+.activityLoading .beautifulLoading { max-width: 100%; font-size: inherit; }
 .activityLoading .beautifulLoadingLabel { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .activityTitle { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .activityStatus { margin-left: auto; font-size: var(--captionFontSize); flex-shrink: 0; }
@@ -147,7 +146,6 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .workGroupContent .message { margin: 0; }
 .workGroupContent .message[data-role="assistant"] { margin: 8px 0; color: var(--ink); }
 .workGroupContent .messageActions { display: none; }
-.workGroupContent .activityMessage summary { padding: 2px 0; }
 .workGroupContent .activityStatus { margin-left: 4px; }
 .workGroup[data-state="failed"] > summary { color: var(--vscode-errorForeground, #e02e2a); }
 @media (prefers-reduced-motion: reduce) { .workGroup > summary svg { transition: none; } }
