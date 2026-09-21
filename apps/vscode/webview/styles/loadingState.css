@@ -1,4 +1,4 @@
-.beautifulLoading { display: inline-flex; align-items: center; gap: 10px; min-height: 20px; font: 500 12px/20px var(--uiFont); color: var(--muted); }
+.beautifulLoading { display: inline-flex; align-items: center; gap: 10px; min-height: 20px; font: 500 var(--uiFontSize)/20px var(--uiFont); color: var(--muted); }
 .beautifulLoadingGrid { display: grid; flex-shrink: 0; grid-template-columns: repeat(3, 4px); gap: 1.5px; }
 .beautifulLoadingGrid > span { width: 4px; height: 4px; border-radius: 1px; background: currentColor; opacity: .15; }
 .beautifulLoading[data-animated="true"] .beautifulLoadingGrid > span { animation: beautifulPixel 650ms ease-in-out infinite; }

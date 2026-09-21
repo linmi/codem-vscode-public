@@ -55,7 +55,7 @@ async function catalogStyleChecks(page) {
           return [
             ['native input border', ['Top', 'Right', 'Bottom', 'Left'].some(side => style[`border${side}Width`] !== '1px' || style[`border${side}Style`] !== 'solid')],
             ['missing separate rounded search field', style.borderRadius !== '8px' || rowStyle.borderBottomWidth !== '0px' || getComputedStyle(row.querySelector('svg')).display !== 'none'],
-            ['input font or theme', style.fontFamily !== menuStyle.fontFamily || style.fontSize !== '12px' || style.color !== ink],
+            ['input font or theme', style.fontFamily !== menuStyle.fontFamily || style.fontSize !== '13px' || style.color !== ink],
             ['input exceeds search row', rect.top < rowRect.top || rect.bottom > rowRect.bottom || rect.right > rowRect.right],
             ['menu border ignores theme', menuStyle.borderTopColor !== line],
             ['missing search focus indicator', style.borderColor !== focus],

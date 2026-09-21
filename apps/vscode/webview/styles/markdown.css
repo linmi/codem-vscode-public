@@ -1,6 +1,6 @@
 /* Adapted from Synara index.css .chat-markdown at 33333439 (MIT). */
 .chatMarkdown { min-width: 0; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
-.chatMarkdown strong, .chatMarkdown b { font-weight: 500; font-synthesis: none; }
+.chatMarkdown strong, .chatMarkdown b { font-weight: 600; font-synthesis: none; }
 .chatMarkdown > :first-child { margin-top: 0; }
 .chatMarkdown > :last-child { margin-bottom: 0; }
 .chatMarkdown p, .chatMarkdown ul, .chatMarkdown ol, .chatMarkdown blockquote, .chatMarkdown pre, .chatMarkdown table { margin: .65rem 0; }
@@ -19,17 +19,17 @@
 .chatMarkdown h5 { font-size: 1.1em; }
 .chatMarkdown h6 { font-size: 1em; color: var(--muted); }
 .chatMarkdown blockquote { padding-left: 1rem; border-left: 2px solid var(--line); margin-inline: 0; color: var(--muted); }
-.chatMarkdown :not(pre) > code { background: var(--soft); border-radius: 4px; padding: 2px 4px; font: 11px/1.625 var(--codeFont); }
+.chatMarkdown :not(pre) > code { background: var(--soft); border-radius: 4px; padding: 2px 4px; font: 400 var(--codeFontSize)/1.625 var(--codeFont); }
 .chatMarkdown a { color: inherit; text-decoration-color: var(--tertiary); text-underline-offset: 3px; }
 .chatMarkdown a[href]:hover { text-decoration-color: currentColor; }
 .chatMarkdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
 .chatMarkdown th, .chatMarkdown td { padding: 6px 12px; border: 1px solid var(--line); text-align: left; }
-.chatMarkdown th { font-weight: 500; background: var(--soft); }
+.chatMarkdown th { font-weight: 600; background: var(--soft); }
 .codeBlock { margin: 12px 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--codeSurface); }
-.codeHeader { display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 8px 0 12px; color: var(--muted); font: 10px var(--codeFont); border-bottom: 1px solid var(--line); }
+.codeHeader { display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 8px 0 12px; color: var(--muted); font: 400 var(--captionFontSize) var(--codeFont); border-bottom: 1px solid var(--line); }
 .chatMarkdown .codeBlock pre { margin: 0; border: 0; border-radius: 0; background: transparent; }
 
-.codeWrap { margin-left: auto; font-size: 10px; padding: 2px 5px; border-radius: 4px; color: var(--muted); }
+.codeWrap { margin-left: auto; font-size: var(--captionFontSize); padding: 2px 5px; border-radius: 4px; color: var(--muted); }
 .wrapCode pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .hljs-keyword, .hljs-selector-tag, .hljs-literal { color: var(--vscode-symbolIcon-keywordForeground, #8959a8); }
 .hljs-string, .hljs-regexp, .hljs-addition { color: var(--vscode-symbolIcon-stringForeground, #4e8b36); }

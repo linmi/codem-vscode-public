@@ -15,7 +15,7 @@
 html { font-size: 16px; }
 /* Own the page gutters: VS Code injects 20px body padding, which modal scroll locking resets.
    Keep spacing inside the header, transcript and footer so overlays cannot resize the chat. */
-body { margin: 0; padding: 0; background: var(--surface); color: var(--ink); font: 12px/1.5 var(--uiFont); -webkit-font-smoothing: antialiased; }
+body { margin: 0; padding: 0; background: var(--surface); color: var(--ink); font: 500 var(--uiFontSize)/1.5 var(--uiFont); -webkit-font-smoothing: antialiased; }
 button, textarea { font: inherit; color: inherit; }
 button { border: 0; cursor: pointer; background: transparent; transition: background-color 150ms, color 150ms; }
 button:disabled { opacity: .4; cursor: default; }
@@ -25,7 +25,7 @@ button:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 .app { position: relative; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 .sessionHeader { min-height: 44px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
-.sessionTitle { display: flex; gap: 8px; align-items: center; min-width: 0; font-size: 12px; font-weight: 500; }
+.sessionTitle { display: flex; gap: 8px; align-items: center; min-width: 0; font-size: var(--uiFontSize); font-weight: 500; }
 #sessionTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sessionIcon { display: flex; color: var(--muted); }
 .statusDot { width: 4px; height: 4px; border-radius: 50%; background: var(--tertiary); flex-shrink: 0; }
@@ -45,7 +45,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .message[data-role="assistant"] { margin: 12px 0 24px; }
 .messageBody.chatMarkdown { white-space: normal; }
 .messageBody { white-space: pre-wrap; font-size: var(--chatFont); line-height: var(--chatLeading); }
-.messageBody pre { margin: 10.4px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--codeSurface); overflow: auto; white-space: pre; font: 11px/1.625 var(--codeFont); }
+.messageBody pre { margin: 10.4px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--codeSurface); overflow: auto; white-space: pre; font: 400 var(--codeFontSize)/1.625 var(--codeFont); }
 .messageBody pre code { font: inherit; }
 .messageActions { display: flex; align-items: center; margin-top: 2px; gap: 8px; color: var(--muted); }
 .message[data-role="user"] .messageActions { margin-top: 1px; opacity: 0; transition: opacity 150ms; }
@@ -53,9 +53,9 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .copyMessage { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border-radius: 0; color: var(--muted); }
 .copyMessage svg { width: 11.25px; height: 11.25px; }
 .copyMessage:hover:not(:disabled) { background: transparent; }
-.copyFeedback { font-size: 10px; color: var(--muted); }
+.copyFeedback { font-size: var(--captionFontSize); color: var(--muted); }
 .activityMessage { margin: 2px 0; }
-.activityMessage summary { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; list-style: none; font-size: 12px; line-height: 20px; color: var(--muted); border-radius: 6px; }
+.activityMessage summary { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; list-style: none; font-size: var(--uiFontSize); line-height: 20px; color: var(--muted); border-radius: 6px; }
 .activityMessage summary::-webkit-details-marker { display: none; }
 .activityMessage summary:hover { color: var(--ink); }
 .activityIcon { display: flex; align-items: center; width: 16px; flex-shrink: 0; }
@@ -68,10 +68,10 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .activityLoading .beautifulLoading { max-width: 100%; }
 .activityLoading .beautifulLoadingLabel { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .activityTitle { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.activityStatus { margin-left: auto; font-size: 10px; flex-shrink: 0; }
+.activityStatus { margin-left: auto; font-size: var(--captionFontSize); flex-shrink: 0; }
 .activityMessage[data-status="completed"] .activityStatus { display: none; }
 .activityMessage .messageBody { max-height: 280px; overflow: auto; }
-.activityMessage[data-role="tool"] .messageBody { padding: 10px 12px 12px; font: 11px/1.625 var(--codeFont); white-space: pre-wrap; overflow-wrap: anywhere; }
+.activityMessage[data-role="tool"] .messageBody { padding: 10px 12px 12px; font: 400 var(--codeFontSize)/1.625 var(--codeFont); white-space: pre-wrap; overflow-wrap: anywhere; }
 .activityNote { margin: 6px 0; font-size: var(--chatFont); color: var(--ink); white-space: pre-wrap; }
 .activityMessage[data-status="running"] .activityIcon { animation: workingPulse 1.6s ease-in-out infinite; }
 .activityMessage[data-status="failed"] .activityStatus { color: var(--vscode-errorForeground, #e02e2a); }
@@ -79,8 +79,8 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .emptyOutput { color: var(--muted); }
 .welcome { max-width: var(--chatWidth); width: 100%; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; user-select: none; }
 .brandMark { display: block; width: 40px; height: 40px; object-fit: contain; }
-h1 { font-size: 26px; letter-spacing: -.015em; line-height: 1.15; font-weight: 400; margin: 0; color: color-mix(in srgb, var(--ink) 95%, transparent); }
-footer { width: 100%; max-width: calc(var(--chatWidth) + 24px); align-self: center; padding: 0 12px 12px; position: relative; z-index: 2; }
+h1 { font-size: 26px; letter-spacing: -.015em; line-height: 1.15; font-weight: 500; margin: 0; color: color-mix(in srgb, var(--ink) 95%, transparent); }
+footer { min-height: 0; overflow-y: auto; scrollbar-width: thin; width: 100%; max-width: calc(var(--chatWidth) + 24px); align-self: center; padding: 0 12px 12px; position: relative; z-index: 2; }
 .composer { position: relative; isolation: isolate; border: 1px solid var(--surfaceBorder); background: color-mix(in srgb, var(--popover) 55%, transparent); border-radius: var(--composerRadius); box-shadow: var(--composerShadow); transition: border-color 200ms; }
 .composer::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; backdrop-filter: blur(40px) saturate(150%); }
 textarea { width: 100%; display: block; border: 0; outline: 0; resize: none; padding: 12px 14px 8px 12px; min-height: 59px; max-height: 220px; background: transparent; font-size: var(--chatFont); line-height: var(--chatLeading); scrollbar-width: thin; }
@@ -89,7 +89,7 @@ textarea::placeholder { color: color-mix(in srgb, var(--muted) 40%, transparent)
 .composerLeading, .composerTrailing { display: flex; align-items: center; min-width: 0; }
 .composerLeading { gap: 4px; flex-shrink: 0; }
 .composerTrailing { gap: 8px; }
-.optionButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; font-weight: 400; border-radius: 999px; padding: 5px 8px; line-height: 18px; color: var(--muted); white-space: nowrap; }
+.optionButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: var(--detailFontSize); font-weight: 500; border-radius: 999px; padding: 5px 8px; line-height: 18px; color: var(--muted); white-space: nowrap; }
 #selectModel { min-width: 0; color: var(--ink); }
 #selectModel img { flex-shrink: 0; object-fit: contain; }
 #model { max-width: 155px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
@@ -101,26 +101,26 @@ textarea::placeholder { color: color-mix(in srgb, var(--muted) 40%, transparent)
 .sendButton:disabled { opacity: .2; }
 .sendButton:hover:not(:disabled), .stopButton:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 85%, var(--surface)); color: var(--onPrimary); }
 .stopButton svg { width: 20px; height: 20px; }
-.footerMeta { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--muted); margin: 6px 8px 0; min-height: 24px; }
+.footerMeta { display: flex; align-items: center; gap: 12px; font-size: var(--detailFontSize); color: var(--muted); margin: 6px 8px 0; min-height: 24px; }
 .environment, .workspaceLabel { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .footerMeta svg { width: 14px; height: 14px; }
 #workspace { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .environment { flex-shrink: 0; }
 .workspaceLabel { flex: 1; }
 .app[data-phase="configuring"] .composerToolbar .optionButton:disabled, .app[data-phase="configuring"] .composerToolbar .iconButton:disabled { opacity: 1; }
-.connection { padding: 10px 12px; width: calc(100% * 14 / 15); margin: 0 auto -1px; border: 1px solid var(--surfaceBorder); border-radius: 18.2px 18.2px 0 0; background: color-mix(in srgb, var(--popover) 27.5%, transparent); font-size: 11px; }
+.connection { padding: 10px 12px; width: calc(100% * 14 / 15); margin: 0 auto -1px; border: 1px solid var(--surfaceBorder); border-radius: 18.2px 18.2px 0 0; background: color-mix(in srgb, var(--popover) 27.5%, transparent); font-size: var(--detailFontSize); }
 .connection p { margin: 0 0 6px; color: var(--muted); }
 .connection > div { display: flex; gap: 5px; }
 .primaryButton { background: var(--primary); color: var(--onPrimary); border-radius: 999px; padding: 5px 12px; }
-.textButton { font-size: 11px; padding: 5px 8px; border-radius: 6px; color: var(--muted); }
-.notice { font-size: 11px; line-height: 1.625; padding: 10px 12px; border: 1px solid var(--vscode-inputValidation-warningBorder, #d97706); border-radius: 14px; overflow-wrap: anywhere; }
+.textButton { font-size: var(--detailFontSize); padding: 5px 8px; border-radius: 6px; color: var(--muted); }
+.notice { font-size: var(--detailFontSize); line-height: 1.625; padding: 10px 12px; border: 1px solid var(--vscode-inputValidation-warningBorder, #d97706); border-radius: 14px; overflow-wrap: anywhere; }
 .attachments { max-height: min(144px, 24dvh); overflow-y: auto; overscroll-behavior: contain; display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 12px 0; }
 .attachments:empty { display: none; }
-.attachments button { max-width: 100%; overflow-wrap: anywhere; text-align: left; border: 1px solid var(--line); background: var(--soft); padding: 5px 8px; border-radius: 8px; font-size: 11px; }
+.attachments button { max-width: 100%; overflow-wrap: anywhere; text-align: left; border: 1px solid var(--line); background: var(--soft); padding: 5px 8px; border-radius: 8px; font-size: var(--detailFontSize); }
 .jumpLatest { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: var(--popover); box-shadow: var(--composerShadow); color: var(--muted); }
 .jumpLatest svg { transform: rotate(180deg); }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.messageAttachments { color: var(--muted); font-size: 11px; margin: 4px 0; overflow-wrap: anywhere; }
+.messageAttachments { color: var(--muted); font-size: var(--detailFontSize); margin: 4px 0; overflow-wrap: anywhere; }
 @supports (corner-shape: squircle) { .composer, .message[data-role="user"] .messageBody { corner-shape: squircle; } }
 @media (min-width: 640px) { main { padding-inline: 20px; } footer { max-width: calc(var(--chatWidth) + 40px); padding: 0 20px 16px; } h1 { font-size: 30px; } }
 @media (max-width: 420px) { .sessionHeader { padding-inline: 8px; } .composerTrailing { gap: 3px; } #model { max-width: 95px; } .composerLeading { gap: 0; } #selectWorkMode { padding-inline: 5px; } }
@@ -135,9 +135,9 @@ body.vscode-high-contrast { color-scheme: dark; }
 body.vscode-high-contrast-light { color-scheme: light; }
 
 .workGroup { width: 100%; color: var(--muted); }
-.turnStatus { margin: 10px 0 16px; color: var(--muted); font-size: 12px; line-height: 20px; }
+.turnStatus { margin: 10px 0 16px; color: var(--muted); font-size: var(--uiFontSize); line-height: 20px; }
 .turnStatus p { margin: 0; }
-.workGroup > summary { display: flex; gap: 6px; align-items: center; font-size: 12px; line-height: 20px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); list-style: none; cursor: pointer; }
+.workGroup > summary { display: flex; gap: 6px; align-items: center; font-size: var(--uiFontSize); line-height: 20px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); list-style: none; cursor: pointer; }
 .workGroup > summary::-webkit-details-marker { display: none; }
 .workGroupChevron { display: inline-flex; margin-left: auto; flex-shrink: 0; }
 .workGroup > summary svg { width: 12px; height: 12px; transition: transform 150ms; }
@@ -152,15 +152,15 @@ body.vscode-high-contrast-light { color-scheme: light; }
 @media (prefers-reduced-motion: reduce) { .workGroup > summary svg { transition: none; } }
 
 .toolOutput { margin: 6px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--codeSurface); overflow: hidden; min-width: 0; }
-.toolOutputHeading { padding: 8px 12px 4px; color: var(--muted); font: 12px/20px var(--uiFont); }
+.toolOutputHeading { padding: 8px 12px 4px; color: var(--muted); font: 500 var(--uiFontSize)/20px var(--uiFont); }
 .activityMessage[data-tool="write"] .activityIcon { color: var(--vscode-gitDecoration-modifiedResourceForeground, #b08432); }
 .activityMessage[data-tool="mcp"] .activityIcon { color: var(--vscode-symbolIcon-interfaceForeground, #9670d7); }
 
 .activityMessage[data-role="reasoning"] .messageBody { margin: 8px 0 14px; padding: 0; color: var(--ink); font-size: var(--chatFont); line-height: var(--chatLeading); }
-.activityMessage[data-role="reasoning"] .activityTitle { font-weight: 400; }
+.activityMessage[data-role="reasoning"] .activityTitle { font-weight: 500; }
 @keyframes thinkingFade { 50% { opacity: .45; } }
 
-.transcriptLoading { width: 100%; max-width: var(--chatWidth); margin: auto; padding: 40px 16px; color: var(--muted); font-size: 12px; text-align: center; }
+.transcriptLoading { width: 100%; max-width: var(--chatWidth); margin: auto; padding: 40px 16px; color: var(--muted); font-size: var(--uiFontSize); text-align: center; }
 .loadingSpinner { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--line); border-top-color: var(--muted); border-radius: 50%; animation: loadingSpin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
 .loadingLines { display: flex; flex-direction: column; gap: 12px; margin: 28px auto 0; max-width: 420px; }
 .loadingLines i { display: block; height: 10px; border-radius: 6px; background: var(--soft); animation: thinkingFade 1.6s ease-in-out infinite; }
@@ -168,13 +168,13 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .loadingLines i:nth-child(3) { width: 55%; }
 @keyframes loadingSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .loadingSpinner, .loadingLines i { animation: none; } }
-.workingRow { max-width: var(--chatWidth); width: 100%; margin: 0 auto; padding: 8px 4px 12px; font: 12px/1.625 var(--uiFont); color: var(--muted); }
+.workingRow { max-width: var(--chatWidth); width: 100%; margin: 0 auto; padding: 8px 4px 12px; font: 500 var(--uiFontSize)/1.625 var(--uiFont); color: var(--muted); }
 
 .app[data-phase="loadingHistory"] .transcriptLoading { padding-block: 16px; }
 .app[data-phase="loadingHistory"] #messages { opacity: .45; pointer-events: none; }
 .app[data-phase="loadingHistory"] .loadingLines { margin-top: 16px; }
 
-.attachmentCard { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 11px; }
+.attachmentCard { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: var(--detailFontSize); }
 .attachmentName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachmentThumbnail { display: block; width: 36px; height: 36px; object-fit: cover; border-radius: 4px; }
 .attachmentPreview { padding: 0; flex-shrink: 0; }
@@ -187,7 +187,7 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .imagePreview button { display: block; margin: 8px auto 0; }
 
 .fileMentions { position: absolute; z-index: 8; left: 8px; right: 8px; bottom: calc(100% + 8px); padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--composerShadow); }
-.fileMentions button { display: block; width: 100%; text-align: left; padding: 8px; border-radius: 6px; font-size: 12px; }
+.fileMentions button { display: block; width: 100%; text-align: left; padding: 8px; border-radius: 6px; font-size: var(--uiFontSize); }
 .fileMentions button[aria-selected="true"] { background: var(--soft); }
 
 .messageEnter { animation: messageEnter 160ms ease-out; }
@@ -196,9 +196,9 @@ body.vscode-high-contrast-light { color-scheme: light; }
 
 
 .fileMentions { max-height: 240px; overflow-y: auto; }
-.fileSearchStatus { padding: 8px; font-size: 12px; color: var(--muted); }
+.fileSearchStatus { padding: 8px; font-size: var(--uiFontSize); color: var(--muted); }
 
-.attachmentLoad { font-size: 11px; padding: 4px; border-radius: 4px; }
+.attachmentLoad { font-size: var(--detailFontSize); padding: 4px; border-radius: 4px; }
 .imageViewport { overflow: auto; max-height: 75vh; max-width: 85vw; }
 .imagePreview .previewImage { display: block; width: auto; max-width: 85vw; max-height: 75vh; object-fit: contain; }
 .imagePreview.originalSize .previewImage { max-width: none; max-height: none; }
@@ -207,16 +207,16 @@ body.vscode-high-contrast-light { color-scheme: light; }
 
 .toolInputCard { padding: 6px 12px; }
 .toolInputCard:empty { display: none; }
-.toolCommand { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.6 var(--codeFont); }
-.toolInputField { display: flex; gap: 10px; padding: 3px 0; font-size: 11px; }
+.toolCommand { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 var(--codeFontSize)/1.6 var(--codeFont); }
+.toolInputField { display: flex; gap: 10px; padding: 3px 0; font-size: var(--detailFontSize); }
 .toolInputField > span:first-child { color: var(--muted); flex-shrink: 0; }
 .toolInputField > span:last-child { overflow-wrap: anywhere; min-width: 0; }
 .messageArtifacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 8px; margin: 8px 0 12px; }
 .artifactCard { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; text-align: left; background: var(--surface); min-width: 0; }
 .artifactIcon { display: flex; color: var(--muted); }
 .artifactCard > span:last-child { min-width: 0; overflow-wrap: anywhere; }
-.artifactCard strong { font-size: 12px; font-weight: 500; }
-.artifactDetail { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.artifactCard strong { font-size: var(--uiFontSize); font-weight: 500; }
+.artifactDetail { display: block; font-size: var(--detailFontSize); color: var(--muted); margin-top: 3px; }
 
 .spaceButton { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 140px; padding: 2px 4px; border-radius: 5px; color: var(--muted); font: inherit; flex-shrink: 1; }
 .spaceButton:hover:not(:disabled) { background: var(--soft); color: var(--ink); }
