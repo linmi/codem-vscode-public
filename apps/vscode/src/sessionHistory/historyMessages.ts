@@ -1,12 +1,13 @@
 import { projectToolDetails } from "../chat/toolDetails.ts"
 import type { ArtifactInput } from "../resources/artifacts.ts"
 import { terminalReplyLast } from "../shared/timelineOrder.ts"
+import { stoppedTurnMessage } from "../shared/turnStatus.ts"
 import { toolPayloadText, type ConversationAttachment, type SessionHistoryPage } from "@codem/session-history"
 import type { ArtifactView, AttachmentView, ActivityStatus, ChatMessage, TurnTiming } from "../shared/messages.ts"
 
 /** Project durable history into display text. Raw records and host handles never cross this boundary. */
 export function historyMessages(threadId: string, page: SessionHistoryPage, attachmentView?: (item: ConversationAttachment) => AttachmentView, artifactView?: (items: readonly ArtifactInput[]) => ArtifactView[], cwd = "/"): ChatMessage[] {
-  return page.turns.flatMap(({ turn }) => terminalReplyLast(turn.items, [...turn.items].reverse().find(item => item.kind === "message" && item.role === "assistant" && item.delivery?.synthetic)?.id ?? null).flatMap((item): ChatMessage[] => {
+  return page.turns.flatMap(({ turn }) => [...terminalReplyLast(turn.items, [...turn.items].reverse().find(item => item.kind === "message" && item.role === "assistant" && item.delivery?.synthetic)?.id ?? null).flatMap((item): ChatMessage[] => {
     const id = `history:${threadId}:${turn.index}:${item.id}`
     if (item.kind === "message") {
       const text = item.role === "user" && item.attachments.length ? `${item.text}${item.text ? "\n" : ""}[${item.attachments.length} 个历史附件]` : item.text
@@ -23,7 +24,7 @@ export function historyMessages(threadId: string, page: SessionHistoryPage, atta
     if (item.kind === "error") return [{ id, turnId: turn.id, role: "tool", label: "历史错误", status: "failed", summary: "", text: item.cause === "runtime" ? item.text : "历史操作失败。" }]
     // Structured file diffs are not rendered as raw protocol objects.
     return []
-  }))
+  }), ...(turn.state === "stopped" ? [stoppedTurnMessage(turn.id)] : [])])
 }
 
 /** Unfinished durable records have no known elapsed duration; never restart them in the UI. */

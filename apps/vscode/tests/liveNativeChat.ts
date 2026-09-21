@@ -50,7 +50,8 @@ export async function runLiveNativeChat(extensionRoot: string, workspace: string
         progress: () => stop.abort(),
       }, stop.signal))
       assert.equal(stop.signal.aborted, true)
-      assert.equal(agent.snapshot().notice, "已停止生成。")
+      assert.equal(agent.snapshot().notice, null)
+      assert.equal(agent.snapshot().messages.at(-1)?.role, "turnStatus")
       assert.equal(events.filter(event => event === "turn-completed").length, 3)
     } finally { clearTimeout(deadline) }
     await agent.dispose()

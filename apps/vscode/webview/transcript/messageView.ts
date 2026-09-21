@@ -6,6 +6,7 @@ import type { ActivityStatus, ChatMessage, ViewAction } from "../../src/shared/m
 import { uiIcon } from "../../src/shared/uiIcons.ts"
 import { renderMarkdown } from "./markdownView.ts"
 import { createUserMessage } from "./userMessage.tsx"
+import { createTurnStatus } from "./turnStatus.tsx"
 
 const statusLabels: Record<ActivityStatus, string> = {
   running: "进行中", completed: "已完成", failed: "失败", declined: "已拒绝", interrupted: "已停止", incomplete: "未完成",
@@ -13,6 +14,10 @@ const statusLabels: Record<ActivityStatus, string> = {
 
 /** Keep the native details node across deltas so the reader owns its open state. */
 export function createMessageView(initial: ChatMessage, post: (action: ViewAction) => void): { root: HTMLElement; update(message: ChatMessage): void; dispose(): void } {
+  if (initial.role === "turnStatus") {
+    const view = createTurnStatus(initial)
+    return { ...view, update: message => { if (message.role === "turnStatus") view.update(message) } }
+  }
   const root = document.createElement("article")
   root.className = "message"; root.dataset.role = initial.role
   const body = document.createElement("div"); body.className = "messageBody"

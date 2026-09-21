@@ -27,7 +27,7 @@ function projectHistory(messages: readonly ChatMessage[], api: NativeHistoryApi)
   const flush = () => { if (response.length) turns.push(new api.ChatResponseTurn2(response, {}, nativeSessionType)); response = [] }
   for (const message of messages) {
     if (message.role === "user") { flush(); turns.push(new api.ChatRequestTurn(message.text, undefined, [], nativeSessionType, [])) }
-    else if (message.role === "assistant") response.push(new vscode.ChatResponseMarkdownPart(markdown(`${message.text}\n\n`)))
+    else if (message.role === "assistant" || message.role === "turnStatus") response.push(new vscode.ChatResponseMarkdownPart(markdown(`${message.text}\n\n`)))
     else if (message.role === "tool" || message.role === "reasoning") {
       const text = new vscode.MarkdownString()
       text.appendText(`${message.label} · ${message.status}\n`)
@@ -62,7 +62,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const resource = vscode.Uri.from({ scheme: nativeSessionType, path: `/${state.threadId}` })
     const item = items.items.get(resource)
     if (!item) return
-    item.status = isBusy(state.phase) ? 2 : state.notice && state.notice !== "已停止生成。" ? 0 : 1
+    item.status = isBusy(state.phase) ? 2 : state.notice ? 0 : 1
     item.description = `${state.workspace ?? ""} · ${state.model ?? ""}`
     const title = state.messages.find(message => message.role === "user")?.text.trim().slice(0, 80)
     if (title) item.label = title

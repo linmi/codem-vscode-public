@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { stoppedTurnMessage } from "../src/shared/turnStatus.ts"
 import { createHash } from "node:crypto"
 import { mkdtemp, mkdir, writeFile, appendFile, rm, realpath } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -89,8 +90,9 @@ it("keeps history tool outcomes explicit, including missing results and redacted
   } }] }
   const messages = historyMessages("thread-1", page)
   assert.equal(messages[0]?.text, "Core 未提供可显示的内容。")
-  assert.deepEqual(messages.slice(1).map((message) => "status" in message ? message.status : null), ["incomplete", "completed", "failed", "declined", "interrupted"])
-  assert.ok(messages.slice(1).every((message) => message.text === ""))
+  assert.deepEqual(messages.slice(1, -1).map((message) => "status" in message ? message.status : null), ["incomplete", "completed", "failed", "declined", "interrupted"])
+  assert.ok(messages.slice(1, -1).every((message) => message.text === ""))
+  assert.deepEqual(messages.at(-1), stoppedTurnMessage("turn"))
   assert.doesNotMatch(JSON.stringify(messages), /private input|Reasoning content is redacted/)
 })
 
@@ -118,4 +120,17 @@ it("restores skill names and plugin identity with the same safe projection as li
   assert.deepEqual(message.details, { kind: "skill", fields: [{ label: "技能", value: "codem-plugin:codem-wiki" }, { label: "插件", value: "codem-plugin" }], code: null })
   assert.equal(message.text, "Skill loaded.")
   assert.doesNotMatch(JSON.stringify(message), /private|SKILL.md/)
+})
+
+it("restores one stopped-turn note after its work, including stops before any output", () => {
+  for (const state of ["stopped", "completed", "failed", "running"] as const) {
+    const page: SessionHistoryPage = { todoSnapshot: null, nextCursor: null, turns: [{ submissionId: "submission", turn: {
+      id: "turn-stop", index: 0, engineTurnIndexes: [0], model: null, provider: null, startedAt: at, ...(state === "running" ? { state, completedAt: null } : { state, completedAt: at }), usage: null,
+      items: [{ id: "user", at, kind: "message", role: "user", text: "检查任务", attachments: [] }],
+    } }] }
+    const messages = historyMessages("thread", page)
+    assert.deepEqual(messages.filter(message => message.role === "turnStatus"), state === "stopped" ? [stoppedTurnMessage("turn-stop")] : [])
+    assert.equal(messages[0]?.role, "user")
+    if (state === "stopped") assert.equal(messages.at(-1)?.role, "turnStatus")
+  }
 })

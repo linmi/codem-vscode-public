@@ -1,4 +1,5 @@
 import { attachmentScope, parsePastedImages } from "../src/shared/pastedImages.ts"
+import { stoppedTurnMessage } from "../src/shared/turnStatus.ts"
 import { appendContext, codePrompt } from "../src/shared/editorContext.ts"
 import type { ChatSnapshot, CodeSelectionsView, ViewAction } from "../src/shared/messages.ts"
 import type { AccountState } from "../src/shared/accountTypes.ts"
@@ -177,6 +178,13 @@ export function createPreviewRuntime(initial: PreviewSearch) {
       demo.notice = accepted ? "模拟发送成功，已附带选中代码。" : "模拟发送失败，草稿和代码选区已保留。"
       emit({ type: "sendResult", requestId: action.requestId, accepted }); publish(); return
     }
+    if (action.type === "send" && search.scenario === "stoppedTurn") {
+      const turnId = `continued:${action.requestId}`
+      demo.messages = [...demo.messages, { id: action.requestId, turnId, role: "user", label: "你", text: action.text }]
+      demo.turnTimings = [...demo.turnTimings, { turnId, startedAt: Date.now(), finishedAt: null }]
+      demo.phase = "running"; demo.notice = null; publish()
+      emit({ type: "sendResult", requestId: action.requestId, accepted: true }); return
+    }
     if (action.type === "send") {
       if (search.scenario !== "firstSend" || demo.phase !== "disconnected") { emit({type:"sendResult",requestId:action.requestId,accepted:false}); return }
       // Slow connection fixture: the outgoing bubble must precede any async completion.
@@ -244,7 +252,13 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (action.type === "closeHistory") demo.history.open = false
     if (action.type === "removeAttachment") demo.attachments = demo.attachments.filter(item => item.id !== action.id)
     if (action.type === "newChat") { selectedCode = { current: null, pinned: [] }; demo.messages = []; demo.capabilities.plan = []; demo.attachments = []; demo.turnTimings = []; demo.threadId = null; demo.notice = null; activePanel = null; demo.phase = "ready" }
-    if (action.type === "stop") { demo.messages = demo.messages.map(item => (item.role === "tool" || item.role === "reasoning") && item.status === "running" ? { ...item, status: "interrupted" } : item); demo.turnTimings = demo.turnTimings.map(item => ({ ...item, finishedAt: item.finishedAt ?? Date.now() })); demo.phase = "ready"; activePanel = null; demo.notice = "已停止（模拟）。" }
+    if (action.type === "stop") {
+      const turnId = [...demo.turnTimings].reverse().find(item => item.finishedAt === null)?.turnId
+      demo.messages = demo.messages.map(item => (item.role === "tool" || item.role === "reasoning") && item.status === "running" ? { ...item, status: "interrupted" } : item)
+      if (turnId) demo.messages = [...demo.messages, stoppedTurnMessage(turnId)]
+      demo.turnTimings = demo.turnTimings.map(item => ({ ...item, finishedAt: item.finishedAt ?? Date.now() }))
+      demo.phase = "ready"; activePanel = null; demo.notice = null
+    }
     if (action.type === "connect") { demo.phase = "ready"; demo.space = "研发团队"; demo.workspace = "codem-plugin"; demo.model = "Auto"; demo.notice = "已恢复连接（模拟），未启动 Core。" }
     if (action.type === "refreshHistory") { demo.history = { ...demo.history, loading: false, error: null }; demo.notice = "已刷新当前样例的历史列表。" }
     if (action.type === "reloadHistory") { demo.historyNeedsRefresh = false; demo.notice = "已重新加载样例记录。" }

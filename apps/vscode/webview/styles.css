@@ -135,6 +135,8 @@ body.vscode-high-contrast { color-scheme: dark; }
 body.vscode-high-contrast-light { color-scheme: light; }
 
 .workGroup { width: 100%; color: var(--muted); }
+.turnStatus { margin: 10px 0 16px; color: var(--muted); font-size: 12px; line-height: 20px; }
+.turnStatus p { margin: 0; }
 .workGroup > summary { display: flex; gap: 6px; align-items: center; font-size: 12px; line-height: 20px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); list-style: none; cursor: pointer; }
 .workGroup > summary::-webkit-details-marker { display: none; }
 .workGroupChevron { display: inline-flex; margin-left: auto; flex-shrink: 0; }

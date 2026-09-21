@@ -3,6 +3,7 @@ import type { ActivityStatus, ChatSnapshot } from "../src/shared/messages.ts"
 import type { CatalogKind } from "../src/shared/capabilityTypes.ts"
 import type { PanelView } from "../src/shared/panelTypes.ts"
 import { appendContext, codePrompt } from "../src/shared/editorContext.ts"
+import { stoppedTurnMessage } from "../src/shared/turnStatus.ts"
 
 export type PreviewSurface = "files" | "background" | "tools" | "sessionTools" | "capabilities" | "activities"
 interface ContentScenario {
@@ -53,6 +54,15 @@ const catalogDefinitions = [
 ] as const
 
 export const contentScenarios = [
+  { id: "stoppedTurn", group: "对话", label: "停止后继续对话", apply: (s: ChatSnapshot) => {
+    s.phase = "ready"; s.notice = null
+    s.messages = [
+      { id: "stopped-user", turnId: "stopped-turn", role: "user", label: "你", text: "检查一下任务卡片的展示。" },
+      { id: "stopped-reasoning", turnId: "stopped-turn", role: "reasoning", label: "思考过程", status: "completed", summary: "", text: "先检查任务展示和现有交互。" },
+      { id: "stopped-tool", turnId: "stopped-turn", role: "tool", label: "grep", status: "completed", summary: "", text: "已找到任务展示组件。" },
+      stoppedTurnMessage("stopped-turn"),
+    ]
+  } },
   { id: "sentCode", group: "内容", label: "已发送选区代码", apply: (s: ChatSnapshot) => { s.messages = [{ id: "sentCodeUser", role: "user", label: "你", text: appendContext("这行代码写了什么？", codePrompt("addToContext", { path: "vscode/src/connection/accountController.ts", language: "typescript", startLine: 17, endLine: 19, text: "constructor(operations: AccountOperations, changed: (state: AccountState) => void) {\n  this.operations = operations\n  this.changed = changed", diagnostics: [] })) }] } },
   { id: "richMarkdown", group: "内容", label: "Markdown · 表格与代码", apply: (s: ChatSnapshot) => answer(s, "# 工作区检查报告\n\n## 变更概览\n\n正文包含 **重点**、*说明*、~~已废弃方案~~、`inlineCode` 与 [公开链接](https://example.com)。\n\n> 提示：此处展示引用、列表和代码之间的间距。\n\n| 模块 | 状态 | 说明 |\n| --- | --- | --- |\n| 登录 | 完成 | 保留取消后的输入 |\n| 历史 | 待验证 | 增量加载与恢复 |\n| 工具 | 完成 | 参数与输出分开展示 |\n\n- [x] 普通列表和任务列表\n- [ ] 深浅主题与窄栏验证\n\n1. 连接工作区\n2. 执行检查\n   - 展开工具记录\n   - 查看失败输出\n\n```ts\ninterface Result { status: 'ready' | 'failed'; message: string }\nconst result: Result = { status: 'ready', message: '检查完成' }\n```\n\n```diff\n- const label = '等待'\n+ const label = '正在连接工作区…'\n```\n\n---\n\n### 后续验证\n保留失败原因和可执行的重试入口。") },
   { id: "longConversation", group: "对话", label: "多轮长对话与滚动", apply: (s: ChatSnapshot) => { s.messages = Array.from({ length: 12 }, (_, i) => [{ id: `longUser${i}`, role: "user" as const, label: "你", text: `第 ${i + 1} 轮：检查模块 ${i + 1} 的加载、失败与恢复状态。` }, { id: `longAssistant${i}`, role: "assistant" as const, label: "CodeM", text: `### 模块 ${i + 1}\n\n已梳理首次操作、重复操作及取消路径。\n\n- 加载时显示当前步骤。\n- 失败后保留输入。\n- 重试后清除旧提示。\n\n${note}` }]).flat() } },

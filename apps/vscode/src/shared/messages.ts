@@ -91,7 +91,8 @@ interface MessageContent {
   text: string
 }
 export type ActivityMessage = MessageContent & { role: "reasoning" | "tool"; status: ActivityStatus; summary: string; details?: ToolDetails }
-export type ChatMessage = (MessageContent & { role: "user" | "assistant"; attachments?: readonly AttachmentView[] }) | ActivityMessage
+export type TurnStatusMessage = MessageContent & { role: "turnStatus"; turnId: string; outcome: "stopped" }
+export type ChatMessage = (MessageContent & { role: "user" | "assistant"; attachments?: readonly AttachmentView[] }) | ActivityMessage | TurnStatusMessage
 export interface ChatSnapshot {
   composerCatalog: ComposerCatalog
   capabilities: CapabilityState

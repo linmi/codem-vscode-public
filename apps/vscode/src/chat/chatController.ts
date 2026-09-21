@@ -25,6 +25,7 @@ import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type Ac
 
 import { HistoryListController } from "../sessionHistory/historyList.ts"
 import { historyTurnTimings, historyPlan } from "../sessionHistory/historyMessages.ts"
+import { stoppedTurnMessage } from "../shared/turnStatus.ts"
 import type { SessionHistoryReader } from "../sessionHistory/sessionHistory.ts"
 
 import { displayPath } from "../resources/filePresentation.ts"
@@ -1070,7 +1071,7 @@ export class ChatController {
       this.finishActivities(event.outcome === "completed" ? "completed" : event.outcome === "stopped" ? "interrupted" : "failed")
       active.abort.abort()
       this.active = null
-      this.update({ phase: "ready", notice: event.outcome === "completed" ? null : event.outcome === "stopped" ? "已停止生成。" : "本轮任务失败，可以继续发送消息。" })
+      this.update({ phase: "ready", notice: event.outcome === "failed" ? "本轮任务失败，可以继续发送消息。" : null, ...(event.outcome === "stopped" ? { messages: [...this.state.messages, stoppedTurnMessage(event.turnId)] } : {}) })
       if (reload) void this.reloadHistory()
     }
   }

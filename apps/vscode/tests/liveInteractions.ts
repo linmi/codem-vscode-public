@@ -79,7 +79,8 @@ export async function runLiveInteractions(adapter: { connect: (signal: AbortSign
     }
     assert.equal(controller.snapshot().phase, "ready", "Interaction turn timed out")
     assert.equal(pending, null)
-    assert.equal(controller.snapshot().notice, stoppedPlan ? "已停止生成。" : null, "Core must complete or honor the explicit stop after rejected-plan follow-up")
+    assert.equal(controller.snapshot().notice, null, "Core must complete or honor the explicit stop after rejected-plan follow-up")
+    assert.equal(controller.snapshot().messages.at(-1)?.role === "turnStatus", stoppedPlan)
   }
   try {
     await controller.connect(); assert.equal(controller.snapshot().phase, "ready"); assert.ok(session)

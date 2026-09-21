@@ -229,3 +229,15 @@ it("snapshot projection emits only new text and does not duplicate completed sna
   state.messages[0]!.text += " world"; p.update(state)
   assert.equal(text, "hello world")
 })
+
+it("native projection reports a stopped turn once without replaying it in the next request", async () => {
+  const { stoppedTurnMessage } = await import("../src/shared/turnStatus.ts")
+  const progress: string[] = []
+  const output = { text() {}, progress(value: string) { progress.push(value) } }
+  const state = initialSnapshot()
+  const projection = new NativeChatProjection([], output)
+  state.messages = [stoppedTurnMessage("turn-stopped")]
+  projection.update(state); projection.update(state)
+  new NativeChatProjection(state.messages, output).update(state)
+  assert.deepEqual(progress, ["已停止生成。"])
+})

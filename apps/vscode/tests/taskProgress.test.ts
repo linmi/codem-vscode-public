@@ -30,8 +30,8 @@ it("restores the same task DTO from durable history without promoting unfinished
     id: "turn", index: 0, engineTurnIndexes: [0], model: "fixture", provider: "fixture", startedAt: at, completedAt: at, state: "stopped", usage: null,
     items: (["succeeded", "running", "failed"] as const).map(status => ({ id: status, at, kind: "tool-execution" as const, toolCallId: status, toolName: "task_update", input: { value: input, preview: JSON.stringify(input), previewTruncated: false }, result: null, status })),
   } }] })
-  assert.deepEqual(messages.map(message => "status" in message && message.status), ["completed", "incomplete", "failed"])
-  for (const message of messages) {
+  assert.deepEqual(messages.flatMap(message => "status" in message ? [message.status] : []), ["completed", "incomplete", "failed"])
+  for (const message of messages.filter(message => message.role === "tool")) {
     assert.ok("status" in message)
     assert.deepEqual(message.details, projectTaskDetails("task_update", input))
   }

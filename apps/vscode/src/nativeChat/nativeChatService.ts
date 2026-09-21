@@ -30,6 +30,10 @@ export class NativeChatProjection {
         this.output.text(append ? message.text.slice(previous.length) : message.text)
         this.texts.set(message.id, message.text)
         this.lastTextId = message.id
+      } else if (message.role === "turnStatus") {
+        if (this.activities.get(message.id) === message.text) continue
+        this.activities.set(message.id, message.text)
+        this.output.progress(message.text)
       } else if (message.role === "tool" || message.role === "reasoning") {
         const status = `${message.label} · ${message.status}`
         if (this.activities.get(message.id) === status) continue
@@ -180,7 +184,7 @@ export class NativeChatService {
           if (state.phase === "sending" || state.phase === "running" || state.phase === "stopping") began = true
           if (signal.aborted) interrupt()
           if (state.phase === "disconnected") finish(new UserVisibleError(state.notice ?? "Core 已断开连接。"))
-          else if (began && state.phase === "ready") finish(state.notice && state.notice !== "已停止生成。" ? new UserVisibleError(state.notice) : undefined)
+          else if (began && state.phase === "ready") finish(state.notice ? new UserVisibleError(state.notice) : undefined)
         } catch (error) { finish(error instanceof Error ? error : new Error("原生回复显示失败。")); cancel() }
       }
       signal.addEventListener("abort", cancel, { once: true })
