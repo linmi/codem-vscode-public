@@ -56,6 +56,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .copyFeedback { font-size: var(--captionFontSize); color: var(--muted); }
 .activityMessage { margin: 2px 0; }
 .activityMessage summary { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; list-style: none; font-size: var(--uiFontSize); line-height: 20px; color: var(--muted); border-radius: 6px; }
+.activityMessage[data-role="tool"] summary { font-size: var(--chatFont); }
 .activityMessage summary::-webkit-details-marker { display: none; }
 .activityMessage summary:hover { color: var(--ink); }
 .activityIcon { display: flex; align-items: center; width: 16px; flex-shrink: 0; }
@@ -71,7 +72,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .activityStatus { margin-left: auto; font-size: var(--captionFontSize); flex-shrink: 0; }
 .activityMessage[data-status="completed"] .activityStatus { display: none; }
 .activityMessage .messageBody { max-height: 280px; overflow: auto; }
-.activityMessage[data-role="tool"] .messageBody { padding: 10px 12px 12px; font: 400 var(--codeFontSize)/1.625 var(--codeFont); white-space: pre-wrap; overflow-wrap: anywhere; }
+.activityMessage[data-role="tool"] .messageBody { padding: 10px 12px 12px; font: 400 var(--chatFont)/1.625 var(--codeFont); white-space: pre-wrap; overflow-wrap: anywhere; }
 .activityNote { margin: 6px 0; font-size: var(--chatFont); color: var(--ink); white-space: pre-wrap; }
 .activityMessage[data-status="running"] .activityIcon { animation: workingPulse 1.6s ease-in-out infinite; }
 .activityMessage[data-role="tool"][data-status="failed"] .activityTitle, .activityMessage[data-status="failed"] .activityStatus { color: var(--vscode-errorForeground, #e02e2a); }
@@ -152,7 +153,7 @@ body.vscode-high-contrast-light { color-scheme: light; }
 @media (prefers-reduced-motion: reduce) { .workGroup > summary svg { transition: none; } }
 
 .toolOutput { margin: 6px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--codeSurface); overflow: hidden; min-width: 0; }
-.toolOutputHeading { padding: 8px 12px 4px; color: var(--muted); font: 500 var(--uiFontSize)/20px var(--uiFont); }
+.toolOutputHeading { padding: 8px 12px 4px; color: var(--muted); font: 500 var(--chatFont)/20px var(--uiFont); }
 .activityMessage[data-tool="write"] .activityIcon { color: var(--vscode-gitDecoration-modifiedResourceForeground, #b08432); }
 .activityMessage[data-tool="mcp"] .activityIcon { color: var(--vscode-symbolIcon-interfaceForeground, #9670d7); }
 
@@ -207,8 +208,8 @@ body.vscode-high-contrast-light { color-scheme: light; }
 
 .toolInputCard { padding: 6px 12px; }
 .toolInputCard:empty { display: none; }
-.toolCommand { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 var(--codeFontSize)/1.6 var(--codeFont); }
-.toolInputField { display: flex; gap: 10px; padding: 3px 0; font-size: var(--detailFontSize); }
+.toolCommand { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 var(--chatFont)/1.6 var(--codeFont); }
+.toolInputField { display: flex; gap: 10px; padding: 3px 0; font-size: var(--chatFont); }
 .toolInputField > span:first-child { color: var(--muted); flex-shrink: 0; }
 .toolInputField > span:last-child { overflow-wrap: anywhere; min-width: 0; }
 .messageArtifacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 8px; margin: 8px 0 12px; }
