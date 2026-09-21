@@ -168,7 +168,7 @@ body.vscode-high-contrast-light { color-scheme: light; }
 .loadingLines i:nth-child(3) { width: 55%; }
 @keyframes loadingSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .loadingSpinner, .loadingLines i { animation: none; } }
-.workingRow { max-width: var(--chatWidth); width: 100%; margin: 0 auto; padding: 8px 4px 12px; font: 500 var(--uiFontSize)/1.625 var(--uiFont); color: var(--muted); }
+.workingRow { max-width: var(--chatWidth); width: 100%; margin: 0 auto; padding: 8px 4px 20px; font: 500 var(--uiFontSize)/1.625 var(--uiFont); color: var(--muted); }
 
 .app[data-phase="loadingHistory"] .transcriptLoading { padding-block: 16px; }
 .app[data-phase="loadingHistory"] #messages { opacity: .45; pointer-events: none; }
