@@ -28,5 +28,5 @@
 .accountFields dt { color: var(--muted); font-size: var(--detailFontSize); margin-bottom: 5px; }
 .accountFields dd { margin: 0; font-size: var(--chatFont); overflow-wrap: anywhere; user-select: text; }
 
-.accountLogout { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); }
+.accountLogout { margin-top: 32px; padding-top: 20px; }
 .accountLogout button { width: 100%; min-height: 36px; color: var(--vscode-errorForeground, #c63737); border: 1px solid var(--line); border-radius: 8px; }
