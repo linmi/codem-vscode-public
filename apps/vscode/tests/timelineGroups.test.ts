@@ -32,7 +32,7 @@ it("keeps user and Core turn boundaries, failures and trailing tools without inv
   assert.deepEqual(ids(messages), ["u1", ["t1"], "a1", "u2", "progress", ["t2", "t4"], ["t3"]])
   assert.deepEqual(ids([user("u1"), tool("t1"), answer("a1"), user("u2"), tool("t2")]), ["u1", ["t1"], "a1", "u2", ["t2"]])
   const failed: ChatMessage = { id: "failed", role: "tool", label: "执行", text: "失败", summary: "", status: "failed" }
-  assert.deepEqual(timelineGroups([failed, answer("explanation")]), [{ kind: "work", id: "failed", messages: [failed] }, { kind: "message", message: answer("explanation") }])
+  assert.deepEqual(timelineGroups([failed, answer("explanation")]), [{ kind: "work", id: "failed", messages: [failed], hasResult: true }, { kind: "message", message: answer("explanation") }])
 })
 
 it("folds pre-tool progress and cancelled work without hiding answers from another turn or artifact deliveries", () => {
@@ -42,4 +42,17 @@ it("folds pre-tool progress and cancelled work without hiding answers from anoth
   assert.deepEqual(ids([answer("previous"), user("new"), tool("next")]), ["previous", "new", ["next"]])
   const delivered = { ...answer("artifact"), artifacts: [{ id: "file", kind: "file" as const, title: "结果", detail: "", available: true }] }
   assert.deepEqual(ids([delivered, tool("late")]), ["artifact", ["late"]])
+})
+
+it("associates usable final results with only their own work and user submission", () => {
+  const hasResult = (messages: ChatMessage[]) => timelineGroups(messages).flatMap(group => group.kind === "work" ? [group.hasResult] : [])
+  const failed: ActivityMessage = { ...tool("failed"), status: "failed" }
+  assert.deepEqual(hasResult([failed, answer("result")]), [true])
+  assert.deepEqual(hasResult([answer("progress"), failed]), [false], "Intermediate progress is not a final result")
+  assert.deepEqual(hasResult([failed, { ...answer("blank"), text: " \n" }]), [false])
+  assert.deepEqual(hasResult([failed, { ...answer("artifact"), text: "", artifacts: [{ id: "file", kind: "file", title: "结果", detail: "", available: true }] }]), [true])
+  assert.deepEqual(hasResult([{ ...answer("artifact"), artifacts: [{ id: "file", kind: "file", title: "结果", detail: "", available: true }] }, failed]), [true], "Delivered artifacts remain results when later work follows")
+  assert.deepEqual(hasResult([{ ...failed, turnId: "one" }, { ...answer("other"), turnId: "two" }]), [false])
+  assert.deepEqual(hasResult([failed, user("next"), answer("next-result")]), [false])
+  assert.deepEqual(hasResult([tool("first"), answer("first-result"), user("next"), failed]), [true, false])
 })

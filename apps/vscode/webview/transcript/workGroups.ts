@@ -43,8 +43,9 @@ export function createWorkGroups(post: (action: ViewAction) => void) {
       }
       const latestResponse = work.some(message => message.id === lastActivityId)
       const running = (latestResponse && (phase === "running" || phase === "stopping")) || work.some(m => "status" in m && (m.status === "running"))
-      const failed = work.some(m => "status" in m && (m.status === "failed" || m.status === "incomplete"))
-      const interrupted = work.some(m => "status" in m && (m.status === "interrupted" || m.status === "declined"))
+      const unresolved = !running && !item.hasResult
+      const failed = unresolved && work.some(m => "status" in m && (m.status === "failed" || m.status === "incomplete"))
+      const interrupted = unresolved && work.some(m => "status" in m && (m.status === "interrupted" || m.status === "declined"))
       group.root.dataset.state = running ? "running" : failed ? "failed" : interrupted ? "interrupted" : "completed"
       if (!group.touched) group.root.open = running || failed
       const label = running ? (phase === "stopping" ? "正在停止" : "正在处理") : failed ? "处理需要关注" : interrupted ? "已停止或拒绝" : "已处理"

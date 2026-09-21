@@ -102,6 +102,40 @@ export default async function workGroupChecks(page) {
     if (presentation.color !== presentation.bodyColor || presentation.color === presentation.toolColor) throw new Error('Progress explanation must use the main text color in both themes');
     if ([presentation.top, presentation.bottom, presentation.before, presentation.after].some(gap => gap < 8)) throw new Error('Progress explanation lost spacing around tool records');
   }
+  // A recovered tool error must not mark the whole turn as failed.
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => { document.body.classList.toggle('vscode-dark', dark); document.body.classList.toggle('vscode-light', !dark); }, dark);
+    for (const test of [
+      {phase:'ready',status:'failed',reply:true,expected:'completed'},
+      {phase:'running',status:'failed',reply:false,expected:'running'},
+      {phase:'ready',status:'failed',reply:false,expected:'failed'},
+      {phase:'ready',status:'incomplete',reply:false,expected:'failed'},
+      {phase:'ready',status:'incomplete',reply:true,expected:'completed'},
+      {phase:'ready',status:'declined',reply:true,expected:'completed'},
+      {phase:'ready',status:'failed',reply:false,progress:true,expected:'failed'},
+      {phase:'ready',status:'failed',reply:true,otherTurn:true,expected:'failed'},
+    ]) {
+      await page.evaluate(test => {
+        demo.phase=test.phase;
+        demo.messages=[
+          {id:'attention-user',turnId:'attention',role:'user',label:'你',text:'继续检查'},
+          ...(test.progress?[{id:'progress-only',turnId:'attention',role:'assistant',label:'CodeM',text:'正在尝试处理'}]:[]),
+          {id:'attention-tool',turnId:'attention',role:'tool',label:'run_bash',status:test.status,summary:'',text:'command failed'},
+          ...(test.reply?[{id:'attention-answer',turnId:test.otherTurn?'other':'attention',role:'assistant',label:'CodeM',text:'任务已经完成，以下是结果。'}]:[]),
+        ];
+        demo.turnTimings=[{turnId:'attention',startedAt:1000,finishedAt:test.phase==='running'?null:348000}];
+        window.postMessage(demo,'*');
+      },test);
+      await page.locator(`.workGroup[data-state="${test.expected}"]`).waitFor();
+      const header=page.locator('.workGroup > summary');
+      const title=await header.innerText();
+      if (title.includes('需要关注') !== (test.expected==='failed')) throw Error(`Incorrect turn warning: ${title}`);
+      const normal=await header.evaluate(n=>getComputedStyle(n).color===getComputedStyle(n.parentElement).color);
+      if (normal === (test.expected==='failed')) throw Error(`Incorrect turn warning color: ${test.expected}`);
+      if(test.phase==='ready' && test.expected==='completed' && title!=='已处理 5分 47秒') throw Error('Recovered turn changed elapsed time');
+      if(test.status==='failed' && await page.locator('.activityMessage[data-status="failed"]').count()!==1) throw Error('Summary suppressed the actual failed tool');
+    }
+  }
   return 'WORK_GROUP_OK';
 
 }

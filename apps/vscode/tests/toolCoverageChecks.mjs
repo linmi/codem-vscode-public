@@ -54,6 +54,8 @@ export default async function toolCoverageChecks(page) {
       })
       if (incorrect || await failures.count() !== 35) throw Error('Failed tools do not use red titles with accessible-only status')
       if (!await page.locator('.activityMessage[data-role="reasoning"] .activityStatus:not(.visuallyHidden)').count()) throw Error('Tool styling changed reasoning status')
+      // A delivered result keeps the processing summary neutral and initially collapsed.
+      while (await page.locator('.workGroup:not([open])').count()) await page.locator('.workGroup:not([open])').first().locator(':scope > summary').click()
       await command.locator('summary').hover()
       await page.screenshot({path: `output/playwright/toolFailures-${theme}.png`, animations: 'disabled'})
       await page.evaluate(() => {
