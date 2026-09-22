@@ -317,8 +317,14 @@ class InteractionRouter {
             val labels = ((question.fields["options"] as? JsonValue.ArrayValue)?.items.orEmpty()).mapNotNull { option ->
                 ((option as? JsonValue.ObjectValue)?.fields?.get("label") as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() }
             }.toSet()
-            val multi = (question.fields["allowsMultipleSelection"] as? JsonValue.Bool)?.value == true ||
-                (question.fields["multi_select"] as? JsonValue.Bool)?.value == true
+            if ("allowsMultipleSelection" in question.fields || "multi_select" in question.fields) {
+                throw CodemError.Validation("CodeM user questions[$index] must use multiSelect")
+            }
+            val multi = when (val field = question.fields["multiSelect"]) {
+                null -> false
+                is JsonValue.Bool -> field.value
+                else -> throw CodemError.Validation("CodeM user questions[$index].multiSelect must be boolean")
+            }
             QuestionSpec(
                 id = (question.fields["id"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() } ?: "question-${index + 1}",
                 question = text,

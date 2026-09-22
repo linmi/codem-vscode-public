@@ -63,3 +63,26 @@
 
 - 补查原路径列表发现：清空后再次从 diff-1 编号，旧页面延迟点击可能命中新会话的第一个变更。现在当前 Session 保存 UUID→路径映射；同会话同一路径稳定，恢复/新建清理后重新生成 UUID。
 - 不改变 Core 或持久数据协议；UI 仍只发送不透明 ID。生产数字序号解析入口已删除。回归在新会话已有可打开 Diff 时重放旧 ID，确认查看差异和打开文件均拒绝，新 ID 仍可用。
+
+## 真实 IDEA 已执行记录
+
+复用 IDEA 2026.2.3 唯一 codem-plugin 窗口，所有文件操作限定在本任务 `.artifacts/jetbrainsAcceptance/`。未创建开发沙箱或额外浏览器。
+
+- Core 0.8.45：原生文件选择器取消后没有附件；加入 sample.txt、context 目录及 colors.png，移除 sample.txt 再加入，其余附件不受影响。发送受理后附件栏清空。模型实际报告 IDEA_FILE_MARKER_MAGENTA、IDEA_DIRECTORY_MARKER_CYAN 及图片左红右蓝。
+- 审批模式显式切至“默认权限”；编辑 sample.txt 的审批卡显示三个 Core 选项。选择 reject_once 后工具显示 denied by user，轮次结束，磁盘仍为 color=red。再次提交并选择 allow_once，磁盘变为 color=green、标记保留。全程未选始终允许或完全访问。
+- 编辑器 selection.txt 原磁盘内容 SAVED_MARKER_GRAY；在 IDEA 中修改并选中 IDEA_UNSAVED_MARKER_YELLOW，未保存时直接读取磁盘仍为旧值。模型通过选区附件精确回复新标记。随后为重载保存该测试文件，不将保存后状态冒充未保存验收。
+- 文件资源面板显示 sample.txt +1/-1；点击查看差异打开 IDEA 原生双栏，AX 的 Before/After 分别为原标记+color=red / 原标记+color=green。不是文件名占位或模拟截图。
+- 再次请求 green→blue，关闭审批卡。界面显示“已停止 · 已处理 39秒”，输入恢复，磁盘保持 green；旧审批未复活。
+- 中途另一个已授权任务升级锁定 Core 到 0.8.47。本任务先保存/退出同一 IDEA，再逐文件比对安装 ZIP，仅替换变化的 runtime manifest、Core 和 JAR。升级后的 green→purple 修改、原生 Diff 前后与磁盘一致。首次点击“打开文件”失败后已修复，更新 JAR 后真实打开 sample.txt 编辑器，AX 内容为保留标记+color=purple。
+- 最后安装 JAR SHA256 为 fb45e08fb60c8e846fa5167eda16bf9529e388ef99bd8edc613d8cc0e84ee1c4，含明确拒绝回收和 UUID Diff 句柄修复。Core 0.8.47 / CLI 0.1.208。
+- 最终 JAR 的真实剪贴板链路：在系统预览打开本任务 colors.png，复制图像→IDEA 粘贴→移除→再次粘贴→发送。模型回复 LEFT 纯红色 #FF0000、RIGHT 纯蓝色 #0000FF。发送后待发送附件清空；本任务创建的 colors.png 预览窗口已关闭，原有 previewDashboard.png 窗口保留。
+
+原始本机 Host 动作记录在 `~/Library/Logs/JetBrains/IntelliJIdea2026.2/idea.log`（17:24 起）。以上用原生 AX/截图、文件实值与 Host 动作相互核对。模拟预览和真实 VS Code 未由本任务单独运行，不借用它们声称本次 IDEA 验收通过。
+
+## 真实多题问答发现的协议问题
+
+- 原生第一页选择 Magenta 并填写 NOTE_ONE，下一步→上一题后选择和文本均保留；改为 Cyan/NOTE_TWO，再进入第二题时发现 Small 和 Large 不能同时选中。为避免提交错误结果，已通过关闭卡片取消此次真实问答。
+- 显式 LiveQuestionTest 捕获 Core 0.8.47 实际 item/tool/requestUserInput：questions 中字段为 multiSelect=false/true。原解析识别 allowsMultipleSelection / multi_select，因此把多选当成单选；新增实测在修复前稳定失败于 second.multiple。
+- 唯一目标模型为锁定 Core 的 multiSelect：省略是单选默认值，提供时必须是布尔值。删除旧字段读取，旧字段输入和错误类型明确拒绝；同步更新 JetBrains 生产解析、fixture、负向回归和真实测试。无持久数据或独立消费者需要接受旧入站字段。
+- 此处只改变 JetBrains 的 Core 入站适配，共享 UI 的 multiple 属性不变。Node App Server 独立适配存在同样旧读取（host.ts questionList），已向正在处理 Core 升级的既有任务提供证据，未在 IDEA 变更中混入另一客户端修改。
+- 修复后 LiveQuestionTest 通过，Core 接收 Cyan、Small + Large、NOTE_TWO；默认 105 项回归通过。默认检查中另暴露一个 fixture 竞态：等待 Diff 后即断言尚未消费的 thread/status/changed；已改为等待该状态实际到达，保留全部原断言。

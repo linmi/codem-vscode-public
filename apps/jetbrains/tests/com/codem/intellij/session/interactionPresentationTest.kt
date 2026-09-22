@@ -7,9 +7,23 @@ import org.junit.jupiter.api.Test
 class InteractionPresentationTest {
     private fun question(text: String, multiple: Boolean = false) = JsonValue.obj(
         "question" to JsonValue.Text(text),
-        "allowsMultipleSelection" to JsonValue.Bool(multiple),
+        "multiSelect" to JsonValue.Bool(multiple),
         "options" to JsonValue.ArrayValue(listOf("选项甲", "选项乙").map { JsonValue.obj("label" to JsonValue.Text(it)) }),
     )
+
+    @Test
+    fun obsoleteAndMalformedMultiSelectFieldsAreRejected() {
+        for ((key, value) in listOf("allowsMultipleSelection" to JsonValue.Bool(true), "multi_select" to JsonValue.Bool(true), "multiSelect" to JsonValue.Text("true"))) {
+            val writes = mutableListOf<String>()
+            val router = InteractionRouter()
+            val invalid = question("选择").copy(fields = question("选择").fields + (key to value))
+            assertFalse(router.handle(RpcRequest(RpcId.TextId("question"), "item/tool/requestUserInput", JsonValue.obj(
+                "questions" to JsonValue.ArrayValue(listOf(invalid)),
+            )), RpcPeer(writes::add, {}, {}, {}), 1, "thread"))
+            assertNull(router.panelView())
+            assertTrue(JsonValue.parse(writes.single()).asObject().fields.containsKey("error"))
+        }
+    }
 
     @Test
     fun multipleQuestionsUseOpaquePagesAndPreserveAnswersWhenGoingBack() {

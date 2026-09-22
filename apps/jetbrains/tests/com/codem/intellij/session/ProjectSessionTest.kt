@@ -427,7 +427,7 @@ class ProjectSessionTest {
                 ),
             ),
         )
-        val runtime = awaitSnapshot(session) { it.capabilities.plan.isNotEmpty() && it.diffs.isNotEmpty() }
+        val runtime = awaitSnapshot(session) { it.capabilities.plan.isNotEmpty() && it.diffs.isNotEmpty() && it.capabilities.threadStatus != null }
         assertEquals("read file", runtime.capabilities.plan.single().content)
         assertEquals(3, runtime.capabilities.usage?.input)
         assertEquals("App.kt", runtime.diffs.single().label)
