@@ -14,6 +14,7 @@ export async function runLiveConnection(extensionRoot: string, workspace: string
   let mode: "text" | "question" | "cancel" | "stop" = "text"
   let questions = 0, activities = 0, turns = 0, connections = 0
   let outcome: string | null = null
+  let lastStartedTurn = ""
   let panelVisible = false
   const stages: { stage: string; elapsedMs: number }[] = []
   panels.bind(owner, ({ panel }) => {
@@ -35,7 +36,7 @@ export async function runLiveConnection(extensionRoot: string, workspace: string
         if (event.type === "protocol-error") failures.push(event.message)
         if (event.type === "connection-closed" && !event.exit.expected) failures.push(`Core exit: ${JSON.stringify(event.exit)}`)
         if (event.type === "turn-activity") activities++
-        if (event.type === "turn-started") turns++
+        if (event.type === "turn-started") { turns++; lastStartedTurn = event.turnId }
         if (event.type === "turn-completed") outcome = event.outcome
       })
       return session
@@ -64,7 +65,12 @@ export async function runLiveConnection(extensionRoot: string, workspace: string
     await settled()
     assert.equal(outcome, "completed")
     assert.ok(controller.snapshot().messages.slice(previousCount).some(message => message.role === "assistant" && message.text.includes(marker)), `Missing ${marker}; trace=${JSON.stringify(trace)}; stages=${JSON.stringify(stages)}`)
+    if (stage === "after-stop" || stage === "after-streaming-stop") {
+      const reply = controller.snapshot().messages.slice(previousCount).filter(message => message.role === "assistant").map(message => message.text).join("").trim()
+      assert.equal(reply, marker, "A resumed turn must contain only its own requested reply, without interrupted output")
+    }
     stages.push({ stage, elapsedMs: Math.round(performance.now() - started) })
+    console.log(`CODEM_LIVE_STAGE_OK ${JSON.stringify(stages.at(-1))}`)
   }
   try {
     const connecting = performance.now()
@@ -83,15 +89,30 @@ export async function runLiveConnection(extensionRoot: string, workspace: string
     outcome = null
     const stopping = performance.now()
     assert.equal(await controller.send("请用纯文本从 1 数到 10000，不要调用工具、读取或修改任何文件。"), true)
+    assert.equal(observedTextTurns.has(lastStartedTurn), false, "Early-stop check must interrupt before the first text delta")
     await controller.stop()
     await settled()
     assert.equal(outcome, "stopped")
     stages.push({ stage: "interrupt", elapsedMs: Math.round(performance.now() - stopping) })
     mode = "text"
     await turn("after-stop", "只回复 CODEM_RESUMED_OK。不要调用工具、读取或修改任何文件。", "CODEM_RESUMED_OK")
+    mode = "stop"
+    outcome = null
+    assert.equal(await controller.send("请用纯文本从 1 数到 10000，每行一个数字，不要调用工具、读取或修改任何文件。"), true)
+    const streamDeadline = Date.now() + 30000
+    while (!observedTextTurns.has(lastStartedTurn) && controller.snapshot().phase === "running" && Date.now() < streamDeadline) await delay(10)
+    assert.ok(observedTextTurns.has(lastStartedTurn), "Streaming-stop check must observe real text before interrupting")
+    assert.equal(controller.snapshot().phase, "running")
+    const streamStopping = performance.now()
+    await controller.stop()
+    await settled()
+    assert.equal(outcome, "stopped")
+    stages.push({ stage: "interrupt-streaming", elapsedMs: Math.round(performance.now() - streamStopping) })
+    mode = "text"
+    await turn("after-streaming-stop", "只回复 CODEM_STREAM_RESUMED_OK。不要调用工具、读取或修改任何文件。", "CODEM_STREAM_RESUMED_OK")
     assert.equal(controller.snapshot().threadId, threadId)
     assert.equal(connections, 1)
-    assert.equal(turns, 5)
+    assert.equal(turns, 7)
     assert.ok(activities > 0, "The real Core must exercise turn/activity")
     assert.deepEqual(failures, [])
     console.log(`CODEM_LIVE_CONNECTION_OK ${JSON.stringify({ connections, turns, questions, activities, stages })}`)

@@ -1,7 +1,7 @@
 {
   "id": "core.initialize.handshake.v1",
   "capabilityId": "A02",
-  "coreVersion": "0.8.45",
+  "coreVersion": "0.8.47",
   "cliVersion": "0.1.208",
   "protocolVersion": 1,
   "provenance": {
@@ -33,7 +33,7 @@
         "id": 1,
         "result": {
           "protocolVersion": 1,
-          "agentInfo": { "version": "0.8.45" },
+          "agentInfo": { "version": "0.8.47" },
           "capabilities": {
             "threads": {
               "list": true,
@@ -102,7 +102,7 @@
   "expected": {
     "kind": "ready",
     "protocolVersion": 1,
-    "agentVersion": "0.8.45",
+    "agentVersion": "0.8.47",
     "responseJsonrpc": "2.0"
   }
 }

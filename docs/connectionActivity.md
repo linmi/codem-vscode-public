@@ -41,3 +41,18 @@
 - `pnpm --filter codem test:live --headless` 仍失败：普通文本、问答、取消问答和显式停止走完；紧接着的 `after-stop` 新轮次预期 completed，实际得到 stopped。保留原严格断言，不自动延迟、重发或改写 Core 终态。
 - 用户本次实际会话的 VS Code 日志也显示：新 submission 有独立 turn-started，之后返回 stopped/cancelled；对应持久历史却继续写入 task_create 和三个 todo_item_added。这说明发送已到 Core，界面只是遵循了服务端终态，并非输入框没有提交。
 - 插件构建已更新；已有 VS Code 开发宿主仍需重载才会启动新二进制。本轮未操作或新建 VS Code 窗口。升级不代表停止后的隔离问题已修复，后续准出标准继续沿用上节。
+
+## 2026-09-22 升级 Core 0.8.47 后复测
+
+官方 [npm 元数据](https://registry.npmjs.org/@lark-codem/codem-core) 的 `alpha` 为 0.8.47（2026-09-21 16:03 UTC 发布），`latest` 仍为 0.8.45。本次按更新新版的要求精确固定 0.8.47，不使用浮动 alpha；认证 CLI 保持 0.1.208。同步更新 Node / JetBrains 运行时约束、共享契约基线和握手 fixture、依赖及锁文件。发布时间例外只列出该精确版本的七个 Core 包，移除已不用的 0.8.45 例外。
+
+- 单元 / 集成：`pnpm check` 通过，包括 lint、类型检查、活跃工作区全部默认测试及 JetBrains domainTest。版本拒绝测试明确覆盖旧 Core 0.8.45。
+- 构建 / 真实运行时：`pnpm build:vscode`、`pnpm --filter codem test:runtime`、`pnpm --filter @codem/jetbrains test:runtime` 通过。后者从独立插件 ZIP 解压运行，空 PATH 下验证 Core 0.8.47 / CLI 0.1.208 的握手和退出；未启动 IDE。
+- 真实 Core：`pnpm --filter codem test:live --headless` 在同一连接、同一会话完成七轮：普通回复、提问提交、取消提问、首段文本前停止、立即续发、流式文本期间停止、立即续发。两次停止均等到真实 `turn/completed`，续发没有固定延时、重试、重连或新建会话。测试检查新轮次正常完成并返回各自标记；续发回复额外要求全文仅为该标记，防止旧计数输出混入。
+- 首次七轮采样：连接 1152 ms，早停 52 ms、续发 3626 ms，流式停止 51 ms、续发 16100 ms；只是本次样本，不是性能承诺。
+- 加入续发全文精确匹配断言后再次通过七轮：连接 1245 ms，早停 55 ms、续发 2314 ms，流式停止 52 ms、续发 1947 ms；随后 lint 和 VS Code 类型检查通过。
+- 模拟界面、真实 VS Code / IDEA 点击：本轮未执行。未修改 UI、停止状态机或历史恢复语义；已有 IDE 进程不会自动切到新二进制，VS Code 开发宿主需要重载，JetBrains 需加载本轮新构建的插件。
+
+结论：此前停止后继续发送的真实 Core 回归在 0.8.47 通过。验证范围为上述两种文本停止时机，不扩展为所有工具执行期间的取消都已验收，也没有重新验收 compact。
+
+旧版本搜索：生产运行时与锁文件不再固定 0.8.45；测试中的 0.8.45 保留为版本拒绝输入及历史协议样本；文档和能力说明中的旧版本用于记录当时观测，不代表当前运行时版本。未迁移原有持久历史，不新增兼容分支。

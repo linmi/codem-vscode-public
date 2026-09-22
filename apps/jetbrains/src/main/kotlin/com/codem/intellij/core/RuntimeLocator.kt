@@ -28,7 +28,7 @@ data class ResolvedRuntime(
  * 版本只接受锁定事实来源，不默认 latest。
  */
 object RuntimeLocator {
-    const val CORE_VERSION = "0.8.45"
+    const val CORE_VERSION = "0.8.47"
     const val CLI_VERSION = "0.1.208"
 
     val targets: Map<String, RuntimeTarget> = mapOf(
