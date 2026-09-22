@@ -482,9 +482,7 @@ class ProjectSession(
             historyMessages.clear()
             historyCursor = null
             hasOlder = false
-            diffs.clear()
-            diffPaths.clear()
-            diffContents.clear()
+            clearDiffsLocked()
             background = emptyList()
             catalogKind = null
             catalogRows = emptyList()
@@ -506,6 +504,7 @@ class ProjectSession(
                 assertGeneration(currentGeneration)
                 turns.resetActive()
                 historyMessages.clear()
+                clearDiffsLocked()
                 bindThreadLocked(actual)
                 if (lastThreadId == actual) lastThreadId = null
                 historyCursor = null
@@ -1302,10 +1301,7 @@ class ProjectSession(
         liveSelection = null
         dismissedLiveLabel = null
         fileSearch = null
-        diffs.clear()
-        diffPaths.clear()
-        diffContents.clear()
-        fileDiffs = FileDiffAssembler()
+        clearDiffsLocked()
         background = emptyList()
         sideQuestionId = null
     }
@@ -1689,13 +1685,30 @@ class ProjectSession(
      * `turn/diff/updated` 只汇总路径与行数，没有 hunks。它负责建行和刷新统计，
      * 能不能打开由是否已收到 `item/fileChange/delta` 决定，不拿汇总冒充差异。
      */
+    private fun clearDiffsLocked() {
+        diffs.clear()
+        diffPaths.clear()
+        diffContents.clear()
+        fileDiffs = FileDiffAssembler()
+    }
+
     private fun applyDiffSummaryLocked(params: JsonValue.ObjectValue) {
-        val files = (params.fields["diff"] as? JsonValue.ArrayValue)?.items.orEmpty()
-        val rows = files.mapIndexed { index, item ->
+        val files = (params.fields["diff"] as? JsonValue.ArrayValue)?.items
+            ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM diff summary is missing files")
+        val rows = files.map { item ->
             val file = item.asObject()
-            val path = (file.fields["path"] as? JsonValue.Text)?.value ?: "change-${index + 1}"
-            val added = (file.fields["linesAdded"] as? JsonValue.NumberValue)?.value?.toInt() ?: 0
-            val removed = (file.fields["linesRemoved"] as? JsonValue.NumberValue)?.value?.toInt() ?: 0
+            val path = (file.fields["path"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() }
+                ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM diff summary is missing path")
+            fun count(key: String): Int {
+                val value = (file.fields[key] as? JsonValue.NumberValue)?.value
+                    ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM diff summary $key is missing")
+                if (!value.isFinite() || value < 0 || value > Int.MAX_VALUE || value != kotlin.math.floor(value)) {
+                    throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM diff summary $key must be a nonnegative integer")
+                }
+                return value.toInt()
+            }
+            val added = count("linesAdded")
+            val removed = count("linesRemoved")
             val content = diffContents[path]
             diffViewLocked(path, added, removed, content?.preview ?: "pending", content?.texts() != null)
         }

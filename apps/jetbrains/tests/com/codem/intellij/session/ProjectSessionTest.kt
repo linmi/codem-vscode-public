@@ -458,8 +458,15 @@ class ProjectSessionTest {
         assertEquals("12", session.snapshot().background.single().id)
         completeTurn(process, "thread-1", "turn-control")
         awaitSnapshot(session) { it.phase == "ready" }
+        session.resumeThread("thread-1")
+        assertTrue(session.snapshot().diffs.isEmpty(), "Restoring a conversation must not retain the previous live diff")
+        org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.openDiff("diff-1") }
+        enqueueFileDiff(process, "src/App.kt")
+        awaitSnapshot(session) { it.diffs.singleOrNull()?.available == true }
         session.applyViewAction(ViewAction.ManageThread("fork", "thread-1", "", "req-fork"))
         assertTrue(process.writes.any { JsonValue.parse(it).asObject().fields["method"]?.let { method -> (method as? JsonValue.Text)?.value == "thread/fork" } == true })
+        session.newChat()
+        assertTrue(session.snapshot().diffs.isEmpty())
     }
 
     @Test
@@ -819,9 +826,9 @@ class ProjectSessionTest {
                             "new_count" to JsonValue.NumberValue(2.0, "2"),
                             "lines" to JsonValue.ArrayValue(
                                 listOf(
-                                    JsonValue.obj("kind" to JsonValue.Text("context"), "text" to JsonValue.Text("val kept = 1")),
-                                    JsonValue.obj("kind" to JsonValue.Text("delete"), "text" to JsonValue.Text("val before = 2")),
-                                    JsonValue.obj("kind" to JsonValue.Text("insert"), "text" to JsonValue.Text("val after = 2")),
+                                    JsonValue.obj("kind" to JsonValue.Text("context"), "old_line" to JsonValue.NumberValue(1.0, "1"), "new_line" to JsonValue.NumberValue(1.0, "1"), "text" to JsonValue.Text("val kept = 1")),
+                                    JsonValue.obj("kind" to JsonValue.Text("delete"), "old_line" to JsonValue.NumberValue(2.0, "2"), "new_line" to JsonValue.Null, "text" to JsonValue.Text("val before = 2")),
+                                    JsonValue.obj("kind" to JsonValue.Text("insert"), "old_line" to JsonValue.Null, "new_line" to JsonValue.NumberValue(2.0, "2"), "text" to JsonValue.Text("val after = 2")),
                                 ),
                             ),
                         ),
