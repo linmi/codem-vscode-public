@@ -1,4 +1,4 @@
-import { AppServerHost, resolveBundledAppServerRuntime } from "@codem/app-server"
+import { AppServerHost, resolveBundledAppServerRuntime, type AppServerHostEvent } from "@codem/app-server"
 import assert from "node:assert/strict"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
@@ -13,14 +13,19 @@ export async function runLiveCapabilities(extensionRoot: string, workspace: stri
   let session: ChatSession | null = null
   let rewindSelections = 0
   const events: string[] = []
+  const startedTurns: Extract<AppServerHostEvent, { type: "turn-started" }>[] = []
+  const terminals: Extract<AppServerHostEvent, { type: "turn-completed" }>[] = []
+  let historyReads = 0
   const created = new Set<string>()
   const stages: Record<string, number> = {}
   const failures: unknown[] = []
   const controller = new ChatController({
     connect: async (signal) => {
       const connected = await liveRuntime(extensionRoot, workspace, signal)
+      const readHistory = connected.readHistory
+      connected.readHistory = async (...args) => { historyReads++; return readHistory(...args) }
       session = connected
-      connected.host.onEvent(event => { events.push(event.type); if (event.type === "thread-started") created.add(event.threadId); if (event.type === "warning") console.log(`CORE_WARNING ${event.message.replace(/https?:\/\/\S+/g, "[url]").slice(0, 250)}`); if (event.type === "protocol-error") console.log(`CORE_PROTOCOL_VALIDATION ${event.message.slice(0, 250)}`) })
+      connected.host.onEvent(event => { events.push(event.type); if (event.type === "turn-started") startedTurns.push(event); if (event.type === "turn-completed") terminals.push(event); if (event.type === "thread-started") created.add(event.threadId); if (event.type === "warning") console.log(`CORE_WARNING ${event.message.replace(/https?:\/\/\S+/g, "[url]").slice(0, 250)}`); if (event.type === "protocol-error") console.log(`CORE_PROTOCOL_VALIDATION ${event.message.slice(0, 250)}`) })
       return connected
     },
     assertTrusted() {}, publish() {},
@@ -54,6 +59,14 @@ export async function runLiveCapabilities(extensionRoot: string, workspace: stri
     await settle("skill")
     assert.ok(controller.snapshot().messages.some(message => message.role === "assistant" && message.text.includes("CODEM_SKILL_OK")), "Native skill input must reach model")
     const threadId = controller.snapshot().threadId!
+    if (compactOnly) {
+      // One short exchange is a legitimate not-enough-history rejection, not a success fixture.
+      for (let index = 1; index <= 2; index++) {
+        controller.selectSkill(null)
+        assert.equal(await controller.send(`只回复 CODEM_COMPACT_CONTEXT_${index}，不要调用工具、读取或修改文件。`), true)
+        await settle(`compactContext${index}`)
+      }
+    }
     if (!compactOnly) {
     await controller.askSideQuestion("只回复 CODEM_SIDE_OK，不要调用工具。", "side-acceptance")
     await settle("side")
@@ -68,12 +81,30 @@ export async function runLiveCapabilities(extensionRoot: string, workspace: stri
     await settle("rewind")
     assert.ok(rewindSelections > 0, "Real rewind must offer checkpoint selection")
     }
+    const beforeCompactStarts = startedTurns.length
+    const beforeCompact = terminals.length
+    const readsBeforeCompact = historyReads
     await controller.startControl("compact", "compact-acceptance")
-    try { await settle("compact") }
+    try {
+      await settle("compact")
+      const completed = terminals.slice(beforeCompact)
+      assert.equal(completed.length, 1, "Compact must produce exactly one correlated terminal")
+      assert.equal(completed[0]!.threadId, threadId)
+      const starts = startedTurns.slice(beforeCompactStarts)
+      assert.equal(starts.length, 1)
+      assert.equal(completed[0]!.turnId, starts[0]!.turnId)
+      console.log(`CORE_COMPACT_TERMINAL ${JSON.stringify({ outcome: completed[0]!.outcome, stopReason: completed[0]!.stopReason, error: completed[0]!.error?.replace(/https?:\/\/\S+/g, "[url]").slice(0, 500) ?? null })}`)
+      assert.equal(completed[0]!.outcome, "completed", "Interrupted or failed compaction is not success")
+      assert.equal(completed[0]!.error, null)
+      assert.ok(historyReads > readsBeforeCompact, "Compact must reload durable history")
+      assert.equal(controller.snapshot().historyNeedsRefresh, false)
+      assert.equal(controller.snapshot().notice, null)
+      console.log(`CORE_COMPACT_TERMINAL_OK outcome=${completed[0]!.outcome}`)
+    }
     catch (error) {
       failures.push(error)
-      console.log("CORE_COMPACT_TERMINAL_MISSING: interrupting explicitly; this is a failed success-path check")
-      await controller.stop(); await settle("compactInterrupt")
+      console.log("CORE_COMPACT_FAILED: success-path assertion failed")
+      if (controller.snapshot().phase === "running") { await controller.stop(); await settle("compactInterrupt") }
     }
     await controller.shellCommand("printf CODEM_SHELL_OK > capability-shell.txt", "shell-acceptance")
     await settle("shell")
@@ -86,7 +117,7 @@ export async function runLiveCapabilities(extensionRoot: string, workspace: stri
     }
     if (shellOutput !== "CODEM_SHELL_OK") { failures.push(new Error("Core shellCommand acknowledged but did not create its output file")); console.log("CORE_SHELL_EFFECT_MISSING") }
     assert.equal(controller.snapshot().sessionTools.result?.accepted, true)
-    for (const kind of ["environment", "config", "hooks", "plugins", "permissions", "spaces", "provider", "live"] as const) { await controller.loadCatalog(kind); assert.equal(controller.snapshot().sessionTools.catalog?.kind, kind) }
+    for (const kind of ["environment", "config", "hooks", "plugins", "permissions", "spaces", "provider", "tools", "live"] as const) { await controller.loadCatalog(kind); assert.equal(controller.snapshot().sessionTools.catalog?.kind, kind) }
     await controller.manageThread("rename", threadId, "Capability acceptance", "rename-acceptance")
     assert.equal(controller.snapshot().sessionTools.result?.accepted, true)
     await controller.manageThread("clear", threadId, "", "clear-acceptance")

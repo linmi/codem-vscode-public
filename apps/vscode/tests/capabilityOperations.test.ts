@@ -226,3 +226,28 @@ it("tools catalog ignores duplicate refreshes and late results after connection 
   assert.equal(f.controller.snapshot().sessionTools.catalog, null)
   assert.deepEqual(f.controller.snapshot().tools, [])
 })
+
+
+it("failed compaction keeps its failure visible while durable history reloads and still permits retry", async t => {
+  const f = capabilityFixture(); t.after(() => f.controller.dispose())
+  await f.controller.connect(); await f.controller.send("first"); f.finish()
+  let resolve!: (value: { todoSnapshot: null; turns: []; nextCursor: null }) => void
+  f.session.readHistory = () => new Promise(done => { resolve = done })
+  f.host.compactThread = async () => {
+    f.emit({ type: "turn-started", threadId: "thread-1", turnId: "compact-failed", submissionId: null })
+    return "compact-failed"
+  }
+  await f.controller.startControl("compact", "first-compact")
+  f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "compact-failed", outcome: "failed", stopReason: "error", error: "Core settled without a terminal event" })
+  await new Promise(done => setImmediate(done))
+  assert.equal(f.controller.snapshot().phase, "loadingHistory")
+  assert.match(f.controller.snapshot().notice!, /上下文操作失败/)
+  resolve({ todoSnapshot: null, turns: [], nextCursor: null })
+  await new Promise(done => setImmediate(done))
+  assert.equal(f.controller.snapshot().phase, "ready")
+  assert.equal(f.controller.snapshot().sessionTools.busy, null)
+  assert.match(f.controller.snapshot().notice!, /上下文操作失败/)
+  assert.doesNotMatch(JSON.stringify(f.controller.snapshot()), /Core settled/)
+  assert.equal(await f.controller.send("continue after failed compact"), true)
+  assert.equal(f.controller.snapshot().notice, null)
+})

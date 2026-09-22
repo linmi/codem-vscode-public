@@ -88,7 +88,7 @@ pnpm --filter codem test:live --images
 pnpm --filter codem test:live --images --pasted-image
 ```
 
-2026-09-22 真实开发宿主按钮、系统剪贴板操作、失败复现和剩余能力清单见 [原生交互验收](../../docs/vscodeNativeAcceptance.md)。`--pasted-image` 是无界面生产导入链路测试，不代替操作系统 Cmd+V；当前断言真实发送成功，失败时保持非零退出。
+2026-09-22 真实开发宿主按钮、系统剪贴板操作、失败复现和剩余能力清单见 [原生交互验收](../../docs/vscodeNativeAcceptance.md)。`--pasted-image` 是无界面生产导入链路测试，不代替操作系统 Cmd+V；私有根目录修复后，真实发送、识图和历史恢复均通过。压缩 live 验收额外断言正常终态，Core 0.8.47 的失败终态仍保持非零退出，不能用 ready 状态当作成功。
 
 先执行构建。常规 smoke 和未带 `--capabilities` / `--headless` 的 live 验证启动真实 VS Code Extension Host，在隔离的临时工作区和用户配置下运行；常规 smoke 不启动 Core，live 模式额外运行应用的连接与聊天控制器。测试工作区的信任开关仅影响该隔离进程，不修改用户设置。macOS 默认定位 `/Applications/Visual Studio Code.app`，其他安装位置或系统设置 `CODEM_VSCODE_EXECUTABLE` 为应用可执行文件路径。
 

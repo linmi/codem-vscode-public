@@ -1,6 +1,6 @@
 # VS Code 原生交互验收与能力缺口
 
-日期：2026-09-22。对象：当前正式 VS Code Webview（共享 `@codem/ui`），不是原生 Chat 实验版。运行时：CLI 0.1.208 / Core 0.8.45，darwin-arm64。
+首轮验收日期：2026-09-22。对象：当前正式 VS Code Webview（共享 `@codem/ui`），不是原生 Chat 实验版。首轮运行时：CLI 0.1.208 / Core 0.8.45，darwin-arm64；修复复验使用 Core 0.8.47。
 
 ## 修复进展（首轮验收后的独立 Cycle）
 
@@ -10,13 +10,17 @@
 
 - 实时快照：原预览中的完整 `LiveSnapshotView` 迁入共享 UI，两个表面直接使用同一组件，删除旧路径。明细、空态、过期、错误、加载/取消和分页均由 Host 快照驱动；默认渲染测试覆盖正反向入口及动作参数。原生实际看到 2 个轮次、6 个 Item 的逐条明细，截图检查可读。首屏和无更多页时不渲染分页；Host 取消/失效仍丢弃迟到响应，不新增缓存或 RPC。
 
-## 本轮范围与证据
+- 压缩：**上游成功路径仍未修复**。Core 已升级到 0.8.47，但最小、完整及原生按钮均返回 `turn/completed(outcome=failed, stopReason=error)`，错误为 `Core settled without a terminal event`。原脚本仅断言 ready，因此此前 0.8.47 的“通过”是漏检，已撤回。客户端现保留历史刷新前后的失败提示；不从 warning 推断成功，不自动停止或重试正常用户操作。live 新断言检查开始/完成 turnId、成功 outcome、历史重读及提示，失败继续非零退出。单次短对话原最小样例会合法返回 `not enough history to compact yet`，现最小成功样例先准备三轮，仍在 5.40 秒收到上述 settled 错误；完整样例约 4.90 秒同样失败。原生重载后再次点击压缩，失败提示持续可见，随后发送得到 `CODEM_COMPACT_FAILURE_RECOVERED`，证明失败后可继续工作。
+
+本轮独立提交：私有图片根目录、目录契约统一、共享快照完整展示，以及压缩失败提示与严格验收。未 push。最终 `pnpm check`、`pnpm build:vscode` 均零退出，VS Code 404 项、共享 UI 20 项、App Server 115 项通过；真实 Core 粘贴图片成功，压缩成功路径非零失败。原生快照只有两轮六项，更多页的正向分支由默认渲染与 Host 分页测试覆盖，本轮未伪造 50+ 轮的原生会话。
+
+## 首轮范围与证据（修复前）
 
 复用已有 `[扩展开发宿主] codem-plugin` 窗口，构建后在原窗口 Reload Window。通过 macOS 原生可访问性操作点击真实按钮、输入和按键；没有向 Webview 注入模拟状态，没有新建 VS Code 或浏览器测试窗口。界面操作只创建本轮测试会话，不改用户已有会话内容。
 
 系统图片测试使用仓库 `apps/vscode/tests/fixtures/previewDashboard.png`：在 macOS 预览中打开、Cmd+A/Cmd+C，在正式聊天输入框 Cmd+V。该样例只有合成图表，数字为 FILES 12、CHECKS 270、ARTIFACTS 5。这与合成 ClipboardEvent 的浏览器测试是不同证据。
 
-本轮只增加显式 live 验收分支和记录，不修改生产行为。测试发现的失败保留为失败，不把按钮能点击、预览能显示或默认测试通过当作发送成功。
+首轮只增加显式 live 验收分支和记录，不修改生产行为。测试发现的失败保留为失败，不把按钮能点击、预览能显示或默认测试通过当作发送成功。
 
 ## 真实 VS Code 已执行
 
@@ -63,7 +67,7 @@
 
 能力完整场景的采样等待：技能 1999ms、旁问 1333ms、补充指令所在轮次 8000ms、conversation 回退 665ms。数值包含模型、网络及场景差异，仅用于复现，不构成性能承诺。默认测试仍不调用模型；新增粘贴分支必须显式运行 `test:live`。
 
-## 已证实问题
+## 首轮已证实问题（修复状态见文首）
 
 1. **P1：粘贴图片无法发送。** VS Code `ConversationResources` 把图片保存到独立系统临时目录，但线程设置没有为这些图片建立 Core 可访问根目录。真实 UI 与无界面粘贴通道均失败，工作区普通图片成功。同期 JetBrains 修复 `d0fd2840` 已实测同版本 Core 的 thread roots 约束，见 [JetBrains 验收](jetbrainsInteractionAcceptance.md#私有图片目录与真实-core-验证)。VS Code 仍需在自己的连接/资源生命周期中实现完整边界；不能直接授权整个临时目录，也不能只修补 UI。
 2. **P1：共享目录菜单与 VS Code Host 契约不一致。** `packages/ui/src/contract.ts` 允许 `loadCatalog(kind: "tools")`，`apps/vscode/src/shared/capabilityTypes.ts` 不接受；真实点击被拒绝。基础工具能力本身可从文件与工具面板使用。
@@ -87,9 +91,8 @@
 | 已有历史原生验收，本轮未重复 | 编辑器逐块 Diff 接受/拒绝/撤销、行内补全接受/取消、终端选区/最近输出、SCM 生成回填 | 2026-09-21 已有真实原生操作证据，见 [原生操作补验](nativeIntegration.md#原生操作补验2026-09-21)；不重新列为从未接入 |
 | 平台与发布门槛 | Windows x64/ARM64、Intel Mac 实机；安装包后的登录聊天；复杂补全质量/延迟、多语言与可访问性矩阵 | 现有 macOS 开发宿主测试不能替代；未发布 Marketplace |
 
-## 后续两个客户端 Cycle
+## 剩余上游 Cycle
 
-- **P1，粘贴图片资源边界。** 证据为 UI 和新增 live 分支稳定拒绝。边界限 VS Code 资源所有者、线程允许根目录及 start/resume/clear/退出清理；交付可观察结果是系统图片粘贴后真正发送、识图并从历史恢复。准出：新增 live 分支与原生 Cmd+V/发送闭环通过，失败保留、删除再粘贴、重连及 Core 退出前文件保留均有验证，不授权整个临时目录。
-- **P2，目录界面契约和完整展示。** 证据为 tools 入口被拒绝及 live 明细未渲染。边界限共享目录视图、VS Code 桥及其消息契约，不增加 Core 能力；交付结果是所有已显示的目录入口可用，轮次/Item 明细可读。准出：展开菜单逐项验证，工具目录不再产生无效请求，明细、分页、取消/失败/过期与上下文切换覆盖正反向测试，并在同一真实宿主补验。
+- **P1，Core 压缩终态。** 当前证据是 0.8.47 最小/完整/原生操作均返回 `Core settled without a terminal event`；客户端仓库只包含分发二进制与 stdio 适配，不含服务端源码。边界为 Core `thread/compact/start` 的实际压缩任务及正常 `turn/completed` 发出时机，不允许客户端伪造成功。交付结果是压缩后无需停止即可成功继续聊天。准出：两个显式 live 命令均零退出，收到同 turnId 的 `completed` 且 error=null、重读 schema-13 历史成功，并在同一开发宿主点压缩后无失败提示、可继续发送。现有脚本已可直接用作修复后的回归门禁。
 
 资源：保留用户已有 VS Code 窗口和预览服务；仅新开本轮图片的 macOS 预览窗口，验收后关闭。测试聊天保留供复查，未发送草稿清空、工作模式恢复 Agent、强度恢复 medium。无界面 live fixture 的临时目录、会话和 Core 进程由脚本 finally 清理；未 push。

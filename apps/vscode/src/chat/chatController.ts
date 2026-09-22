@@ -808,12 +808,12 @@ export class ChatController {
   async loadOlderMessages(): Promise<void> { if (this.conversationHistory.hasOlder) await this.loadHistoryPage(true) }
   async reloadHistory(): Promise<void> { await this.loadHistoryPage(false) }
 
-  private async loadHistoryPage(append: boolean): Promise<void> {
+  private async loadHistoryPage(append: boolean, terminalNotice: string | null = null): Promise<void> {
     const session = this.session
     const threadId = this.threadId
     if (!session || !threadId || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
     if (this.conversationHistory.busy) { this.update({ notice: "正在结束上一次历史读取，请稍后重试。" }); return }
-    this.update({ phase: "loadingHistory", notice: null })
+    this.update({ phase: "loadingHistory", notice: terminalNotice })
     try {
       await this.conversationHistory.load(this.historyContext(session), threadId, append, page => {
         const messages = this.resources.projectHistory(threadId, page, session.cwd)
@@ -1082,8 +1082,9 @@ export class ChatController {
       this.finishActivities(event.outcome === "completed" ? "completed" : event.outcome === "stopped" ? "interrupted" : "failed")
       active.abort.abort()
       this.active = null
-      this.update({ phase: "ready", notice: event.outcome === "failed" ? "本轮任务失败，可以继续发送消息。" : null, ...(event.outcome === "stopped" ? { messages: [...this.state.messages, stoppedTurnMessage(event.turnId)] } : {}) })
-      if (reload) void this.reloadHistory()
+      const terminalNotice = event.outcome === "failed" ? reload ? "上下文操作失败，请重试或继续发送消息。" : "本轮任务失败，可以继续发送消息。" : null
+      this.update({ phase: "ready", notice: terminalNotice, ...(event.outcome === "stopped" ? { messages: [...this.state.messages, stoppedTurnMessage(event.turnId)] } : {}) })
+      if (reload) void this.loadHistoryPage(false, terminalNotice)
     }
   }
 
