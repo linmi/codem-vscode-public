@@ -18,3 +18,5 @@ export { timelineGroups, workGroupState, lastActivityId } from "./chat/timelineG
 export { activityTitle, activityBadge, toolPresentation } from "./chat/toolPresentation.ts"
 export { builtinSlashCommands, slashQuery, commandUnavailable, slashCatalog } from "./chat/slashCommands.ts"
 export { welcomeState } from "./chat/welcomeState.ts"
+
+export { LiveSnapshotView } from "./chat/liveSnapshotView.tsx"

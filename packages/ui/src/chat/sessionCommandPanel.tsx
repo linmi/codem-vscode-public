@@ -1,3 +1,4 @@
+import { LiveSnapshotView } from "./liveSnapshotView.tsx"
 import { catalogKinds, type CatalogKind } from "@codem/protocol"
 import { useRef, useState } from "react"
 import { SlidersHorizontalIcon } from "lucide-react"
@@ -55,8 +56,12 @@ export function SessionCommandPanel({
     } else if (request.kind === "shell") onShell?.(request.text)
   }
   const view = tools.catalog?.kind === catalog ? tools.catalog : null
+  const cancelLoading = () => {
+    if (view?.kind === "live" && view.loading && view.snapshotId) post({ type: "cancelLiveSnapshot", snapshotId: view.snapshotId })
+  }
+  const dismiss = () => { cancelLoading(); close() }
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) close() }}>
+    <Dialog open onOpenChange={(open) => { if (!open) dismiss() }}>
       <DialogContent className={`toolDialog sessionCommandDialog ${detail ? "sessionCommandCatalog" : "sessionCommandConfirm"}`} onCloseAutoFocus={(event) => event.preventDefault()}>
         <div className="toolDialogHeading">
           {detail ? <span className="toolDialogIcon"><SlidersHorizontalIcon aria-hidden="true" /></span> : null}
@@ -71,11 +76,11 @@ export function SessionCommandPanel({
           {command === "catalog" || command === "skills" ? (
             <div className="sessionToolSection">
               <div className="sessionToolActions">
-                <Select value={catalog} onValueChange={(value) => setCatalog(value as CatalogKind)}>
+                <Select value={catalog} onValueChange={(value) => { cancelLoading(); setCatalog(value as CatalogKind) }}>
                   <SelectTrigger aria-label="目录类型"><SelectValue /></SelectTrigger>
                   <SelectContent>{catalogKinds.map((kind) => <SelectItem key={kind} value={kind}>{catalogLabels[kind] ?? kind}</SelectItem>)}</SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" disabled={(!ready && !running) || Boolean(tools.busy)} onClick={() => post({ type: "loadCatalog", kind: catalog })}>刷新目录</Button>
+                <Button variant="outline" size="sm" disabled={(!ready && !running) || Boolean(tools.busy) || Boolean(view?.loading)} onClick={() => post({ type: "loadCatalog", kind: catalog })}>刷新目录</Button>
               </div>
               {catalog === "skills" ? (
                 <>
@@ -89,22 +94,10 @@ export function SessionCommandPanel({
                   <p>{chosen ? `下一条消息作为 ${chosen.name} 的参数发送；请移除附件。` : "刷新技能目录后，可选择下一条消息使用的技能。"}</p>
                 </>
               ) : null}
-              {view ? (
+              {view ? view.kind === "live" ? <LiveSnapshotView view={view} disabled={!ready && !running} post={post} /> : (
                 <>
                   <p>{view.stale ? "结果已过期，请刷新。" : `${view.rows.length} 项`}</p>
                   <dl className="catalogRows">{view.rows.map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.detail}</dd></div>)}</dl>
-                  {view.kind === "live" && view.snapshotId && view.pages ? (["turns", "items"] as const).map((kind) => {
-                    const page = view.pages![kind]
-                    const label = kind === "turns" ? "轮次" : "Item"
-                    return (
-                      <section key={kind} aria-label={`${label}快照`}>
-                        <strong>{label} · 已加载 {page.rows.length} / {page.total}</strong>
-                        {view.loaded && !view.stale && page.hasMore ? (
-                          <Button variant="outline" size="sm" disabled={(!ready && !running) || Boolean(view.loading)} onClick={() => post({ type: "loadMoreLiveSnapshot", snapshotId: view.snapshotId, kind })}>加载更多{label}</Button>
-                        ) : null}
-                      </section>
-                    )
-                  }) : null}
                 </>
               ) : <p>按需加载，不在打开面板时自动请求。</p>}
             </div>

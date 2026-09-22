@@ -1,5 +1,5 @@
 import { catalogKinds, type CatalogKind } from "@codem/protocol"
-import { LiveSnapshotView } from "./liveSnapshotView.tsx"
+import { LiveSnapshotView } from "@codem/ui"
 import { useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { SlidersHorizontalIcon } from "lucide-react"
