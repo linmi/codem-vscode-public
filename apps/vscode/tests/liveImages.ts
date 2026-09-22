@@ -6,6 +6,7 @@ import { randomBytes, randomInt, randomUUID } from "node:crypto"
 import { deflateSync } from "node:zlib"
 import { ChatController } from "../src/chat/chatController.ts"
 import { liveRuntime } from "./liveRuntime.ts"
+import { attachmentScope } from "../src/shared/pastedImages.ts"
 
 /** Random order is never included in the prompt; low-amplitude noise also exercises large-image previews. */
 function imageFixture(): { bytes: Buffer; colors: string[] } {
@@ -33,7 +34,7 @@ function imageFixture(): { bytes: Buffer; colors: string[] } {
   return { colors: quadrants.map(item => item.name), bytes: Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), chunk("IHDR", header), chunk("IDAT", deflateSync(rows)), chunk("IEND", Buffer.alloc(0))]) }
 }
 
-export async function runLiveImages(extensionRoot: string, workspace: string): Promise<void> {
+export async function runLiveImages(extensionRoot: string, workspace: string, pasted = false): Promise<void> {
   const { bytes, colors } = imageFixture(); assert.ok(bytes.length > 512 * 1024)
   const path = join(workspace, `acceptanceImage-${randomUUID()}.png`)
   const sessionsRoot = await mkdtemp(join(tmpdir(), "codemImageHistory"))
@@ -59,7 +60,11 @@ export async function runLiveImages(extensionRoot: string, workspace: string): P
     await writeFile(path, bytes, { flag: "wx" })
     await controller.connect(); assert.equal(controller.snapshot().phase, "ready")
     // Use the actual selected model, including supportsVision=false. Core owns image processing.
-    await controller.addAttachments(async () => [{ kind: "image", path }])
+    if (pasted) {
+      assert.equal(await controller.pasteImages({ type: "pasteImages", requestId: "live-paste", scope: attachmentScope(controller.snapshot()), images: [{ mediaType: "image/png", data: bytes.toString("base64") }] }), null)
+    } else {
+      await controller.addAttachments(async () => [{ kind: "image", path }])
+    }
     const attachment = controller.snapshot().attachments[0]!
     assert.equal((await controller.loadImage(attachment.id)).kind, "image")
     const started = performance.now()
@@ -91,7 +96,7 @@ export async function runLiveImages(extensionRoot: string, workspace: string): P
     assert.equal(preview.kind, "image")
     if (preview.kind === "image") assert.deepEqual(Buffer.from(preview.dataUrl.split(",")[1]!, "base64"), bytes)
     assert.equal((await controller.loadImage(attachment.id)).kind, "unavailable", "Old connection handles must expire")
-    console.log(`CODEM_LIVE_IMAGES_OK bytes=${bytes.length} actual-recognition, reconnect, JSONL-restore, history-bytes-match`)
+    console.log(`CODEM_LIVE_IMAGES_OK source=${pasted ? "paste" : "file"} bytes=${bytes.length} actual-recognition, reconnect, JSONL-restore, history-bytes-match`)
   } finally {
     try { await controller.dispose() }
     finally {

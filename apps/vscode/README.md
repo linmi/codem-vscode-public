@@ -84,7 +84,11 @@ pnpm --filter codem test:live --capabilities
 pnpm --filter codem test:live --features --resources
 # 无界面图片验收：随机色块识别、重连后历史恢复及图片字节校验（一轮模型请求）
 pnpm --filter codem test:live --images
+# 生产粘贴导入链路：私有临时图片、发送与恢复（当前有已记录失败）
+pnpm --filter codem test:live --images --pasted-image
 ```
+
+2026-09-22 真实开发宿主按钮、系统剪贴板操作、失败复现和剩余能力清单见 [原生交互验收](../../docs/vscodeNativeAcceptance.md)。`--pasted-image` 是无界面生产导入链路测试，不代替操作系统 Cmd+V；当前断言真实发送成功，失败时保持非零退出。
 
 先执行构建。常规 smoke 和未带 `--capabilities` / `--headless` 的 live 验证启动真实 VS Code Extension Host，在隔离的临时工作区和用户配置下运行；常规 smoke 不启动 Core，live 模式额外运行应用的连接与聊天控制器。测试工作区的信任开关仅影响该隔离进程，不修改用户设置。macOS 默认定位 `/Applications/Visual Studio Code.app`，其他安装位置或系统设置 `CODEM_VSCODE_EXECUTABLE` 为应用可执行文件路径。
 

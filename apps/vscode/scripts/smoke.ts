@@ -16,7 +16,7 @@ if (process.argv.includes("--inline-completion")) {
   if (!process.argv.includes("--live")) throw new Error("Image acceptance requires explicit test:live")
   const { runLiveImages } = await import("../tests/liveImages.ts")
   const temporary = await mkdtemp(join(tmpdir(), "codemImages"))
-  try { await runLiveImages(root, temporary) }
+  try { await runLiveImages(root, temporary, process.argv.includes("--pasted-image")) }
   finally { await rm(temporary, { recursive: true, force: true }) }
 } else if (process.argv.includes("--editor-review")) {
   if (!process.argv.includes("--live")) throw new Error("Editor review acceptance requires explicit test:live")

@@ -38,7 +38,9 @@ CODEM_LIVE_INTERACTIONS_OK
 
 默认 `pnpm check` 不调用真实模型。177 个测试、静态检查与构建通过；浏览器回归包含 WEBVIEW_CHECKS_OK、PANEL_UI_OK、FOOTER_STABLE_OK、PICKER_ANCHORED_OK、WORK_GROUP_OK、LIFECYCLE_VIEW_OK、RESOURCES_VIEW_OK、NEW_SURFACES_OK、SPLIT_EFFORT_PICKER_OK 和 ARTIFACT_ACTIONS_OK。
 
-## 未完成与阻塞
+## 未完成与阻塞（原记录，2026-09-22 补验见下）
+
+2026-09-22 已定位并复用真实开发宿主，补验发送、停止、历史恢复、系统图片粘贴、问答与计划确认等流程。宿主定位阻塞已解除；粘贴图片发送发现真实失败，不代表全流程已通过。最新逐项结果和未覆盖清单见 [VS Code 原生交互验收](vscodeNativeAcceptance.md)。
 
 1. **已有 VS Code 窗口中的真实按钮操作全流程**：自动化目前只能定位仓库主窗口，不能稳定控制现有扩展开发宿主。已停止新增窗口，待可定位已有宿主后补验；不得将以上分层测试标成完整 UI 端到端通过。
 2. **图片真实发送后恢复**：此前以 `supportsVision=false` 判定受阻的结论已撤回。Core 能通过 `describe_image` 识别 localImage；客户端及验收的错误拦截已移除，验证结果见下文。真实 VS Code 图片选择与发送按钮仍需单独验收。

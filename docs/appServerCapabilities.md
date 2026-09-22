@@ -70,6 +70,8 @@
 
 ### Core 0.8.44 压缩缺少终态
 
+2026-09-22 使用当前 Core 0.8.45 复测：`--compact-only` 最小场景通过，但完整 `test:live --capabilities` 在技能、steer 和 conversation 回退之后仍 20 秒未收到正常完成事件，显式停止后收尾。完整命令继续非零退出；不能标记该限制已修复。详见 [本轮原生与 Core 验收](vscodeNativeAcceptance.md)。
+
 临时会话完成任意短轮次后调用 thread/compact/start，收到 turn/started 与 `context compacted: replaced … earlier messages, kept …` 警告，但未收到 turn/completed。完整场景等待 90s 和最小场景等待 20s 均复现；显式 turn/interrupt 后才收到 interrupted/cancelled 终态（最后一次约 0.36s）。
 
 最小复现：构建后运行 `pnpm --filter codem test:live --capabilities --compact-only`。脚本保留失败断言，显式停止以回收资源并继续清理；不会将警告转换为成功。UI 提示正在等待终态，保留停止入口，收到合法终态后重新读取真实历史。
