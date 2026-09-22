@@ -1,5 +1,6 @@
 package com.codem.intellij.bootstrap
 
+import com.codem.intellij.account.AccountStatusRefresh
 import com.codem.intellij.account.AccountProjection
 import com.codem.intellij.account.AuthClient
 import com.codem.intellij.account.LoginOperation
@@ -66,8 +67,6 @@ class ToolWindowHost(
     private val loginRef = AtomicReference<LoginOperation?>(null)
     private val loginCancelled = java.util.concurrent.atomic.AtomicBoolean(false)
     private val autoConnectAttempted = java.util.concurrent.atomic.AtomicBoolean(false)
-    private val accountRefresh = AtomicBoolean(false)
-    private val accountGeneration = AtomicLong(0)
     private val connectInFlight = AtomicBoolean(false)
     private val connectGeneration = AtomicLong(0)
     private val watchdogs = Executors.newSingleThreadScheduledExecutor { runnable ->
@@ -75,6 +74,7 @@ class ToolWindowHost(
     }
     private val searchedFiles = java.util.concurrent.ConcurrentHashMap<String, Path>()
     @Volatile private var local = themed(initialSnapshot().copy(sendKey = storedSendKey()))
+    private val accountRefresh = AccountStatusRefresh({ current().account }, ::publishAccount)
 
     init {
         ApplicationManager.getApplication().messageBus.connect(project)
@@ -133,6 +133,7 @@ class ToolWindowHost(
     }
 
     fun dispose() {
+        accountRefresh.close()
         connectGeneration.incrementAndGet()
         cancelLogin()
         watchdogs.shutdownNow()
@@ -212,7 +213,7 @@ class ToolWindowHost(
             return
         }
         loginCancelled.set(false)
-        publishAccount(AccountProjection.signingIn("opening"))
+        accountRefresh.replace(AccountProjection.signingIn("opening"))
         runBackground { signIn() }
     }
 
@@ -270,49 +271,30 @@ class ToolWindowHost(
 
     /** 只读 auth status，不打开浏览器、不打 Core。进行中的读取合并，超时由看门狗落到 error。 */
     private fun refreshAccount() {
-        if (current().account.status == "signingIn") return
-        if (!accountRefresh.compareAndSet(false, true)) {
-            log.info("CodeM account status already in progress")
-            return
-        }
-        val generation = accountGeneration.incrementAndGet()
+        val attempt = accountRefresh.begin() ?: return
         log.info("CodeM account status starting")
-        scheduleAccountWatchdog(generation)
         val started = System.currentTimeMillis()
+        var timeout: java.util.concurrent.ScheduledFuture<*>? = null
         try {
-            val runtime = locateRuntime() ?: run {
-                if (accountGeneration.get() == generation) {
-                    publishAccount(AccountProjection.error(HostLoadingFeedback.ACCOUNT_FAILED))
+            timeout = watchdogs.schedule({
+                if (accountRefresh.finish(attempt, AccountProjection.error(HostLoadingFeedback.ACCOUNT_TIMEOUT))) {
+                    log.warn("CodeM account status timed out after ${HostLoadingFeedback.ACCOUNT_MS}ms")
                 }
-                return
-            }
+            }, HostLoadingFeedback.ACCOUNT_MS, TimeUnit.MILLISECONDS)
+            // A failed lookup must be published through this attempt, never over a newer login/logout.
+            val runtime = requireRuntime()
             val status = AuthClient(runtime, workingDirectory() ?: Path.of(System.getProperty("user.home"))).status()
-            if (accountGeneration.get() != generation) {
-                log.info("CodeM account status ignored stale result")
-                return
+            if (accountRefresh.finish(attempt, AccountProjection.fromStatus(status))) {
+                log.info("CodeM account status loggedIn=${status.loggedIn} ${System.currentTimeMillis() - started}ms")
+                maybeAutoConnect()
             }
-            publishAccount(AccountProjection.fromStatus(status))
-            accountGeneration.compareAndSet(generation, generation + 1)
-            log.info("CodeM account status loggedIn=${status.loggedIn} ${System.currentTimeMillis() - started}ms")
-            maybeAutoConnect()
         } catch (error: Throwable) {
-            if (accountGeneration.get() != generation) return
-            publishAccount(AccountProjection.error(HostLoadingFeedback.ACCOUNT_FAILED))
-            log.warn("CodeM account refresh failed", error)
+            if (accountRefresh.finish(attempt, AccountProjection.error(HostLoadingFeedback.ACCOUNT_FAILED))) {
+                log.warn("CodeM account refresh failed", error)
+            }
         } finally {
-            if (accountGeneration.get() == generation) accountRefresh.set(false)
+            timeout?.cancel(false)
         }
-    }
-
-    private fun scheduleAccountWatchdog(generation: Long) {
-        watchdogs.schedule({
-            if (accountGeneration.get() != generation) return@schedule
-            if (!HostLoadingFeedback.accountStillPending(current().account.status)) return@schedule
-            accountGeneration.compareAndSet(generation, generation + 1)
-            accountRefresh.set(false)
-            publishAccount(AccountProjection.error(HostLoadingFeedback.ACCOUNT_TIMEOUT))
-            log.warn("CodeM account status still checking after ${HostLoadingFeedback.ACCOUNT_MS}ms")
-        }, HostLoadingFeedback.ACCOUNT_MS, TimeUnit.MILLISECONDS)
     }
 
     private fun scheduleConnectWatchdog(generation: Long) {
@@ -352,7 +334,7 @@ class ToolWindowHost(
         loginRef.getAndSet(null)?.cancel()
         sessionRef.getAndSet(null)?.close()
         autoConnectAttempted.set(false)
-        publishAccount(AccountProjection.signedOut())
+        accountRefresh.replace(AccountProjection.signedOut())
     }
 
     /** 未连接时先连再发，对齐 VS Code 首次发送。输入栏发送走这里。 */
@@ -490,9 +472,12 @@ class ToolWindowHost(
         }
     }
 
+    private fun requireRuntime(): ResolvedRuntime =
+        RuntimeLocator.resolveFromPlugin(pluginRoot ?: throw CodemError.Validation("CodeM plugin installation directory is unavailable"))
+
     private fun locateRuntime(): ResolvedRuntime? {
         return try {
-            val resolved = RuntimeLocator.resolveFromPlugin(pluginRoot ?: throw CodemError.Validation("CodeM plugin installation directory is unavailable"))
+            val resolved = requireRuntime()
             log.info("CodeM locked runtime located")
             resolved
         } catch (error: Throwable) {

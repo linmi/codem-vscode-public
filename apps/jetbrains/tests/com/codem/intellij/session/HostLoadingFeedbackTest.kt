@@ -8,9 +8,6 @@ import org.junit.jupiter.api.Test
 class HostLoadingFeedbackTest {
     @Test
     fun pendingStatesStayReadableAndTimeoutsStayShort() {
-        assertTrue(HostLoadingFeedback.accountStillPending("checking"))
-        assertFalse(HostLoadingFeedback.accountStillPending("signedOut"))
-        assertFalse(HostLoadingFeedback.accountStillPending("error"))
         assertTrue(HostLoadingFeedback.connectStillPending("connecting"))
         assertFalse(HostLoadingFeedback.connectStillPending("ready"))
         assertFalse(HostLoadingFeedback.connectStillPending("failed"))

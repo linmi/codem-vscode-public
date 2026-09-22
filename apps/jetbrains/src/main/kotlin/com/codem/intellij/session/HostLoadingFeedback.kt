@@ -15,7 +15,5 @@ object HostLoadingFeedback {
     const val CONNECTING = "正在连接 CodeM…"
     const val CONNECT_TIMEOUT = "连接超时，请重试。"
 
-    fun accountStillPending(status: String): Boolean = status == "checking"
-
     fun connectStillPending(phase: String): Boolean = phase == "connecting"
 }
