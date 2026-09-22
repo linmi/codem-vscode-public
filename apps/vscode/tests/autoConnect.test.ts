@@ -37,6 +37,7 @@ it("initializes on opening chat by default, once per activation, with explicit r
       export class ConnectionPreferences {}
       export class EditorSelection {state={snapshot(){return null},setContext(){},clear(){control.selectionsCleared++}};dispose(){}}
       export class EditorReview {contextChanged(){} dispose(){}}
+      export class NextEdit {contextChanged(){} dispose(){}}
       export class ActiveConversation {}
       export class NativeFeatures {dispose(){}}
       export class PanelBroker {cancel(){}}

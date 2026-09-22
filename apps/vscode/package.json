@@ -181,6 +181,26 @@
         "title": "拒绝当前修改块",
         "category": "CodeM",
         "icon": "$(close)"
+      },
+      {
+        "command": "codem.predictNextEdit",
+        "title": "预测下一处修改（Next Edit）",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.jumpNextEdit",
+        "title": "跳转到下一处修改",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.acceptNextEdit",
+        "title": "接受下一处修改",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.dismissNextEdit",
+        "title": "取消下一处修改",
+        "category": "CodeM"
       }
     ],
     "viewsContainers": {
@@ -294,6 +314,11 @@
           "command": "codem.rejectAllEdits",
           "when": "resourceScheme == codem-edit-review",
           "group": "codemReview@3"
+        },
+        {
+          "command": "codem.predictNextEdit",
+          "when": "resourceScheme == file && isWorkspaceTrusted",
+          "group": "codemNextEdit@1"
         }
       ],
       "terminal/context": [
@@ -376,6 +401,27 @@
         "key": "ctrl+alt+space",
         "mac": "cmd+alt+\\",
         "when": "editorTextFocus && !editorReadonly && isWorkspaceTrusted"
+      },
+      {
+        "command": "codem.predictNextEdit",
+        "key": "ctrl+alt+shift+n",
+        "mac": "cmd+alt+shift+n",
+        "when": "editorTextFocus && !editorReadonly && isWorkspaceTrusted"
+      },
+      {
+        "command": "codem.jumpNextEdit",
+        "key": "tab",
+        "when": "editorTextFocus && codem.nextEditVisible && !codem.nextEditAtTarget && !editorReadonly && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && !editorTabMovesFocus"
+      },
+      {
+        "command": "codem.acceptNextEdit",
+        "key": "tab",
+        "when": "editorTextFocus && codem.nextEditVisible && codem.nextEditAtTarget && !editorReadonly && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && !editorTabMovesFocus"
+      },
+      {
+        "command": "codem.dismissNextEdit",
+        "key": "escape",
+        "when": "editorTextFocus && (codem.nextEditVisible || codem.nextEditBusy) && !suggestWidgetVisible && !inlineSuggestionVisible"
       }
     ],
     "configuration": {

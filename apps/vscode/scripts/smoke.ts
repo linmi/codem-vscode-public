@@ -6,7 +6,13 @@ import { fileURLToPath } from "node:url"
 import { vscodeExecutable } from "./support/vscodeExecutable.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-if (process.argv.includes("--plugin-management")) {
+if (process.argv.includes("--next-edit")) {
+  if (!process.argv.includes("--live")) throw new Error("Next Edit acceptance requires explicit test:live")
+  const { runLiveNextEdit } = await import("../tests/liveNextEdit.ts")
+  const temporary = await mkdtemp(join(tmpdir(), "codemNextEdit"))
+  try { await runLiveNextEdit(root, temporary) }
+  finally { await rm(temporary, { recursive: true, force: true }) }
+} else if (process.argv.includes("--plugin-management")) {
   if (!process.argv.includes("--live")) throw new Error("Plugin acceptance requires explicit test:live")
   const { runLivePluginManagement } = await import("../tests/livePluginManagement.ts")
   await runLivePluginManagement(root)

@@ -8,6 +8,7 @@ import { registerTerminalActions } from "./integrations/terminalActions.ts"
 import { ChatSurfaces } from "./chat/chatSurfaces.ts"
 import { registerEditorActions } from "./integrations/editorActions.ts"
 import { EditorReview } from "./integrations/editorReview.ts"
+import { NextEdit } from "./integrations/nextEdit/nextEdit.ts"
 import { ConnectionPreferences } from "./connection/connectionPreferences.ts"
 import { ActiveConversation } from "./sessionHistory/activeConversation.ts"
 import * as vscode from "vscode"
@@ -41,6 +42,7 @@ export function activate(context: vscode.ExtensionContext): void {
   accountController = account
   let selection: EditorSelection | undefined
   let review: EditorReview | undefined
+  let nextEdit: NextEdit | undefined
   let connectingAt: number | null = null
   let previousPhase: string | null = null
   const openSession = async (signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
@@ -85,6 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       selection?.state.setContext(state)
       review?.contextChanged()
+      nextEdit?.contextChanged()
       surfaces?.post(state)
     },
     report: (operation, error) => {
@@ -233,6 +236,8 @@ export function activate(context: vscode.ExtensionContext): void {
     selection!.state.consume(selectionIds)
   }
   review = new EditorReview({ contextKey: () => chat.contextKey(), ready: () => chat.snapshot().phase === "ready", checkFile: path => chat.assertContextWorkspace(path), generate: (text, signal, scope) => chat.generateText(text, signal, scope) }, message => output.appendLine(message))
+  nextEdit = new NextEdit({ contextKey: () => chat.contextKey(), completionContext: () => chat.completionContext(), assertContextWorkspace: path => chat.assertContextWorkspace(path), generateText: (prompt, signal, scope) => chat.generateText(prompt, signal, scope) }, message => output.appendLine(message))
+  context.subscriptions.push(nextEdit)
   context.subscriptions.push(output, surfaces, review, registerGitActions(chat, message => output.appendLine(message)), registerInlineCompletion(chat, message => output.appendLine(message)), registerEditorActions(addContext, (action, document, range, diagnostics) => review!.generate(action, document, range, diagnostics)), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration("codem.chat.sendKey")) surfaces?.postSettings()
     if (event.affectsConfiguration("codem.autoConnect")) void autoConnect()
