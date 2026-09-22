@@ -361,7 +361,7 @@ class ProjectSessionTest {
             .required("params").asObject()
         assertEquals(
             com.codem.intellij.ide.PathGuard.realPathOrNormalized(extra).toString(),
-            resume.required("additionalDirectories").asArray().items.single().asText(),
+            resume.required("additionalDirectories").asArray().items.first().asText(),
         )
 
         val env = session.loadCatalog("environment")

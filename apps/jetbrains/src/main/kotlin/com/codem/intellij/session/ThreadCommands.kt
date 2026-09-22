@@ -34,13 +34,14 @@ object ThreadCommands {
         model: String,
         intelligence: String,
         workMode: String,
+        directories: List<String>,
     ): Pair<String, JsonValue.ObjectValue> =
         "thread/clear" to JsonValue.obj(
             "threadId" to JsonValue.Text(threadId),
             "operationId" to JsonValue.Text(operationId),
             "cwd" to JsonValue.Text(cwd),
             "model" to JsonValue.obj("id" to JsonValue.Text(model), "intelligence" to JsonValue.Text(intelligence)),
-            "additionalDirectories" to JsonValue.ArrayValue(emptyList()),
+            "additionalDirectories" to JsonValue.ArrayValue(directories.map { JsonValue.Text(it) }),
             "mcpServers" to JsonValue.ArrayValue(emptyList()),
             "executionMode" to JsonValue.Text(workMode),
         )
@@ -51,13 +52,13 @@ object ThreadCommands {
         return "thread/list" to JsonValue.ObjectValue(fields)
     }
 
-    fun resume(threadId: String, cwd: String, model: String, intelligence: String): Pair<String, JsonValue.ObjectValue> =
+    fun resume(threadId: String, cwd: String, model: String, intelligence: String, directories: List<String>): Pair<String, JsonValue.ObjectValue> =
         "thread/resume" to JsonValue.obj(
             "threadId" to JsonValue.Text(threadId),
             "cwd" to JsonValue.Text(cwd),
             "model" to JsonValue.Text(model),
             "extensions" to JsonValue.obj("codem" to JsonValue.obj("intelligence" to JsonValue.Text(intelligence))),
-            "additionalDirectories" to JsonValue.ArrayValue(emptyList()),
+            "additionalDirectories" to JsonValue.ArrayValue(directories.map { JsonValue.Text(it) }),
             "mcpServers" to JsonValue.ArrayValue(emptyList()),
         )
 
@@ -94,13 +95,6 @@ object ThreadCommands {
 
     fun shellCommand(threadId: String, command: String): Pair<String, JsonValue.ObjectValue> =
         "thread/shellCommand" to JsonValue.obj("threadId" to JsonValue.Text(threadId), "command" to JsonValue.Text(command))
-
-    fun resumeWithDirectories(threadId: String, cwd: String, directories: List<String>): Pair<String, JsonValue.ObjectValue> =
-        "thread/resume" to JsonValue.obj(
-            "threadId" to JsonValue.Text(threadId),
-            "cwd" to JsonValue.Text(cwd),
-            "additionalDirectories" to JsonValue.ArrayValue(directories.map { JsonValue.Text(it) }),
-        )
 
     fun backgroundTerminals(threadId: String): Pair<String, JsonValue.ObjectValue> =
         "thread/backgroundTerminals/list" to JsonValue.obj("threadId" to JsonValue.Text(threadId))

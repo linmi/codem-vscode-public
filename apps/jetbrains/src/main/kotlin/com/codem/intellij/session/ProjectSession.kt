@@ -498,7 +498,7 @@ class ProjectSession(
         if (id.isEmpty()) throw CodemError.Validation("CodeM thread/resume threadId is required")
         return changeThread(allowRunning = false) { coreProcess, currentGeneration ->
             unsubscribeCurrent(coreProcess, currentGeneration)
-            val (method, params) = ThreadCommands.resume(id, workingDirectory.toString(), settings.model, settings.intelligence)
+            val (method, params) = ThreadCommands.resume(id, workingDirectory.toString(), settings.model, settings.intelligence, threadDirectories())
             val result = requestResult(coreProcess, method, params, currentGeneration)
             val actual = result.required("thread").asObject().required("id").asText()
             if (actual != id) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM resumed $actual, expected $id")
@@ -702,6 +702,7 @@ class ProjectSession(
             settings.model,
             settings.intelligence,
             settings.workMode,
+            threadDirectories(),
         )
         val result = requestResult(coreProcess, method, params, currentGeneration)
         if ((result.fields["operationId"] as? JsonValue.Text)?.value != operationId ||
@@ -1043,26 +1044,13 @@ class ProjectSession(
             directories += DirectoryRef(id, real.fileName.toString(), real)
         }
         val current = lock.withLock { threadId }
-        if (current != null) resumeWithDirectories(current)
+        if (current != null) resumeThread(current)
     }
 
     fun removeDirectory(id: String) {
         lock.withLock { directories.removeAll { it.id == id } }
         val current = lock.withLock { threadId }
-        if (current != null) resumeWithDirectories(current)
-    }
-
-    fun resumeWithDirectories(requestedId: String = lock.withLock { threadId ?: throw CodemError.Conflict("no thread") }): String {
-        val (coreProcess, currentGeneration) = readyCore()
-        val dirs = lock.withLock { directories.map { it.path.toString() } }
-        val (method, params) = ThreadCommands.resumeWithDirectories(requestedId, workingDirectory.toString(), dirs)
-        val result = requestResult(coreProcess, method, params, currentGeneration)
-        val actual = result.required("thread").asObject().required("id").asText()
-        lock.withLock {
-            assertGeneration(currentGeneration)
-            bindThreadLocked(actual)
-        }
-        return actual
+        if (current != null) resumeThread(current)
     }
 
     fun listBackgroundTerminals(): List<BackgroundView> {
@@ -1199,7 +1187,7 @@ class ProjectSession(
         }
         val futures = current.map { it.close() } + listOfNotNull(pending)
         return CompletableFuture.allOf(*futures.toTypedArray()).whenComplete { _, _ ->
-            lock.withLock { attachments.clear(); phase = ConnectionPhase.Disconnected }
+            lock.withLock { attachments.close(); phase = ConnectionPhase.Disconnected }
         }
     }
 
@@ -1322,8 +1310,12 @@ class ProjectSession(
         sideQuestionId = null
     }
 
+    private fun threadDirectories(): List<String> = lock.withLock {
+        directories.map { it.path.toString() } + attachments.rootForCore().toString()
+    }
+
     private fun startThread(coreProcess: CoreProcess): String {
-        val extra = lock.withLock { directories.map { JsonValue.Text(it.path.toString()) } }
+        val extra = threadDirectories().map { JsonValue.Text(it) }
         val result = coreProcess.request(
             "thread/start",
             JsonValue.obj(

@@ -41,7 +41,10 @@ if (!existsSync(gradlew)) {
   fail(`CodeM JetBrains Gradle wrapper is missing: ${gradlew}`)
 }
 const task = live ? "liveTest" : runtime ? "runtimeTest" : plugin ? "buildPlugin" : compileOnly ? "compileKotlin" : "domainTest"
-const result = spawnSync(gradlew, [task, "--no-daemon"], {
+const testsIndex = process.argv.indexOf("--tests")
+const tests = testsIndex >= 0 ? process.argv[testsIndex + 1] : undefined
+if (testsIndex >= 0 && (!live || !tests || tests.startsWith("--"))) fail("--tests requires --live and a Gradle test name")
+const result = spawnSync(gradlew, [task, "--no-daemon", ...(tests ? ["--tests", tests] : [])], {
   cwd: app,
   stdio: "inherit",
   env: { ...process.env, JAVA_HOME: javaHome ?? process.env.JAVA_HOME },

@@ -97,3 +97,5 @@ pnpm --filter @codem/jetbrains reload   # 装进本机 2026.2.3 并自动重载�
 验收进展见 [JetBrains 功能准出台账](../../docs/jetbrainsFeatureAcceptance.md)。
 
 `test:live` 默认使用认证程序已选中的空间；可通过 `CODEM_TEST_SPACE` 指定已有空间 key，但不会切换全局账户或空间。缺少登录或有效空间时明确失败，不跳过。每次正常执行发送两条禁止使用工具的文本探针，最多等待每轮 90 秒；独立临时工作区和 `LINCO_SESSIONS_ROOT` 隔离测试历史，退出时检查 Core 回收。默认 `check` 排除 `liveCore` 与 `nativeRuntime` 标签，不访问真实账户或模型。
+
+完整交互的真实 Core 验收：`pnpm --filter @codem/jetbrains test:live --tests '*LiveToolTest'`。该测试读取独立 fixture 的文件/目录/选区/图片，拒绝一次修改，再允许一次修改，核验磁盘及 Diff；不修改用户项目文件。进展见 [审批、附件和 Diff 验收](../../docs/jetbrainsInteractionAcceptance.md)。

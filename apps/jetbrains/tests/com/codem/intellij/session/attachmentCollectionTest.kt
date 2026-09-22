@@ -12,6 +12,20 @@ class AttachmentCollectionTest {
     private val image = ImageAttachment("image/png", byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10))
 
     @Test
+    fun coreRootIsPrivateStableAndRemovedOnlyOnClose() {
+        val collection = AttachmentCollection(null)
+        val root = collection.rootForCore()
+        assertNotEquals(Path.of(System.getProperty("java.io.tmpdir")).toRealPath(), root)
+        val id = collection.addImages(listOf(image)).single()
+        collection.remove(id)
+        assertEquals(root, collection.rootForCore())
+        assertEquals(0L, Files.list(root).use { it.count() })
+        collection.close()
+        assertFalse(Files.exists(root))
+        assertThrows(IllegalStateException::class.java) { collection.rootForCore() }
+    }
+
+    @Test
     fun removalNeverReusesIdentityOrDeletesOriginals(@TempDir root: Path) {
         val file = Files.writeString(root.resolve("original.txt"), "source")
         val collection = AttachmentCollection(object : AttachmentStore {
@@ -42,6 +56,8 @@ class AttachmentCollectionTest {
         assertFalse(Files.exists(file))
         assertTrue(Files.exists(nextFile))
         collection.release(2)
+        assertFalse(Files.exists(nextFile))
+        collection.close()
         assertFalse(Files.exists(nextFile.parent))
     }
 
@@ -56,6 +72,8 @@ class AttachmentCollectionTest {
         assertEquals(file, collection.retain(listOf(id), 2).single().path)
         collection.remove(id)
         collection.release(2)
+        assertFalse(Files.exists(file))
+        collection.close()
         assertFalse(Files.exists(file.parent))
     }
 

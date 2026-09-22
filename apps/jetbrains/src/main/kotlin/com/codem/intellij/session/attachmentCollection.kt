@@ -16,6 +16,20 @@ class AttachmentCollection(private val store: AttachmentStore?) {
     private val owned = mutableSetOf<String>()
     private val leases = mutableMapOf<Long, MutableSet<String>>()
     private var directory: Path? = null
+    private var closed = false
+
+    fun rootForCore(): Path {
+        check(!closed) { "CodeM attachments are closed" }
+        return directory ?: Files.createTempDirectory("codem-images-").toRealPath().also { directory = it }
+    }
+
+    fun close() {
+        closed = true
+        composer.clear()
+        leases.clear()
+        collect()
+        directory?.let { Files.deleteIfExists(it); directory = null }
+    }
 
     fun visible(): List<AttachmentHandle> = composer.map { records.getValue(it) }
 
@@ -44,7 +58,7 @@ class AttachmentCollection(private val store: AttachmentStore?) {
                 else -> null
             } ?: throw CodemError.Validation("CodeM pasted image format does not match its content")
         }
-        val root = directory ?: Files.createTempDirectory("codem-images-").toRealPath().also { directory = it }
+        val root = rootForCore()
         val staged = mutableListOf<AttachmentHandle>()
         try {
             images.forEachIndexed { index, image ->
@@ -56,7 +70,6 @@ class AttachmentCollection(private val store: AttachmentStore?) {
             }
         } catch (error: Throwable) {
             staged.forEach { Files.deleteIfExists(it.path) }
-            if (records.values.none { it.path.parent == root }) { Files.deleteIfExists(root); directory = null }
             throw error
         }
         staged.forEach { records[it.id] = it; composer += it.id; owned += it.id }
@@ -69,6 +82,12 @@ class AttachmentCollection(private val store: AttachmentStore?) {
             if (id !in composer) throw CodemError.Validation("CodeM attachment is no longer available")
             records.getValue(id).also {
                 if (!Files.exists(it.path)) throw CodemError.Validation("CodeM attachment no longer exists")
+                if (id in owned) {
+                    if (it.path.toRealPath() != it.path || it.path.parent != directory) throw CodemError.Validation("CodeM pasted image path changed")
+                } else {
+                    val kind = AttachmentStore.Kind.entries.single { kind -> kind.name.lowercase() == it.kind }
+                    store!!.validate(it.path, kind)
+                }
             }
         }
         leases.getOrPut(generation) { mutableSetOf() }.addAll(ids)
@@ -87,10 +106,10 @@ class AttachmentCollection(private val store: AttachmentStore?) {
             if (id in owned) { Files.deleteIfExists(records.getValue(id).path); owned.remove(id) }
             records.remove(id)
         }
-        if (owned.isEmpty()) directory?.let { Files.deleteIfExists(it); directory = null }
     }
 
     private fun requireCapacity(count: Int) {
+        check(!closed) { "CodeM attachments are closed" }
         if (composer.size + count > 20) throw CodemError.Validation("CodeM supports at most 20 attachments per message")
     }
 }
