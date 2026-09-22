@@ -1504,3 +1504,34 @@ it("keeps task progress attached to its call across results, failures and sessio
   await f.controller.newChat()
   assert.equal(f.controller.snapshot().messages.length, 0)
 })
+
+
+it("authorizes later clipboard images at thread creation and preserves only private roots through reconfiguration", async t => {
+  const { stat, readFile } = await import("node:fs/promises")
+  const f = setup(); t.after(() => f.controller.dispose())
+  let root = ""
+  f.host.startThread = async (_cwd, settings) => {
+    assert.equal(settings.additionalDirectories.length, 1)
+    root = settings.additionalDirectories[0]!
+    assert.notEqual(root, tmpdir())
+    assert.equal((await stat(root)).mode & 0o777, 0o700)
+    return "thread-1"
+  }
+  await f.controller.connect(); await f.controller.createThread()
+  f.host.resumeThread = async (_cwd, _id, settings) => { assert.deepEqual(settings.additionalDirectories, [root]) }
+  await f.controller.chooseModel("other-model")
+  assert.deepEqual(f.controller.snapshot().sessionTools.directories, [])
+  assert.ok(!JSON.stringify(f.controller.snapshot()).includes(root))
+  await f.controller.pasteImages({ type: "pasteImages", requestId: "later", scope: attachmentScope(f.controller.snapshot()), images: [{ mediaType: "image/png", data: "iVBORw0KGgo=" }] })
+  const start = f.host.startTurn
+  let path = ""
+  f.host.startTurn = async input => { path = input.attachments![0]!.path; assert.ok(path.startsWith(root + "/")); return start(input) }
+  assert.equal(await f.controller.send("later image"), true)
+  let close!: () => void
+  f.host.close = () => new Promise(resolve => { close = resolve })
+  const disposing = f.controller.dispose()
+  await new Promise(resolve => setImmediate(resolve))
+  await readFile(path)
+  close(); await disposing
+  await assert.rejects(stat(root), { code: "ENOENT" })
+})

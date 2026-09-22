@@ -75,7 +75,7 @@ const pastedPng = { mediaType: "image/png" as const, data: "iVBORw0KGgoAAAANSUhE
 it("pasted images become private local attachments and retain previews after send, until the conversation is cleared", async t => {
   const { readFile, stat } = await import("node:fs/promises")
   const resources = new ConversationResources()
-  t.after(async () => { resources.clear(); await resources.finishImageCleanup() })
+  t.after(async () => { resources.clear(); await resources.disposeImages() })
   const added = await resources.addPastedImages([pastedPng], () => {})
   const path = resources.selected()[0]!.path
   resources.retainImages([], []) // A snapshot emitted before the import receipt cannot discard selected bytes.
@@ -92,9 +92,10 @@ it("pasted images become private local attachments and retain previews after sen
   await assert.rejects(readFile(path), { code: "ENOENT" })
 })
 
-it("removing an unsent image deletes only its owned temporary file", async () => {
+it("removing an unsent image deletes only its owned temporary file", async t => {
   const { readFile } = await import("node:fs/promises")
   const resources = new ConversationResources()
+  t.after(() => resources.disposeImages())
   const [added] = await resources.addPastedImages([pastedPng], () => {})
   const path = resources.selected()[0]!.path
   resources.remove(added!.id); resources.retainImages([], [])
@@ -102,8 +103,9 @@ it("removing an unsent image deletes only its owned temporary file", async () =>
   await assert.rejects(readFile(path), { code: "ENOENT" })
 })
 
-it("pasted image batches are atomic for wrong MIME, non-canonical base64, count limits and cancellation", async () => {
+it("pasted image batches are atomic for wrong MIME, non-canonical base64, count limits and cancellation", async t => {
   const resources = new ConversationResources()
+  t.after(() => resources.disposeImages())
   await assert.rejects(resources.addPastedImages([pastedPng, { ...pastedPng, mediaType: "image/jpeg" }], () => {}), /格式无效/)
   await assert.rejects(resources.addPastedImages([{ mediaType: "image/png", data: "iVBORw0KGgp=" }], () => {}), /格式无效/)
   assert.deepEqual(resources.selected(), [])
@@ -117,9 +119,10 @@ it("pasted image batches are atomic for wrong MIME, non-canonical base64, count 
   assert.deepEqual(resources.selected(), [])
 })
 
-it("retirement waits for Core to release pasted files before deleting them", async () => {
+it("retirement waits for Core to release pasted files before deleting them", async t => {
   const { readFile } = await import("node:fs/promises")
   const resources = new ConversationResources()
+  t.after(() => resources.disposeImages())
   await resources.addPastedImages([pastedPng], () => {})
   const path = resources.selected()[0]!.path
   let close!: () => void
@@ -128,4 +131,20 @@ it("retirement waits for Core to release pasted files before deleting them", asy
   assert.equal((await readFile(path)).toString("base64"), pastedPng.data)
   close(); await resources.finishImageCleanup()
   await assert.rejects(readFile(path), { code: "ENOENT" })
+})
+
+
+it("keeps a private root stable across conversation resets and removes it only on disposal", async () => {
+  const { stat } = await import("node:fs/promises")
+  const resources = new ConversationResources()
+  const root = resources.rootForCore()
+  assert.equal((await stat(root)).mode & 0o777, 0o700)
+  await resources.addPastedImages([pastedPng], () => {})
+  assert.ok(resources.selected()[0]!.path.startsWith(root + "/"))
+  resources.clear(); await resources.finishImageCleanup()
+  assert.equal(resources.rootForCore(), root)
+  await resources.addPastedImages([pastedPng], () => {})
+  assert.ok(resources.selected()[0]!.path.startsWith(root + "/"))
+  resources.clear(); await resources.disposeImages()
+  await assert.rejects(stat(root), { code: "ENOENT" })
 })

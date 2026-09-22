@@ -312,10 +312,14 @@ export class ChatController {
     }
   }
 
+  private settingsForCore(settings = this.settings): AppServerThreadSettings {
+    return { ...settings, additionalDirectories: [...settings.additionalDirectories, this.resources.rootForCore()] }
+  }
+
   private async ensureThread(session: ChatSession): Promise<string> {
     if (this.session !== session || this.disposed) throw new UserVisibleError("连接已关闭。")
     if (!this.threadId) {
-      const threadId = await session.host.startThread(session.cwd, this.settings)
+      const threadId = await session.host.startThread(session.cwd, this.settingsForCore())
       if (this.session !== session || this.disposed) throw new UserVisibleError("创建会话期间连接已关闭，请从历史列表核对。")
       this.threadId = threadId
       await this.rememberActiveConversation(session, threadId)
@@ -533,7 +537,7 @@ export class ChatController {
       if (this.session !== session || this.side !== side) return
       if (this.textGeneration?.cancelled) throw new UserVisibleError("生成已取消。")
       if (!threadId) {
-        threadId = await session.host.startThread(session.cwd, this.settings)
+        threadId = await session.host.startThread(session.cwd, this.settingsForCore())
         if (this.session !== session || this.side !== side) return
         this.threadId = threadId
         await this.rememberActiveConversation(session, threadId)
@@ -767,7 +771,7 @@ export class ChatController {
     let saved = Promise.resolve()
     let restored = false
     try {
-      await this.conversationHistory.restore(this.historyContext(session), threadId, this.threadId, this.settings, ({ page, modes }) => {
+      await this.conversationHistory.restore(this.historyContext(session), threadId, this.threadId, this.settingsForCore(), ({ page, modes }) => {
         this.resetResources()
         const messages = this.resources.projectHistory(threadId, page, session.cwd)
         const diffs = this.resources.restoreDiffs(session.cwd, page, true, this.state.diffs)
@@ -868,7 +872,7 @@ export class ChatController {
     const current = this.retire()
     const results = await Promise.allSettled(new Set([current, ...this.retiringHosts, this.options.activeConversation?.flush() ?? Promise.resolve()]))
     const failures = results.flatMap(result => result.status === "rejected" ? [result.reason] : [])
-    try { await this.resources.finishImageCleanup() } catch (error) { failures.push(error) }
+    try { if (!failures.length) await this.resources.disposeImages(); else await this.resources.finishImageCleanup() } catch (error) { failures.push(error) }
     if (failures.length) throw new AggregateError(failures, "CodeM host cleanup failed")
   }
 
@@ -1158,7 +1162,7 @@ export class ChatController {
       let confirmedModes = modes
       if (this.threadId) {
         if (next.model !== this.settings.model || next.intelligence !== this.settings.intelligence || JSON.stringify(next.additionalDirectories) !== JSON.stringify(this.settings.additionalDirectories) || JSON.stringify(next.mcpServers) !== JSON.stringify(this.settings.mcpServers)) {
-          await session.host.resumeThread(session.cwd, this.threadId, next)
+          await session.host.resumeThread(session.cwd, this.threadId, this.settingsForCore(next))
           if (this.session !== session || this.disposed) return
           this.settings = { ...this.settings, model: next.model, intelligence: next.intelligence, additionalDirectories: next.additionalDirectories, mcpServers: next.mcpServers }
           this.updateSettings()
@@ -1320,7 +1324,7 @@ export class ChatController {
   async refreshTools(): Promise<void> {
     await this.configure(async (settings, session) => {
       if (!this.threadId) {
-        const threadId = await session.host.startThread(session.cwd, settings)
+        const threadId = await session.host.startThread(session.cwd, this.settingsForCore(settings))
         if (this.session !== session || this.disposed) return null
         this.threadId = threadId
         await this.rememberActiveConversation(session, threadId)

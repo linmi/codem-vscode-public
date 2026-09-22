@@ -1,3 +1,4 @@
+import { mkdtempSync, realpathSync } from "node:fs"
 import { mkdtemp, writeFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { MAX_ATTACHMENTS, parsePastedImages, type PastedImage } from "../shared/pastedImages.ts"
@@ -22,6 +23,19 @@ export class ConversationResources {
   private readonly diffs = new Map<string, FileDiffContent>()
   private readonly diffIds = new Map<string, string>()
   private revision = 0
+  private imageRoot: string | null = null
+
+  /** Stable private root: authorize before the first turn, including text-only threads. */
+  rootForCore(): string {
+    return this.imageRoot ??= realpathSync(mkdtempSync(join(tmpdir(), "codem-images-")))
+  }
+
+  /** Call only after every Core using this owner has closed. */
+  async disposeImages(): Promise<void> {
+    await this.finishImageCleanup()
+    if (this.imageRoot) await rm(this.imageRoot, { recursive: true, force: true })
+    this.imageRoot = null
+  }
   private readonly pastedDirectories = new Map<string, string>()
   private readonly imageImports = new Set<Promise<AttachmentView[]>>()
   private readonly imageCleanup = new Set<Promise<void>>()
@@ -88,7 +102,7 @@ export class ConversationResources {
         if (revision !== this.revision) throw new Error("Image paste expired")
         const bytes = Buffer.from(image.data, "base64")
         if (bytes.toString("base64") !== image.data || rasterMediaType(bytes) !== image.mediaType) throw new UserVisibleError("剪贴板图片格式无效，请重新复制 PNG、JPEG、GIF 或 WebP 图片。")
-        const directory = await mkdtemp(join(tmpdir(), "codem-paste-"))
+        const directory = await mkdtemp(join(this.rootForCore(), "paste-"))
         const path = join(directory, `粘贴图片.${image.mediaType === "image/jpeg" ? "jpg" : image.mediaType.slice(6)}`)
         created.push({ directory, path })
         await writeFile(path, bytes, { flag: "wx", mode: 0o600 })
