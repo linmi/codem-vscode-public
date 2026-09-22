@@ -27,3 +27,5 @@ Button / Tabs / cn 从 `packages/ui/src/components/` 复制，来源提交 `f58a
 - 类型检查覆盖网页、构建脚本和可复制示例；文档测试检查发布路由与示例来源，不调用 Core。
 - 构建通过 esbuild metafile 阻止 Node App Server / history 实现进入浏览器。
 - 浏览器验收记录见 `docs/appServerWebsiteAcceptance.md`。
+
+品牌 Logo 使用 `apps/vscode/assets/codemMark.svg` 的原始 SVG（来源提交 `e4f6a4b5ac00e5df98cec1ec2e8eccef5c383e60`，上游来源见根目录 UPSTREAM.md），本地副本位于 `src/assets/codemMark.svg`，用于网页标识与 favicon；保留原品牌用途及许可证。

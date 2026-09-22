@@ -12,7 +12,9 @@ const examples = Object.fromEntries(await Promise.all((await readdir(join(root, 
   .filter(name => name.endsWith(".ts"))
   .map(async name => [name.replace(/\.ts$/, ""), await readFile(join(root, "examples", name), "utf8")])))
 await mkdir(outdir, { recursive: true })
-for (const name of ["index.html", "favicon.svg"]) await copyFile(join(root, "src", name), join(outdir, name))
+await copyFile(join(root, "src/index.html"), join(outdir, "index.html"))
+await mkdir(join(outdir, "assets"), { recursive: true })
+await copyFile(join(root, "src/assets/codemMark.svg"), join(outdir, "assets/codemMark.svg"))
 const options: BuildOptions = {
   absWorkingDir: root,
   entryPoints: ["src/main.tsx"], outdir, bundle: true, format: "esm", platform: "browser",
