@@ -127,6 +127,7 @@ class ToolWindowHost(
             is ViewAction.PickAttachment -> pickAttachment(action.kind)
             is ViewAction.SetTheme -> applyTheme(action.theme)
             is ViewAction.OpenDiff -> openDiff(action.id)
+            is ViewAction.OpenChangedFile -> openChangedFile(action.id)
             is ViewAction.RemoveAttachment -> removeAttachment(action.id)
             else -> applyOnSession(action)
         }
@@ -427,6 +428,20 @@ class ToolWindowHost(
     private fun applyTheme(theme: String) {
         sessionRef.get()?.setTheme(theme)
         publish(current().copy(theme = theme, version = current().version + 1))
+    }
+
+    private fun openChangedFile(id: String) {
+        ApplicationManager.getApplication().invokeLater {
+            val session = sessionRef.get() ?: return@invokeLater
+            try {
+                val path = session.changedFilePath(id)
+                val file = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path)
+                    ?: throw CodemError.Validation("CodeM changed file is no longer available")
+                com.codem.intellij.ide.revealFile(project, file)
+            } catch (error: Throwable) {
+                publish(session.snapshot().copy(notice = SafeNotice.from(error, "无法打开变更文件")))
+            }
+        }
     }
 
     private fun openDiff(id: String) {

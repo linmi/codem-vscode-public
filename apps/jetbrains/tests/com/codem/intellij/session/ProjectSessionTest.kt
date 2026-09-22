@@ -804,6 +804,29 @@ class ProjectSessionTest {
         assertTrue(failed)
     }
 
+    @Test
+    fun changedFileNavigationRequiresCurrentHandlesAndTrustedExistingFiles(@org.junit.jupiter.api.io.TempDir temp: Path) {
+        val root = Files.createDirectory(temp.resolve("root"))
+        val inside = Files.writeString(root.resolve("inside.txt"), "inside")
+        val outside = Files.writeString(temp.resolve("outside.txt"), "outside")
+        Files.createSymbolicLink(root.resolve("escape.txt"), outside)
+        for (path in listOf("inside.txt", "../outside.txt", "escape.txt", "deleted.txt")) {
+            val process = ScriptedProcess()
+            val session = session(workingDirectory = root) { startResponder(process, handshakeCapabilities()); process }
+            try {
+                session.connect()
+                session.resumeThread("thread-1")
+                enqueueFileDiff(process, path)
+                val diff = awaitSnapshot(session) { it.diffs.singleOrNull()?.available == true }.diffs.single()
+                assertEquals(ViewAction.OpenChangedFile(diff.id), parseViewAction(JsonValue.obj("type" to JsonValue.Text("openChangedFile"), "id" to JsonValue.Text(diff.id))))
+                if (path == "inside.txt") assertEquals(inside.toRealPath(), session.changedFilePath(diff.id))
+                else org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.changedFilePath(diff.id) }
+                session.newChat()
+                org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.changedFilePath(diff.id) }
+            } finally { session.close().get(5, java.util.concurrent.TimeUnit.SECONDS) }
+        }
+    }
+
     /** 一条完整的 item/fileChange/delta：分两片送达，complete 后才产出内容。 */
     private fun enqueueFileDiff(process: ScriptedProcess, path: String) {
         val payload = encodeJson(
@@ -897,6 +920,7 @@ class ProjectSessionTest {
 
     private fun session(
         trusted: Boolean = true,
+        workingDirectory: Path? = null,
         spaceOverride: SpaceGateway = StubSpace(),
         historySource: HistorySource? = null,
         selectionReader: SelectionReader? = null,
@@ -906,7 +930,7 @@ class ProjectSessionTest {
         onSnapshot: ((com.codem.intellij.webview.ChatSnapshot) -> Unit)? = null,
         factory: (ScriptedProcess) -> ScriptedProcess,
     ): ProjectSession {
-        val cwd = Files.createTempDirectory("codem-session-cwd")
+        val cwd = workingDirectory ?: Files.createTempDirectory("codem-session-cwd")
         val file = Files.createTempFile("codem-core", "")
         Files.writeString(file, "x")
         val target = RuntimeLocator.targets.values.first()

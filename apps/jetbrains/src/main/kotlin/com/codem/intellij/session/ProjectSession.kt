@@ -1001,6 +1001,21 @@ class ProjectSession(
         lock.withLock { attachments.remove(id); snapshotVersion += 1 }
     }
 
+    /** Resolves only a current opaque diff handle; the Webview cannot supply a filesystem path. */
+    fun changedFilePath(id: String): Path = lock.withLock {
+        WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.MUTATE_FILES)
+        if (diffs.none { it.id == id }) throw CodemError.Validation("CodeM changed file is no longer available")
+        val raw = id.removePrefix("diff-").toIntOrNull()?.let { diffPaths.getOrNull(it - 1) }
+            ?: throw CodemError.Validation("CodeM changed file is no longer available")
+        val candidate = workingDirectory.resolve(raw)
+        val roots = listOf(workingDirectory) + directories.map { it.path }
+        val path = roots.firstNotNullOfOrNull { root ->
+            try { PathGuard.bind(root, candidate) } catch (_: CodemError.Validation) { null }
+        } ?: throw CodemError.Validation("CodeM rejected a changed file outside the trusted roots")
+        if (!Files.isRegularFile(path)) throw CodemError.Validation("CodeM changed file was deleted or is not a regular file")
+        path
+    }
+
     /** A10：只有 Core 给出 hunks 才打开原生 Diff；没有差异内容时明确拒绝，不展示文件名充数。 */
     fun openDiff(id: String) {
         val (preview, content) = lock.withLock {
@@ -1152,6 +1167,7 @@ class ProjectSession(
             is ViewAction.ChooseModel -> chooseModel(action.id)
             is ViewAction.ChooseSpace -> chooseSpace(action.id)
             is ViewAction.OpenDiff -> openDiff(action.id)
+            is ViewAction.OpenChangedFile -> throw CodemError.Validation("CodeM file navigation requires the IDE host")
             is ViewAction.TerminateBackground -> terminateBackground(action.id)
             is ViewAction.CancelBackgroundTask -> cancelBackgroundTask(action.id)
             is ViewAction.RemoveAttachment -> removeAttachment(action.id)
