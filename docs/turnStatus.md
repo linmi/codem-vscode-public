@@ -6,6 +6,6 @@
 
 Native Chat 同步投影状态文本，删除依赖 notice 文案识别正常停止的旧判断。连接、发送失败及其他通用警告仍在原警告栏显示；本变更不改变 Core 取消或重试语义，也不新增 RPC、认证或子进程。
 
-验证覆盖 Host 停止确认、重复和过期终态、停止后发送、历史恢复和负向状态；模拟界面 `stoppedTurn` / `turnStatusPreviewChecks.mjs` 覆盖深浅主题、展开/折叠、没有警告框、下一轮等待反馈、再次停止、重载及新会话。真实 Core 0.8.45 当时的停止后继续验证失败；2026-09-22 升级 0.8.47 后，首段输出前及流式输出期间停止后的立即续发均通过，详见 [Core 复测记录](connectionActivity.md)。真实 VS Code 点击尚未验收。
+验证覆盖 Host 停止确认、重复和过期终态、停止后发送、历史恢复和负向状态；模拟界面 `stoppedTurn` / `turnStatusPreviewChecks.mjs` 覆盖深浅主题、展开/折叠、没有警告框、下一轮等待反馈、再次停止、重载及新会话。真实 Core 0.8.45 当时的停止后继续验证失败；2026-09-22 升级 0.8.47 后，首段输出前及流式输出期间停止后的立即续发均通过，详见 [Core 复测记录](connectionActivity.md)。随后真实 VS Code 两次流式停止、续发及重载恢复通过；IDEA 发送恢复通过，但停止文案存在展示差异，额外模型探针也有异常，详见 [原生验收记录](core047NativeAcceptance.md)。
 
 本轮 `pnpm check`、`pnpm build:vscode` 和 `turnStatusPreviewChecks.mjs` 已通过。生产代码只在 shared/turnStatus.ts 定义停止文案；旧 notice 文案判断已移除，测试中的文案命中为预期断言。
