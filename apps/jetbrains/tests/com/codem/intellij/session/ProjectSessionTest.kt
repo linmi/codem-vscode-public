@@ -437,7 +437,7 @@ class ProjectSessionTest {
         assertEquals(false, runtime.diffs.single().available)
         var withoutContent = false
         try {
-            session.applyViewAction(ViewAction.OpenDiff("diff-1"))
+            session.applyViewAction(ViewAction.OpenDiff(session.snapshot().diffs.single().id))
         } catch (error: CodemError) {
             withoutContent = error.errorClass == CodemError.Class.Validation
         }
@@ -447,7 +447,7 @@ class ProjectSessionTest {
         enqueueFileDiff(process, "src/App.kt")
         val withContent = awaitSnapshot(session) { it.diffs.single().available }
         assertEquals("complete", withContent.diffs.single().preview)
-        session.applyViewAction(ViewAction.OpenDiff("diff-1"))
+        session.applyViewAction(ViewAction.OpenDiff(session.snapshot().diffs.single().id))
         val (openedPreview, openedTexts) = diffs.opened.single()
         assertEquals("App.kt", openedPreview.label)
         assertEquals("src/App.kt", openedPreview.path)
@@ -458,11 +458,16 @@ class ProjectSessionTest {
         assertEquals("12", session.snapshot().background.single().id)
         completeTurn(process, "thread-1", "turn-control")
         awaitSnapshot(session) { it.phase == "ready" }
+        val oldDiffId = session.snapshot().diffs.single().id
         session.resumeThread("thread-1")
         assertTrue(session.snapshot().diffs.isEmpty(), "Restoring a conversation must not retain the previous live diff")
-        org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.openDiff("diff-1") }
+        org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.openDiff(oldDiffId) }
         enqueueFileDiff(process, "src/App.kt")
-        awaitSnapshot(session) { it.diffs.singleOrNull()?.available == true }
+        val fresh = awaitSnapshot(session) { it.diffs.singleOrNull()?.available == true }.diffs.single()
+        assertTrue(fresh.id != oldDiffId)
+        org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.openDiff(oldDiffId) }
+        org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.changedFilePath(oldDiffId) }
+        session.openDiff(fresh.id)
         session.applyViewAction(ViewAction.ManageThread("fork", "thread-1", "", "req-fork"))
         assertTrue(process.writes.any { JsonValue.parse(it).asObject().fields["method"]?.let { method -> (method as? JsonValue.Text)?.value == "thread/fork" } == true })
         session.newChat()

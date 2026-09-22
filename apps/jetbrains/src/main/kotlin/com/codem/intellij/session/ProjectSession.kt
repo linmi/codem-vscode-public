@@ -149,7 +149,7 @@ class ProjectSession(
     private var sendKey = "enter"
     private var diffs = mutableListOf<DiffView>()
     // 行序即 diff id 序；内容只在 Core 给出 hunks 后才有，UI 侧永远拿不到路径。
-    private val diffPaths = mutableListOf<String>()
+    private val diffPaths = linkedMapOf<String, String>()
     private val diffContents = mutableMapOf<String, FileDiffContent>()
     private var fileDiffs = FileDiffAssembler()
     private var background = listOf<BackgroundView>()
@@ -1007,7 +1007,7 @@ class ProjectSession(
     fun changedFilePath(id: String): Path = lock.withLock {
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.MUTATE_FILES)
         if (diffs.none { it.id == id }) throw CodemError.Validation("CodeM changed file is no longer available")
-        val raw = id.removePrefix("diff-").toIntOrNull()?.let { diffPaths.getOrNull(it - 1) }
+        val raw = diffPaths[id]
             ?: throw CodemError.Validation("CodeM changed file is no longer available")
         val candidate = workingDirectory.resolve(raw)
         val roots = listOf(workingDirectory) + directories.map { it.path }
@@ -1022,7 +1022,7 @@ class ProjectSession(
     fun openDiff(id: String) {
         val (preview, content) = lock.withLock {
             val row = diffs.find { it.id == id } ?: throw CodemError.Validation("CodeM diff $id is not available")
-            val path = id.removePrefix("diff-").toIntOrNull()?.let { diffPaths.getOrNull(it - 1) }
+            val path = diffPaths[id]
             row to path?.let { diffContents[it] }
         }
         val texts = content?.texts()
@@ -1740,9 +1740,9 @@ class ProjectSession(
     }
 
     private fun diffViewLocked(path: String, added: Int, removed: Int, preview: String, available: Boolean): DiffView {
-        if (path !in diffPaths) diffPaths += path
+        val id = diffPaths.entries.firstOrNull { it.value == path }?.key ?: java.util.UUID.randomUUID().toString().also { diffPaths[it] = path }
         val label = path.substringAfterLast('/').substringAfterLast('\\')
-        return DiffView("diff-${diffPaths.indexOf(path) + 1}", label, added, removed, preview, available)
+        return DiffView(id, label, added, removed, preview, available)
     }
 
     private fun usageView(value: JsonValue.ObjectValue?): UsageView? {
