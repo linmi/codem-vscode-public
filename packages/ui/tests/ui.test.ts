@@ -80,27 +80,25 @@ describe("@codem/ui host contract", () => {
     parseUiAction({ type: "removeSelection", id: "sel-current" })
   })
 
-  it("keeps a submitted draft until the host confirms it", () => {
-    const pending = { requestId: "req-1", text: "写一段说明", version: 4 }
+  it("waits for explicit receipts even after optimistic messages and unrelated notices", () => {
+    const pending = { requestId: "req-1", text: "  写一段说明\n" }
     const base = initialSnapshot()
-    const accepted = {
+    const optimistic = {
       ...base,
       version: 5,
       messages: [{ id: "req-1", role: "user" as const, text: "写一段说明" }],
     }
-    assert.deepEqual(draftRetention(pending, asSnapshot(accepted)!, ""), { kind: "accepted" })
-    // 发送之后才出现的失败提示：原文还回输入框。
-    const rejected = { ...base, version: 5, notice: "CodeM is not connected" }
-    assert.deepEqual(draftRetention(pending, asSnapshot(rejected)!, ""), { kind: "restore", text: "写一段说明" })
-    // 发送前就存在的提示不算失败证据，继续等待确认。
-    const stale = { ...base, version: 4, notice: "CodeM reported a warning" }
-    assert.deepEqual(draftRetention(pending, asSnapshot(stale)!, ""), { kind: "waiting" })
-    // 用户已经在输入新内容时不覆盖。
-    assert.deepEqual(draftRetention(pending, asSnapshot(rejected)!, "新的输入"), { kind: "accepted" })
-    const receipt = { ...base, submission: { requestId: "req-1", accepted: false } }
-    assert.deepEqual(draftRetention(pending, asSnapshot(receipt)!, ""), { kind: "restore", text: "写一段说明" })
+    for (const snapshot of [optimistic, { ...optimistic, notice: "Connecting" }, {
+      ...optimistic, submission: { requestId: "another", accepted: true },
+    }]) {
+      assert.deepEqual(draftRetention(pending, asSnapshot(snapshot)!, pending.text), { kind: "waiting" })
+    }
+    const rejected = { ...optimistic, submission: { requestId: "req-1", accepted: false } }
+    assert.deepEqual(draftRetention(pending, asSnapshot(rejected)!, pending.text), { kind: "restore", text: pending.text })
+    assert.deepEqual(draftRetention(pending, asSnapshot(rejected)!, ""), { kind: "restore", text: pending.text })
+    assert.deepEqual(draftRetention(pending, asSnapshot(rejected)!, "新的输入"), { kind: "preserve" })
     const confirmed = { ...base, submission: { requestId: "req-1", accepted: true } }
-    assert.deepEqual(draftRetention(pending, asSnapshot(confirmed)!, ""), { kind: "accepted" })
+    assert.deepEqual(draftRetention(pending, asSnapshot(confirmed)!, pending.text), { kind: "accepted" })
   })
 
   it("accepts capability actions used by both hosts", () => {

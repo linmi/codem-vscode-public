@@ -48,6 +48,7 @@ import com.codem.intellij.webview.SessionToolsView
 import com.codem.intellij.webview.SkillView
 import com.codem.intellij.webview.TurnTimingView
 import com.codem.intellij.webview.UsageView
+import com.codem.intellij.webview.SubmissionReceiptView
 import com.codem.intellij.webview.ViewAction
 import com.codem.intellij.webview.initialSnapshot
 import java.nio.file.Files
@@ -157,6 +158,7 @@ class ProjectSession(
     private var historyMessages = mutableListOf<ChatMessageView>()
     private var turnTimings = mutableListOf<TurnTimingView>()
     private var notice: SessionNotice? = null
+    private var submission: SubmissionReceiptView? = null
     private var snapshotVersion = 0L
     private val retiring = mutableListOf<CoreProcess>()
 
@@ -184,6 +186,7 @@ class ProjectSession(
             workMode = settings.workMode,
             modeRevision = modes.revision.takeIf { threadId != null },
             notice = notice?.message,
+            submission = submission,
             version = snapshotVersion,
             theme = theme,
             hasOlderMessages = hasOlder,
@@ -336,7 +339,11 @@ class ProjectSession(
         skillName: String? = null,
         attachmentIds: List<String> = emptyList(),
         selectionIds: List<String> = emptyList(),
-    ): String {
+    ): String = submit(requestId) {
+        sendToCore(text, requestId, skillName, attachmentIds, selectionIds)
+    }
+
+    private fun sendToCore(text: String, requestId: String, skillName: String?, attachmentIds: List<String>, selectionIds: List<String>): String {
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.SEND_TURN)
         val trimmed = text.trim()
         if (trimmed.isEmpty()) throw CodemError.Validation("CodeM send text must be non-empty")
@@ -347,6 +354,7 @@ class ProjectSession(
                 throw CodemError.Conflict("CodeM submission is already in progress")
             }
             turns.beginSubmit(requestId)
+            notice = null
             historyMessages += ChatMessageView(requestId, "user", trimmed, turnId = requestId)
             snapshotVersion += 1
             Triple(core!!, threadId, generation.get())
@@ -379,6 +387,7 @@ class ProjectSession(
                 if (generation.get() == currentGeneration) {
                     turns.clearIfTerminal()
                     if (turns.current?.phase == TurnPhase.Submitting) turns.resetActive()
+                    historyMessages.removeAll { it.id == requestId }
                     notice = SessionNotice(SafeNotice.from(error, "CodeM send failed"), true)
                     snapshotVersion += 1
                 }
@@ -386,6 +395,27 @@ class ProjectSession(
             emitSnapshot()
             throw error
         }
+    }
+
+    /** Receipt means the Core operation returned successfully, never just an optimistic UI row. */
+    private fun <T> submit(requestId: String, operation: () -> T): T {
+        return try {
+            val result = operation()
+            recordSubmission(requestId, true)
+            result
+        } catch (error: Throwable) {
+            lock.withLock { notice = SessionNotice(SafeNotice.from(error, "CodeM send failed"), true) }
+            recordSubmission(requestId, false)
+            throw error
+        }
+    }
+
+    private fun recordSubmission(requestId: String, accepted: Boolean) {
+        lock.withLock {
+            submission = SubmissionReceiptView(requestId, accepted)
+            snapshotVersion += 1
+        }
+        emitSnapshot()
     }
 
     fun stop() {
@@ -1116,11 +1146,11 @@ class ProjectSession(
                 "unarchive" -> archiveThread(false)
                 "delete" -> deleteThread()
             }
-            is ViewAction.Steer -> steerTurn(action.text, action.requestId)
-            is ViewAction.AskSideQuestion -> {
+            is ViewAction.Steer -> submit(action.requestId) { steerTurn(action.text, action.requestId) }
+            is ViewAction.AskSideQuestion -> submit(action.requestId) {
                 sideQuestionId = startSideQuestion(action.text)
             }
-            is ViewAction.ShellCommand -> runShellCommand(action.text)
+            is ViewAction.ShellCommand -> submit(action.requestId) { runShellCommand(action.text) }
             is ViewAction.CompactThread -> compactThread()
             is ViewAction.RewindThread -> rewindThread()
             is ViewAction.ClearThread -> clearThread(action.requestId)
@@ -1224,6 +1254,7 @@ class ProjectSession(
     private fun resetConnectionStateLocked() {
         threadId = null
         lastThreadId = null
+        submission = null
         modes = ModeState()
         modesValid = false
         turns.resetActive()

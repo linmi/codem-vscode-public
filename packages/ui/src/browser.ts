@@ -2,6 +2,8 @@ import { mountCodemUi, type CodemUiHost } from "./index.ts"
 
 const listeners = new Set<(message: Record<string, unknown>) => void>()
 let persisted: Record<string, unknown> = { type: "state", phase: "disconnected" }
+// Tab-scoped draft survives a Webview reload; snapshots never overwrite it.
+let draft = window.sessionStorage.getItem("codem.draft") ?? ""
 
 const host: CodemUiHost = {
   postAction(action) {
@@ -12,10 +14,13 @@ const host: CodemUiHost = {
     return () => listeners.delete(listener)
   },
   getState() {
-    return persisted
+    return { ...persisted, draft }
   },
   setState(state) {
-    persisted = { ...persisted, ...state }
+    if (typeof state.draft !== "string") return
+    draft = state.draft
+    if (draft) window.sessionStorage.setItem("codem.draft", draft)
+    else window.sessionStorage.removeItem("codem.draft")
   },
 }
 

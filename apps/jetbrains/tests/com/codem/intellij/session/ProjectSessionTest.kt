@@ -532,6 +532,78 @@ class ProjectSessionTest {
     }
 
     @Test
+    fun sendReceiptRejectsThreadAndTurnFailuresAndRemovesOptimisticRows() {
+        for (failure in listOf("thread/start", "turn/start")) {
+            val published = java.util.concurrent.CopyOnWriteArrayList<com.codem.intellij.webview.ChatSnapshot>()
+            val session = session(onSnapshot = { published += it }) { process ->
+                startResponder(process, handshakeCapabilities(), failMethod = failure)
+                process
+            }
+            try {
+                session.connect()
+                org.junit.jupiter.api.Assertions.assertThrows(Exception::class.java) { session.send("keep me", "rejected") }
+                val optimistic = published.first { it.messages.any { message -> message.id == "rejected" } }
+                assertEquals(null, optimistic.submission)
+                val rejected = published.last()
+                assertEquals("rejected", rejected.submission?.requestId)
+                assertEquals(false, rejected.submission?.accepted)
+                assertTrue(rejected.messages.none { it.id == "rejected" })
+                assertEquals("ready", rejected.phase)
+                val wire = com.codem.intellij.webview.encodeChatSnapshot(rejected).required("submission").asObject()
+                assertEquals(JsonValue.Bool(false), wire.required("accepted"))
+            } finally { session.close().join() }
+        }
+    }
+
+    @Test
+    fun noAcceptedReceiptBeforeCoreReplyAndValidationAlsoRejects() {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val published = java.util.concurrent.CopyOnWriteArrayList<com.codem.intellij.webview.ChatSnapshot>()
+        val session = session(onSnapshot = { published += it }) { process ->
+            startResponder(process, handshakeCapabilities(), beforeReply = { method ->
+                if (method == "turn/start") {
+                    entered.countDown()
+                    check(release.await(2, java.util.concurrent.TimeUnit.SECONDS))
+                }
+            })
+            process
+        }
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.send("disconnected", "early") }
+            assertEquals(false, published.last().submission?.accepted)
+            session.connect()
+            val sending = java.util.concurrent.CompletableFuture.supplyAsync { session.send("keep draft until accepted", "accepted") }
+            assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS))
+            assertTrue(published.none { it.submission?.requestId == "accepted" })
+            assertTrue(session.snapshot().messages.any { it.id == "accepted" })
+            release.countDown()
+            assertEquals("turn-1", sending.get(3, java.util.concurrent.TimeUnit.SECONDS))
+            assertEquals(true, published.last().submission?.accepted)
+            assertEquals("accepted", published.last().submission?.requestId)
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.send("duplicate", "duplicate") }
+            assertEquals(false, published.last().submission?.accepted)
+            assertTrue(session.snapshot().messages.any { it.id == "accepted" })
+        } finally {
+            release.countDown()
+            session.close().join()
+        }
+    }
+
+    @Test
+    fun supplementaryActionsPublishExplicitRejection() {
+        val session = session { process -> startResponder(process, handshakeCapabilities()); process }
+        for (action in listOf(
+            ViewAction.Steer("thread-1", "steer", "steer-rejected"),
+            ViewAction.AskSideQuestion("thread-1", "question", "side-rejected"),
+            ViewAction.ShellCommand("thread-1", "pwd", "shell-rejected"),
+        )) {
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.applyViewAction(action) }
+            assertEquals(false, session.snapshot().submission?.accepted)
+        }
+    }
+
+    @Test
     fun historyListAndModelCatalogUseCoreResults() {
         val process = ScriptedProcess()
         val session = session { startResponder(process, handshakeCapabilities()); process }

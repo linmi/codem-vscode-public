@@ -51,16 +51,16 @@ describe("VS Code host bridge", () => {
     assert.equal(snapshot.version > 0, true)
   })
 
-  it("bumps version and restores a rejected send that does not reuse the request id", () => {
+  it("ignores notices and restores only explicitly rejected requests", () => {
     const bridge = new VscodeHostBridge()
     const ready = bridge.receive({ type: "state", phase: "ready", threadId: "thread-1", notice: null })!
-    const pending = { requestId: "req-1", text: "写一段说明", version: ready.snapshot.version }
+    const pending = { requestId: "req-1", text: "写一段说明" }
     const failed = bridge.receive({ type: "state", phase: "ready", threadId: "thread-1", notice: "发送未能确认，请检查会话后再重试；未自动重发。" })!
-    assert.equal(failed.snapshot.version > pending.version, true)
-    assert.deepEqual(draftRetention(pending, failed.snapshot, ""), { kind: "restore", text: "写一段说明" })
+    assert.equal(failed.snapshot.version > ready.snapshot.version, true)
+    assert.deepEqual(draftRetention(pending, failed.snapshot, ""), { kind: "waiting" })
     const rejected = bridge.receive({ type: "sendResult", requestId: "req-2", accepted: false })!
     assert.deepEqual(
-      draftRetention({ requestId: "req-2", text: "另一条", version: failed.snapshot.version }, rejected.snapshot, ""),
+      draftRetention({ requestId: "req-2", text: "另一条" }, rejected.snapshot, ""),
       { kind: "restore", text: "另一条" },
     )
   })
@@ -74,7 +74,8 @@ describe("VS Code host bridge", () => {
     bridge.rememberDraft("x".repeat(32_000))
     const rejected = bridge.receive({ type: "appendContext", id: "ctx-2", text: "再加一段" })
     assert.equal(rejected?.reply?.accepted, false)
-    assert.equal((rejected?.reply?.value as { draft: string }).draft.length, 32_000)
+    assert.ok(rejected?.reply)
+    assert.equal((rejected.reply.value as { draft: string }).draft.length, 32_000)
     assert.equal(rejected?.draft, undefined)
   })
 

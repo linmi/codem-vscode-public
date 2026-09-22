@@ -55,8 +55,6 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const scroller = useRef<HTMLElement>(null)
   const accountStatus = useRef(initial.account.status)
   const [showJump, setShowJump] = useState(false)
-  const snapshotRef = useRef(snapshot)
-  snapshotRef.current = snapshot
   const busy = isBusy(snapshot.phase)
   const running = snapshot.phase === "running" || snapshot.phase === "sending" || snapshot.phase === "stopping"
   const messageAction = inputMode === "message" ? composerMessageAction(snapshot.phase) : null
@@ -79,7 +77,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
       setDraft(command.text)
       host.setState({ draft: command.text })
       if (command.pendingRequestId) {
-        setPendingSend({ requestId: command.pendingRequestId, text: command.text, version: snapshotRef.current.version })
+        setPendingSend({ requestId: command.pendingRequestId, text: command.text })
       }
       if (command.focus) prompt.current?.focus()
     })
@@ -134,7 +132,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     if (retention.kind === "waiting") return
     setPendingSend(null)
     if (retention.kind === "restore") saveDraft(retention.text)
-    else if (draft === pendingSend.text) saveDraft("")
+    else if (retention.kind === "accepted" && draft === pendingSend.text) saveDraft("")
     if (retention.kind === "accepted") setInputMode("message")
   }, [snapshot, pendingSend, draft])
 
@@ -223,6 +221,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   }
 
   const submit = () => {
+    if (pendingSend) return
     if (inputMode !== "shellCommand" && slash !== null) {
       setSlashOpen(true)
       return
@@ -237,15 +236,13 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
         return
       }
       if (!tryPost({ type: inputMode, threadId: snapshot.threadId, text, requestId: id })) return
-      setPendingSend({ requestId: id, text, version: snapshot.version })
-      saveDraft("")
+      setPendingSend({ requestId: id, text: draft })
       return
     }
     if (messageAction === "steer") {
       if (!snapshot.threadId) return
       if (!tryPost({ type: "steer", threadId: snapshot.threadId, text, requestId: id })) return
-      setPendingSend({ requestId: id, text, version: snapshot.version })
-      saveDraft("")
+      setPendingSend({ requestId: id, text: draft })
       return
     }
     if (messageAction !== "send") return
@@ -258,21 +255,19 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
         ...(snapshot.attachments.length ? { attachmentIds: snapshot.attachments.map((item) => item.id) } : {}),
       })
     ) return
-    // 宿主用 requestId 作为这条用户消息的 id；快照出现它才算受理。
-    setPendingSend({ requestId: id, text, version: snapshot.version })
-    saveDraft("")
+    // 等待明确回执期间保留本地草稿，重载也不丢失。
+    setPendingSend({ requestId: id, text: draft })
   }
 
   const confirmShell = (text: string) => {
-    if (!snapshot.threadId) return
+    if (!snapshot.threadId || pendingSend) return
     const id = requestId()
     if (!tryPost({ type: "shellCommand", threadId: snapshot.threadId, text, requestId: id })) {
       setSessionRequest({ kind: "shell", text })
       return
     }
-    setPendingSend({ requestId: id, text, version: snapshot.version })
+    setPendingSend({ requestId: id, text: draft })
     setInputMode("message")
-    saveDraft("")
   }
 
   const activeMention =
@@ -473,7 +468,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             </div>
             <div className="composerTrailing">
               <ComposerMenus snapshot={snapshot} enabled={!busy && !snapshot.backgroundBusy && !snapshot.sessionTools.busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="trailing" />
-              <button type="submit" className="sendButton" id="send" data-testid="send" hidden={generating && inputMode !== "steer"} aria-label={inputMode === "message" ? "发送消息" : inputMode === "shellCommand" ? "检查命令" : "发送补充指令"} title={snapshot.sendKey === "modEnter" ? "发送消息 · Ctrl / Cmd + Enter" : "发送消息 · Enter"} disabled={slash === null && (Boolean(inputUnavailable(inputMode, snapshot)) || !draft.trim() || snapshot.selections.some((item) => item.error))} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
+              <button type="submit" className="sendButton" id="send" data-testid="send" hidden={generating && inputMode !== "steer"} aria-label={inputMode === "message" ? "发送消息" : inputMode === "shellCommand" ? "检查命令" : "发送补充指令"} title={snapshot.sendKey === "modEnter" ? "发送消息 · Ctrl / Cmd + Enter" : "发送消息 · Enter"} disabled={Boolean(pendingSend) || (slash === null && (Boolean(inputUnavailable(inputMode, snapshot)) || !draft.trim() || snapshot.selections.some((item) => item.error)))} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
               <button type="button" className="stopButton" id="stop" data-testid="stop" hidden={!generating} disabled={snapshot.phase === "stopping"} aria-label="停止生成" title="停止生成" onClick={() => post({ type: "stop" })} dangerouslySetInnerHTML={{ __html: uiIcon("stop") }} />
             </div>
           </div>

@@ -158,6 +158,16 @@ data class AccountView(
 )
 data class SlashCommandView(val id: String, val label: String, val group: String)
 
+data class SubmissionReceiptView(val requestId: String, val accepted: Boolean)
+
+fun ViewAction.submissionRequestId(): String? = when (this) {
+    is ViewAction.Send -> requestId
+    is ViewAction.Steer -> requestId
+    is ViewAction.AskSideQuestion -> requestId
+    is ViewAction.ShellCommand -> requestId
+    else -> null
+}
+
 data class ChatSnapshot(
     val type: String = "state",
     val phase: String,
@@ -197,6 +207,7 @@ data class ChatSnapshot(
     val history: HistoryListView = HistoryListView(),
     val fileSearch: FileSearchView? = null,
     val sendKey: String = "enter",
+    val submission: SubmissionReceiptView? = null,
 )
 
 data class VisibleControls(val retry: Boolean, val resume: Boolean, val older: Boolean)
@@ -339,6 +350,9 @@ fun encodeChatSnapshot(snapshot: ChatSnapshot): JsonValue.ObjectValue {
     val catalog = snapshot.sessionTools.catalog
     return JsonValue.obj(
         "type" to JsonValue.Text(snapshot.type),
+        "submission" to (snapshot.submission?.let {
+            JsonValue.obj("requestId" to JsonValue.Text(it.requestId), "accepted" to JsonValue.Bool(it.accepted))
+        } ?: JsonValue.Null),
         "phase" to JsonValue.Text(snapshot.phase),
         "workspace" to nullableText(snapshot.workspace),
         "space" to nullableText(snapshot.space),

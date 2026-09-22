@@ -27,6 +27,8 @@ import com.codem.intellij.webview.FileSearchView
 import com.codem.intellij.webview.IdeTheme
 import com.codem.intellij.webview.JcefHostPanel
 import com.codem.intellij.webview.SelectionView
+import com.codem.intellij.webview.SubmissionReceiptView
+import com.codem.intellij.webview.submissionRequestId
 import com.codem.intellij.webview.ViewAction
 import com.codem.intellij.webview.initialSnapshot
 import com.intellij.ide.BrowserUtil
@@ -353,27 +355,33 @@ class ToolWindowHost(
         publishAccount(AccountProjection.signedOut())
     }
 
-    /** 未连接时先连再发，对齐 VS Code 首次发送。输入栏按钮与待发送文件都走这里。 */
+    /** 未连接时先连再发，对齐 VS Code 首次发送。输入栏发送走这里。 */
     private fun sendOrConnect(action: ViewAction.Send) {
         runBackground { deliverSend(action) }
     }
 
     private fun deliverSend(action: ViewAction.Send) {
-        if (sessionRef.get() == null) {
-            autoConnectAttempted.set(true)
-            connect()
-        }
-        val session = sessionRef.get()
-        if (session == null) {
-            publish(current().copy(notice = "CodeM is not connected", version = current().version + 1))
-            return
-        }
         try {
+            if (sessionRef.get() == null) {
+                autoConnectAttempted.set(true)
+                connect()
+            }
+            val session = sessionRef.get()
+            if (session == null) {
+                publish(current().copy(
+                    notice = "CodeM is not connected", version = current().version + 1,
+                    submission = SubmissionReceiptView(action.requestId, false),
+                ))
+                return
+            }
             log.info("CodeM turn/start requestId=${action.requestId}")
             session.applyViewAction(action)
-            publish(session.snapshot())
         } catch (error: Throwable) {
-            publish(session.snapshot().copy(notice = SafeNotice.from(error, "CodeM action failed")))
+            publish(current().copy(
+                notice = SafeNotice.from(error, "CodeM action failed"),
+                submission = SubmissionReceiptView(action.requestId, false),
+                version = current().version + 1,
+            ))
             log.warn("CodeM turn/start failed", error)
         }
     }
@@ -466,7 +474,10 @@ class ToolWindowHost(
     private fun applyOnSession(action: ViewAction) {
         val session = sessionRef.get()
         if (session == null) {
-            publish(local.copy(notice = "CodeM is not connected", version = local.version + 1))
+            publish(local.copy(
+                notice = "CodeM is not connected", version = local.version + 1,
+                submission = action.submissionRequestId()?.let { SubmissionReceiptView(it, false) } ?: local.submission,
+            ))
             return
         }
         runBackground {
