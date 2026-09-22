@@ -113,6 +113,8 @@ class ProjectSession(
 ) {
     private val lock = ReentrantLock()
     private val generation = AtomicLong(0)
+    private val connectionIds = AtomicLong(0)
+    private var pendingConnection: CompletableFuture<Void>? = null
     private val budget = CallBudget()
     private val turns = TurnAccumulator()
     private val interactions = InteractionRouter()
@@ -147,7 +149,7 @@ class ProjectSession(
     // 行序即 diff id 序；内容只在 Core 给出 hunks 后才有，UI 侧永远拿不到路径。
     private val diffPaths = mutableListOf<String>()
     private val diffContents = mutableMapOf<String, FileDiffContent>()
-    private val fileDiffs = FileDiffAssembler()
+    private var fileDiffs = FileDiffAssembler()
     private var background = listOf<BackgroundView>()
     private var threadStatus: String? = null
     private var theme = "light"
@@ -255,12 +257,11 @@ class ProjectSession(
     /**
      * 已登录且可自动选空间：auth/list/prepare 各 1，Core 1。
      * 必须等用户选空间时先关 broker，选择后再重新 auth/prepare。
-     * 预检期间旧 Core 继续服务，只有确定要起新连接才退役它。
+     * 新 Core 握手和目录读取成功后，才提交替换并退役旧连接。
      */
     fun connect(requestedSpace: String? = null): ChatSnapshot {
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.START_CORE)
         val preflightGeneration = beginPreflight(ConnectionPhase.Authenticating)
-        var activeGeneration = preflightGeneration
         try {
             val authClient = authOverride ?: AuthClient(runtime, workingDirectory, timeouts = timeouts)
             val status = authClient.status()
@@ -268,7 +269,6 @@ class ProjectSession(
             authClient.assertAuthenticated(status)
             lock.withLock {
                 assertGeneration(preflightGeneration)
-                auth = status
                 phase = ConnectionPhase.PreparingSpace
             }
             val broker = spaceOverride ?: SpaceBroker(runtime, workingDirectory, timeouts = timeouts)
@@ -280,6 +280,7 @@ class ProjectSession(
                     // 还没选空间就不该动现有连接：仍在跑的 Core 保持 ready。
                     lock.withLock {
                         assertGeneration(preflightGeneration)
+                        auth = status
                         spaces = prepared.catalog
                         phase = if (core != null) ConnectionPhase.Ready else ConnectionPhase.Disconnected
                         notice = SessionNotice("Select a space to continue", true)
@@ -289,29 +290,26 @@ class ProjectSession(
                 }
                 is SpacePreparation.Prepared -> {
                     bump { prepare += 1 }
-                    val (currentGeneration, outgoing) = commitConnection(preflightGeneration)
-                    activeGeneration = currentGeneration
-                    closeQuietly(outgoing)
-                    startCore(currentGeneration, prepared.catalog, prepared.space, broker)
+                    replaceConnection(preflightGeneration, prepared.catalog, prepared.space, broker, status)
                 }
             }
         } catch (error: Throwable) {
-            failConnection(activeGeneration, error, "CodeM connection failed")
+            failConnection(preflightGeneration, error, "CodeM connection failed")
             throw error
+        } finally {
+            finishPreflight()
         }
-        refreshModels()
         emitSnapshot()
         return snapshot()
     }
 
     /**
-     * 切空间的预检在旧连接仍然存活时完成；auth/prepare 任一失败都回到原连接，
+     * 切空间在旧连接仍然存活时完成；认证、准备、握手和目录任一失败都回到原连接，
      * 不把用户从一个能用的会话推进无连接状态。
      */
     fun chooseSpace(projectKey: String): ChatSnapshot {
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.START_CORE)
         val preflightGeneration = beginPreflight(ConnectionPhase.Authenticating)
-        var activeGeneration = preflightGeneration
         try {
             val authClient = authOverride ?: AuthClient(runtime, workingDirectory, timeouts = timeouts)
             val status = authClient.status()
@@ -321,15 +319,13 @@ class ProjectSession(
             val space = broker.prepare(projectKey)
             bump { prepare += 1 }
             val catalog = spaces ?: SpaceList(space.projectKey, listOf(com.codem.intellij.account.Space(space.projectKey, space.displayName)))
-            val (currentGeneration, outgoing) = commitConnection(preflightGeneration)
-            activeGeneration = currentGeneration
-            closeQuietly(outgoing)
-            startCore(currentGeneration, catalog, space, broker)
+            replaceConnection(preflightGeneration, catalog, space, broker, status)
         } catch (error: Throwable) {
-            failConnection(activeGeneration, error, "CodeM space selection failed")
+            failConnection(preflightGeneration, error, "CodeM space selection failed")
             throw error
+        } finally {
+            finishPreflight()
         }
-        refreshModels()
         emitSnapshot()
         return snapshot()
     }
@@ -585,26 +581,22 @@ class ProjectSession(
         return if (live == null) pinned else pinned + live
     }
 
-    private fun refreshModels() {
-        val (coreProcess, currentGeneration) = try {
-            readyCore()
-        } catch (_: CodemError) {
-            return
+    /** Candidate catalogs belong to the candidate Core and are committed with it. */
+    private fun readModels(candidate: CoreProcess): Pair<List<ListedModel>, String> {
+        val (method, params) = ThreadCommands.modelList(workingDirectory.toString())
+        val result = candidate.request(method, params).get(timeouts.rpcMs, TimeUnit.MILLISECONDS).asObject()
+        bump { rpc += 1 }
+        val listed = result.required("models").asArray().items.mapIndexed { index, item ->
+            val model = item.asObject()
+            val id = model.required("id").asText()
+            if (id.isBlank()) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "model/list contains an empty id")
+            ListedModel("model-${index + 1}", id, (model.fields["supportsVision"] as? JsonValue.Bool)?.value == true)
         }
-        try {
-            val (method, params) = ThreadCommands.modelList(workingDirectory.toString())
-            val result = requestResult(coreProcess, method, params, currentGeneration)
-            val listed = (result.fields["models"] as? JsonValue.ArrayValue)?.items.orEmpty().mapIndexedNotNull { index, item ->
-                val model = item as? JsonValue.ObjectValue ?: return@mapIndexedNotNull null
-                val id = (model.fields["id"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() } ?: return@mapIndexedNotNull null
-                ListedModel("model-${index + 1}", id, (model.fields["supportsVision"] as? JsonValue.Bool)?.value == true)
-            }
-            lock.withLock {
-                assertGeneration(currentGeneration)
-                if (listed.isNotEmpty()) listedModels = listed
-            }
-        } catch (_: Throwable) {
+        val active = result.required("activeModel").asText()
+        if (listed.none { it.modelId == active }) {
+            throw CodemError.Protocol(CodemError.Class.InvalidFrame, "model/list activeModel is absent from models")
         }
+        return listed to active
     }
 
     fun listThreads(cursor: String? = null): ThreadListPage {
@@ -1136,24 +1128,25 @@ class ProjectSession(
     }
 
     fun close(): CompletableFuture<Void> {
-        val current = lock.withLock {
+        val (current, pending) = lock.withLock {
             phase = ConnectionPhase.Closing
-            generation.incrementAndGet()
-            retireCoresLocked()
+            generation.set(connectionIds.incrementAndGet())
+            retireCoresLocked() to pendingConnection
         }
-        val futures = current.map { it.close() }
+        val futures = current.map { it.close() } + listOfNotNull(pending)
         return CompletableFuture.allOf(*futures.toTypedArray()).whenComplete { _, _ ->
             lock.withLock { phase = ConnectionPhase.Disconnected }
         }
     }
 
-    private fun startCore(currentGeneration: Long, catalog: SpaceList, prepared: PreparedSpace, broker: SpaceGateway) {
+    private fun replaceConnection(preflightGeneration: Long, catalog: SpaceList, prepared: PreparedSpace, broker: SpaceGateway, status: AuthStatus) {
+        val currentGeneration = connectionIds.incrementAndGet()
+        var startupError: CodemError? = null
         lock.withLock {
-            assertGeneration(currentGeneration)
+            assertGeneration(preflightGeneration)
             phase = ConnectionPhase.Starting
-            spaces = catalog
-            space = prepared
         }
+        emitSnapshot()
         val launch = broker.launchArguments(prepared)
         val created = CoreProcess(
             runtime = runtime,
@@ -1189,6 +1182,7 @@ class ProjectSession(
             },
             onProtocolError = { error ->
                 lock.withLock {
+                    startupError = error
                     if (generation.get() == currentGeneration) {
                         phase = ConnectionPhase.Failed
                         notice = SessionNotice(SafeNotice.from(error, "CodeM connection failed"), true)
@@ -1199,16 +1193,64 @@ class ProjectSession(
         ).start()
         bump { core += 1 }
         try {
-            lock.withLock {
-                assertGeneration(currentGeneration)
-                core = created
-                phase = ConnectionPhase.Ready
+            val (models, activeModel) = readModels(created)
+            val outgoing = lock.withLock {
+                assertGeneration(preflightGeneration)
+                startupError?.let { throw it }
+                val old = retireCoresLocked()
+                generation.set(currentGeneration)
                 interactions.revoke(currentGeneration)
+                resetConnectionStateLocked()
+                core = created
+                auth = status
+                spaces = catalog.copy(current = prepared.projectKey)
+                space = prepared
+                listedModels = models
+                settings = settings.copy(model = activeModel)
+                phase = ConnectionPhase.Ready
+                notice = null
+                snapshotVersion += 1
+                old
             }
+            emitSnapshot()
+            closeQuietly(outgoing)
         } catch (error: Throwable) {
-            created.close()
+            created.close().join()
             throw error
         }
+    }
+
+    /** Connection handles never survive a replacement; local preferences and draft text do. */
+    private fun resetConnectionStateLocked() {
+        threadId = null
+        lastThreadId = null
+        modes = ModeState()
+        modesValid = false
+        turns.resetActive()
+        historyMessages.clear()
+        historyCursor = null
+        hasOlder = false
+        historyList = com.codem.intellij.webview.HistoryListView()
+        threadListCursor = null
+        turnTimings.clear()
+        threadStatus = null
+        selectedSkill = null
+        skills = emptyList()
+        catalogKind = null
+        catalogRows = emptyList()
+        directories.clear()
+        attachments.clear()
+        draft.attachments = emptyList()
+        selections.clear()
+        liveSelection = null
+        dismissedLiveLabel = null
+        fileSearch = null
+        diffs.clear()
+        diffPaths.clear()
+        diffContents.clear()
+        fileDiffs = FileDiffAssembler()
+        background = emptyList()
+        sideQuestionId = null
     }
 
     private fun startThread(coreProcess: CoreProcess): String {
@@ -1231,23 +1273,28 @@ class ProjectSession(
         return result.required("thread").asObject().required("id").asText()
     }
 
-    /** 预检阶段只占用连接槽位，旧 Core 继续服务当前会话。 */
-    private fun beginPreflight(next: ConnectionPhase): Long = lock.withLock {
-        if (phase == ConnectionPhase.Authenticating || phase == ConnectionPhase.PreparingSpace || phase == ConnectionPhase.Starting) {
-            throw CodemError.Conflict("CodeM connection is already in progress")
+    /** Keep the old connection alive until initialize and model/list both succeed. */
+    private fun beginPreflight(next: ConnectionPhase): Long {
+        val previous = lock.withLock {
+            if (pendingConnection != null || phase == ConnectionPhase.Closing) {
+                throw CodemError.Conflict("CodeM connection is already in progress")
+            }
+            if (!idleTurnLocked()) throw CodemError.Conflict("CodeM cannot replace a connection during an active turn")
+            pendingConnection = CompletableFuture()
+            phase = next
+            notice = null
+            snapshotVersion += 1
+            generation.get()
         }
-        phase = next
-        notice = null
-        generation.get()
+        emitSnapshot()
+        return previous
     }
 
-    /** 预检通过后才换代次并退役旧 Core；此后旧连接的结果一律作废。 */
-    private fun commitConnection(preflightGeneration: Long): Pair<Long, List<CoreProcess>> = lock.withLock {
-        assertGeneration(preflightGeneration)
-        val outgoing = retireCoresLocked()
-        val currentGeneration = generation.incrementAndGet()
-        interactions.revoke(currentGeneration)
-        currentGeneration to outgoing
+    private fun finishPreflight() {
+        val completed = lock.withLock {
+            pendingConnection.also { pendingConnection = null }
+        }
+        completed?.complete(null)
     }
 
     /** 连接失败：旧 Core 仍在服务就回到 ready，已经退役才是 failed。 */
@@ -1256,6 +1303,7 @@ class ProjectSession(
             if (generation.get() != activeGeneration) return@withLock
             phase = if (core != null) ConnectionPhase.Ready else ConnectionPhase.Failed
             notice = SessionNotice(SafeNotice.from(error, fallback), true)
+            snapshotVersion += 1
         }
         emitSnapshot()
     }

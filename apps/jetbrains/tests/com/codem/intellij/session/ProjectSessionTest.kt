@@ -429,6 +429,109 @@ class ProjectSessionTest {
     }
 
     @Test
+    fun candidateFailuresKeepOldThreadAndConnectionUsable() {
+        for (failure in listOf("initialize", "model/list", "spawn")) {
+            val processes = mutableListOf<ScriptedProcess>()
+            val session = session { process ->
+                processes += process
+                if (processes.size == 2 && failure == "spawn") throw CodemError.Process("fixture spawn failed")
+                startResponder(process, handshakeCapabilities(), if (processes.size == 2) failure else null)
+                process
+            }
+            try {
+                session.connect()
+                session.resumeThread("thread-old")
+                session.saveDraft("keep this draft")
+                val before = session.snapshot()
+                org.junit.jupiter.api.Assertions.assertThrows(Exception::class.java) { session.chooseSpace("other") }
+                val after = session.snapshot()
+                assertEquals("ready", after.phase, failure)
+                assertEquals(before.threadId, after.threadId, failure)
+                assertEquals(before.space, after.space, failure)
+                assertEquals(before.messages, after.messages, failure)
+                assertEquals(before.composerCatalog, after.composerCatalog, failure)
+                assertEquals("keep this draft", session.currentDraft())
+                assertTrue(processes.first().isAlive)
+                if (failure != "spawn") assertTrue(!processes.last().isAlive)
+                assertEquals("turn-1", session.send("still usable", "after-$failure"))
+            } finally { session.close().join() }
+        }
+    }
+
+    @Test
+    fun successfulSpaceSwitchStartsFreshAndRejectsRetiredEvents() {
+        val processes = mutableListOf<ScriptedProcess>()
+        val session = session { process ->
+            processes += process
+            startResponder(process, handshakeCapabilities())
+            process
+        }
+        try {
+            session.connect()
+            session.send("old message", "old-request")
+            // Active turns must finish or be stopped explicitly before a connection switch.
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.chooseSpace("other") }
+            assertEquals(1, processes.size)
+            completeTurn(processes.first(), "thread-1", "turn-1")
+            awaitSnapshot(session) { it.phase == "ready" }
+            session.showHistory()
+            session.loadCatalog("skills")
+            session.saveDraft("unsent")
+            session.chooseSpace("other")
+            val after = session.snapshot()
+            assertEquals("ready", after.phase)
+            assertEquals("other", after.space)
+            assertEquals(null, after.threadId)
+            assertEquals(null, after.resumeThreadId)
+            assertTrue(after.messages.isEmpty())
+            assertTrue(after.turnTimings.isEmpty())
+            assertTrue(after.sessionTools.skills.isEmpty())
+            assertTrue(after.history.entries.isEmpty())
+            assertEquals(false, after.hasOlderMessages)
+            assertEquals("unsent", session.currentDraft())
+            assertTrue(!processes.first().isAlive)
+            session.send("new space", "new-request")
+            val methods = processes.last().writes.map { JsonValue.parse(it).asObject().fields["method"] }
+            assertEquals(1, methods.count { it == JsonValue.Text("thread/start") })
+            assertEquals(1, methods.count { it == JsonValue.Text("model/list") })
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun closingDuringCandidateHandshakeWaitsForCleanupAndNeverCommits() {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val processes = java.util.concurrent.CopyOnWriteArrayList<ScriptedProcess>()
+        val session = session { process ->
+            processes += process
+            val candidate = processes.size == 2
+            startResponder(process, handshakeCapabilities(), beforeReply = { method ->
+                if (candidate && method == "initialize") {
+                    entered.countDown()
+                    check(release.await(2, java.util.concurrent.TimeUnit.SECONDS))
+                }
+            })
+            process
+        }
+        session.connect()
+        val switching = java.util.concurrent.CompletableFuture.runAsync { session.chooseSpace("other") }
+        try {
+            assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS))
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.chooseSpace("third") }
+            val closing = session.close()
+            assertTrue(!closing.isDone)
+            release.countDown()
+            org.junit.jupiter.api.Assertions.assertThrows(Exception::class.java) { switching.get(3, java.util.concurrent.TimeUnit.SECONDS) }
+            closing.get(3, java.util.concurrent.TimeUnit.SECONDS)
+            assertTrue(processes.none { it.isAlive })
+            assertEquals("disconnected", session.snapshot().phase)
+        } finally {
+            release.countDown()
+            session.close().join()
+        }
+    }
+
+    @Test
     fun historyListAndModelCatalogUseCoreResults() {
         val process = ScriptedProcess()
         val session = session { startResponder(process, handshakeCapabilities()); process }
@@ -585,7 +688,12 @@ class ProjectSessionTest {
         )
     }
 
-    private fun startResponder(process: ScriptedProcess, capabilities: JsonValue.ObjectValue) {
+    private fun startResponder(
+        process: ScriptedProcess,
+        capabilities: JsonValue.ObjectValue,
+        failMethod: String? = null,
+        beforeReply: (String) -> Unit = {},
+    ) {
         Thread {
             val seen = AtomicInteger(0)
             while (process.isAlive) {
@@ -603,6 +711,14 @@ class ProjectSessionTest {
                 val id = obj.fields["id"] ?: continue
                 val method = (obj.fields["method"] as? JsonValue.Text)?.value ?: continue
                 val params = obj.fields["params"] as? JsonValue.ObjectValue ?: JsonValue.ObjectValue(emptyMap())
+                beforeReply(method)
+                if (method == failMethod) {
+                    process.enqueue(encodeJson(JsonValue.obj(
+                        "jsonrpc" to JsonValue.Text("2.0"), "id" to id,
+                        "error" to JsonValue.obj("code" to JsonValue.NumberValue(-32000.0, "-32000"), "message" to JsonValue.Text("fixture rejected $method")),
+                    )))
+                    continue
+                }
                 val result = when (method) {
                     "initialize" -> capabilities
                     "thread/start" -> JsonValue.obj("thread" to JsonValue.obj("id" to JsonValue.Text("thread-1")))

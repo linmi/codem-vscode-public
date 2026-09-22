@@ -131,6 +131,7 @@ class ToolWindowHost(
     }
 
     fun dispose() {
+        connectGeneration.incrementAndGet()
         cancelLogin()
         watchdogs.shutdownNow()
         sessionRef.getAndSet(null)?.close()
@@ -164,7 +165,7 @@ class ToolWindowHost(
                 ),
             )
             scheduleConnectWatchdog(generation)
-            val session = createSession(runtime, cwd, trusted = true)
+            val session = sessionRef.get() ?: createSession(runtime, cwd, trusted = true).also { sessionRef.set(it) }
             try {
                 var snapshot = session.connect()
                 if (snapshot.notice == "Select a space to continue") {
@@ -180,7 +181,6 @@ class ToolWindowHost(
                     return
                 }
                 session.rememberSendKey(storedSendKey())
-                sessionRef.set(session)
                 val visible = if (snapshot.phase == "ready") snapshot.copy(notice = null, sendKey = storedSendKey()) else snapshot.copy(sendKey = storedSendKey())
                 publish(visible.withLocalAccount())
                 if (snapshot.phase == "ready") {
@@ -190,8 +190,7 @@ class ToolWindowHost(
                 }
             } catch (error: Throwable) {
                 if (connectGeneration.get() != generation) return
-                sessionRef.set(session)
-                publish(session.snapshot().copy(notice = SafeNotice.from(error, HostLoadingFeedback.CONNECT_TIMEOUT), canRetry = true, phase = "failed"))
+                publish(session.snapshot().copy(notice = SafeNotice.from(error, HostLoadingFeedback.CONNECT_TIMEOUT)).withLocalAccount())
                 log.warn("CodeM connection failed", error)
             }
         } finally {
@@ -346,6 +345,8 @@ class ToolWindowHost(
     }
 
     private fun signOut() {
+        connectGeneration.incrementAndGet()
+        connectInFlight.set(false)
         loginRef.getAndSet(null)?.cancel()
         sessionRef.getAndSet(null)?.close()
         autoConnectAttempted.set(false)
@@ -489,8 +490,9 @@ class ToolWindowHost(
         }
     }
 
-    private fun createSession(runtime: ResolvedRuntime, cwd: Path, trusted: Boolean): ProjectSession =
-        ProjectSession(
+    private fun createSession(runtime: ResolvedRuntime, cwd: Path, trusted: Boolean): ProjectSession {
+        lateinit var created: ProjectSession
+        created = ProjectSession(
             runtime = runtime,
             workingDirectory = cwd,
             trusted = trusted,
@@ -499,8 +501,12 @@ class ToolWindowHost(
             diffPresenter = diffs,
             historySource = historySource(),
             directoryPicker = { chooseDirectory() },
-            onSnapshot = { snapshot -> publish(snapshot.withLocalAccount()) },
+            onSnapshot = { snapshot ->
+                if (sessionRef.get() === created) publish(snapshot.withLocalAccount())
+            },
         )
+        return created
+    }
 
     /**
      * A08 历史分页读的是 Core 自己的 JSONL，不是插件另存的副本。
