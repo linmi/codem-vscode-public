@@ -4,11 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --experimental-strip-types scripts/checkJetbrains.ts",
+    "check": "tsc --noEmit && node --experimental-strip-types scripts/checkJetbrains.ts",
     "test": "node --experimental-strip-types scripts/checkJetbrains.ts",
-    "typecheck": "node --experimental-strip-types scripts/checkJetbrains.ts --compile-only",
+    "typecheck": "tsc --noEmit && node --experimental-strip-types scripts/checkJetbrains.ts --compile-only",
     "build": "node --experimental-strip-types scripts/checkJetbrains.ts --compile-only",
     "build:plugin": "node --experimental-strip-types scripts/checkJetbrains.ts --plugin",
-    "reload": "node --experimental-strip-types scripts/installAndReload.ts"
+    "reload": "node --experimental-strip-types scripts/installAndReload.ts",
+    "stage:runtime": "node --experimental-strip-types scripts/stageRuntime.ts",
+    "test:runtime": "node --experimental-strip-types scripts/checkJetbrains.ts --runtime"
+  },
+  "devDependencies": {
+    "@codem/app-server": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
   }
 }

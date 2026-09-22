@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 
 const app = join(dirname(fileURLToPath(import.meta.url)), "..")
 const plugin = process.argv.includes("--plugin")
+const runtime = process.argv.includes("--runtime")
 const compileOnly = process.argv.includes("--compile-only")
 
 function fail(message: string): never {
@@ -38,7 +39,7 @@ const gradlew = process.platform === "win32" ? join(app, "gradlew.bat") : join(a
 if (!existsSync(gradlew)) {
   fail(`CodeM JetBrains Gradle wrapper is missing: ${gradlew}`)
 }
-const task = plugin ? "buildPlugin" : compileOnly ? "compileKotlin" : "domainTest"
+const task = runtime ? "runtimeTest" : plugin ? "buildPlugin" : compileOnly ? "compileKotlin" : "domainTest"
 const result = spawnSync(gradlew, [task, "--no-daemon"], {
   cwd: app,
   stdio: "inherit",

@@ -1,5 +1,6 @@
 import org.gradle.language.jvm.tasks.ProcessResources
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -60,6 +61,26 @@ tasks.named<ProcessResources>("processResources") {
     dependsOn(":stageUi")
     from(rootProject.layout.buildDirectory.dir("ui")) {
         into("codem-ui")
+    }
+}
+
+val stageRuntime by tasks.registering(Exec::class) {
+    workingDir = rootProject.projectDir
+    // Always validate the installed pinned packages before creating an archive.
+    commandLine("node", "--experimental-strip-types", "scripts/stageRuntime.ts")
+    inputs.file(rootProject.file("scripts/stageRuntime.ts"))
+    inputs.file(repoRoot.resolve("pnpm-lock.yaml"))
+    outputs.dir(rootProject.layout.buildDirectory.dir("runtime"))
+    outputs.upToDateWhen { false }
+}
+
+tasks.withType<PrepareSandboxTask>().configureEach {
+    dependsOn(stageRuntime)
+    from(rootProject.layout.buildDirectory.dir("runtime")) {
+        into(pluginName)
+    }
+    from(repoRoot.resolve("LICENSE")) {
+        into(pluginName)
     }
 }
 

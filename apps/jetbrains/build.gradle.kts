@@ -53,11 +53,25 @@ dependencies {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform { excludeTags("nativeRuntime") }
     workingDir = repoRoot
     systemProperty("codem.contractsHistory", repoRoot.resolve("packages/contracts/history").path)
     testLogging {
         events("passed", "skipped", "failed")
+    }
+}
+
+if (findProject(":host") != null) {
+    tasks.register<Test>("runtimeTest") {
+        group = "verification"
+        description = "Verify the packaged native binaries in an isolated directory, without login or model calls."
+        dependsOn(":host:buildPlugin", tasks.testClasses)
+        testClassesDirs = sourceSets.test.get().output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        useJUnitPlatform { includeTags("nativeRuntime") }
+        systemProperty("codem.pluginZip", project(":host").layout.buildDirectory.file("distributions/host-${project.version}.zip").get().asFile.path)
+        outputs.upToDateWhen { false }
+        testLogging { events("passed", "failed", "standardOut") }
     }
 }
 

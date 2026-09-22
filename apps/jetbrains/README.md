@@ -37,7 +37,7 @@ pnpm --filter @codem/jetbrains reload
 - JCEF 可用且 `@codem/ui` 已打包：未登录看到 VS Code 同款登录页（codemMark +「登录 CodeM」）；已登录看到欢迎/连接反馈与底部输入栏，不出现黄调试按钮或裸 `disconnected`。分页 / 重试 / 恢复仅在条件成立时出现。
 - JCEF 不可用：原生说明页，不是空白崩溃。
 - UI 产物缺失：原生说明「共享界面未打包」，不是空白崩溃。
-- 登录 / 连接：后台定位锁定 Core/CLI（插件 `runtime/` 或仓库 `node_modules`），不读 PATH、不假定系统 Node。真实模型不要用默认检查去跑。
+- 登录 / 连接：只读取安装目录 `bin/app-server/runtime.json` 中的锁定 Core/CLI，并校验平台、版本、执行权限和两个二进制的 SHA-256。不读取工作区依赖或 PATH。真实模型不要用默认检查去跑。
 
 ## 失败时看日志
 
@@ -63,7 +63,8 @@ tests/               Gradle 测试源
 ## 命令
 
 ```bash
-pnpm --filter @codem/jetbrains check    # JDK 缺失必须失败；只跑 domainTest
+pnpm --filter @codem/jetbrains check    # TS 构建脚本类型检查 + domainTest；JDK 缺失必须失败
+pnpm --filter @codem/jetbrains test:runtime # 构建并解压 ZIP，独立目录、空 PATH 的真实握手；不登录、不调用模型
 ./gradlew domainTest                    # 无 IntelliJ SDK
 ./gradlew buildPlugin                   # 打包到 zip；需要已缓存的 IDEA SDK，不启动 IDE
 pnpm --filter @codem/jetbrains reload   # 装进本机 2026.2.3 并自动重载同一 IU
@@ -82,4 +83,14 @@ pnpm --filter @codem/jetbrains reload   # 装进本机 2026.2.3 并自动重载�
 - 依赖 `com.intellij.modules.jcef`（2026 独立插件），否则点击右侧 CodeM 会 ClassNotFound。
 - 登录页 logo/按钮对齐 VS Code：`codemMark.svg` + `account.css` 主按钮（#6554ee 或宿主默认按钮色），不用自造胶囊和亮黄。
 - Tool Window 在 JCEF 可用时挂上共享 UI；不可用或产物缺失时原生降级（带图标，跟随主题）。
-- RuntimeLocator 只解析捆绑目录和锁定 pnpm 布局，不走 PATH。
+- RuntimeLocator 只解析插件 `bin/app-server`，缺失或损坏即失败，不再搜索项目的 pnpm 布局或 PATH。
+
+## 独立运行包（2026-09-22）
+
+构建复用 `@codem/app-server/build` 的 `stageAppServerRuntime`，与 VS Code 使用同一 schema 2 清单和原生二进制来源；该依赖仅用于开发构建，不进入 JVM 运行时。`buildPlugin` 把 Core、认证程序、两份许可证和哈希清单放到插件根目录 `bin/app-server`，不塞入 JAR，不捆绑 Node。
+
+当前构建只包含构建机的平台。本机产物为 **darwin-arm64**，不适用于 Intel Mac、Windows 或 Linux；宿主会在执行前拒绝错误平台。目标平台发布矩阵、第三方 UI 许可证完整审计及 Marketplace 发布不由这份本地包证明。
+
+旧 `runtime/manifest.json` 多平台格式没有实际打包产物或独立消费者，已删除其解析实现；项目 `node_modules` 不再具有为插件提供运行程序的权限。重新构建并安装即可迁移，无用户数据迁移。
+
+验收进展见 [JetBrains 功能准出台账](../../docs/jetbrainsFeatureAcceptance.md)。

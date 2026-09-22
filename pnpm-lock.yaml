@@ -188,7 +188,17 @@ importers:
         specifier: 1.83.0
         version: 1.83.0
 
-  apps/jetbrains: {}
+  apps/jetbrains:
+    devDependencies:
+      '@codem/app-server':
+        specifier: workspace:*
+        version: link:../../packages/app-server
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.12.4
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
 
   apps/vscode:
     dependencies:

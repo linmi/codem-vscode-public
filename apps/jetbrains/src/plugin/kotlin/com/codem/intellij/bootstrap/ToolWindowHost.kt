@@ -492,7 +492,7 @@ class ToolWindowHost(
 
     private fun locateRuntime(): ResolvedRuntime? {
         return try {
-            val resolved = RuntimeLocator.resolveFromSearchRoots(RuntimeLocator.pluginSearchRoots(pluginRoot, workingDirectory()))
+            val resolved = RuntimeLocator.resolveFromPlugin(pluginRoot ?: throw CodemError.Validation("CodeM plugin installation directory is unavailable"))
             log.info("CodeM locked runtime located")
             resolved
         } catch (error: Throwable) {

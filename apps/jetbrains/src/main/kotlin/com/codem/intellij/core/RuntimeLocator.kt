@@ -58,71 +58,51 @@ object RuntimeLocator {
         return id
     }
 
-    fun resolveFromBundle(bundleRoot: Path, expected: BundleManifest): ResolvedRuntime {
-        val target = targets[currentTargetId()] ?: throw CodemError.Validation("unsupported runtime target")
-        val listed = expected.targets[target.id] ?: throw CodemError.Validation("bundle manifest is missing ${target.id}")
-        val core = requireFile(bundleRoot.resolve(listed.corePath), "core executable")
-        val auth = requireFile(bundleRoot.resolve(listed.authPath), "authentication executable")
-        val coreLicense = requireFile(bundleRoot.resolve(listed.coreLicensePath), "core license")
-        val authLicense = requireFile(bundleRoot.resolve(listed.authLicensePath), "authentication license")
-        val digest = sha256(core)
-        if (digest != listed.coreSha256) {
-            throw CodemError.Validation("CodeM core binary integrity failed for ${target.id}")
+    /** Only the installed plugin owns its runtime; project files cannot select executables. */
+    fun resolveFromPlugin(pluginRoot: Path): ResolvedRuntime {
+        val bundleRoot = pluginRoot.resolve("bin/app-server")
+        val manifestPath = requireFile(bundleRoot.resolve("runtime.json"), "bundle manifest")
+        val manifest = JsonValue.parse(Files.readString(manifestPath)).asObject()
+        val target = targets.getValue(currentTargetId())
+        val schema = manifest.required("schemaVersion") as? JsonValue.NumberValue
+        if (schema?.value != 2.0) throw CodemError.Validation("CodeM runtime bundle requires schemaVersion 2")
+        fun expect(field: String, expected: String): String {
+            val actual = manifest.required(field).asText()
+            if (actual != expected) throw CodemError.Validation("CodeM runtime $field is $actual; expected $expected")
+            return actual
         }
-        if (sha256(auth) != listed.authSha256) {
-            throw CodemError.Validation("CodeM authentication binary integrity failed for ${target.id}")
+        expect("target", target.id)
+        expect("coreVersion", CORE_VERSION)
+        expect("cliVersion", CLI_VERSION)
+        expect("packageName", target.packageName)
+        expect("authPackageName", target.authPackageName)
+        val coreName = expect("executableName", target.executableName)
+        val authName = expect("authExecutableName", if (target.id.startsWith("win32-")) "codem-auth.exe" else "codem-auth")
+        val core = requireBundledFile(bundleRoot, coreName)
+        val auth = requireBundledFile(bundleRoot, authName)
+        val coreLicense = requireBundledFile(bundleRoot, "LICENSE.core")
+        val authLicense = requireBundledFile(bundleRoot, "LICENSE.auth")
+        if (!target.id.startsWith("win32-")) {
+            for (path in listOf(core, auth)) {
+                if (!Files.isExecutable(path)) throw CodemError.Validation("CodeM runtime executable permission is missing: ${path.fileName}")
+            }
         }
-        if (expected.coreVersion != CORE_VERSION || expected.cliVersion != CLI_VERSION) {
-            throw CodemError.Validation("CodeM bundle versions ${expected.coreVersion}/${expected.cliVersion} do not match locked $CORE_VERSION/$CLI_VERSION")
+        fun verifyDigest(field: String, path: Path): String {
+            val expected = manifest.required(field).asText()
+            if (!Regex("[a-f0-9]{64}").matches(expected)) throw CodemError.Validation("CodeM runtime $field is not a SHA-256 digest")
+            val actual = sha256(path)
+            if (actual != expected) throw CodemError.Validation("CodeM runtime $field integrity failed: ${path.fileName}")
+            return actual
         }
-        return ResolvedRuntime(target, expected.coreVersion, expected.cliVersion, core, auth, coreLicense, authLicense, digest)
+        val coreDigest = verifyDigest("sha256", core)
+        verifyDigest("authSha256", auth)
+        return ResolvedRuntime(target, CORE_VERSION, CLI_VERSION, core, auth, coreLicense, authLicense, coreDigest)
     }
 
-    /**
-     * 从插件捆绑目录和仓库锁定布局解析运行时。
-     * 不读 PATH，不调用 Node，不回退到未知版本。
-     */
-    fun workspaceSearchRoots(start: Path?): List<Path> {
-        val roots = linkedSetOf<Path>()
-        var current = start?.toAbsolutePath()?.normalize()
-        while (current != null) {
-            val appServer = current.resolve("packages/app-server")
-            if (
-                Files.isRegularFile(current.resolve("pnpm-lock.yaml")) ||
-                Files.isDirectory(appServer) ||
-                Files.isDirectory(current.resolve("node_modules/@lark-codem"))
-            ) {
-                roots.add(current)
-                if (Files.isDirectory(appServer)) roots.add(appServer)
-            }
-            current = current.parent
-        }
-        return roots.toList()
-    }
-
-    fun pluginSearchRoots(pluginRoot: Path?, workspaceStart: Path?): List<Path> =
-        listOfNotNull(pluginRoot?.toAbsolutePath()?.normalize()) + workspaceSearchRoots(workspaceStart)
-
-    fun resolveFromSearchRoots(roots: List<Path>): ResolvedRuntime {
-        val target = targets[currentTargetId()] ?: throw CodemError.Validation("unsupported runtime target")
-        var versionMismatch: CodemError? = null
-        for (root in roots) {
-            val bundleManifest = root.resolve("runtime").resolve("manifest.json")
-            if (Files.isRegularFile(bundleManifest)) {
-                return resolveFromBundle(root.resolve("runtime"), BundleManifest.parse(JsonValue.parse(Files.readString(bundleManifest))))
-            }
-            try {
-                val resolved = tryResolveLocked(root, target)
-                if (resolved != null) return resolved
-            } catch (error: CodemError) {
-                if (error.errorClass == CodemError.Class.Validation && error.message?.contains("do not match locked") == true) {
-                    versionMismatch = error
-                    continue
-                }
-                throw error
-            }
-        }
-        throw versionMismatch ?: CodemError.Validation("CodeM locked runtime is not bundled")
+    private fun requireBundledFile(root: Path, name: String): Path {
+        val file = requireFile(root.resolve(name), name).toRealPath()
+        if (file.parent != root.toRealPath()) throw CodemError.Validation("CodeM runtime file escapes bundle: $name")
+        return file
     }
 
     fun sha256(path: Path): String {
@@ -143,95 +123,4 @@ object RuntimeLocator {
         return path.toAbsolutePath()
     }
 
-    private fun tryResolveLocked(root: Path, target: RuntimeTarget): ResolvedRuntime? {
-        val coreMeta = findPackageDir(root, "@lark-codem/codem-core") ?: return null
-        val authMeta = findPackageDir(root, "@lark-codem/codem-cli") ?: return null
-        val coreVersion = readPackageVersion(coreMeta) ?: return null
-        val cliVersion = readPackageVersion(authMeta) ?: return null
-        if (coreVersion != CORE_VERSION || cliVersion != CLI_VERSION) {
-            throw CodemError.Validation("CodeM package versions $coreVersion/$cliVersion do not match locked $CORE_VERSION/$CLI_VERSION")
-        }
-        val coreDir = siblingPackage(coreMeta, target.packageName) ?: findPackageDir(root, target.packageName) ?: return null
-        val authDir = siblingPackage(authMeta, target.authPackageName) ?: findPackageDir(root, target.authPackageName) ?: return null
-        val core = existingFile(coreDir.resolve(target.executableName)) ?: throw CodemError.Validation("CodeM App Server core executable is missing")
-        val auth = existingFile(authDir.resolve(target.authExecutableName)) ?: throw CodemError.Validation("CodeM App Server authentication executable is missing")
-        val coreLicense = existingFile(coreDir.resolve("LICENSE")) ?: throw CodemError.Validation("CodeM App Server core license is missing")
-        val authLicense = existingFile(authDir.resolve("LICENSE")) ?: throw CodemError.Validation("CodeM App Server authentication license is missing")
-        return ResolvedRuntime(target, coreVersion, cliVersion, core, auth, coreLicense, authLicense, sha256(core))
-    }
-
-    private fun findPackageDir(root: Path, packageName: String): Path? {
-        val candidates = listOf(
-            root.resolve("node_modules").resolve(packageName),
-            root.resolve("packages/app-server/node_modules").resolve(packageName),
-        )
-        return candidates.firstOrNull { Files.isDirectory(it) }?.let { existing ->
-            try {
-                existing.toRealPath()
-            } catch (_: Exception) {
-                existing.toAbsolutePath().normalize()
-            }
-        }
-    }
-
-    private fun siblingPackage(metaPackage: Path, packageName: String): Path? {
-        val name = packageName.substringAfterLast('/')
-        val sibling = metaPackage.parent.resolve(name)
-        return if (Files.isDirectory(sibling)) sibling else null
-    }
-
-    private fun readPackageVersion(packageDir: Path): String? {
-        val manifest = packageDir.resolve("package.json")
-        if (!Files.isRegularFile(manifest)) return null
-        val parsed = try {
-            JsonValue.parse(Files.readString(manifest)).asObject()
-        } catch (_: Exception) {
-            return null
-        }
-        return (parsed.fields["version"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() }
-    }
-
-    private fun existingFile(path: Path): Path? =
-        if (Files.isRegularFile(path)) path.toAbsolutePath() else null
-}
-
-data class BundleTarget(
-    val corePath: String,
-    val authPath: String,
-    val coreLicensePath: String,
-    val authLicensePath: String,
-    val coreSha256: String,
-    val authSha256: String,
-)
-
-data class BundleManifest(
-    val schemaVersion: Int,
-    val coreVersion: String,
-    val cliVersion: String,
-    val targets: Map<String, BundleTarget>,
-) {
-    companion object {
-        fun parse(value: JsonValue): BundleManifest {
-            val obj = value.asObject()
-            val targets = linkedMapOf<String, BundleTarget>()
-            val listed = obj.required("targets").asObject()
-            for ((id, raw) in listed.fields) {
-                val item = raw.asObject()
-                targets[id] = BundleTarget(
-                    corePath = item.required("corePath").asText(),
-                    authPath = item.required("authPath").asText(),
-                    coreLicensePath = item.required("coreLicensePath").asText(),
-                    authLicensePath = item.required("authLicensePath").asText(),
-                    coreSha256 = item.required("coreSha256").asText(),
-                    authSha256 = item.required("authSha256").asText(),
-                )
-            }
-            return BundleManifest(
-                schemaVersion = (obj.required("schemaVersion") as JsonValue.NumberValue).value.toInt(),
-                coreVersion = obj.required("coreVersion").asText(),
-                cliVersion = obj.required("cliVersion").asText(),
-                targets = targets,
-            )
-        }
-    }
 }
