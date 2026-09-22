@@ -83,6 +83,40 @@ class HistoryReplayTest {
         assertEquals(home.resolve(".codem").resolve("sessions"), SessionsRoot.resolve(emptyMap(), home))
     }
 
+    @Test
+    fun rejectsMalformedVisibleTextInsteadOfRenderingEmpty(@TempDir root: Path) {
+        val base = fixture("multiTurn.jsonl").replace("\${cwd}", "/workspace") + "\n"
+        for (bad in listOf("42", "null", "true", "{}", "[]", "\"\"", "\"   \"")) {
+            write(root, "/workspace", "thread-1", base.replace("\"text\":\"answer 1\"", "\"text\":$bad"))
+            val error = org.junit.jupiter.api.Assertions.assertThrows(CodemError.History::class.java) {
+                HistoryReplay.read(root, "/workspace", "thread-1")
+            }
+            assertTrue(error.message!!.contains("assistant_text.text"))
+        }
+        for ((original, replacement) in listOf(
+            "\"text\":\"answer 1\"" to "\"missing\":true",
+            "\"content\":\"question 0\"" to "\"content\":42",
+            "\"submission_id\":\"s0\"" to "\"submission_id\":42",
+            "\"record_seq\":2" to "\"record_seq\":2.5",
+            "\"schema_version\":13" to "\"schema_version\":13.5",
+        )) {
+            write(root, "/workspace", "thread-1", base.replace(original, replacement))
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.History::class.java) {
+                HistoryReplay.read(root, "/workspace", "thread-1")
+            }
+        }
+    }
+
+    @Test
+    fun rendersSkillInvocationWithoutInventingEmptyMessage(@TempDir root: Path) {
+        val base = fixture("multiTurn.jsonl").replace("\${cwd}", "/workspace") + "\n"
+        write(root, "/workspace", "thread-1", base.replace(
+            "\"kind\":\"message\",\"content\":\"question 0\"",
+            "\"kind\":\"skill\",\"name\":\"review\",\"arguments\":\"working tree\"",
+        ))
+        assertEquals(listOf("/review working tree"), HistoryReplay.read(root, "/workspace", "thread-1").turns.first().userTexts)
+    }
+
     private fun write(root: Path, cwd: String, threadId: String, body: String) {
         val directory = root.resolve(ProjectHash.forCwd(cwd))
         Files.createDirectories(directory)
