@@ -21,7 +21,7 @@ async function fixture(t: TestContext): Promise<string> {
 
 it("directory gate: active application uses documented feature directories", async () => { await checkSourceLayout(workspace) })
 it("directory gate: accepts entrypoints, config, feature code and UI primitives", async t => { await checkSourceLayout(await fixture(t)) })
-for (const path of ["src/chatController.ts", "webview/composerState.ts", "webview/components/composerMode.tsx", "webview/panels.css"]) {
+for (const path of ["src/pluginManagement.ts", "src/chatController.ts", "webview/composerState.ts", "webview/components/composerMode.tsx", "webview/panels.css"]) {
   it(`directory gate: rejects flat implementation at ${path}`, async t => {
     const root = await fixture(t)
     await put(root, path)
@@ -33,3 +33,5 @@ it("directory gate: rejects an undocumented catch-all directory", async t => {
   await put(root, "src/managers/everything.ts")
   await assert.rejects(checkSourceLayout(root), /undocumented feature directory/)
 })
+
+it("directory gate: accepts the named plugin lifecycle boundary", async t => { const root = await fixture(t); await put(root, "src/plugins/pluginManagement.ts"); await checkSourceLayout(root) })

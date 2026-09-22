@@ -1,3 +1,4 @@
+import { pluginManagementPreview } from "./preview/pluginManagementPreview.ts"
 import { conversationSearchPreview } from "./preview/conversationSearchPreview.ts"
 import { initialSnapshot } from "./contract.ts"
 import { createPreviewSnapshot, markdownPreviewMessages, markdownPreviewText, mountPreview, workPreviewMessages, type PreviewHostKind } from "./previewHost.ts"
@@ -60,6 +61,7 @@ if (root) {
   let starting = snapshot
   let mounted: ReturnType<typeof mountPreview> | undefined
   if (scene === "search") onAction = conversationSearchPreview(next => { starting = next; mounted?.host.publish(next) }, snapshot)
+  if (scene === "plugins") onAction = pluginManagementPreview(next => { starting = next; mounted?.host.publish(next) }, snapshot)
   mounted = mountPreview(root, hostKind, starting, action => onAction?.(action))
   // 预览未完成轮次：只推进 assistantText，不另建 transcript 存储。
   if (scene === "streaming") {

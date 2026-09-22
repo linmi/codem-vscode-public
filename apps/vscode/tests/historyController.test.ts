@@ -1,3 +1,4 @@
+import { fixturePluginCommands } from "./pluginFixtures.ts"
 import { ActiveConversation } from "../src/sessionHistory/activeConversation.ts"
 import { capabilityHostFixture } from "./capabilityHostFixture.ts"
 import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
@@ -37,7 +38,7 @@ function setup(activeConversation?: ActiveConversation) {
     async cancelBackgroundTask() { return "cancelled" },
     async interruptTurn() {}, async respondToInteraction() {}, async close() {},
   }
-  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { assert.ok(trusted) }, searchHistory: async () => ({ hits: [], truncated: false }), readHistory: async (_id, cursor) => { read.push(cursor); return cursor ? page(0, null) : page(1, "older") } }
+  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { assert.ok(trusted) }, pluginCommands: fixturePluginCommands(), searchHistory: async () => ({ hits: [], truncated: false }), readHistory: async (_id, cursor) => { read.push(cursor); return cursor ? page(0, null) : page(1, "older") } }
   const snapshots: ReturnType<ChatController["snapshot"]>[] = []
   const chat = new ChatController({ activeConversation, connect: async () => session, assertTrusted() { assert.ok(trusted) }, publish(state) { snapshots.push(state) }, interact: async () => null, report() {} })
   return { chat, host, session, snapshots, resumed, released, sent, read, starts: () => starts, untrust: () => { trusted = false }, emit: (event: AppServerHostEvent) => listener(event) }

@@ -6,7 +6,11 @@ import { fileURLToPath } from "node:url"
 import { vscodeExecutable } from "./support/vscodeExecutable.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-if (process.argv.includes("--inline-completion")) {
+if (process.argv.includes("--plugin-management")) {
+  if (!process.argv.includes("--live")) throw new Error("Plugin acceptance requires explicit test:live")
+  const { runLivePluginManagement } = await import("../tests/livePluginManagement.ts")
+  await runLivePluginManagement(root)
+} else if (process.argv.includes("--inline-completion")) {
   if (!process.argv.includes("--live")) throw new Error("Inline completion acceptance requires explicit test:live")
   const { runLiveInlineCompletion } = await import("../tests/liveInlineCompletion.ts")
   const temporary = await mkdtemp(join(tmpdir(), "codemInlineCompletion"))

@@ -1,3 +1,4 @@
+import { PluginManagement } from "./pluginManagement.tsx"
 import { ConversationSearch } from "./conversationSearch.tsx"
 import { useEffect, useRef, useState } from "react"
 import { MessageSquarePlusIcon, TerminalIcon, XIcon } from "lucide-react"
@@ -327,6 +328,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
         </span>
         <div className="headerActions">
           <ConversationSearch key={`${snapshot.workspace}:${snapshot.space}:${snapshot.threadId}`} snapshot={snapshot} post={post} />
+          <PluginManagement key={`${snapshot.workspace}:${snapshot.space}`} snapshot={snapshot} post={post} />
           <ResourceTools snapshot={snapshot} post={post} />
           {isSignedIn(account) ? (
             <AccountTrigger

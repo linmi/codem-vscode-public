@@ -1,4 +1,4 @@
-import type { ConversationSearchView } from "@codem/protocol"
+import type { ConversationSearchView, PluginManagementView } from "@codem/protocol"
 import { catalogKinds, type CatalogKind } from "@codem/protocol"
 /**
  * Cycle 3：双宿主正式聊天壳。
@@ -261,6 +261,7 @@ export interface SlashCommand {
 }
 
 export interface ChatSnapshot {
+  pluginManagement: PluginManagementView | null
   conversationSearch: ConversationSearchView | null
   type: "state"
   phase: ChatPhase
@@ -392,6 +393,7 @@ export function initialSnapshot(): ChatSnapshot {
     canRetry: false,
     canResume: false,
     canLoadOlder: false,
+    pluginManagement: null,
     conversationSearch: null,
     hasOlderMessages: false,
     historyNeedsRefresh: false,
@@ -438,6 +440,7 @@ export function parseTheme(value: unknown): ChatTheme {
 }
 
 const simpleActions = [
+  "showPluginManagement", "closePluginManagement", "cancelPluginOperation", "installLocalPlugin",
   "showConversationSearch", "closeConversationSearch",
   "ready",
   "connect",
@@ -569,6 +572,8 @@ export function parseUiAction(value: unknown): Record<string, unknown> {
   if (record.type === "selectSkill" && keys.length === 2 && (record.id === null || (typeof record.id === "string" && threadIdPattern.test(record.id)))) {
     return { type: "selectSkill", id: record.id }
   }
+  if (record.type === "installMarketplacePlugin" && keys.length === 2 && typeof record.spec === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}@[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(record.spec)) return { type: "installMarketplacePlugin", spec: record.spec }
+  if (record.type === "changePlugin" && keys.length === 3 && ["enable", "disable", "uninstall"].includes(String(record.action))) return { type: "changePlugin", action: record.action, id: handleId(record.id) }
   if (record.type === "loadCatalog" && keys.length === 2 && catalogKinds.some((kind) => kind === record.kind)) {
     return { type: "loadCatalog", kind: record.kind }
   }
@@ -1195,6 +1200,7 @@ export function asSnapshot(value: unknown): ChatSnapshot | null {
     canRetry: record.canRetry === true,
     canResume: record.canResume === true,
     canLoadOlder: record.canLoadOlder === true,
+    pluginManagement: normalizePluginManagement(record.pluginManagement),
     conversationSearch: normalizeConversationSearch(record.conversationSearch),
     hasOlderMessages: record.hasOlderMessages === true,
     historyNeedsRefresh: record.historyNeedsRefresh === true,
@@ -1240,5 +1246,18 @@ function normalizeConversationSearch(value: unknown): ConversationSearchView | n
     hits: row.hits.slice(0, 200).flatMap(hit => hit && typeof hit.id === "string" && handlePattern.test(hit.id) && (hit.role === "user" || hit.role === "assistant") && typeof hit.excerpt === "string" ? [{ id: hit.id, role: hit.role, excerpt: hit.excerpt.slice(0, 800) }] : []),
     truncated: row.truncated === true, error: typeof row.error === "string" ? row.error.slice(0, 500) : null,
     target: typeof row.target === "string" ? row.target.slice(0, 500) : null, historical: row.historical === true,
+  }
+}
+
+function normalizePluginManagement(value: unknown): PluginManagementView | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const view = value as PluginManagementView
+  if (!["idle", "loading", "mutating", "reconciling", "ready", "error"].includes(view.status) || !Array.isArray(view.entries) || !Array.isArray(view.skills)) return null
+  return {
+    open: view.open === true, loaded: view.loaded === true, status: view.status,
+    entries: view.entries.slice(0, 1000).flatMap(row => row && typeof row.id === "string" && handlePattern.test(row.id) && typeof row.name === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(row.name) && typeof row.enabled === "boolean" ? [{ id: row.id, name: row.name, enabled: row.enabled, version: typeof row.version === "string" ? row.version.slice(0, 100) : null }] : []),
+    skills: view.skills.slice(0, 1000).flatMap(row => row && typeof row.name === "string" && typeof row.description === "string" ? [{ name: row.name.slice(0, 200), description: row.description.slice(0, 1000) }] : []),
+    error: typeof view.error === "string" ? view.error.slice(0, 1000) : null,
+    notice: typeof view.notice === "string" ? view.notice.slice(0, 1000) : null,
   }
 }

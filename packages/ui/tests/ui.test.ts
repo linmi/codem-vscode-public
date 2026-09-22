@@ -257,3 +257,15 @@ it("accepts bounded body search intents and hides unsupported search before host
   assert.throws(() => parseUiAction({ type: "searchConversation", query: "needle", path: "/secret" }))
   assert.throws(() => parseUiAction({ type: "selectConversationSearchHit", id: "../secret" }))
 })
+
+it("validates plugin management intents and strips Host-only installation metadata", () => {
+  assert.equal(initialSnapshot().pluginManagement, null)
+  assert.deepEqual(parseUiAction({ type: "installMarketplacePlugin", spec: "sample@local" }), { type: "installMarketplacePlugin", spec: "sample@local" })
+  assert.throws(() => parseUiAction({ type: "installMarketplacePlugin", spec: "./private/path" }))
+  assert.throws(() => parseUiAction({ type: "installLocalPlugin", path: "/private" }))
+  assert.throws(() => parseUiAction({ type: "changePlugin", action: "delete-source", id: "sample" }))
+  assert.throws(() => parseUiAction({ type: "changePlugin", action: "uninstall", id: "sample@local" }))
+  const snapshot = asSnapshot({ type: "state", pluginManagement: { open: true, status: "ready", loaded: true, entries: [{ id: "opaque-1", name: "sample", version: "1.0", enabled: false, path: "/private/source", key: "sample@market" }], skills: [] } })!
+  assert.equal(snapshot.pluginManagement!.entries[0]!.enabled, false)
+  assert.doesNotMatch(JSON.stringify(snapshot.pluginManagement), /private|path|sample@market/)
+})

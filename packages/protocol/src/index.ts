@@ -214,3 +214,4 @@ export type CodemCommandResult<T extends object> = T | { readonly error: string 
 
 export { catalogKinds, type CatalogKind } from "./catalog.ts"
 export type { ConversationSearchView } from "./conversationSearch.ts"
+export type { PluginManagementView } from "./pluginManagement.ts"

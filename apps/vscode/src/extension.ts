@@ -122,6 +122,18 @@ export function activate(context: vscode.ExtensionContext): void {
       case "signIn": await account.login(); break
       case "cancelSignIn": account.cancel(); break
       case "refreshAccount": await account.refresh(); break
+      case "showPluginManagement": await chat.showPluginManagement(); break
+      case "closePluginManagement": chat.closePluginManagement(); break
+      case "cancelPluginOperation": chat.cancelPluginOperation(); break
+      case "changePlugin": await chat.changePlugin(action.action, action.id); break
+      case "installMarketplacePlugin": await chat.installPlugin(async () => ({ kind: "marketplace", spec: action.spec })); break
+      case "installLocalPlugin": await chat.installPlugin(async signal => {
+        const files = await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false, openLabel: "安装此文件夹中的插件", title: "选择含 .codem-plugin/plugin.json 的插件文件夹" })
+        signal.throwIfAborted()
+        if (!files?.length) return null
+        if (files[0]!.scheme !== "file") throw new UserVisibleError("插件需要可访问的本地文件夹。")
+        return { kind: "local", path: files[0]!.fsPath }
+      }); break
       case "showConversationSearch": chat.showConversationSearch(); break
       case "closeConversationSearch": chat.closeConversationSearch(); break
       case "searchConversation": await chat.searchConversation(action.query); break

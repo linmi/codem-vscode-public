@@ -1,3 +1,4 @@
+import { fixturePluginCommands } from "./pluginFixtures.ts"
 import { attachmentScope } from "../src/shared/pastedImages.ts"
 import { capabilityHostFixture } from "./capabilityHostFixture.ts"
 import { SpaceDirectory } from "../src/connection/spaceDirectory.ts"
@@ -45,7 +46,7 @@ function setup() {
     async respondToInteraction(_id, response) { answers.push(response) },
     async close() { closed++ },
   }
-  const session: ChatSession = { authorize: async () => {}, searchHistory: async () => ({ hits: [], truncated: false }), readHistory: async () => ({ todoSnapshot: null, turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
+  const session: ChatSession = { authorize: async () => {}, pluginCommands: fixturePluginCommands(), searchHistory: async () => ({ hits: [], truncated: false }), readHistory: async () => ({ todoSnapshot: null, turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
   const controller = new ChatController({ connect: async () => { connections++; return session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   return { controller, host, session, answers, emit: (event: AppServerHostEvent) => listener(event), counts: () => ({ connections, starts, turns, closed }), submission: () => submissionId }
 }

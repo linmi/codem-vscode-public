@@ -41,6 +41,7 @@ async function setup(t: TestContext): Promise<{ connectRuntime: typeof ConnectRu
       ` : `
         import { control } from 'startupFixture';
         export { assertAppServerAuthenticated } from '../../packages/app-server/src/authentication.ts';
+        export { createPluginCommands } from '../../packages/app-server/src/plugins/pluginCommands.ts';
         const space = {projectKey:'proj_test', displayName:'Test', managedDirectory:null};
         const catalog = {current:'proj_test',spaces:[{projectKey:'proj_test',displayName:'Test'}]};
         export const resolveBundledAppServerRuntime=()=>({});

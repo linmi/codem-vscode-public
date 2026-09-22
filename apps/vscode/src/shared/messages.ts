@@ -1,4 +1,4 @@
-import type { ConversationSearchView } from "@codem/protocol"
+import type { ConversationSearchView, PluginManagementView } from "@codem/protocol"
 import { parsePastedImages, type PasteImagesAction } from "./pastedImages.ts"
 import { MAX_PINNED_CODE_SELECTIONS } from "./editorContext.ts"
 import { CODEM_DEFAULT_INTELLIGENCE, parseCodemIntelligence, parseCodemPermissionMode, type CodemBuiltinIntelligence } from "@codem/protocol"
@@ -8,7 +8,7 @@ import { parsePanelReply, type PanelReply } from "./panelTypes.ts"
 import { emptyHistoryList, type HistoryAction, type HistoryList } from "./historyTypes.ts"
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
-const simpleActions = ["showConversationSearch", "closeConversationSearch", "showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground", "pinSelection"] as const
+const simpleActions = ["showPluginManagement", "closePluginManagement", "cancelPluginOperation", "installLocalPlugin", "showConversationSearch", "closeConversationSearch", "showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground", "pinSelection"] as const
 const handleActions = ["selectConversationSearchHit", "chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask", "removeCodeSelection", "revealCodeSelection", "pinCodeSelection"] as const
 export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" } }
 export interface CodeSelectionView { id: string; label: string; path: string; startLine: number; endLine: number; error: string | null }
@@ -16,6 +16,8 @@ export interface CodeSelectionsView { current: CodeSelectionView | null; pinned:
 export type EditorMessage = { type: "codeSelection"; value: CodeSelectionsView } | { type: "composerDraft"; value: ComposerDraft; focus: boolean; pendingRequestId: string | null } | { type: "appendContext"; id: string; text: string } | { type: "focusComposer" } | { type: "editorSettings"; sendKey: string }
 export type ViewAction =
   | { type: "searchConversation"; query: string }
+  | { type: "installMarketplacePlugin"; spec: string }
+  | { type: "changePlugin"; action: "enable" | "disable" | "uninstall"; id: string }
   | PasteImagesAction
   | ComposerSettingAction
   | { type: "pickAttachment"; kind: "file" | "directory" }
@@ -66,6 +68,8 @@ export function parseViewAction(value: unknown): ViewAction {
     return { type: "setSendKey", sendKey: record.sendKey === "enter" ? "enter" : "ctrlEnter" }
   }
   if (record.type === "panelReply") return parsePanelReply(record)
+  if (record.type === "installMarketplacePlugin" && Object.keys(record).length === 2 && typeof record.spec === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}@[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(record.spec)) return { type: "installMarketplacePlugin", spec: record.spec }
+  if (record.type === "changePlugin" && Object.keys(record).length === 3 && ["enable", "disable", "uninstall"].includes(String(record.action)) && typeof record.id === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.id)) return record as ViewAction
   const capability = parseCapabilityAction(record)
   if (capability) return capability
   if (record.type === "searchConversation" && Object.keys(record).length === 2 && typeof record.query === "string" && record.query.trim() && record.query.length <= 512) return { type: "searchConversation", query: record.query }
@@ -103,6 +107,7 @@ export type ActivityMessage = MessageContent & { role: "reasoning" | "tool"; sta
 export type TurnStatusMessage = MessageContent & { role: "turnStatus"; turnId: string; outcome: "stopped" }
 export type ChatMessage = (MessageContent & { role: "user" | "assistant"; attachments?: readonly AttachmentView[] }) | ActivityMessage | TurnStatusMessage
 export interface ChatSnapshot {
+  pluginManagement: PluginManagementView
   conversationSearch: ConversationSearchView
   composerCatalog: ComposerCatalog
   capabilities: CapabilityState
@@ -131,7 +136,7 @@ export interface ChatSnapshot {
   historyNeedsRefresh: boolean
 }
 export function initialSnapshot(): ChatSnapshot {
-  return { conversationSearch: { open: false, status: "idle", query: "", hits: [], truncated: false, error: null, target: null, historical: false }, composerCatalog: { models: [], spaces: [] }, capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
+  return { pluginManagement: { open: false, loaded: false, status: "idle", entries: [], skills: [], error: null, notice: null }, conversationSearch: { open: false, status: "idle", query: "", hits: [], truncated: false, error: null, target: null, historical: false }, composerCatalog: { models: [], spaces: [] }, capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
 }
 export function isBusy(phase: ChatPhase): boolean {
   return phase !== "ready" && phase !== "disconnected"

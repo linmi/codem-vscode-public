@@ -1,0 +1,12 @@
+.pluginManagementDialog { max-height: calc(100vh - 32px); display: flex; flex-direction: column; gap: 12px; }
+.pluginManagementDialog form, .pluginInstallActions { display: flex; gap: 8px; }
+.pluginManagementDialog p { margin: 0; font-size: var(--captionFontSize); color: var(--muted); }
+.pluginManagementDialog [role="alert"] { color: var(--vscode-errorForeground, #bd3030); }
+.pluginManagementScroll { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.pluginManagementScroll h3 { margin: 12px 0 8px; font-size: var(--uiFontSize); }
+.pluginEntries, .pluginSkills { list-style: none; padding: 0; margin: 0; }
+.pluginEntries li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pluginEntries li > div:first-child, .pluginSkills li { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.pluginEntries span, .pluginSkills span { font-size: var(--captionFontSize); color: var(--muted); }
+.pluginSkills li { padding: 8px 0; }
+.pluginRemoval { padding: 12px; margin: 8px 0; border: 1px solid var(--line); border-radius: 8px; }

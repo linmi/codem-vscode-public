@@ -1,3 +1,5 @@
+import { PluginManagement, type PluginManagementContext } from "../plugins/pluginManagement.ts"
+import type { PluginCommands, PluginChange, PluginSource } from "@codem/app-server"
 import { ConversationSearch } from "../sessionHistory/conversationSearch.ts"
 import { type CatalogKind } from "@codem/protocol"
 import { attachmentScope, type PasteImagesAction } from "../shared/pastedImages.ts"
@@ -44,6 +46,7 @@ export interface ChatSession {
   mcpServers: AppServerThreadSettings["mcpServers"]
   authorize: () => Promise<void>
   readHistory: SessionHistoryReader
+  pluginCommands: PluginCommands
   searchHistory: SessionHistorySearcher
 }
 interface ActiveTurn {
@@ -107,12 +110,14 @@ export class ChatController {
   private readonly liveSnapshot: LiveSnapshotCatalog
   private readonly background: BackgroundTasks
 
+  private readonly pluginManagement: PluginManagement
   private readonly conversationSearch: ConversationSearch
   private readonly historyList: HistoryListController
   private readonly conversationHistory: ConversationHistory
 
   constructor(options: ChatControllerOptions) {
     this.options = options
+    this.pluginManagement = new PluginManagement(() => this.publish(), options.report)
     this.conversationSearch = new ConversationSearch(() => this.publish(), options.report)
     this.liveSnapshot = new LiveSnapshotCatalog(view => this.updateTools({ catalog: view, ...(view.loading || this.state.sessionTools.busy === "catalog:live" ? { busy: view.loading ? "catalog:live" : null } : {}) }), options.assertTrusted, options.report)
     this.conversationHistory = new ConversationHistory(options.report)
@@ -127,7 +132,7 @@ export class ChatController {
     const pending = this.pendingSend?.message
     const messages = pending && !this.state.messages.some(message => message.id === pending.id)
       ? [...this.state.messages, pending] : this.state.messages
-    return structuredClone({ ...this.state, composerCatalog: this.session && this.state.phase !== "disconnected" ? this.composerCatalog.snapshot(this.settings.model, this.session.space.key) : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot() })
+    return structuredClone({ ...this.state, composerCatalog: this.session && this.state.phase !== "disconnected" ? this.composerCatalog.snapshot(this.settings.model, this.session.space.key) : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
   }
 
   async assertContextWorkspace(path: string): Promise<void> {
@@ -415,6 +420,31 @@ export class ChatController {
 
   private updateTools(patch: Partial<SessionToolsState>): void {
     this.update({ sessionTools: { ...this.state.sessionTools, ...patch } })
+  }
+
+  closePluginManagement(): void { this.pluginManagement.close() }
+  cancelPluginOperation(): void { this.pluginManagement.cancel() }
+  async showPluginManagement(): Promise<void> { await this.withPluginManagement(context => this.pluginManagement.refresh(context)) }
+  async installPlugin(pick: (signal: AbortSignal) => Promise<PluginSource | null>): Promise<void> { await this.withPluginManagement(context => this.pluginManagement.install(context, pick)) }
+  async changePlugin(action: PluginChange, id: string): Promise<void> { await this.withPluginManagement(context => this.pluginManagement.change(context, action, id)) }
+  private async withPluginManagement(run: (context: PluginManagementContext) => Promise<void>): Promise<void> {
+    const session = this.session
+    if (!session || this.disposed || this.state.phase !== "ready" || this.state.sessionTools.busy || this.state.backgroundBusy || this.active || this.side || this.pluginManagement.busy) return
+    this.conversationSearch.close()
+    this.update({ phase: "configuring", notice: null })
+    try {
+      await run({
+        commands: session.pluginCommands,
+        authorize: () => session.authorize(),
+        assertCurrent: () => { this.options.assertTrusted(); if (this.session !== session || this.disposed || this.active || this.side) throw new Error("Plugin operation context expired") },
+        skills: () => session.host.listSkills(session.cwd, this.threadId ?? undefined),
+        acceptSkills: skills => {
+          this.skillNames.clear()
+          const rows = skills.map(skill => { const id = randomUUID(); this.skillNames.set(id, skill.name); return { id, name: skill.name, description: skill.description } })
+          this.updateTools({ selectedSkill: null, skills: rows, catalog: null })
+        },
+      })
+    } finally { if (this.session === session && !this.disposed && this.snapshot().phase === "configuring") this.update({ phase: "ready" }) }
   }
 
   async loadCatalog(kind: CatalogKind): Promise<void> {
@@ -918,7 +948,8 @@ export class ChatController {
     this.conversationHistory.reset()
     this.historyList.bind(null)
     this.background.stopPolling()
-    const retiring = Promise.resolve().then(() => session?.host.close())
+    const plugins = this.pluginManagement.reset()
+    const retiring = Promise.all([plugins, Promise.resolve().then(() => session?.host.close())]).then(() => undefined)
     this.resetResources(false, retiring)
     this.session = null
     this.directoryPaths.clear()

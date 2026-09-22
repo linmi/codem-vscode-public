@@ -15,7 +15,8 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 | `apps/vscode/src/extension.ts` | 正式扩展入口与组装 |
 | `src/chat/` | 聊天协调器、界面容器、HTML 与 Host 展示投影 |
 | `src/connection/` | 独立账户认证与展示状态、连接、空间目录、连接偏好和 MCP 配置 |
-| `src/sessionHistory/` | 历史读取、列表及历史消息投影 |
+| `src/sessionHistory/` | 历史读取、列表、正文搜索租约及历史消息投影 |
+| `src/plugins/` | 插件管理操作、取消/核对状态和不透明安装句柄；不拥有聊天连接或文件路径 UI |
 | `src/resources/` | 文件、附件、产物句柄和差异内容 |
 | `src/integrations/` | 编辑器、终端、Git、补全及其他 VS Code 能力适配 |
 | `src/panels/` | Host 交互面板、审批转发和设置选择 |
@@ -50,3 +51,5 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 - 模拟界面：复用既有 4318 服务（PID 60961），只创建一个内置浏览器标签页；实际检查浅色命令菜单、键盘选择、Shell 确认取消后的草稿、展开的主题选择器、深色资源面板及历史列表。控制台无错误/警告，任务结束关闭本任务标签页，保留既有预览服务。
 - 真实 Core：未运行；调用链和协议实现未变化。真实 VS Code：未运行；未把两种扩展构建和模拟操作当作真实宿主验收。
 - 旧路径搜索：生产实现及构建配置已迁移；旧平铺路径仅保留于 `sourceLayout.test.ts` 的负向测试。公共包与 `history/` 未修改。
+
+插件管理新增边界及验证见 [pluginManagementAcceptance.md](pluginManagementAcceptance.md)：Node 管理命令位于 `packages/app-server/src/plugins/`，Host 生命周期位于 `src/plugins/`，共享 UI 仅消费安全显示契约。目录门禁包含该目录正例和入口平铺反例。

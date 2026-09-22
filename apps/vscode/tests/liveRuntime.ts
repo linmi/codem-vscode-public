@@ -1,3 +1,4 @@
+import { createPluginCommands } from "@codem/app-server"
 import { SpaceDirectory } from "../src/connection/spaceDirectory.ts"
 import { realpath } from "node:fs/promises"
 import { AppServerHost, assertAppServerAuthenticated, readAppServerAuthStatus, listAppServerSpaces, prepareAppServerSpace, resolveBundledAppServerRuntime } from "@codem/app-server"
@@ -25,6 +26,6 @@ export async function liveRuntime(extensionRoot: string, workspace: string, sign
   try {
     await host.prepareConnection(cwd)
     const catalog = await host.listModels(cwd)
-    return { host, cwd, workspace: "acceptance", spaceDirectory: directory, space: { key: spaces.current, name: spaces.spaces.find(space => space.projectKey === spaces.current)!.displayName }, model: catalog.activeModel, models: catalog.models, mcpServers: [], authorize, searchHistory: createSessionHistorySearcher({ cwd, sessionsRoot: resolveSessionsRoot(process.env), authorize }), readHistory: createSessionHistoryReader({ cwd, sessionsRoot: resolveSessionsRoot(process.env), authorize }) }
+    return { host, cwd, workspace: "acceptance", spaceDirectory: directory, space: { key: spaces.current, name: spaces.spaces.find(space => space.projectKey === spaces.current)!.displayName }, model: catalog.activeModel, models: catalog.models, mcpServers: [], authorize, pluginCommands: createPluginCommands({ runtime, cwd }), searchHistory: createSessionHistorySearcher({ cwd, sessionsRoot: resolveSessionsRoot(process.env), authorize }), readHistory: createSessionHistoryReader({ cwd, sessionsRoot: resolveSessionsRoot(process.env), authorize }) }
   } catch (error) { await host.close(); throw error } finally { starting = false }
 }
