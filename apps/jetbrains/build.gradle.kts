@@ -53,7 +53,7 @@ dependencies {
 }
 
 tasks.test {
-    useJUnitPlatform { excludeTags("nativeRuntime") }
+    useJUnitPlatform { excludeTags("nativeRuntime", "liveCore") }
     workingDir = repoRoot
     systemProperty("codem.contractsHistory", repoRoot.resolve("packages/contracts/history").path)
     testLogging {
@@ -62,6 +62,18 @@ tasks.test {
 }
 
 if (findProject(":host") != null) {
+    tasks.register<Test>("liveTest") {
+        group = "verification"
+        description = "Explicit real-account/model test: send, close, restore history and continue in a temporary workspace."
+        dependsOn(":host:stageRuntime", tasks.testClasses)
+        testClassesDirs = sourceSets.test.get().output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        useJUnitPlatform { includeTags("liveCore") }
+        systemProperty("codem.pluginRoot", layout.buildDirectory.dir("runtime").get().asFile.path)
+        outputs.upToDateWhen { false }
+        testLogging { events("passed", "failed", "standardOut") }
+    }
+
     tasks.register<Test>("runtimeTest") {
         group = "verification"
         description = "Verify the packaged native binaries in an isolated directory, without login or model calls."

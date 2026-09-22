@@ -11,7 +11,8 @@
     "build:plugin": "node --experimental-strip-types scripts/checkJetbrains.ts --plugin",
     "reload": "node --experimental-strip-types scripts/installAndReload.ts",
     "stage:runtime": "node --experimental-strip-types scripts/stageRuntime.ts",
-    "test:runtime": "node --experimental-strip-types scripts/checkJetbrains.ts --runtime"
+    "test:runtime": "node --experimental-strip-types scripts/checkJetbrains.ts --runtime",
+    "test:live": "node --experimental-strip-types scripts/checkJetbrains.ts --live"
   },
   "devDependencies": {
     "@codem/app-server": "workspace:*",

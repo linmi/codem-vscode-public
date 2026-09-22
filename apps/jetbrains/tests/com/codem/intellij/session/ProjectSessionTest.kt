@@ -67,14 +67,26 @@ class ProjectSessionTest {
     @Test
     fun newChatStopsRunningTurnBeforeClearingThreadId() {
         val process = ScriptedProcess()
-        val session = session { startResponder(process, handshakeCapabilities()); process }
+        val interrupted = java.util.concurrent.CountDownLatch(1)
+        val session = session {
+            startResponder(process, handshakeCapabilities(), beforeReply = { if (it == "turn/interrupt") interrupted.countDown() })
+            process
+        }
         session.connect()
         session.send("hello", "req-1")
         assertEquals("thread-1", session.snapshot().threadId)
-        session.newChat()
+        val changed = java.util.concurrent.CompletableFuture.runAsync { session.newChat() }
+        awaitSnapshot(session) { it.phase == "stopping" }
+        assertEquals("thread-1", session.snapshot().threadId)
+        assertTrue(!changed.isDone)
+        org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.send("too early", "req-early") }
+        assertTrue(interrupted.await(2, java.util.concurrent.TimeUnit.SECONDS))
+        completeTurn(process, "thread-1", "turn-1")
+        changed.get(5, java.util.concurrent.TimeUnit.SECONDS)
         val methods = process.writes.map { JsonValue.parse(it).asObject() }
             .mapNotNull { (it.fields["method"] as? JsonValue.Text)?.value }
         assertTrue(methods.contains("turn/interrupt"))
+        assertTrue(methods.indexOf("thread/unsubscribe") > methods.indexOf("turn/interrupt"))
         val interrupt = process.writes.map { JsonValue.parse(it).asObject() }
             .first { (it.fields["method"] as? JsonValue.Text)?.value == "turn/interrupt" }
             .required("params").asObject()
@@ -86,6 +98,129 @@ class ProjectSessionTest {
         assertEquals(true, after.canResume)
         assertEquals(true, visibleControls(after).resume)
         assertEquals(false, visibleControls(after).older)
+        session.close().join()
+    }
+
+    @Test
+    fun newChatReleasesSubscriptionAndRepeatedResumeReleasesBeforeLoading() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        try {
+            session.connect()
+            session.resumeThread("thread-1")
+            session.newChat()
+            session.newChat()
+            session.resumeThread("thread-1")
+            session.resumeThread("thread-1")
+            val methods = process.writes.map { JsonValue.parse(it).asObject() }
+                .mapNotNull { (it.fields["method"] as? JsonValue.Text)?.value }
+                .filter { it == "thread/resume" || it == "thread/unsubscribe" }
+            assertEquals(listOf("thread/resume", "thread/unsubscribe", "thread/resume", "thread/unsubscribe", "thread/resume"), methods)
+            assertEquals("thread-1", session.snapshot().threadId)
+            assertEquals("ready", session.snapshot().phase)
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun failedUnsubscribeKeepsCurrentThreadAndDoesNotAttemptResume() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities(), failMethod = "thread/unsubscribe"); process }
+        try {
+            session.connect()
+            session.resumeThread("thread-1")
+            org.junit.jupiter.api.Assertions.assertThrows(Exception::class.java) { session.resumeThread("thread-2") }
+            assertEquals("thread-1", session.snapshot().threadId)
+            assertEquals("ready", session.snapshot().phase)
+            val resumes = process.writes.map { JsonValue.parse(it).asObject() }
+                .count { (it.fields["method"] as? JsonValue.Text)?.value == "thread/resume" }
+            assertEquals(1, resumes)
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun completionBeforeInterruptDoesNotSendAnInvalidStop() {
+        val process = ScriptedProcess()
+        val completeOnce = java.util.concurrent.atomic.AtomicBoolean(false)
+        lateinit var current: ProjectSession
+        current = session(onSnapshot = { snapshot ->
+            if (snapshot.phase == "stopping" && completeOnce.compareAndSet(false, true)) {
+                completeTurn(process, "thread-1", "turn-1")
+                awaitSnapshot(current) { it.turnTimings.any { timing -> timing.finishedAt != null } }
+            }
+        }) { startResponder(process, handshakeCapabilities()); process }
+        try {
+            current.connect()
+            current.send("hello", "req-finish-first")
+            current.newChat()
+            assertEquals(null, current.snapshot().threadId)
+            assertTrue(process.writes.none { it.contains("turn/interrupt") })
+            assertTrue(process.writes.any { it.contains("thread/unsubscribe") })
+        } finally { current.close().join() }
+    }
+
+    @Test
+    fun obsoleteEmptyUnsubscribeResponseCannotClearTheThread() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities(), emptyUnsubscribe = true); process }
+        try {
+            session.connect()
+            session.resumeThread("thread-1")
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Protocol::class.java) { session.newChat() }
+            assertEquals("thread-1", session.snapshot().threadId)
+            assertEquals("ready", session.snapshot().phase)
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun missingTerminalKeepsTheThreadAndAllowsRetryAfterCompletion() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        try {
+            session.connect()
+            session.send("hello", "req-timeout")
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.newChat() }
+            assertEquals("thread-1", session.snapshot().threadId)
+            assertTrue(process.writes.none { it.contains("thread/unsubscribe") })
+            completeTurn(process, "thread-1", "turn-1")
+            awaitSnapshot(session) { it.phase == "ready" }
+            session.newChat()
+            assertEquals(null, session.snapshot().threadId)
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun retiredThreadEventsCannotClearTheNewSubscription() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        try {
+            session.connect()
+            session.resumeThread("thread-old")
+            session.resumeThread("thread-new")
+            val before = session.snapshot().version
+            process.enqueue(encodeJson(JsonValue.obj(
+                "jsonrpc" to JsonValue.Text("2.0"),
+                "method" to JsonValue.Text("thread/closed"),
+                "params" to JsonValue.obj("threadId" to JsonValue.Text("thread-old")),
+            )))
+            val after = awaitSnapshot(session) { it.version > before }
+            assertEquals("thread-new", after.threadId)
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun closingWhileNewChatWaitsForTerminalRevokesTheSwitch() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        session.connect()
+        session.send("hello", "req-close")
+        val change = java.util.concurrent.CompletableFuture.runAsync { session.newChat() }
+        awaitSnapshot(session) { it.phase == "stopping" }
+        session.close().join()
+        org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.ExecutionException::class.java) {
+            change.get(5, java.util.concurrent.TimeUnit.SECONDS)
+        }
+        assertEquals("disconnected", session.snapshot().phase)
+        assertTrue(process.writes.none { it.contains("thread/unsubscribe") })
     }
 
     @Test
@@ -764,6 +899,7 @@ class ProjectSessionTest {
         process: ScriptedProcess,
         capabilities: JsonValue.ObjectValue,
         failMethod: String? = null,
+        emptyUnsubscribe: Boolean = false,
         beforeReply: (String) -> Unit = {},
     ) {
         Thread {
@@ -794,6 +930,7 @@ class ProjectSessionTest {
                 val result = when (method) {
                     "initialize" -> capabilities
                     "thread/start" -> JsonValue.obj("thread" to JsonValue.obj("id" to JsonValue.Text("thread-1")))
+                    "thread/unsubscribe" -> if (emptyUnsubscribe) JsonValue.ObjectValue(emptyMap()) else JsonValue.obj("status" to JsonValue.Text("unsubscribed"))
                     "thread/resume" -> JsonValue.obj("thread" to JsonValue.obj("id" to params.required("threadId")))
                     "turn/start" -> JsonValue.obj("turn" to JsonValue.obj("id" to JsonValue.Text("turn-1")))
                     "turn/interrupt" -> JsonValue.ObjectValue(emptyMap())

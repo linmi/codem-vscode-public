@@ -113,6 +113,8 @@ class ProjectSession(
     private val onSnapshot: ((ChatSnapshot) -> Unit)? = null,
 ) {
     private val lock = ReentrantLock()
+    private val turnChanged = lock.newCondition()
+    private var threadChangeGeneration: Long? = null
     private val generation = AtomicLong(0)
     private val connectionIds = AtomicLong(0)
     private var pendingConnection: CompletableFuture<Void>? = null
@@ -167,7 +169,7 @@ class ProjectSession(
             phase = when (phase) {
                 ConnectionPhase.Disconnected -> "disconnected"
                 ConnectionPhase.Authenticating, ConnectionPhase.PreparingSpace, ConnectionPhase.Starting -> "connecting"
-                ConnectionPhase.Ready -> when (turns.current?.phase) {
+                ConnectionPhase.Ready -> if (threadChangeGeneration != null) "stopping" else when (turns.current?.phase) {
                     TurnPhase.Submitting -> "sending"
                     TurnPhase.Running -> "running"
                     TurnPhase.Interrupting -> "stopping"
@@ -349,6 +351,7 @@ class ProjectSession(
         if (trimmed.isEmpty()) throw CodemError.Validation("CodeM send text must be non-empty")
         val (coreProcess, currentThread, currentGeneration) = lock.withLock {
             if (phase != ConnectionPhase.Ready || core == null) throw CodemError.Conflict("CodeM is not ready")
+            if (threadChangeGeneration != null) throw CodemError.Conflict("CodeM is switching conversations")
             val turnPhase = turns.current?.phase
             if (turnPhase == TurnPhase.Submitting || turnPhase == TurnPhase.Running || turnPhase == TurnPhase.Interrupting) {
                 throw CodemError.Conflict("CodeM submission is already in progress")
@@ -418,9 +421,12 @@ class ProjectSession(
         emitSnapshot()
     }
 
-    fun stop() {
+    fun stop() = interruptTurn(requireActive = true)
+
+    private fun interruptTurn(requireActive: Boolean) {
         val (coreProcess, activeThread, turnId, currentGeneration) = lock.withLock {
             if (phase != ConnectionPhase.Ready || core == null) throw CodemError.Conflict("CodeM is not ready")
+            if (!requireActive && turns.current?.phase != TurnPhase.Running) return
             val turn = turns.current ?: throw CodemError.Conflict("CodeM turn/interrupt has no active turn")
             turns.markInterrupting()
             Quadruple(core!!, threadId ?: throw CodemError.Conflict("no thread"), turn.turnId, generation.get())
@@ -453,39 +459,33 @@ class ProjectSession(
         emitSnapshot()
     }
 
-    /**
-     * 运行中必须先 interrupt，回执受理后再清本地 threadId。
-     * 提交中还没有 turnId，不能停，也就不能清。
-     */
-    fun newChat() {
-        val shouldStop = lock.withLock {
-            when (turns.current?.phase) {
-                TurnPhase.Submitting -> throw CodemError.Conflict("CodeM cannot start a new chat while a turn is still submitting")
-                TurnPhase.Running -> true
-                else -> false
-            }
-        }
-        if (shouldStop) stop()
+    /** Only turn/completed permits releasing a running thread; an interrupt receipt is not terminal. */
+    fun newChat() = changeThread(allowRunning = true) { coreProcess, currentGeneration ->
+        interruptTurn(requireActive = false)
         lock.withLock {
-            when (turns.current?.phase) {
-                TurnPhase.Submitting, TurnPhase.Running ->
-                    throw CodemError.Conflict("CodeM cannot start a new chat while a turn is still running")
-                else -> {
-                    lastThreadId = threadId ?: lastThreadId
-                    threadId = null
-                    modesValid = false
-                    turns.resetActive()
-                    historyMessages.clear()
-                    historyCursor = null
-                    hasOlder = false
-                    diffs.clear()
-                    diffPaths.clear()
-                    diffContents.clear()
-                    background = emptyList()
-                    catalogKind = null
-                    catalogRows = emptyList()
-                }
+            var remaining = TimeUnit.MILLISECONDS.toNanos(timeouts.rpcMs)
+            while (!idleTurnLocked()) {
+                assertGeneration(currentGeneration)
+                requireReadyLocked()
+                if (remaining <= 0) throw CodemError.Conflict("CodeM is still stopping; try again after the turn finishes")
+                remaining = turnChanged.awaitNanos(remaining)
             }
+            assertGeneration(currentGeneration)
+        }
+        unsubscribeCurrent(coreProcess, currentGeneration)
+        lock.withLock {
+            assertGeneration(currentGeneration)
+            turns.resetActive()
+            historyMessages.clear()
+            historyCursor = null
+            hasOlder = false
+            diffs.clear()
+            diffPaths.clear()
+            diffContents.clear()
+            background = emptyList()
+            catalogKind = null
+            catalogRows = emptyList()
+            notice = null
         }
     }
 
@@ -493,28 +493,71 @@ class ProjectSession(
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.CONTROL_THREAD)
         val id = requestedId.trim()
         if (id.isEmpty()) throw CodemError.Validation("CodeM thread/resume threadId is required")
-        requireIdleTurn("thread/resume")
-        val (coreProcess, currentGeneration) = readyCore()
-        val (method, params) = ThreadCommands.resume(id, workingDirectory.toString(), settings.model, settings.intelligence)
-        val result = requestResult(coreProcess, method, params, currentGeneration)
-        val actual = result.required("thread").asObject().required("id").asText()
-        if (actual != id) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM resumed $actual, expected $id")
+        return changeThread(allowRunning = false) { coreProcess, currentGeneration ->
+            unsubscribeCurrent(coreProcess, currentGeneration)
+            val (method, params) = ThreadCommands.resume(id, workingDirectory.toString(), settings.model, settings.intelligence)
+            val result = requestResult(coreProcess, method, params, currentGeneration)
+            val actual = result.required("thread").asObject().required("id").asText()
+            if (actual != id) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM resumed $actual, expected $id")
+            lock.withLock {
+                assertGeneration(currentGeneration)
+                turns.resetActive()
+                historyMessages.clear()
+                bindThreadLocked(actual)
+                if (lastThreadId == actual) lastThreadId = null
+                historyCursor = null
+                historyList = historyList.copy(open = false)
+                notice = null
+            }
+            if (historySource != null) {
+                try {
+                    loadOlderMessages()
+                } catch (error: Throwable) {
+                    lock.withLock { notice = SessionNotice(SafeNotice.from(error, "CodeM history could not be restored"), true) }
+                }
+            }
+            actual
+        }
+    }
+
+    /** Single current subscription per connection. Failure never pretends the old thread was released. */
+    private fun unsubscribeCurrent(coreProcess: CoreProcess, currentGeneration: Long) {
+        val id = lock.withLock { assertGeneration(currentGeneration); threadId } ?: return
+        val result = requestResult(coreProcess, "thread/unsubscribe", JsonValue.obj("threadId" to JsonValue.Text(id)), currentGeneration)
+        val status = (result.fields["status"] as? JsonValue.Text)?.value
+        if (result.fields.size != 1 || status !in setOf("unsubscribed", "notSubscribed")) {
+            throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM thread/unsubscribe status")
+        }
         lock.withLock {
             assertGeneration(currentGeneration)
-            bindThreadLocked(actual)
-            if (lastThreadId == actual) lastThreadId = null
-            historyMessages.clear()
-            historyCursor = null
-            historyList = historyList.copy(open = false)
+            lastThreadId = id
+            threadId = null
+            modesValid = false
         }
-        if (historySource != null) {
-            try {
-                loadOlderMessages()
-            } catch (error: Throwable) {
-                lock.withLock { notice = SessionNotice(SafeNotice.from(error, "CodeM history could not be restored"), true) }
+    }
+
+    private fun <T> changeThread(allowRunning: Boolean, operation: (CoreProcess, Long) -> T): T {
+        WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.CONTROL_THREAD)
+        val (coreProcess, currentGeneration) = lock.withLock {
+            requireReadyLocked()
+            if (threadChangeGeneration != null || turns.current?.phase == TurnPhase.Submitting || (!allowRunning && !idleTurnLocked())) {
+                throw CodemError.Conflict("CodeM cannot switch conversations during another operation")
             }
+            val current = generation.get()
+            threadChangeGeneration = current
+            snapshotVersion += 1
+            core!! to current
         }
-        return actual
+        emitSnapshot()
+        try {
+            return operation(coreProcess, currentGeneration)
+        } finally {
+            lock.withLock {
+                if (threadChangeGeneration == currentGeneration) threadChangeGeneration = null
+                snapshotVersion += 1
+            }
+            emitSnapshot()
+        }
     }
 
     /** 打开历史只列当前工作区的会话标题，不把 cwd 画进界面。 */
@@ -1161,6 +1204,7 @@ class ProjectSession(
         val (current, pending) = lock.withLock {
             phase = ConnectionPhase.Closing
             generation.set(connectionIds.incrementAndGet())
+            turnChanged.signalAll()
             retireCoresLocked() to pendingConnection
         }
         val futures = current.map { it.close() } + listOfNotNull(pending)
@@ -1192,6 +1236,7 @@ class ProjectSession(
                 val changed = lock.withLock {
                     if (generation.get() != currentGeneration) return@withLock false
                     applyNotificationLocked(notification)
+                    turnChanged.signalAll()
                     snapshotVersion += 1
                     true
                 }
@@ -1252,6 +1297,8 @@ class ProjectSession(
 
     /** Connection handles never survive a replacement; local preferences and draft text do. */
     private fun resetConnectionStateLocked() {
+        threadChangeGeneration = null
+        turnChanged.signalAll()
         threadId = null
         lastThreadId = null
         submission = null
@@ -1424,6 +1471,7 @@ class ProjectSession(
 
     private fun requireIdleTurn(method: String) {
         lock.withLock {
+            if (threadChangeGeneration != null) throw CodemError.Conflict("CodeM is switching conversations")
             val turnPhase = turns.current?.phase
             if (turnPhase == TurnPhase.Submitting || turnPhase == TurnPhase.Running || turnPhase == TurnPhase.Interrupting) {
                 throw CodemError.Conflict("Cannot $method active CodeM thread")
@@ -1576,6 +1624,8 @@ class ProjectSession(
 
     /** B14：通知进入快照 notice/运行信息；warning 不得转成功。 */
     private fun applyNotificationLocked(notification: RpcNotification) {
+        val eventThread = (notification.params.fields["threadId"] as? JsonValue.Text)?.value
+        if (eventThread != null && eventThread != threadId) return
         when (notification.method) {
             "auth/invalidated" -> {
                 phase = ConnectionPhase.Failed
@@ -1599,6 +1649,7 @@ class ProjectSession(
                 acceptModes(notification.params, current, generation.get())
             }
             "thread/closed", "thread/archived", "thread/deleted" -> {
+                if (threadChangeGeneration != null) return
                 lastThreadId = threadId ?: lastThreadId
                 threadId = null
                 modesValid = false

@@ -64,6 +64,7 @@ tests/               Gradle 测试源
 
 ```bash
 pnpm --filter @codem/jetbrains check    # TS 构建脚本类型检查 + domainTest；JDK 缺失必须失败
+pnpm --filter @codem/jetbrains test:live # 显式使用当前登录账户/空间调用模型，临时工作区发送、切换、历史恢复及续聊
 pnpm --filter @codem/jetbrains test:runtime # 构建并解压 ZIP，独立目录、空 PATH 的真实握手；不登录、不调用模型
 ./gradlew domainTest                    # 无 IntelliJ SDK
 ./gradlew buildPlugin                   # 打包到 zip；需要已缓存的 IDEA SDK，不启动 IDE
@@ -94,3 +95,5 @@ pnpm --filter @codem/jetbrains reload   # 装进本机 2026.2.3 并自动重载�
 旧 `runtime/manifest.json` 多平台格式没有实际打包产物或独立消费者，已删除其解析实现；项目 `node_modules` 不再具有为插件提供运行程序的权限。重新构建并安装即可迁移，无用户数据迁移。
 
 验收进展见 [JetBrains 功能准出台账](../../docs/jetbrainsFeatureAcceptance.md)。
+
+`test:live` 默认使用认证程序已选中的空间；可通过 `CODEM_TEST_SPACE` 指定已有空间 key，但不会切换全局账户或空间。缺少登录或有效空间时明确失败，不跳过。每次正常执行发送两条禁止使用工具的文本探针，最多等待每轮 90 秒；独立临时工作区和 `LINCO_SESSIONS_ROOT` 隔离测试历史，退出时检查 Core 回收。默认 `check` 排除 `liveCore` 与 `nativeRuntime` 标签，不访问真实账户或模型。
