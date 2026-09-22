@@ -1,5 +1,7 @@
 # @codem/app-server
 
+Interactive capability and usage documentation: run `pnpm --filter @codem/docs dev` from the workspace root, then open [the local docs](http://127.0.0.1:4174). Source and build instructions: [apps/docs](../../apps/docs/README.md).
+
 Reusable Node-only CodeM App Server client/runtime boundary. Core itself is supplied by the pinned published package; this package is not the Core server implementation.
 
 The active VS Code application consumes this package. Its initial source and tests were copied from the archived implementation; see [provenance](../../UPSTREAM.md).
