@@ -143,7 +143,7 @@ class SessionTest {
         )
         var failed = false
         try {
-            router.reply("approval-1", 2, "thread-2", listOf("approve"), "", false)
+            router.reply(router.panelView()!!.id, 2, "thread-2", listOf("choice-0"), "", false)
         } catch (error: CodemError) {
             failed = error.errorClass == CodemError.Class.Conflict
         }
@@ -278,7 +278,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply("approval-1", 1, "thread-1", listOf("allow-once"), "", false)
+        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-0"), "", false)
         val body = JsonValue.parse(writes.single()).asObject()
         assertEquals("allow-once", body.required("result").asObject().required("outcome").asObject().required("optionId").asText())
         assertEquals(7.0, (body.required("id") as JsonValue.NumberValue).value)
@@ -309,7 +309,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply("question-1", 1, "thread-1", listOf("src"), "", false)
+        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-0"), "", false)
         val question = JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject()
         val answer = question.required("answers").asArray().items.single().asObject()
         assertEquals("Which files?", answer.required("question").asText())
@@ -325,7 +325,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply("question-2", 1, "thread-1", emptyList(), "", true)
+        router.reply(router.panelView()!!.id, 1, "thread-1", emptyList(), "", true)
         assertEquals(true, JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject().required("cancelled").asBoolean())
 
         router.handle(
@@ -334,7 +334,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply("plan-1", 1, "thread-1", listOf("approve"), "", false)
+        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-0"), "", false)
         val approved = JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject()
         assertEquals(true, approved.required("approved").asBoolean())
         assertEquals(null, approved.fields["feedback"])
@@ -345,7 +345,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply("plan-2", 1, "thread-1", listOf("reject"), "need a smaller change", false)
+        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-1"), "need a smaller change", false)
         val rejected = JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject()
         assertEquals(false, rejected.required("approved").asBoolean())
         assertEquals("need a smaller change", rejected.required("feedback").asText())
@@ -364,7 +364,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply("rewind-1", 1, "thread-1", listOf("cp-1", "both"), "", false)
+        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-0", "choice-2"), "", false)
         val rewind = JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject()
         assertEquals("selected", rewind.required("status").asText())
         assertEquals("cp-1", rewind.required("checkpointId").asText())
@@ -384,13 +384,13 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply("rewind-2", 1, "thread-1", emptyList(), "", true)
+        router.reply(router.panelView()!!.id, 1, "thread-1", emptyList(), "", true)
         assertEquals("cancelled", JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject().required("status").asText())
         assertTrue(writes.none { it.contains("choiceIds") })
     }
 
     @Test
-    fun permissionCancelIsRejectedInsteadOfWebviewShape() {
+    fun permissionCancelRequestsTurnStopWithoutInventingAnOutcome() {
         val writes = mutableListOf<String>()
         val peer = RpcPeer(writes::add, {}, {}, {})
         val router = InteractionRouter()
@@ -404,13 +404,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        var failed = false
-        try {
-            router.reply("approval-1", 1, "thread-1", emptyList(), "", true)
-        } catch (error: CodemError) {
-            failed = error.errorClass == CodemError.Class.Validation
-        }
-        assertTrue(failed)
+        assertTrue(router.reply(router.panelView()!!.id, 1, "thread-1", emptyList(), "", true))
         assertTrue(writes.isEmpty())
     }
 

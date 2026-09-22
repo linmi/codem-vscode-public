@@ -5,6 +5,7 @@ import com.codem.intellij.core.JsonValue
 import com.codem.intellij.core.RpcId
 import com.codem.intellij.core.RpcPeer
 import com.codem.intellij.core.RpcRequest
+import java.util.UUID
 
 enum class InteractionKind {
     Permission,
@@ -43,8 +44,12 @@ data class PendingInteraction(
     val rewind: RewindSpec?,
     val peer: RpcPeer,
     val id: RpcId,
+    val detail: String? = null,
+    val description: String = "",
 ) {
-    val allowedChoiceIds: Set<String> = choices.map { it.id }.toSet()
+    var panelId: String = UUID.randomUUID().toString()
+    var questionIndex = 0
+    val answers = mutableMapOf<Int, JsonValue.ObjectValue>()
 }
 
 /**
@@ -63,6 +68,7 @@ class InteractionRouter {
         }
         return try {
             val parsed = parsePending(request, kind, peer, generation, threadId)
+            if (parsed.threadId != threadId || parsed.requestId in pending) throw CodemError.Validation("CodeM request belongs to another thread or repeats a pending identity")
             pending[parsed.requestId] = parsed
             true
         } catch (_: CodemError) {
@@ -71,33 +77,83 @@ class InteractionRouter {
         }
     }
 
-    fun reply(requestId: String, generation: Long, threadId: String?, choiceIds: List<String>, text: String, cancelled: Boolean) {
-        val current = pending[requestId] ?: throw CodemError.Conflict("CodeM interaction $requestId is not pending")
-        if (current.generation != generation || (current.threadId != null && current.threadId != threadId)) {
-            throw CodemError.Conflict("CodeM interaction $requestId belongs to another session")
+    /** Returns true only when cancelling a permission requires the session to interrupt the turn. */
+    fun reply(panelId: String, generation: Long, threadId: String?, choiceIds: List<String>, text: String, cancelled: Boolean): Boolean {
+        val current = current()?.takeIf { it.panelId == panelId }
+            ?: throw CodemError.Conflict("CodeM interaction is no longer current")
+        if (current.generation != generation || current.threadId != threadId) {
+            throw CodemError.Conflict("CodeM interaction belongs to another session")
         }
-        if (!cancelled && current.allowedChoiceIds.isNotEmpty() && choiceIds.any { it !in current.allowedChoiceIds }) {
-            throw CodemError.Validation("CodeM interaction $requestId rejected an unknown option")
+        try {
+            if (cancelled) {
+                if (choiceIds.isNotEmpty() || text.isNotEmpty()) throw CodemError.Validation("CodeM cancelled reply must not contain answers")
+                if (current.kind == InteractionKind.Permission) return true
+                current.peer.respond(current.id, cancelledResult(current))
+                pending.remove(current.requestId)
+                return false
+            }
+            if (choiceIds == listOf("previous") && current.kind == InteractionKind.Question && current.questionIndex > 0 && text.isEmpty()) {
+                current.questionIndex--
+                current.panelId = UUID.randomUUID().toString()
+                return false
+            }
+            val choices = displayedChoices(current)
+            if (choiceIds.toSet().size != choiceIds.size) throw CodemError.Validation("CodeM interaction requires distinct options")
+            val values = choiceIds.map { id ->
+                val index = choices.indices.firstOrNull { "choice-$it" == id }
+                    ?: throw CodemError.Validation("CodeM interaction rejected an unknown option")
+                choices[index].id
+            }
+            if (current.kind == InteractionKind.Question) {
+                val question = current.questions[current.questionIndex]
+                if (!question.allowsMultiple && values.size > 1) throw CodemError.Validation("CodeM question does not allow multiple selection")
+                if (values.isEmpty() && text.isBlank()) throw CodemError.Validation("CodeM question requires an answer")
+                current.answers[current.questionIndex] = JsonValue.obj(
+                    "question" to JsonValue.Text(question.question),
+                    "selected" to JsonValue.ArrayValue(values.map { JsonValue.Text(it) }),
+                    "freeText" to if (text.isBlank()) JsonValue.Null else JsonValue.Text(text.trim()),
+                )
+                if (current.questionIndex < current.questions.lastIndex) {
+                    current.questionIndex++
+                    current.panelId = UUID.randomUUID().toString()
+                    return false
+                }
+            }
+            val result = coreResult(current, values, text, false)
+            current.peer.respond(current.id, result)
+            pending.remove(current.requestId)
+            return false
+        } catch (error: Throwable) {
+            // A rejected submission must not leave the shared panel permanently aria-busy.
+            current.panelId = UUID.randomUUID().toString()
+            throw error
         }
-        val result = coreResult(current, choiceIds, text, cancelled)
-        pending.remove(requestId)
-        current.peer.respond(current.id, result)
+    }
+
+    fun renewPanel() { current()?.panelId = UUID.randomUUID().toString() }
+
+    fun revokeThread(generation: Long, threadId: String?) {
+        val stale = pending.values.filter { it.generation == generation && it.threadId == threadId }
+        stale.forEach { retire(it) }
+    }
+
+    private fun retire(interaction: PendingInteraction) {
+        pending.remove(interaction.requestId)
+        try { interaction.peer.respondError(interaction.id, -32000, "CodeM interaction is no longer active") } catch (_: Exception) { }
     }
 
     fun revoke(generation: Long) {
         val stale = pending.values.filter { it.generation != generation }
-        stale.forEach { interaction ->
-            pending.remove(interaction.requestId)
-            try {
-                interaction.peer.respondError(interaction.id, -32000, "CodeM interaction belongs to a retired connection")
-            } catch (_: Exception) {
-            }
-        }
+        stale.forEach { retire(it) }
     }
 
     fun current(): PendingInteraction? = pending.values.lastOrNull()
 
-    /** UI 只拿到当前请求的选项，不写死 approval-1。 */
+    private fun displayedChoices(current: PendingInteraction): List<LabeledChoice> =
+        if (current.kind == InteractionKind.Question) current.questions[current.questionIndex].optionLabels.map { LabeledChoice(it, it) }
+        else current.choices
+
+    /** Opaque per-page handles, including Chinese options; raw Core identities never reach the UI. */
     fun panelView(): com.codem.intellij.webview.PendingPanelView? {
         val current = current() ?: return null
         val kind = when (current.kind) {
@@ -106,21 +162,42 @@ class InteractionRouter {
             InteractionKind.Plan, InteractionKind.PlanMode -> "plan"
             InteractionKind.Rewind -> "rewind"
         }
-        val title = when (current.kind) {
-            InteractionKind.Permission -> "需要审批"
-            InteractionKind.Question -> current.questions.firstOrNull()?.question ?: "需要回答"
-            InteractionKind.Plan, InteractionKind.PlanMode -> "确认计划"
-            InteractionKind.Rewind -> "选择回退"
-        }
+        val question = current.questions.getOrNull(current.questionIndex)
+        val saved = current.answers[current.questionIndex]
+        val selected = (saved?.fields?.get("selected") as? JsonValue.ArrayValue)?.items.orEmpty().map { it.asText() }
         return com.codem.intellij.webview.PendingPanelView(
-            id = current.requestId,
-            kind = kind,
-            title = title,
-            description = current.method.substringAfterLast('/'),
-            choices = current.choices.map { com.codem.intellij.webview.PanelChoiceView(it.id, it.label) },
+            id = current.panelId, kind = kind,
+            title = when (current.kind) {
+                InteractionKind.Permission -> "需要审批"
+                InteractionKind.Question -> "需要回答 · ${current.questionIndex + 1}/${current.questions.size}"
+                InteractionKind.Plan -> "审阅计划"
+                InteractionKind.PlanMode -> "进入计划模式？"
+                InteractionKind.Rewind -> "选择回退"
+            },
+            description = question?.question ?: current.description,
+            choices = displayedChoices(current).mapIndexed { index, choice ->
+                com.codem.intellij.webview.PanelChoiceView("choice-$index", choice.label, choice.id in selected)
+            },
             allowText = current.kind == InteractionKind.Question || current.kind == InteractionKind.Plan,
-            multiple = current.questions.any { it.allowsMultiple },
+            multiple = question?.allowsMultiple ?: false,
+            detail = current.detail,
+            backChoiceId = if (question != null && current.questionIndex > 0) "previous" else null,
+            initialText = (saved?.fields?.get("freeText") as? JsonValue.Text)?.value ?: "",
+            confirmLabel = if (question != null) {
+                if (current.questionIndex == current.questions.lastIndex) "提交回答" else "下一步"
+            } else null,
         )
+    }
+
+    private fun displayText(text: String): String =
+        if (SafeNotice.containsSensitive(text)) "部分操作详情包含敏感信息，已隐藏" else text.take(8000)
+
+    private fun detail(params: JsonValue.ObjectValue): String? {
+        val preview = params.fields["preview"] as? JsonValue.ObjectValue ?: return null
+        val path = (preview.fields["path"] as? JsonValue.Text)?.value?.substringAfterLast('/')?.substringAfterLast('\\')
+        val content = listOf("diffExcerpt", "changeSummary", "command", "summary", "url", "query")
+            .firstNotNullOfOrNull { (preview.fields[it] as? JsonValue.Text)?.value }
+        return listOfNotNull(path, content?.let(::displayText)).joinToString("\n").takeIf { it.isNotBlank() }
     }
 
     private fun parsePending(
@@ -138,7 +215,7 @@ class InteractionRouter {
             InteractionKind.Permission -> {
                 val options = permissionChoices(params)
                 if (options.isEmpty()) throw CodemError.Validation("CodeM ${request.method} requires approval options")
-                PendingInteraction(key, request.method, kind, requestThread, generation, options, emptyList(), null, peer, request.id)
+                PendingInteraction(key, request.method, kind, requestThread, generation, options, emptyList(), null, peer, request.id, detail(params), (params.fields["reason"] as? JsonValue.Text)?.value?.let(::displayText) ?: "")
             }
             InteractionKind.Question -> {
                 val questions = questionSpecs(params)
@@ -152,8 +229,8 @@ class InteractionRouter {
                 PendingInteraction(key, request.method, kind, requestThread, generation, choices, emptyList(), spec, peer, request.id)
             }
             InteractionKind.Plan, InteractionKind.PlanMode -> {
-                val allowed = listOf("true", "false", "approve", "reject", "approved", "agree").map { LabeledChoice(it, it) }
-                PendingInteraction(key, request.method, kind, requestThread, generation, allowed, emptyList(), null, peer, request.id)
+                val allowed = listOf(LabeledChoice("approve", "同意"), LabeledChoice("reject", "拒绝"))
+                PendingInteraction(key, request.method, kind, requestThread, generation, allowed, emptyList(), null, peer, request.id, (params.fields["plan"] as? JsonValue.Text)?.value?.let(::displayText))
             }
         }
     }
@@ -172,7 +249,7 @@ class InteractionRouter {
                 }
                 JsonValue.obj("outcome" to JsonValue.obj("optionId" to JsonValue.Text(choiceIds.single())))
             }
-            InteractionKind.Question -> questionResult(current, choiceIds, text)
+            InteractionKind.Question -> JsonValue.obj("answers" to JsonValue.ArrayValue(current.questions.indices.map { current.answers.getValue(it) }))
             InteractionKind.Rewind -> rewindResult(current, choiceIds, text)
             InteractionKind.Plan -> {
                 val approved = parseApproved(choiceIds)
@@ -195,23 +272,6 @@ class InteractionRouter {
         InteractionKind.PlanMode -> JsonValue.obj("approved" to JsonValue.Bool(false))
     }
 
-    private fun questionResult(current: PendingInteraction, choiceIds: List<String>, text: String): JsonValue.ObjectValue {
-        if (current.questions.size != 1) {
-            throw CodemError.Validation("CodeM question reply requires one answer per question")
-        }
-        val question = current.questions.single()
-        if (!question.allowsMultiple && choiceIds.size > 1) {
-            throw CodemError.Validation("CodeM question ${question.id} does not allow multiple selection")
-        }
-        val freeText = if (text.isEmpty()) JsonValue.Null else JsonValue.Text(text)
-        val answer = JsonValue.obj(
-            "question" to JsonValue.Text(question.question),
-            "selected" to JsonValue.ArrayValue(choiceIds.map { JsonValue.Text(it) }),
-            "freeText" to freeText,
-        )
-        return JsonValue.obj("answers" to JsonValue.ArrayValue(listOf(answer)))
-    }
-
     private fun rewindResult(current: PendingInteraction, choiceIds: List<String>, text: String): JsonValue.ObjectValue {
         val spec = current.rewind ?: throw CodemError.Validation("CodeM rewind reply is missing checkpoints")
         val checkpointId = choiceIds.getOrNull(0) ?: throw CodemError.Validation("CodeM rewind requires a checkpoint")
@@ -229,8 +289,8 @@ class InteractionRouter {
     private fun parseApproved(choiceIds: List<String>): Boolean {
         val choice = choiceIds.singleOrNull() ?: throw CodemError.Validation("CodeM plan reply requires a single approval choice")
         return when (choice) {
-            "true", "approve", "approved", "agree" -> true
-            "false", "reject" -> false
+            "approve" -> true
+            "reject" -> false
             else -> throw CodemError.Validation("CodeM plan reply is invalid")
         }
     }

@@ -522,17 +522,43 @@ class ProjectSessionTest {
             ),
         )
         val pending = awaitPublished(published) { it.pendingPanel != null }
-        assertEquals("approval-1", pending.pendingInteraction)
+        assertTrue(pending.pendingInteraction != "approval-1")
+        assertEquals(pending.pendingPanel!!.id, pending.pendingInteraction)
         assertEquals("approval", pending.pendingPanel?.kind)
-        assertEquals("Allow", pending.pendingPanel?.choices?.first { it.id == "allow" }?.label)
+        assertEquals("Allow", pending.pendingPanel?.choices?.first { it.id == "choice-0" }?.label)
 
-        session.applyViewAction(ViewAction.PanelReply("approval-1", listOf("allow"), "", false))
+        session.applyViewAction(ViewAction.PanelReply(pending.pendingPanel!!.id, listOf("choice-0"), "", false))
         assertEquals(null, session.snapshot().pendingPanel)
         assertEquals(null, published.last().pendingPanel)
         val outcome = process.writes.map { JsonValue.parse(it).asObject() }
             .first { it.fields.containsKey("result") && it.fields["result"]?.asObject()?.fields?.containsKey("outcome") == true }
             .required("result").asObject().required("outcome").asObject()
         assertEquals("allow", outcome.required("optionId").asText())
+    }
+
+    @Test
+    fun permissionCancellationInterruptsAndTerminalRevokesTheOldPanel() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        try {
+            session.connect()
+            session.send("approval", "req-cancel")
+            process.enqueue(encodeJson(JsonValue.obj(
+                "jsonrpc" to JsonValue.Text("2.0"), "id" to JsonValue.Text("approval-rpc"),
+                "method" to JsonValue.Text("item/tool/requestApproval"),
+                "params" to JsonValue.obj("threadId" to JsonValue.Text("thread-1"),
+                    "options" to JsonValue.ArrayValue(listOf(JsonValue.obj("id" to JsonValue.Text("allow_once"))))),
+            )))
+            val panel = awaitSnapshot(session) { it.pendingPanel != null }.pendingPanel!!
+            session.applyViewAction(ViewAction.PanelReply(panel.id, emptyList(), "", true))
+            assertEquals("stopping", session.snapshot().phase)
+            assertTrue(process.writes.any { it.contains("turn/interrupt") })
+            completeTurn(process, "thread-1", "turn-1")
+            assertEquals(null, awaitSnapshot(session) { it.phase == "ready" }.pendingPanel)
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) {
+                session.applyViewAction(ViewAction.PanelReply(panel.id, listOf("choice-0"), "", false))
+            }
+        } finally { session.close().join() }
     }
 
     /** 预检失败不能顺手把用户还在用的连接杀掉。 */

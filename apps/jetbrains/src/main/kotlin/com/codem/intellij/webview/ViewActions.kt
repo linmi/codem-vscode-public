@@ -103,7 +103,7 @@ data class FileSearchView(
 data class PastedImage(val mediaType: String, val data: String)
 data class BackgroundView(val id: String, val label: String, val inProgress: Boolean)
 data class SkillView(val id: String, val name: String, val description: String)
-data class PanelChoiceView(val id: String, val label: String)
+data class PanelChoiceView(val id: String, val label: String, val selected: Boolean = false)
 data class PendingPanelView(
     val id: String,
     val kind: String,
@@ -112,6 +112,10 @@ data class PendingPanelView(
     val choices: List<PanelChoiceView>,
     val allowText: Boolean,
     val multiple: Boolean,
+    val detail: String? = null,
+    val backChoiceId: String? = null,
+    val initialText: String = "",
+    val confirmLabel: String? = null,
 )
 data class CapabilityView(
     val plan: List<PlanItemView> = emptyList(),
@@ -389,7 +393,11 @@ fun encodeChatSnapshot(snapshot: ChatSnapshot): JsonValue.ObjectValue {
             "kind" to JsonValue.Text(panel.kind),
             "title" to JsonValue.Text(panel.title),
             "description" to JsonValue.Text(panel.description),
-            "choices" to JsonValue.ArrayValue(panel.choices.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label)) }),
+            "choices" to JsonValue.ArrayValue(panel.choices.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "selected" to JsonValue.Bool(it.selected)) }),
+            "detail" to nullableText(panel.detail),
+            "backChoiceId" to nullableText(panel.backChoiceId),
+            "initialText" to JsonValue.Text(panel.initialText),
+            "confirmLabel" to nullableText(panel.confirmLabel),
             "allowText" to JsonValue.Bool(panel.allowText),
             "multiple" to JsonValue.Bool(panel.multiple),
         ),

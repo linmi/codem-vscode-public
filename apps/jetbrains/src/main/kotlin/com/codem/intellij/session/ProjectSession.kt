@@ -199,7 +199,7 @@ class ProjectSession(
             },
             messages = historyMessages + turns.liveMessages(),
             turnTimings = turnTimings.toList(),
-            pendingInteraction = interactions.current()?.requestId,
+            pendingInteraction = interactions.panelView()?.id,
             pendingPanel = interactions.panelView(),
             canRetry = phase == ConnectionPhase.Failed && notice?.recoverable == true,
             canResume = lastThreadId != null && threadId == null && phase == ConnectionPhase.Ready && idleTurnLocked(),
@@ -451,12 +451,15 @@ class ProjectSession(
     }
 
     fun replyToInteraction(requestId: String, choiceIds: List<String>, text: String, cancelled: Boolean) {
-        lock.withLock {
-            interactions.reply(requestId, generation.get(), threadId, choiceIds, text, cancelled)
-            snapshotVersion += 1
-        }
-        // 回复后待处理请求已出队，界面要立刻收回卡片，不能等下一条通知。
-        emitSnapshot()
+        try {
+            val stopTurn = lock.withLock {
+                interactions.reply(requestId, generation.get(), threadId, choiceIds, text, cancelled).also { snapshotVersion += 1 }
+            }
+            if (stopTurn) stop()
+        } catch (error: Throwable) {
+            lock.withLock { interactions.renewPanel(); snapshotVersion += 1 }
+            throw error
+        } finally { emitSnapshot() }
     }
 
     /** Only turn/completed permits releasing a running thread; an interrupt receipt is not terminal. */
@@ -1190,6 +1193,7 @@ class ProjectSession(
         val (current, pending) = lock.withLock {
             phase = ConnectionPhase.Closing
             generation.set(connectionIds.incrementAndGet())
+            interactions.revoke(generation.get())
             turnChanged.signalAll()
             retireCoresLocked() to pendingConnection
         }
@@ -1651,6 +1655,7 @@ class ProjectSession(
                 turns.apply(notification, threadId)
                 recordTurnTimingLocked(notification.method)
                 if (notification.method == "turn/completed") {
+                    interactions.revokeThread(generation.get(), threadId)
                     commitAssistantLocked()
                     attachments.release(generation.get())
                 }
