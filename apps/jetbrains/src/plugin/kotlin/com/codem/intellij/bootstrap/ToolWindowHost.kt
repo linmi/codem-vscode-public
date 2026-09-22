@@ -609,21 +609,10 @@ class ToolWindowHost(
             return
         }
         try {
-            var total = 0
-            for (image in action.images) {
-                val bytes = java.util.Base64.getDecoder().decode(image.data)
-                total += bytes.size
-                if (bytes.isEmpty() || total > 20 * 1024 * 1024) throw com.codem.intellij.core.CodemError.Validation("单次粘贴的图片合计不能超过 20 MiB。")
-                val suffix = when (image.mediaType) {
-                    "image/png" -> ".png"
-                    "image/jpeg" -> ".jpg"
-                    "image/gif" -> ".gif"
-                    else -> ".webp"
-                }
-                val file = java.nio.file.Files.createTempFile("codem-paste", suffix)
-                java.nio.file.Files.write(file, bytes)
-                session.attachPastedImage(file)
+            val images = action.images.map { image ->
+                com.codem.intellij.session.ImageAttachment(image.mediaType, java.util.Base64.getDecoder().decode(image.data))
             }
+            session.attachPastedImages(images)
             publish(session.snapshot().withLocalAccount())
         } catch (error: Throwable) {
             publish(session.snapshot().copy(notice = SafeNotice.from(error, "图片粘贴失败，请重新复制后重试。")).withLocalAccount())

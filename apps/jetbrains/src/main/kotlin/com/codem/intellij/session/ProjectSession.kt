@@ -77,7 +77,6 @@ data class ModeState(
     val workMode: String = "normal",
 )
 
-data class AttachmentHandle(val id: String, val label: String, val kind: String, val path: Path)
 data class SelectionHandle(
     val id: String,
     val label: String,
@@ -139,7 +138,7 @@ class ProjectSession(
     private var catalogKind: String? = null
     private var catalogRows = listOf<CatalogRowView>()
     private var directories = mutableListOf<DirectoryRef>()
-    private var attachments = mutableListOf<AttachmentHandle>()
+    private val attachments = AttachmentCollection(attachmentStore)
     private var selections = mutableListOf<SelectionHandle>()
     private var liveSelection: SelectionHandle? = null
     private var dismissedLiveLabel: String? = null
@@ -224,7 +223,7 @@ class ProjectSession(
                 directories = directories.map { DirectoryView(it.id, it.label) },
                 busy = null,
             ),
-            attachments = attachments.map { AttachmentView(it.id, it.label, it.kind) },
+            attachments = attachments.visible().map { AttachmentView(it.id, it.label, it.kind) },
             selections = selectionViewsLocked(),
             history = historyList,
             fileSearch = fileSearch,
@@ -380,6 +379,7 @@ class ProjectSession(
             lock.withLock {
                 assertGeneration(currentGeneration)
                 turns.acceptStarted(turnId)
+                attachments.consume(attachmentIds)
                 recordTurnTimingLocked("turn/started")
                 snapshotVersion += 1
             }
@@ -983,33 +983,19 @@ class ProjectSession(
         }
     }
 
-    /** 剪贴板图片落在宿主临时目录，不进项目树，标签也不暴露临时路径。 */
-    fun attachPastedImage(path: Path): String {
-        val real = PathGuard.realPathOrNormalized(path)
-        val tempRoot = PathGuard.realPathOrNormalized(Path.of(System.getProperty("java.io.tmpdir")))
-        if (!real.startsWith(tempRoot) || !Files.isRegularFile(real)) {
-            throw CodemError.Validation("CodeM pasted image must stay in the host temp directory")
-        }
-        return lock.withLock {
-            val id = "att-${attachments.size + 1}"
-            attachments += AttachmentHandle(id, "粘贴的图片", "image", real)
-            snapshotVersion += 1
-            id
-        }
+    fun attachPastedImages(images: List<ImageAttachment>): List<String> = lock.withLock {
+        WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.MUTATE_FILES)
+        requireReadyLocked()
+        attachments.addImages(images).also { snapshotVersion += 1 }
     }
 
-    fun attach(path: Path, kind: AttachmentStore.Kind): String {
-        val store = attachmentStore ?: throw CodemError.Validation("CodeM attachment store is not configured")
-        val real = store.validate(path, kind)
-        return lock.withLock {
-            val id = "att-${attachments.size + 1}"
-            attachments += AttachmentHandle(id, real.fileName.toString(), kind.name.lowercase(), real)
-            id
-        }
+    fun attach(path: Path, kind: AttachmentStore.Kind): String = lock.withLock {
+        WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.MUTATE_FILES)
+        attachments.add(path, kind).also { snapshotVersion += 1 }
     }
 
     fun removeAttachment(id: String) {
-        lock.withLock { attachments.removeAll { it.id == id } }
+        lock.withLock { attachments.remove(id); snapshotVersion += 1 }
     }
 
     /** A10：只有 Core 给出 hunks 才打开原生 Diff；没有差异内容时明确拒绝，不展示文件名充数。 */
@@ -1209,7 +1195,7 @@ class ProjectSession(
         }
         val futures = current.map { it.close() } + listOfNotNull(pending)
         return CompletableFuture.allOf(*futures.toTypedArray()).whenComplete { _, _ ->
-            lock.withLock { phase = ConnectionPhase.Disconnected }
+            lock.withLock { attachments.clear(); phase = ConnectionPhase.Disconnected }
         }
     }
 
@@ -1264,6 +1250,7 @@ class ProjectSession(
                     }
                 }
             },
+            onExit = { lock.withLock { attachments.release(currentGeneration) } },
             processFactory = processFactory ?: ::defaultProcess,
         ).start()
         bump { core += 1 }
@@ -1537,9 +1524,7 @@ class ProjectSession(
             )
         }
         val (resolvedAttachments, resolvedSelections) = lock.withLock {
-            val files = attachmentIds.map { id ->
-                attachments.find { it.id == id } ?: throw CodemError.Validation("CodeM attachment $id is not available")
-            }
+            val files = attachments.retain(attachmentIds, generation.get())
             val selected = selectionIds.map { id ->
                 selections.find { it.id == id } ?: liveSelection?.takeIf { it.id == id }
                     ?: throw CodemError.Validation("CodeM selection $id is not available")
@@ -1665,7 +1650,10 @@ class ProjectSession(
             else -> {
                 turns.apply(notification, threadId)
                 recordTurnTimingLocked(notification.method)
-                if (notification.method == "turn/completed") commitAssistantLocked()
+                if (notification.method == "turn/completed") {
+                    commitAssistantLocked()
+                    attachments.release(generation.get())
+                }
             }
         }
     }
