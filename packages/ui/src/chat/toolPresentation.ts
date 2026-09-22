@@ -80,17 +80,23 @@ const toolBadge: Record<ActivityStatus, string> = {
   incomplete: "未完成",
 }
 
-/** 只用 Host 白名单投影，不读原始参数。 */
-export function activityTitle(message: ChatMessage): string {
+/** 动作和对象分开，窄栏里对象单独省略，不把整行挤成一串。 */
+export function activityHeading(message: ChatMessage): { action: string; subject: string } {
   const status = message.status ?? "completed"
-  if (message.role === "reasoning") return message.summary?.trim() || (status === "running" ? "正在思考" : "思考过程")
+  if (message.role === "reasoning") return { action: message.summary?.trim() || (status === "running" ? "正在思考" : "思考过程"), subject: "" }
   const name = message.label ?? "工具"
   const entry = Object.hasOwn(known, name) ? known[name] : undefined
-  if (!entry) return `${actionTitle("调用工具", "调用工具", status)} ${toolPresentation(name).title}`
+  if (!entry) return { action: `${actionTitle("调用工具", "调用工具", status)} ${toolPresentation(name).title}`, subject: "" }
   const context = message.details?.code || message.details?.fields.filter((field) => entry.subject.includes(field.label)).map((field) => field.value).filter(Boolean).join("、") || ""
   const subject = context.replace(/\s+/gu, " ").trim()
   const verb = !subject && name === "read_files" ? entry.title : entry.verb ?? entry.title
-  return [actionTitle(entry.title, verb, status), subject].filter(Boolean).join(" ")
+  return { action: actionTitle(entry.title, verb, status), subject }
+}
+
+/** 只用 Host 白名单投影，不读原始参数。 */
+export function activityTitle(message: ChatMessage): string {
+  const { action, subject } = activityHeading(message)
+  return [action, subject].filter(Boolean).join(" ")
 }
 
 export function activityBadge(message: ChatMessage): string {

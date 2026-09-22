@@ -1,23 +1,36 @@
 import { useEffect, useRef, useState } from "react"
-import { ArrowUpIcon, MessageSquarePlusIcon, SquareIcon, SquarePenIcon, XIcon } from "lucide-react"
+import { MessageSquarePlusIcon, TerminalIcon, XIcon } from "lucide-react"
 import { Button } from "../components/ui/button.tsx"
 import {
   asSnapshot,
   isBusy,
   isSignedIn,
   parseUiAction,
-  visibleControls,
   type ChatSnapshot,
   type ComposerInputMode,
 } from "../contract.ts"
 import type { CodemUiHost } from "../host.ts"
 import { AccountPage, AccountTrigger } from "./AccountPage.tsx"
+import { AttachmentCard } from "./attachments.tsx"
+import { CodeSelectionList } from "./codeSelection.tsx"
 import { ComposerMenus } from "./composerMenus.tsx"
+import { DecisionPanel } from "./decisionPanel.tsx"
 import { draftRetention, type PendingSend } from "./draftRetention.ts"
+import { FileMentions } from "./FileMentions.tsx"
+import { HistoryButton, HistoryPaging, HistoryPanel } from "./HistoryPanel.tsx"
+import { composerMessageAction, mentionQuery, sendOnEnter } from "./composerInput.ts"
+import { LoadingState } from "./LoadingState.tsx"
 import { MessageList } from "./MessageList.tsx"
+import { ResourceTools } from "./resourceTools.tsx"
+import { RewindPanel } from "./rewindPanel.tsx"
+import { RuntimeDetails } from "./runtimeDetails.tsx"
+import { SessionCommandPanel, type SessionRequest } from "./sessionCommandPanel.tsx"
 import { SlashMenu } from "./SlashMenu.tsx"
+import { TaskProgress } from "./taskProgress.tsx"
 import { WelcomeView } from "./WelcomeView.tsx"
-import { commandUnavailable, inputModes, slashQuery } from "./slashCommands.ts"
+import { workingStatus } from "./workingStatus.ts"
+import { commandUnavailable, inputModes, inputUnavailable, slashQuery } from "./slashCommands.ts"
+import { uiIcon } from "./uiIcons.ts"
 
 /**
  * 产品聊天壳：对照 VS Code 现网 html.ts + composerView，不是调试台。
@@ -34,13 +47,19 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const [accountFocus, setAccountFocus] = useState(0)
   const [inputMode, setInputMode] = useState<ComposerInputMode>("message")
   const [slashOpen, setSlashOpen] = useState(false)
-  const [connectStale, setConnectStale] = useState(false)
   const [pendingSend, setPendingSend] = useState<PendingSend | null>(null)
+  const [sessionRequest, setSessionRequest] = useState<SessionRequest | null>(null)
+  const [mentionIndex, setMentionIndex] = useState(0)
+  const mentionRequest = useRef<string | null>(null)
   const prompt = useRef<HTMLTextAreaElement>(null)
-  const controls = visibleControls(snapshot)
+  const scroller = useRef<HTMLElement>(null)
+  const accountStatus = useRef(initial.account.status)
+  const [showJump, setShowJump] = useState(false)
+  const snapshotRef = useRef(snapshot)
+  snapshotRef.current = snapshot
   const busy = isBusy(snapshot.phase)
   const running = snapshot.phase === "running" || snapshot.phase === "sending" || snapshot.phase === "stopping"
-  const canSendMessage = snapshot.phase === "ready" || snapshot.phase === "disconnected"
+  const messageAction = inputMode === "message" ? composerMessageAction(snapshot.phase) : null
   const account = snapshot.account
   const signedIn = isSignedIn(account)
   const slash = inputMode === "message" ? slashQuery(draft) : null
@@ -53,19 +72,28 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     })
   }, [host])
 
+  useEffect(() => {
+    if (!host.subscribeDraft) return
+    return host.subscribeDraft((command) => {
+      setInputMode(command.mode)
+      setDraft(command.text)
+      host.setState({ draft: command.text })
+      if (command.pendingRequestId) {
+        setPendingSend({ requestId: command.pendingRequestId, text: command.text, version: snapshotRef.current.version })
+      }
+      if (command.focus) prompt.current?.focus()
+    })
+  }, [host])
+
   // Host 快照的 theme 写到 html/body，避免 :root 浅色把 IDEA 深色 LAF 盖成白页。
   useEffect(() => {
+    const body = document.body
+    if (body?.classList.contains("vscode-dark") || body?.classList.contains("vscode-light") || body?.classList.contains("vscode-high-contrast") || body?.classList.contains("vscode-high-contrast-light")) return
     const dark = snapshot.theme === "dark"
     const root = document.documentElement
     root.classList.toggle("codem-dark", dark)
-    root.classList.toggle("vscode-dark", dark)
     root.classList.toggle("codem-light", !dark)
     root.style.colorScheme = dark ? "dark" : "light"
-    if (document.body) {
-      document.body.classList.toggle("codem-dark", dark)
-      document.body.classList.toggle("vscode-dark", dark)
-      document.body.classList.toggle("codem-light", !dark)
-    }
   }, [snapshot.theme])
 
   useEffect(() => {
@@ -91,7 +119,12 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   }, [snapshot.workspace, snapshot.space, snapshot.threadId])
 
   useEffect(() => {
-    setSlashOpen(slash !== null && !busy)
+    setPanelText(snapshot.pendingPanel?.initialText ?? "")
+  }, [snapshot.pendingPanel?.id])
+
+  useEffect(() => {
+    // 运行中允许继续输入与 /steer 选择；仅提交、停止瞬态收起菜单。
+    setSlashOpen(slash !== null && (!busy || snapshot.phase === "running"))
   }, [slash, busy])
 
   // 草稿只在宿主确认收下这条消息后才丢弃；没被受理就还回输入框。
@@ -101,16 +134,36 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     if (retention.kind === "waiting") return
     setPendingSend(null)
     if (retention.kind === "restore") saveDraft(retention.text)
+    else if (draft === pendingSend.text) saveDraft("")
+    if (retention.kind === "accepted") setInputMode("message")
   }, [snapshot, pendingSend, draft])
 
   useEffect(() => {
-    if (snapshot.phase !== "connecting") {
-      setConnectStale(false)
+    if (inputMode !== "message" || busy) {
+      mentionRequest.current = null
       return
     }
-    const timer = window.setTimeout(() => setConnectStale(true), 12_000)
+    const node = prompt.current
+    const caret = node?.selectionStart ?? draft.length
+    const mention = mentionQuery(draft, caret)
+    if (!mention) {
+      mentionRequest.current = null
+      return
+    }
+    const requestId = `mention-${Date.now().toString(36)}`
+    mentionRequest.current = requestId
+    const timer = window.setTimeout(() => post({ type: "searchFiles", query: mention.query, requestId }), 150)
     return () => window.clearTimeout(timer)
-  }, [snapshot.phase])
+  }, [draft, inputMode, busy])
+
+  useEffect(() => {
+    const previous = accountStatus.current
+    accountStatus.current = snapshot.account.status
+    if (previous === "signedIn" && snapshot.account.status === "signingOut") saveDraft("")
+    if (previous === "signingOut" && snapshot.account.status !== "signingOut" && snapshot.account.status !== "signedIn") {
+      document.querySelector<HTMLButtonElement>(".accountLoginContent button")?.focus()
+    }
+  }, [snapshot.account.status])
 
   useEffect(() => {
     const node = prompt.current
@@ -141,8 +194,14 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const requestId = () => `req-${Date.now().toString(36)}`
   const themeClass = snapshot.theme === "dark" ? "codem-dark vscode-dark" : "codem-light"
   const showAccount = !signedIn || accountOpen
-  const threadTitle = snapshot.messages.find((message) => message.role === "user")?.text.slice(0, 160) || "新会话"
-  const connected = snapshot.phase !== "disconnected" && snapshot.phase !== "failed" && snapshot.phase !== "closing"
+  const threadTitle = (snapshot.history.entries.find((entry) => entry.id === snapshot.threadId)?.title ?? snapshot.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) || "新会话"
+  const connected = snapshot.phase !== "disconnected" && snapshot.phase !== "connecting" && snapshot.phase !== "failed" && snapshot.phase !== "closing"
+  const editorSurface = host.surface !== "sidebar"
+  const activity = workingStatus(snapshot)
+  const showWorking = activity !== null && !(snapshot.messages.length === 0 && snapshot.phase === "connecting")
+  const generating = snapshot.phase === "running" || snapshot.phase === "stopping"
+  const modeHint = inputUnavailable(inputMode, snapshot) ?? (inputMode === "steer" ? "补充当前任务的执行方向。" : inputMode === "askSideQuestion" ? "单独提问，回答显示在这里。" : "发送前会展示命令并请求确认。")
+  const side = snapshot.sessionTools.sideQuestion
 
   const chooseSlash = (id: string) => {
     if (commandUnavailable(id, snapshot)) return
@@ -156,34 +215,40 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     if (id === "files") post({ type: "pickAttachment", kind: "file" })
     else if (id === "model") setOpenMenu("model")
     else if (id === "mode") setOpenMenu("workMode")
-    else if (id === "history") post({ type: "showHistory" })
-    else if (id === "compact" && snapshot.threadId) post({ type: "compactThread", threadId: snapshot.threadId, requestId: requestId() })
-    else if (id === "rewind" && snapshot.threadId) post({ type: "rewindThread", threadId: snapshot.threadId, requestId: requestId() })
-    else if (id === "clear" && snapshot.threadId) post({ type: "clearThread", threadId: snapshot.threadId, requestId: requestId() })
-    else if (["rename", "fork", "archive", "unarchive", "delete"].includes(id) && snapshot.threadId) {
-      post({
-        type: "manageThread",
-        operation: id,
-        threadId: snapshot.threadId,
-        name: id === "rename" ? threadTitle : "",
-        requestId: requestId(),
-      })
+    else if (id === "history") post({ type: snapshot.history.open ? "closeHistory" : "showHistory" })
+    else if (id === "sendKey") post({ type: "setSendKey", sendKey: snapshot.sendKey === "enter" ? "modEnter" : "enter" })
+    else if (["skills", "catalog", "directories", "compact", "rewind", "clear", "rename", "fork", "archive", "unarchive", "delete"].includes(id)) {
+      setSessionRequest({ kind: "command", command: id })
     }
   }
 
   const submit = () => {
-    if (slashOpen && slash !== null) return
+    if (inputMode !== "shellCommand" && slash !== null) {
+      setSlashOpen(true)
+      return
+    }
     const text = draft.trim()
     if (!text) return
     const id = requestId()
     if (inputMode !== "message" && snapshot.threadId) {
-      // 动作没被宿主接住就保留原文，不让用户重打一遍。
+      // Shell 先确认，确认前不发、不清草稿。
+      if (inputMode === "shellCommand") {
+        setSessionRequest({ kind: "shell", text })
+        return
+      }
       if (!tryPost({ type: inputMode, threadId: snapshot.threadId, text, requestId: id })) return
+      setPendingSend({ requestId: id, text, version: snapshot.version })
       saveDraft("")
-      setInputMode("message")
       return
     }
-    if (!canSendMessage || running) return
+    if (messageAction === "steer") {
+      if (!snapshot.threadId) return
+      if (!tryPost({ type: "steer", threadId: snapshot.threadId, text, requestId: id })) return
+      setPendingSend({ requestId: id, text, version: snapshot.version })
+      saveDraft("")
+      return
+    }
+    if (messageAction !== "send") return
     if (
       !tryPost({
         type: "send",
@@ -198,107 +263,124 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     saveDraft("")
   }
 
-  if (showAccount) {
-    return (
-      <div className={themeClass} data-codem-ui="shell" data-theme={snapshot.theme} data-host="shared" data-account="page">
-        <AccountPage
-          account={account}
-          brandMark={snapshot.brandMark}
-          focusRequest={accountFocus}
-          onBack={() => setAccountOpen(false)}
-          post={post}
-        />
-      </div>
-    )
+  const confirmShell = (text: string) => {
+    if (!snapshot.threadId) return
+    const id = requestId()
+    if (!tryPost({ type: "shellCommand", threadId: snapshot.threadId, text, requestId: id })) {
+      setSessionRequest({ kind: "shell", text })
+      return
+    }
+    setPendingSend({ requestId: id, text, version: snapshot.version })
+    setInputMode("message")
+    saveDraft("")
+  }
+
+  const activeMention =
+    inputMode === "message" && snapshot.fileSearch && snapshot.fileSearch.requestId === mentionRequest.current
+      ? snapshot.fileSearch
+      : null
+
+  const chooseMention = (id: string | undefined) => {
+    if (!id) return
+    const requestId = `pick-${Date.now().toString(36)}`
+    mentionRequest.current = null
+    const node = prompt.current
+    const caret = node?.selectionStart ?? draft.length
+    const mention = mentionQuery(draft, caret)
+    if (mention && node) {
+      const next = `${draft.slice(0, mention.start)}${draft.slice(caret)}`
+      saveDraft(next)
+    }
+    post({ type: "selectFile", id, requestId })
+  }
+
+  const pasteImages = (clipboard: DataTransfer | null) => {
+    const files = Array.from(clipboard?.files ?? []).filter((file) => file.type.startsWith("image/"))
+    if (files.length === 0) return
+    if (inputMode !== "message" || running) return
+    const allowed = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"])
+    if (files.some((file) => !allowed.has(file.type) || file.size === 0)) return
+    if (files.reduce((size, file) => size + file.size, 0) > 20 * 1024 * 1024) return
+    void Promise.all(
+      files.map(
+        (file) =>
+          new Promise<{ mediaType: string; data: string }>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              const value = String(reader.result ?? "")
+              resolve({ mediaType: file.type, data: value.slice(value.indexOf(",") + 1) })
+            }
+            reader.onerror = () => reject(reader.error)
+            reader.readAsDataURL(file)
+          }),
+      ),
+    ).then((images) => post({ type: "pasteImages", requestId: requestId(), images }))
   }
 
   return (
-    <div className={`app ${themeClass}`} data-codem-ui="shell" data-theme={snapshot.theme} data-phase={snapshot.phase} data-host="shared">
+    <>
+    {showAccount ? (
+      <AccountPage account={account} brandMark={snapshot.brandMark} focusRequest={accountFocus} onBack={() => setAccountOpen(false)} post={post} />
+    ) : null}
+    <div className={`app ${themeClass}`} hidden={showAccount} data-codem-ui="shell" data-theme={snapshot.theme} data-phase={snapshot.phase} data-host="shared">
       <header className="sessionHeader">
         <span className="sessionTitle">
-          <span className="sessionIcon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z" />
-            </svg>
-          </span>
+          <span className="sessionIcon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: uiIcon("chat") }} />
           <span id="sessionTitle">{threadTitle}</span>
           <span className="statusDot" data-connected={connected ? "true" : "false"} title="连接状态" />
         </span>
         <div className="headerActions">
-          <Button
-            type="button"
-            variant="ghost"
-            className="iconButton"
-            data-testid="newChat"
-            aria-label="新建会话"
-            title="新建会话"
-            disabled={!snapshot.threadId || running}
-            onClick={() => post({ type: "newChat" })}
-          >
-            <SquarePenIcon aria-hidden="true" />
-          </Button>
-          <AccountTrigger
-            account={account}
-            onOpen={() => {
-              setAccountFocus((value) => value + 1)
-              setAccountOpen(true)
-              post({ type: "refreshAccount" })
-            }}
-          />
+          <ResourceTools snapshot={snapshot} post={post} />
+          {isSignedIn(account) ? (
+            <AccountTrigger
+              account={account}
+              onOpen={() => {
+                setAccountFocus((value) => value + 1)
+                setAccountOpen(true)
+                post({ type: "refreshAccount" })
+              }}
+            />
+          ) : null}
+          {editorSurface ? (
+            <div className="headerActions" id="standaloneActions">
+              <HistoryButton snapshot={snapshot} post={post} />
+              <button type="button" className="iconButton" id="newChat" title="新建会话" aria-label="新建会话" disabled={isBusy(snapshot.phase) || snapshot.backgroundBusy || Boolean(snapshot.sessionTools.busy)} onClick={() => post({ type: "newChat" })} dangerouslySetInnerHTML={{ __html: uiIcon("plus") }} />
+              <button type="button" className="iconButton" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志" onClick={() => post({ type: "showOutput" })} dangerouslySetInnerHTML={{ __html: uiIcon("terminal") }} />
+            </div>
+          ) : null}
         </div>
       </header>
       <div className="timelineArea">
-        <main id="scrollArea">
-          <Button
-            type="button"
-            variant="ghost"
-            className="loadOlder"
-            data-testid="olderMessages"
-            hidden={!controls.older}
-            disabled={!controls.older}
-            onClick={() => post({ type: "olderMessages" })}
-          >
-            更早消息
-          </Button>
-          {empty ? <WelcomeView phase={snapshot.phase} hasMessages={false} brandMark={snapshot.brandMark} /> : <MessageList snapshot={snapshot} />}
+        <HistoryPanel snapshot={snapshot} post={post} />
+        <main id="scrollArea" ref={scroller} onScroll={() => {
+          const node = scroller.current
+          if (!node) return
+          setShowJump(node.scrollHeight - node.scrollTop - node.clientHeight >= 70)
+        }}>
+          <section className="transcriptLoading" id="transcriptLoading" hidden={snapshot.phase !== "loadingHistory"} role="status" aria-live="polite">
+            <span className="loadingSpinner" aria-hidden="true" />
+            <span id="loadingLabel">正在恢复会话记录…</span>
+            <div className="loadingLines" aria-hidden="true"><i /><i /><i /></div>
+          </section>
+          <HistoryPaging snapshot={snapshot} post={post} />
+          <WelcomeView phase={snapshot.phase} hasMessages={!empty} hasWorkingStatus={activity !== null} brandMark={snapshot.brandMark} />
+          <MessageList snapshot={snapshot} post={post} />
+          <div id="workingRow" className="workingRow" role="status" aria-live="polite" hidden={!showWorking}>
+            <span id="workingLabel">{activity ? <LoadingState label={activity.label} animate={activity.animate} /> : null}</span>
+          </div>
         </main>
+        <button type="button" className="jumpLatest" id="jumpLatest" hidden={!showJump} aria-label="回到最新消息" onClick={() => { if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight }} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
+        <div id="taskProgressHost"><TaskProgress snapshot={snapshot} /></div>
       </div>
       <footer>
-        <div className="connection" hidden={!controls.retry && !controls.resume && !connectStale}>
-          <p>{controls.retry || connectStale ? "连接中断，可重试。" : "可以恢复上一次会话。"}</p>
-          <div>
-            <Button
-              type="button"
-              className="primaryButton"
-              data-testid="retryConnect"
-              hidden={!controls.retry && !connectStale}
-              disabled={!controls.retry && !connectStale}
-              onClick={() => post({ type: "connect" })}
-            >
-              重试连接
-            </Button>
-            <Button
-              type="button"
-              className="textButton"
-              data-testid="resumeThread"
-              hidden={!controls.resume}
-              disabled={!controls.resume || !snapshot.resumeThreadId}
-              onClick={() => {
-                if (snapshot.resumeThreadId) post({ type: "resumeThread", threadId: snapshot.resumeThreadId })
-              }}
-            >
-              恢复会话
-            </Button>
-          </div>
+        <div id="connection" className="connection" hidden={snapshot.phase !== "disconnected" || !snapshot.notice}>
+          <p>连接工作区，开始与 CodeM 协作。</p>
+          <div><button id="connect" type="button" className="primaryButton" disabled={snapshot.phase === "connecting"} onClick={() => post({ type: "connect" })}>连接工作区</button></div>
         </div>
-        {snapshot.notice || snapshot.phase === "connecting" ? (
-          <p data-testid="notice" id="notice" className="notice" role="status">
-            {snapshot.notice || "正在连接 CodeM…"}
-          </p>
-        ) : (
-          <p data-testid="notice" id="notice" className="notice" hidden />
-        )}
-        <InteractionPanel snapshot={snapshot} text={panelText} setText={setPanelText} post={post} />
+        <p id="notice" className="notice" role="status" hidden={!snapshot.notice}>{snapshot.notice ?? ""}</p>
+        <DecisionPanel panel={snapshot.pendingPanel} text={panelText} setText={setPanelText} post={post} />
+        <RewindPanel panel={snapshot.pendingPanel} post={post} />
+        {sessionRequest ? <SessionCommandPanel snapshot={snapshot} request={sessionRequest} close={() => setSessionRequest(null)} post={post} onShell={confirmShell} /> : null}
         <form
           id="composer"
           className="composer"
@@ -308,34 +390,34 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             submit()
           }}
         >
-          {snapshot.selections.length > 0 || snapshot.attachments.length > 0 ? (
-            <ul data-testid="contextChips" className="attachments">
-              {snapshot.selections.map((item) => (
-                <li key={item.id} className="attachmentCard">
-                  <span className="attachmentName">{item.label}</span>
-                </li>
-              ))}
-              {snapshot.attachments.map((item) => (
-                <li key={item.id} className="attachmentCard">
-                  <span className="attachmentName">{item.label}</span>
-                  <Button type="button" variant="ghost" className="attachmentRemove" disabled={busy} aria-label={`移除附件 ${item.label}`} onClick={() => post({ type: "removeAttachment", id: item.id })}>
-                    <XIcon aria-hidden="true" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <div id="attachments" className="attachments" aria-label="待发送附件" hidden={inputMode !== "message"}>
+            {inputMode === "message" ? <CodeSelectionList items={snapshot.selections} disabled={Boolean(snapshot.pendingPanel)} post={post} /> : null}
+            {snapshot.attachments.map((item) => <AttachmentCard key={item.id} item={item} disabled={Boolean(snapshot.pendingPanel)} post={post} />)}
+          </div>
           {inputMode !== "message" ? (
             <div className="composerModeBar" data-testid="inputMode">
               <span>
-                <MessageSquarePlusIcon aria-hidden="true" />
+                {inputMode === "shellCommand" ? <TerminalIcon aria-hidden="true" /> : <MessageSquarePlusIcon aria-hidden="true" />}
                 {inputMode === "askSideQuestion" ? "旁路提问" : inputMode === "steer" ? "补充指令" : "Shell 命令"}
               </span>
               <Button type="button" variant="ghost" size="sm" aria-label="返回普通对话" onClick={() => setInputMode("message")}>
                 <XIcon aria-hidden="true" />
                 返回对话
               </Button>
+              <p>{modeHint}{snapshot.attachments.length ? ` ${snapshot.attachments.length} 个附件保留给普通消息。` : ""}</p>
             </div>
+          ) : null}
+          {inputMode === "askSideQuestion" && side ? (
+            <section className="composerSideAnswer" aria-label="旁路问答">
+              <strong>{side.question}</strong>
+              <pre>{side.answer}</pre>
+              <div className="sessionToolActions">
+                <span role="status">{{ starting: "正在提交", running: "正在回答", stopping: "正在取消", completed: "已完成", interrupted: "已取消", failed: "失败", incomplete: "连接中断，未完成" }[side.status]}</span>
+                {side.status === "running" || side.status === "stopping" ? (
+                  <Button type="button" variant="outline" size="sm" disabled={side.status === "stopping"} onClick={() => post({ type: "cancelSideQuestion" })}>取消旁路提问</Button>
+                ) : null}
+              </div>
+            </section>
           ) : null}
           <label className="visuallyHidden" htmlFor="prompt">
             {inputMode === "message" ? "发送给 CodeM 的消息" : "会话命令输入"}
@@ -347,22 +429,38 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             rows={2}
             maxLength={32000}
             spellCheck={false}
-            placeholder={inputMode === "message" ? "提出问题，或输入 / 选择会话操作…" : "输入内容后发送"}
+            placeholder={inputMode === "message" ? "提出问题，或输入 / 选择会话操作…" : inputMode === "shellCommand" ? "输入要执行的命令…" : `输入${inputMode === "askSideQuestion" ? "旁路提问" : "补充指令"}…`}
             value={draft}
-            disabled={running && inputMode !== "steer"}
+            disabled={snapshot.pendingPanel !== null}
             onChange={(event) => saveDraft(event.target.value)}
+            onPaste={(event) => pasteImages(event.clipboardData)}
             onKeyDown={(event) => {
+              const mentionOpen = Boolean(activeMention && activeMention.files.length > 0)
+              if (mentionOpen && ["ArrowDown", "ArrowUp", "Enter", "Escape"].includes(event.key)) {
+                event.preventDefault()
+                if (event.key === "Escape") mentionRequest.current = null
+                else if (event.key === "Enter") chooseMention(activeMention!.files[mentionIndex]?.id)
+                else setMentionIndex((index) => (index + (event.key === "ArrowDown" ? 1 : activeMention!.files.length - 1)) % activeMention!.files.length)
+                return
+              }
               if (event.key === "Escape" && slashOpen) {
                 event.preventDefault()
                 setSlashOpen(false)
                 return
               }
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && !slashOpen) {
+              if (
+                event.key === "Enter" &&
+                !slashOpen &&
+                sendOnEnter(snapshot.sendKey, event.shiftKey, event.metaKey || event.ctrlKey, event.nativeEvent.isComposing)
+              ) {
                 event.preventDefault()
                 submit()
               }
             }}
           />
+          {activeMention ? (
+            <FileMentions search={activeMention} active={mentionIndex} onActive={setMentionIndex} onChoose={chooseMention} />
+          ) : null}
           {slashOpen && slash !== null ? (
             <SlashMenu snapshot={snapshot} query={slash} onClose={(focus) => {
               setSlashOpen(false)
@@ -371,83 +469,28 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
           ) : null}
           <div className="composerToolbar">
             <div className="composerLeading">
-              <ComposerMenus snapshot={snapshot} enabled={!busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="leading" />
+              <ComposerMenus snapshot={snapshot} enabled={!busy && !snapshot.backgroundBusy && !snapshot.sessionTools.busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="leading" />
             </div>
             <div className="composerTrailing">
-              <ComposerMenus snapshot={snapshot} enabled={!busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="trailing" />
-              {running && inputMode !== "steer" ? (
-                <Button type="button" className="stopButton" data-testid="stop" aria-label="停止生成" title="停止生成" onClick={() => post({ type: "stop" })}>
-                  <SquareIcon aria-hidden="true" />
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  className="sendButton"
-                  data-testid="send"
-                  aria-label="发送消息"
-                  title="发送消息 · Enter"
-                  disabled={!draft.trim() || (inputMode === "message" && (!canSendMessage || running))}
-                >
-                  <ArrowUpIcon aria-hidden="true" />
-                </Button>
-              )}
+              <ComposerMenus snapshot={snapshot} enabled={!busy && !snapshot.backgroundBusy && !snapshot.sessionTools.busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="trailing" />
+              <button type="submit" className="sendButton" id="send" data-testid="send" hidden={generating && inputMode !== "steer"} aria-label={inputMode === "message" ? "发送消息" : inputMode === "shellCommand" ? "检查命令" : "发送补充指令"} title={snapshot.sendKey === "modEnter" ? "发送消息 · Ctrl / Cmd + Enter" : "发送消息 · Enter"} disabled={slash === null && (Boolean(inputUnavailable(inputMode, snapshot)) || !draft.trim() || snapshot.selections.some((item) => item.error))} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
+              <button type="button" className="stopButton" id="stop" data-testid="stop" hidden={!generating} disabled={snapshot.phase === "stopping"} aria-label="停止生成" title="停止生成" onClick={() => post({ type: "stop" })} dangerouslySetInnerHTML={{ __html: uiIcon("stop") }} />
             </div>
           </div>
         </form>
         <div className="footerMeta">
-          <span className="environment">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="13" rx="2" />
-              <path d="M8 21h8m-4-4v4" />
-            </svg>
-            <span>本地</span>
-          </span>
-          <ComposerMenus snapshot={snapshot} enabled={!busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="space" />
+          <span className="environment" dangerouslySetInnerHTML={{ __html: `${uiIcon("monitor")}<span>本地</span>` }} />
+          <ComposerMenus snapshot={snapshot} enabled={!busy && !snapshot.backgroundBusy && !snapshot.sessionTools.busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="space" />
           <span className="workspaceLabel">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 7V5h6l2 2h10v13H3z" />
-            </svg>
+            <span dangerouslySetInnerHTML={{ __html: uiIcon("folder") }} />
             <span id="workspace">{snapshot.workspace ?? "未连接工作区"}</span>
           </span>
+          <span id="runtimeDetailsHost"><RuntimeDetails snapshot={snapshot} /></span>
+          <span className="visuallyHidden" id="status" role="status" aria-live="polite">{snapshot.phase === "sideQuestion" ? "正在旁路提问，输入 /ask 查看或取消…" : ""}</span>
         </div>
       </footer>
     </div>
+    </>
   )
 }
 
-function InteractionPanel({
-  snapshot,
-  text,
-  setText,
-  post,
-}: {
-  snapshot: ChatSnapshot
-  text: string
-  setText: (value: string) => void
-  post: (action: Record<string, unknown>) => void
-}) {
-  const panel = snapshot.pendingPanel
-  if (!panel) return <form data-testid="approval" hidden />
-  const reply = (choiceIds: string[], cancelled: boolean, extra = "") => {
-    post({ type: "panelReply", id: panel.id, choiceIds, text: cancelled ? "" : extra, cancelled })
-  }
-  return (
-    <form data-testid="approval" className="decisionPanel" aria-label={panel.title} onSubmit={(event) => event.preventDefault()}>
-      <h2>{panel.title}</h2>
-      <p className="decisionDescription">{panel.description}</p>
-      <div className="decisionChoices">
-        {panel.choices.map((choice) => (
-          <Button key={choice.id} type="button" className="decisionChoice" data-testid={`choice-${choice.id}`} onClick={() => reply([choice.id], false, text)}>
-            {choice.label}
-          </Button>
-        ))}
-      </div>
-      {panel.allowText ? (
-        <textarea className="decisionAnswer" data-testid="panelText" aria-label="补充说明" value={text} onChange={(event) => setText(event.target.value)} />
-      ) : null}
-      {panel.kind !== "approval" ? (
-        <Button type="button" variant="ghost" data-testid="cancelApproval" onClick={() => reply([], true)}>取消</Button>
-      ) : null}
-    </form>
-  )
-}

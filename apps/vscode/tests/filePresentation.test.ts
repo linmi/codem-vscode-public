@@ -3,7 +3,7 @@ import { it } from "node:test"
 import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { changedFilePath, diffText, displayPath, validateAttachment } from "../src/resources/filePresentation.ts"
+import { changedFilePath, diffText, displayCommand, displayPath, validateAttachment } from "../src/resources/filePresentation.ts"
 import { parseMcpConfiguration } from "../src/connection/mcpConfiguration.ts"
 import type { AppServerFileDiff } from "@codem/app-server"
 
@@ -16,6 +16,7 @@ it("permits workspace files but rejects traversal, directories, missing files an
     assert.match(await changedFilePath(workspace, "a.ts"), /a\.ts$/)
     for (const path of ["../secret", "link", "missing", "."]) await assert.rejects(changedFilePath(workspace, path))
     assert.equal(displayPath(workspace, join(root, "secret")), "secret")
+    assert.equal(displayCommand(workspace, `git -C ${workspace} status --short | head -20`), "git status --short | head -20")
     await validateAttachment({ kind: "file", path: join(workspace, "a.ts") })
     await validateAttachment({ kind: "directory", path: workspace })
     await assert.rejects(validateAttachment({ kind: "file", path: workspace }))

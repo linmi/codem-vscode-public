@@ -1,184 +1,320 @@
-import { useState } from "react"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../components/ui/collapsible.tsx"
-import { elapsedTime, type ChatMessage, type ChatSnapshot } from "../contract.ts"
-import { lastActivityId, timelineGroups, workGroupState, type WorkMessage } from "./timelineGroups.ts"
-import { activityBadge, activityPlaceholder, activityTitle, toolPresentation } from "./toolPresentation.ts"
+import { Fragment, useEffect, useState, type ReactNode } from "react"
+import { CheckIcon, CopyIcon, FileDiffIcon } from "lucide-react"
+import { Button } from "../components/ui/button.tsx"
+import { elapsedTime, type ArtifactView, type ChatMessage, type ChatSnapshot, type DiffView } from "../contract.ts"
+import { LoadingState } from "./LoadingState.tsx"
 import { SafeMarkdown } from "./SafeMarkdown.tsx"
+import { activityTitle, toolPresentation } from "./toolPresentation.ts"
+import { lastActivityId, timelineGroups, workGroupState, type WorkMessage } from "./timelineGroups.ts"
+import { turnChanges } from "./turnChanges.ts"
+import { uiIcon } from "./uiIcons.ts"
+import { UserMessageBody } from "./userMessage.tsx"
+
+
+const toolStatus = { running: "进行中", completed: "已完成", failed: "失败", declined: "已拒绝", interrupted: "已停止", incomplete: "未完成" } as const
+const reasoningStatus = { running: "思考中", completed: "思考完成", interrupted: "思考已停止", incomplete: "思考未完成", failed: "思考失败", declined: "已拒绝" } as const
+const previewLabels: Record<DiffView["preview"], string> = {
+  partial: "部分差异",
+  "raw-partial": "部分差异",
+  binary: "二进制",
+  omitted: "无预览内容",
+  missing: "无预览内容",
+  complete: "",
+}
 
 /**
- * 对照 VS Code 现网消息：用户气泡、思考/工具折叠、工作分组。
- * 只读 Host 投影 messages 与 assistantText，不建 transcript。
- *
- * 更改要点：去掉卡片边框；发送/生成中先画「正在处理」；收尾答复在组外。
+ * 对照 VS Code messageView + workGroups：原生 details、工作分组和轮次变更。
+ * 运行中的思考才放像素加载；工具行不再叠一条同样的标题。
  */
-export function MessageList({ snapshot }: { snapshot: ChatSnapshot }) {
+export function MessageList({
+  snapshot,
+  post,
+}: {
+  snapshot: ChatSnapshot
+  post: (action: Record<string, unknown>) => void
+}) {
   const groups = timelineGroups(snapshot.messages)
   const activityId = lastActivityId(snapshot.messages)
-  const hasWork = snapshot.messages.some((message) => message.role === "reasoning" || message.role === "tool")
-  const pendingWork =
-    (snapshot.phase === "sending" || snapshot.phase === "running" || snapshot.phase === "stopping") && !hasWork
-  const pendingLabel =
-    snapshot.phase === "stopping"
-      ? "正在停止"
-      : snapshot.phase === "sending"
-        ? "发送中"
-        : snapshot.capabilities.activity || "正在处理"
-  if (groups.length === 0 && !snapshot.assistantText && !pendingWork) return null
-  return (
-    <section data-testid="messages" id="messages" className="messages" aria-label="对话记录" aria-busy={snapshot.phase === "connecting" || pendingWork}>
-      {groups.map((group) =>
-        group.kind === "message" ? (
-          <ChatBubble key={group.message.id} message={group.message} />
-        ) : (
+  const changes = turnChanges(snapshot.messages, snapshot.diffs)
+  const nodes: { key: string; node: ReactNode }[] = []
+  for (const group of groups) {
+    if (group.kind === "message") {
+      nodes.push({ key: group.message.id, node: <ChatMessageView message={group.message} post={post} /> })
+    } else {
+      nodes.push({
+        key: group.id,
+        node: (
           <WorkGroup
-            key={group.id}
             work={group.messages}
-            id={group.id}
             hasResult={group.hasResult}
             phase={snapshot.phase}
             lastActivityId={activityId}
             timings={snapshot.turnTimings}
+            post={post}
           />
         ),
-      )}
-      {pendingWork ? (
-        <div className="workGroup" data-testid="workGroup" data-state="running" data-open="false">
-          <span className="workGroupTrigger" data-testid="workGroupTrigger">{pendingLabel}</span>
-        </div>
-      ) : null}
-      {snapshot.assistantText ? (
-        <article data-role="assistant" data-testid="streamingMessage" className="message">
-          <div className="messageBody">
-            <SafeMarkdown text={snapshot.assistantText} />
-          </div>
-        </article>
-      ) : null}
+      })
+    }
+    const placed = changes.filter((change) => {
+      const anchor = change.afterMessageId
+      if (!anchor) return false
+      if (group.kind === "message") return group.message.id === anchor
+      return group.messages.some((message) => message.id === anchor)
+    })
+    for (const change of placed) nodes.push({ key: `changes-${change.turnId}`, node: <TurnChangeList group={change} post={post} /> })
+  }
+  for (const change of changes.filter((change) => !change.afterMessageId || !nodes.some((item) => item.key === `changes-${change.turnId}`))) {
+    nodes.push({ key: `changes-${change.turnId}`, node: <TurnChangeList group={change} post={post} /> })
+  }
+  return (
+    <section id="messages" data-testid="messages" className="messages" role="log" aria-label="对话记录" aria-live="off" aria-busy={snapshot.phase === "loadingHistory"}>
+      {nodes.map((item) => <Fragment key={item.key}>{item.node}</Fragment>)}
     </section>
   )
 }
 
-function ChatBubble({ message }: { message: ChatMessage }) {
-  if (message.role !== "user" && message.role !== "assistant") {
-    return <ActivityItem message={message} />
+function ChatMessageView({ message, post }: { message: ChatMessage; post: (action: Record<string, unknown>) => void }) {
+  if (message.role === "turnStatus") {
+    return <div className="turnStatus"><p role="status" data-turn-id={message.turnId}>{message.text}</p></div>
   }
+  if (message.role === "reasoning" || message.role === "tool") return <ActivityItem message={message} />
   return (
-    <article data-role={message.role} data-testid="chatMessage" className="message">
-      <div className="messageBody chatMarkdown">
-        <SafeMarkdown text={message.text} />
-      </div>
+    <article className="message" data-role={message.role} data-testid="chatMessage">
+      <div className="messageLabel" hidden />
+      {message.role === "user" ? <UserMessageBody text={message.text} /> : (
+        <div className="messageBody chatMarkdown"><SafeMarkdown text={message.text} /></div>
+      )}
+      <CopyAction text={message.text} />
+      <AttachmentLabels items={message.attachments} />
+      <ArtifactList items={message.artifacts} post={post} />
     </article>
   )
 }
 
 function WorkGroup({
   work,
-  id,
   hasResult,
   phase,
   lastActivityId: activityId,
   timings,
+  post,
 }: {
   work: readonly WorkMessage[]
-  id: string
   hasResult: boolean
   phase: string
   lastActivityId: string | null
   timings: ChatSnapshot["turnTimings"]
+  post: (action: Record<string, unknown>) => void
 }) {
-  const state = workGroupState(work, id, activityId, phase, hasResult)
-  const [open, setOpen] = useState(state === "running" || state === "failed")
+  const state = workGroupState(work, work[0]?.id ?? "", activityId, phase, hasResult)
+  const running = state === "running"
+  const failed = state === "failed"
+  const [touched, setTouched] = useState(false)
+  const [open, setOpen] = useState(running || failed)
+  const [now, setNow] = useState(() => Date.now())
+  const latest = work.some((message) => message.id === activityId)
   const timing = timings.find((item) => work.some((message) => message.turnId === item.turnId))
-  const labels = {
-    running: phase === "stopping" ? "正在停止" : "正在处理",
-    failed: "处理需要关注",
-    interrupted: "已停止或拒绝",
-    completed: "已处理",
-  } as const
-  const heading = timing ? `${labels[state]} · ${elapsedTime(timing, Date.now())}` : labels[state]
+  useEffect(() => {
+    if (!touched) setOpen(running || failed)
+  }, [running, failed, touched])
+  useEffect(() => {
+    if (timing?.finishedAt !== null || !running) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [timing?.finishedAt, running])
+  const plain = running ? (phase === "stopping" ? "正在停止" : "正在处理") : failed ? "处理需要关注" : state === "interrupted" ? "已停止或拒绝" : "已处理"
+  const prefix = failed ? "处理需要关注 · " : phase === "stopping" && latest ? "正在停止 · " : state === "interrupted" ? "已停止或拒绝 · " : ""
+  const heading = timing ? `${prefix}已处理 ${elapsedTime(timing, now)}` : plain
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
+    <details
       className="workGroup"
       data-testid="workGroup"
       data-state={state}
-      data-open={open}
+      open={open}
     >
-      <CollapsibleTrigger className="workGroupTrigger" data-testid="workGroupTrigger" aria-label={heading}>
-        {heading}
-        <span className="workGroupChevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></svg>
-        </span>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="workGroupContent">
-        {work.map((message) =>
-          message.role === "assistant" ? <ChatBubble key={message.id} message={message} /> : <ActivityItem key={message.id} message={message} />,
-        )}
-      </CollapsibleContent>
-    </Collapsible>
+      <summary
+        onClick={(event) => {
+          event.preventDefault()
+          setTouched(true)
+          setOpen((value) => !value)
+        }}
+      >
+        <span>{heading}</span>
+        <span className="workGroupChevron" aria-hidden="true" dangerouslySetInnerHTML={{ __html: uiIcon("chevron") }} />
+      </summary>
+      <div className="workGroupContent">
+        {work.map((message) => message.role === "assistant"
+          ? <ChatMessageView key={message.id} message={message} post={post} />
+          : <ActivityItem key={message.id} message={message} />)}
+      </div>
+    </details>
   )
 }
 
 function ActivityItem({ message }: { message: ChatMessage }) {
   const status = message.status ?? "completed"
-  const [open, setOpen] = useState(status === "failed")
+  const thinking = message.role === "reasoning" && status === "running"
   const title = activityTitle(message)
-  const kind = message.role === "reasoning" ? "thinking" : toolPresentation(message.label ?? "工具").kind
-  const body = message.text.trim() || activityPlaceholder(message)
+  const [touched, setTouched] = useState(false)
+  const [open, setOpen] = useState(status === "failed")
+  useEffect(() => {
+    if (!touched) setOpen(status === "failed")
+  }, [status, touched])
+  const presentation = toolPresentation(message.label ?? "工具")
+  const empty = status === "running"
+    ? (message.role === "reasoning" ? "正在思考…" : message.label === "skill" ? "正在加载技能说明…" : "等待工具输出…")
+    : status === "incomplete"
+      ? "未收到完成结果。"
+      : message.role === "reasoning"
+        ? "Core 未提供可显示的思考内容。"
+        : "无文本输出。"
+  const text = message.text || empty
+  const badge = message.role === "reasoning" ? reasoningStatus[status] : toolStatus[status]
+  const heading = message.role === "tool"
+    ? (message.label === "skill" ? "技能加载结果" : message.details?.kind === "command" ? "Shell" : `${presentation.title}输出`)
+    : ""
+  const note = message.summary?.trim() && message.summary.trim() !== message.text.trim() && message.summary.trim() !== title.trim() ? message.summary : ""
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="activityMessage"
-      data-testid={message.role === "reasoning" ? "thinking" : "toolCall"}
-      data-role={message.role}
-      data-status={status}
-      data-kind={kind}
-      data-tool={kind}
-    >
-      <CollapsibleTrigger aria-label={title}>
-        <span className="activityIcon" aria-hidden="true">
-          {message.role === "reasoning" ? (
-            <svg viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 2H9s0-1-1-2" /></svg>
-          ) : (
-            <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" /></svg>
-          )}
-        </span>
-        <span className="activityTitle">{title}</span>
-        <span className="activityChevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></svg>
-        </span>
-        {status !== "running" ? <span className="activityStatus">{activityBadge(message)}</span> : null}
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        {message.summary && message.summary.trim() && message.summary.trim() !== message.text.trim() ? (
-          <p className="activityNote">{message.summary}</p>
-        ) : null}
-        {message.details ? <ToolDetailsCard details={message.details} /> : null}
-        {message.role === "reasoning" || message.role === "assistant" ? (
-          <div className="messageBody">
-            <SafeMarkdown text={body} />
-          </div>
+    <article className="message activityMessage" data-role={message.role} data-status={status} data-tool={message.role === "tool" ? presentation.kind : undefined} data-testid={message.role === "reasoning" ? "thinking" : "toolCall"}>
+      <details open={open}>
+        <summary
+          onClick={(event) => {
+            event.preventDefault()
+            setTouched(true)
+            setOpen((value) => !value)
+          }}
+        >
+          <span className="activityIcon" hidden={thinking} aria-hidden="true" dangerouslySetInnerHTML={{ __html: uiIcon(message.role === "reasoning" ? "thought" : iconFor(presentation.kind)) }} />
+          <span className="activityTitle" hidden={thinking} title={title}>{title}</span>
+          <span className="activityLoading" hidden={!thinking}>{thinking ? <LoadingState label={title} /> : null}</span>
+          <span className="activityChevron" aria-hidden="true" dangerouslySetInnerHTML={{ __html: uiIcon("chevron") }} />
+          <span className={message.role === "tool" && status === "failed" ? "activityStatus visuallyHidden" : "activityStatus"} hidden={status === "running"}>{badge}</span>
+        </summary>
+        {note ? <p className="activityNote">{note}</p> : null}
+        {message.role === "tool" ? (
+          <section className="toolOutput" aria-label={heading}>
+            <div className="toolOutputHeading">{heading}</div>
+            {message.details ? (
+              <div className="toolInputCard" data-kind={message.details.kind}>
+                {message.details.code ? <pre className="toolCommand">{message.details.code}</pre> : null}
+                {message.details.fields.filter((field) => field.value).map((field) => (
+                  <div key={`${field.label}:${field.value}`} className="toolInputField">
+                    <span>{field.label}</span>
+                    <span>{field.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className={message.text.trim() ? "messageBody" : "messageBody emptyOutput"} aria-label={heading}>{text}</div>
+          </section>
         ) : (
-          <pre className="messageBody">{body}</pre>
+          <div className={message.text.trim() ? "messageBody chatMarkdown" : "messageBody chatMarkdown emptyOutput"}>
+            <SafeMarkdown text={text} />
+          </div>
         )}
-      </CollapsibleContent>
-    </Collapsible>
+      </details>
+    </article>
   )
 }
 
-function ToolDetailsCard({ details }: { details: NonNullable<ChatMessage["details"]> }) {
+function iconFor(kind: string): Parameters<typeof uiIcon>[0] {
+  if (kind === "command" || kind === "process") return "terminal"
+  if (kind === "search") return "search"
+  if (kind === "read" || kind === "write" || kind === "image") return "file"
+  if (kind === "web") return "globe"
+  if (kind === "mcp") return "plug"
+  if (kind === "subagent" || kind === "plan") return "chat"
+  if (kind === "task") return "check"
+  if (kind === "worktree") return "folder"
+  if (kind === "wait" || kind === "context") return "history"
+  return "tool"
+}
+
+function CopyAction({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const [failed, setFailed] = useState(false)
   return (
-    <div className="toolOutput" data-testid="toolDetails" data-kind={details.kind}>
-      {details.code ? <pre className="toolCommand">{details.code}</pre> : null}
-      <div className="toolInputCard">
-        {details.fields.filter((field) => field.value).map((field) => (
-          <div key={`${field.label}:${field.value}`} className="toolInputField">
-            <span>{field.label}</span>
-            <span>{field.value}</span>
-          </div>
-        ))}
-      </div>
+    <div className="messageActions">
+      <button
+        type="button"
+        className="copyMessage"
+        aria-label={failed ? "复制失败，点击重试" : copied ? "已复制消息" : "复制消息"}
+        title="复制消息"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(text)
+            setCopied(true)
+            setFailed(false)
+            window.setTimeout(() => setCopied(false), 2000)
+          } catch {
+            setFailed(true)
+            setCopied(false)
+          }
+        }}
+      >
+        {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
+      </button>
+      <span className="copyFeedback" role="status">{failed ? "复制失败，点击重试" : ""}</span>
     </div>
+  )
+}
+
+function AttachmentLabels({ items }: { items: ChatMessage["attachments"] }) {
+  if (!items?.length) return null
+  return <div className="messageAttachments">{items.map((item) => <span key={item.id} className="attachmentName">{item.label}</span>)}</div>
+}
+
+function ArtifactList({ items, post }: { items: readonly ArtifactView[] | undefined; post: (action: Record<string, unknown>) => void }) {
+  if (!items?.length) return null
+  return (
+    <div className="messageArtifacts">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className="artifactCard"
+          data-kind={item.kind}
+          disabled={!item.available}
+          aria-label={`打开${item.kind === "diff" ? "差异" : "产物"} ${item.title}`}
+          onClick={() => post({ type: item.kind === "diff" ? "openDiff" : "openArtifact", id: item.id })}
+        >
+          <span className="artifactIcon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: uiIcon(item.kind === "url" ? "globe" : item.kind === "chart" ? "chart" : "file") }} />
+          <span><strong>{item.title}</strong><span className="artifactDetail">{item.detail}</span></span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function TurnChangeList({
+  group,
+  post,
+}: {
+  group: { turnId: string; files: readonly DiffView[] }
+  post: (action: Record<string, unknown>) => void
+}) {
+  const repeated = new Set(group.files.map((file) => file.label)).size < group.files.length
+  return (
+    <section className="turnChanges" aria-label="本轮文件变更" data-turn-id={group.turnId}>
+      <div className="turnChangesHeading">
+        <FileDiffIcon aria-hidden="true" />
+        <strong>本轮文件变更</strong>
+        <span>{group.files.length} 处</span>
+      </div>
+      {repeated ? <p className="turnChangesHint">同一文件的多次修改分段展示，增删数为各段统计。</p> : null}
+      <ul>
+        {group.files.map((file) => (
+          <li key={file.id}>
+            <span className="resourceFilePath" title={file.label}><span className="resourceFileBasename">{file.label}</span></span>
+            <span className="turnChangeStats"><span className="diffAdded">+{file.added}</span><span className="diffRemoved">−{file.removed}</span></span>
+            <div className="turnChangeActions">
+              {file.preview !== "complete" ? <span title={previewLabels[file.preview]}>{previewLabels[file.preview]}</span> : null}
+              {!file.available ? <span title="当前不可用">当前不可用</span> : null}
+              <Button type="button" variant="ghost" size="sm" disabled={!file.available} aria-label={`查看差异 ${file.label}`} onClick={() => post({ type: "openDiff", id: file.id })}>查看差异</Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

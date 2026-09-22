@@ -197,6 +197,9 @@ export function activate(context: vscode.ExtensionContext): void {
       case "showOutput": output.show(); break
       case "setTheme":
       case "pinSelection": break
+      case "setSendKey":
+        await vscode.workspace.getConfiguration("codem").update("chat.sendKey", action.sendKey, vscode.workspace.workspaceFolders?.length ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global)
+        break
     }
   }
   selection = new EditorSelection(value => surfaces?.post({ type: "codeSelection", value }))

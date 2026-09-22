@@ -5,7 +5,7 @@ import { join } from "node:path"
 export async function checkSourceLayout(root: string): Promise<void> {
   const boundaries = [
     { path: "src", files: ["extension.ts"], folders: ["chat", "connection", "sessionHistory", "resources", "integrations", "panels", "nativeChat", "shared"] },
-    { path: "webview", files: ["main.ts", "styles.css"], folders: ["account", "composer", "transcript", "sessionHistory", "panels", "resources", "status", "components", "styles"] },
+    { path: "webview", files: ["main.ts", "styles.css"], folders: ["account", "composer", "transcript", "sessionHistory", "panels", "resources", "status", "components", "styles", "host"] },
     { path: "webview/components", files: ["utils.ts", "componentStyles.ts"], folders: ["ui"] },
   ]
   for (const boundary of boundaries) {

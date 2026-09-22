@@ -1,4 +1,4 @@
-import { displayPath } from "../resources/filePresentation.ts"
+import { displayCommand, displayPath } from "../resources/filePresentation.ts"
 import type { ToolDetails } from "../shared/messages.ts"
 import { projectTaskDetails } from "./taskDetails.ts"
 
@@ -45,9 +45,9 @@ export function projectToolDetails(name: string, input: unknown, cwd: string): T
     }
     case "run_bash":
       number("超时", "timeout", " 秒"); flag("后台运行", "background")
-      return result("command", redact(text(value.command)))
+      return result("command", displayCommand(cwd, redact(text(value.command))))
     case "verify":
-      return result("command", redact(text(value.command)))
+      return result("command", displayCommand(cwd, redact(text(value.command))))
     case "read_files": {
       if (value.files !== undefined && value.path !== undefined) return null
       const files = value.files === undefined ? [value] : Array.isArray(value.files) ? value.files : []

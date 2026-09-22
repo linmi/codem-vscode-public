@@ -7,8 +7,10 @@ import { asSnapshot, hiddenUntilReady, initialSnapshot, isSignedIn, parseUiActio
 import { welcomeState } from "../src/chat/welcomeState.ts"
 import { lastActivityId, timelineGroups, workGroupState } from "../src/chat/timelineGroups.ts"
 import { activityTitle } from "../src/chat/toolPresentation.ts"
+import { workingStatus } from "../src/chat/workingStatus.ts"
 import { commandUnavailable, slashQuery } from "../src/chat/slashCommands.ts"
 import { draftRetention } from "../src/chat/draftRetention.ts"
+import { composerMessageAction, composerTypingLocked, mentionQuery, sendOnEnter } from "../src/chat/composerInput.ts"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -21,6 +23,61 @@ describe("@codem/ui host contract", () => {
       if (testCase.expected.kind === "accepted") parseUiAction(testCase.input)
       else assert.throws(() => parseUiAction(testCase.input), /Invalid CodeM action|Unsupported/, testCase.name)
     }
+  })
+
+  it("shows one loading row until thinking or tool progress exists", () => {
+    const base = initialSnapshot()
+    assert.deepEqual(workingStatus({ ...base, phase: "sending", messages: [] }), { label: "正在思考与处理…", animate: true })
+    assert.deepEqual(workingStatus({ ...base, phase: "connecting", messages: [] }), { label: "正在思考与处理…", animate: true })
+    assert.deepEqual(
+      workingStatus({
+        ...base,
+        phase: "running",
+        pendingPanel: { id: "approval-1", kind: "approval", title: "需要审批", description: "", detail: null, choices: [], allowText: false, multiple: false, backChoiceId: null, initialText: "", confirmLabel: null },
+        messages: [{ id: "user", role: "user", text: "改一下" }],
+      }),
+      { label: "等待你的批准…", animate: false },
+    )
+    assert.equal(
+      workingStatus({
+        ...base,
+        phase: "running",
+        messages: [
+          { id: "user", role: "user", text: "改一下" },
+          { id: "think", role: "reasoning", text: "", summary: "正在分析实现方案", status: "running" },
+        ],
+      }),
+      null,
+    )
+  })
+
+  it("keeps typing available while the turn is running", () => {
+    assert.equal(composerTypingLocked("running"), false)
+    assert.equal(composerTypingLocked("ready"), false)
+    assert.equal(composerTypingLocked("sending"), true)
+    assert.equal(composerTypingLocked("stopping"), true)
+  })
+
+  it("sends a follow-up while a turn is running and does not consult background processes", () => {
+    assert.equal(composerMessageAction("running"), "steer")
+    assert.equal(composerMessageAction("ready"), "send")
+    assert.equal(composerMessageAction("disconnected"), "send")
+    assert.equal(composerMessageAction("sending"), "none")
+    assert.equal(composerMessageAction("stopping"), "none")
+  })
+
+  it("mentions files at the caret and sends on the configured enter key", () => {
+    assert.deepEqual(mentionQuery("see @src/App", 12), { query: "src/App", start: 4 })
+    assert.equal(mentionQuery("邮件 a@b.com", 10), null)
+    assert.equal(sendOnEnter("enter", false, false, false), true)
+    assert.equal(sendOnEnter("enter", false, true, false), false)
+    assert.equal(sendOnEnter("modEnter", false, true, false), true)
+    assert.equal(sendOnEnter("modEnter", true, true, false), false)
+    parseUiAction({ type: "searchFiles", query: "App", requestId: "mention-1" })
+    parseUiAction({ type: "selectFile", id: "file-1", requestId: "pick-1" })
+    parseUiAction({ type: "setSendKey", sendKey: "modEnter" })
+    parseUiAction({ type: "closeHistory" })
+    parseUiAction({ type: "removeSelection", id: "sel-current" })
   })
 
   it("keeps a submitted draft until the host confirms it", () => {
@@ -40,6 +97,10 @@ describe("@codem/ui host contract", () => {
     assert.deepEqual(draftRetention(pending, asSnapshot(stale)!, ""), { kind: "waiting" })
     // 用户已经在输入新内容时不覆盖。
     assert.deepEqual(draftRetention(pending, asSnapshot(rejected)!, "新的输入"), { kind: "accepted" })
+    const receipt = { ...base, submission: { requestId: "req-1", accepted: false } }
+    assert.deepEqual(draftRetention(pending, asSnapshot(receipt)!, ""), { kind: "restore", text: "写一段说明" })
+    const confirmed = { ...base, submission: { requestId: "req-1", accepted: true } }
+    assert.deepEqual(draftRetention(pending, asSnapshot(confirmed)!, ""), { kind: "accepted" })
   })
 
   it("accepts capability actions used by both hosts", () => {
@@ -86,9 +147,7 @@ describe("@codem/ui host contract", () => {
     assert.match(source, /我们一起做点什么/u)
     assert.match(source, /sessionHeader|composerToolbar|accountPage|slashMenu/u)
     assert.match(source, /正在检查登录状态/u)
-    assert.match(source, /正在读取本机登录信息/u)
-    assert.match(source, /正在连接…/u)
-    assert.doesNotMatch(source, /account.status === "checking" \? <span className="sr-only"/u)
+    assert.match(source, /workGroup/u)
     assert.doesNotMatch(source, /data-testid="transcript"/u)
     assert.doesNotMatch(source, /连接后发送消息|codemCapabilities|CapabilityPanel|selectTheme|data-testid="connect"/u)
     assert.doesNotMatch(source, /<p>\{(?:message\.text|snapshot\.assistantText)\}<\/p>/u)

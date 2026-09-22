@@ -166,6 +166,9 @@ object ThreadCommands {
     fun spaceList(cwd: String): Pair<String, JsonValue.ObjectValue> =
         "space/list" to JsonValue.obj("cwd" to JsonValue.Text(cwd))
 
+    fun modelList(cwd: String): Pair<String, JsonValue.ObjectValue> =
+        "model/list" to JsonValue.obj("cwd" to JsonValue.Text(cwd))
+
     fun modelProvider(cwd: String): Pair<String, JsonValue.ObjectValue> =
         "modelProvider/capabilities/read" to JsonValue.obj("cwd" to JsonValue.Text(cwd))
 

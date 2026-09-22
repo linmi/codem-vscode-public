@@ -5,7 +5,6 @@ export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!)
 }
 
-/** 生产 Webview 只挂 #codem-root；聊天壳由 @codem/ui 绘制。 */
 export function chatHtml(resources: { script: string; style: string; logo: string; cspSource: string; surface: "sidebar" | "editor" }): string {
   const nonce = randomBytes(24).toString("base64")
   const source = escapeHtml(resources.cspSource)
@@ -14,6 +13,6 @@ export function chatHtml(resources: { script: string; style: string; logo: strin
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${source} data: ${accountAvatarSources}; style-src ${source} 'nonce-${nonce}'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'">
 <link rel="stylesheet" href="${escapeHtml(resources.style)}"><title>CodeM</title></head>
 <body>
-<div id="codem-root" data-logo="${escapeHtml(resources.logo)}" data-surface="${resources.surface}"></div>
+<div id="codem-root" data-surface="${resources.surface}" data-logo="${escapeHtml(resources.logo)}"></div>
 <script nonce="${nonce}" src="${escapeHtml(resources.script)}"></script></body></html>`
 }

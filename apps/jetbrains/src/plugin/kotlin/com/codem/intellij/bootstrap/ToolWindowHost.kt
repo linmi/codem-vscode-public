@@ -22,6 +22,8 @@ import com.codem.intellij.session.ProjectSession
 import com.codem.intellij.session.SafeNotice
 import com.codem.intellij.webview.AttachmentView
 import com.codem.intellij.webview.ChatSnapshot
+import com.codem.intellij.webview.FileHitView
+import com.codem.intellij.webview.FileSearchView
 import com.codem.intellij.webview.IdeTheme
 import com.codem.intellij.webview.JcefHostPanel
 import com.codem.intellij.webview.SelectionView
@@ -69,7 +71,8 @@ class ToolWindowHost(
     private val watchdogs = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "codem-host-watchdog").apply { isDaemon = true }
     }
-    @Volatile private var local = themed(initialSnapshot())
+    private val searchedFiles = java.util.concurrent.ConcurrentHashMap<String, Path>()
+    @Volatile private var local = themed(initialSnapshot().copy(sendKey = storedSendKey()))
 
     init {
         ApplicationManager.getApplication().messageBus.connect(project)
@@ -80,6 +83,7 @@ class ToolWindowHost(
             })
         // 重载后 UI ready 可能丢；不靠用户再点登录，后台直接读本机 CLI 登录态并自动连接。
         runBackground { refreshAccount() }
+        watchEditorSelection()
     }
 
     fun current(): ChatSnapshot = sessionRef.get()?.snapshot()?.withLocalAccount() ?: local
@@ -113,6 +117,11 @@ class ToolWindowHost(
             ViewAction.CancelSignIn -> cancelLogin()
             is ViewAction.Send -> sendOrConnect(action)
             ViewAction.PinSelection -> pinSelection()
+            is ViewAction.RemoveSelection -> removeSelection(action.id)
+            is ViewAction.SearchFiles -> runBackground { searchFiles(action) }
+            is ViewAction.SelectFile -> runBackground { selectSearchedFile(action) }
+            is ViewAction.PasteImages -> runBackground { pasteImages(action) }
+            is ViewAction.SetSendKey -> rememberSendKey(action.sendKey)
             is ViewAction.PickAttachment -> pickAttachment(action.kind)
             is ViewAction.SetTheme -> applyTheme(action.theme)
             is ViewAction.OpenDiff -> openDiff(action.id)
@@ -170,8 +179,9 @@ class ToolWindowHost(
                     session.close()
                     return
                 }
+                session.rememberSendKey(storedSendKey())
                 sessionRef.set(session)
-                val visible = if (snapshot.phase == "ready") snapshot.copy(notice = null) else snapshot
+                val visible = if (snapshot.phase == "ready") snapshot.copy(notice = null, sendKey = storedSendKey()) else snapshot.copy(sendKey = storedSendKey())
                 publish(visible.withLocalAccount())
                 if (snapshot.phase == "ready") {
                     log.info("CodeM connection finished")
@@ -488,7 +498,7 @@ class ToolWindowHost(
             attachmentStore = attachments,
             diffPresenter = diffs,
             historySource = historySource(),
-            directoryPicker = { null },
+            directoryPicker = { chooseDirectory() },
             onSnapshot = { snapshot -> publish(snapshot.withLocalAccount()) },
         )
 
@@ -502,6 +512,148 @@ class ToolWindowHost(
     }
 
     private fun workingDirectory(): Path? = project.basePath?.let { Path.of(it) }
+
+    /** 跟随编辑器划选。钉住之前只是一条可移除的当前选区。 */
+    private fun watchEditorSelection() {
+        ApplicationManager.getApplication().invokeLater {
+            if (project.isDisposed) return@invokeLater
+            com.intellij.openapi.editor.EditorFactory.getInstance().eventMulticaster.addSelectionListener(
+                object : com.intellij.openapi.editor.event.SelectionListener {
+                    override fun selectionChanged(event: com.intellij.openapi.editor.event.SelectionEvent) {
+                        if (event.editor.project != project) return
+                        publishLiveSelection()
+                    }
+                },
+                project,
+            )
+        }
+    }
+
+    private fun publishLiveSelection() {
+        val session = sessionRef.get() ?: return
+        val snap = selectionReader.current()
+        if (snap == null || snap.text.isEmpty()) session.setLiveSelection(null, 1, 1, "")
+        else session.setLiveSelection(snap.path, snap.startLine, snap.endLine, snap.text)
+        publish(session.snapshot().withLocalAccount())
+    }
+
+    private fun removeSelection(id: String) {
+        val session = sessionRef.get()
+        if (session != null) {
+            session.removeSelection(id)
+            publish(session.snapshot().withLocalAccount())
+            return
+        }
+        publish(local.copy(selections = local.selections.filterNot { it.id == id }, version = local.version + 1))
+    }
+
+    /** 额外目录用 IDEA 的目录框，不再固定返回空。必须在 EDT 上选。 */
+    private fun chooseDirectory(): Path? {
+        val chosen = java.util.concurrent.atomic.AtomicReference<Path?>(null)
+        ApplicationManager.getApplication().invokeAndWait {
+            val file = FileChooser.chooseFile(FileChooserDescriptorFactory.createSingleFolderDescriptor(), project, null)
+            chosen.set(file?.toNioPath())
+        }
+        return chosen.get()
+    }
+
+    private fun searchFiles(action: ViewAction.SearchFiles) {
+        val root = workingDirectory()
+        val session = sessionRef.get()
+        if (root == null || session == null) {
+            publishSearch(FileSearchView(action.requestId, "error", emptyList(), "请先打开受信任的项目"))
+            return
+        }
+        publishSearch(FileSearchView(action.requestId, "loading"))
+        val hits = try {
+            com.codem.intellij.ide.WorkspaceFileSearch.search(root, action.query)
+        } catch (error: Throwable) {
+            publishSearch(FileSearchView(action.requestId, "error", emptyList(), "工作区文件搜索失败"))
+            log.warn("CodeM file search failed", error)
+            return
+        }
+        searchedFiles.clear()
+        val files = hits.mapIndexed { index, relative ->
+            val id = "file-${index + 1}"
+            searchedFiles[id] = root.resolve(relative)
+            FileHitView(id, relative)
+        }
+        publishSearch(FileSearchView(action.requestId, if (files.isEmpty()) "empty" else "ready", files, if (files.isEmpty()) "没有匹配的文件" else null))
+    }
+
+    private fun selectSearchedFile(action: ViewAction.SelectFile) {
+        val path = searchedFiles[action.id]
+        val session = sessionRef.get()
+        if (path == null || session == null) {
+            publishSearch(FileSearchView(action.requestId, "error", emptyList(), "文件已变化或搜索结果已过期，请重新输入 @ 搜索。"))
+            return
+        }
+        try {
+            session.attach(path, com.codem.intellij.ide.AttachmentStore.Kind.File)
+            session.publishFileSearch(null)
+            publish(session.snapshot().withLocalAccount())
+        } catch (error: Throwable) {
+            publishSearch(FileSearchView(action.requestId, "error", emptyList(), SafeNotice.from(error, "无法添加这个文件")))
+        }
+    }
+
+    private fun pasteImages(action: ViewAction.PasteImages) {
+        val session = sessionRef.get() ?: run {
+            publish(local.copy(notice = "请先连接后再粘贴图片", version = local.version + 1))
+            return
+        }
+        if (session.snapshot().attachments.size + action.images.size > 20) {
+            publish(session.snapshot().copy(notice = "每条消息最多添加 20 个附件").withLocalAccount())
+            return
+        }
+        try {
+            var total = 0
+            for (image in action.images) {
+                val bytes = java.util.Base64.getDecoder().decode(image.data)
+                total += bytes.size
+                if (bytes.isEmpty() || total > 20 * 1024 * 1024) throw com.codem.intellij.core.CodemError.Validation("单次粘贴的图片合计不能超过 20 MiB。")
+                val suffix = when (image.mediaType) {
+                    "image/png" -> ".png"
+                    "image/jpeg" -> ".jpg"
+                    "image/gif" -> ".gif"
+                    else -> ".webp"
+                }
+                val file = java.nio.file.Files.createTempFile("codem-paste", suffix)
+                java.nio.file.Files.write(file, bytes)
+                session.attachPastedImage(file)
+            }
+            publish(session.snapshot().withLocalAccount())
+        } catch (error: Throwable) {
+            publish(session.snapshot().copy(notice = SafeNotice.from(error, "图片粘贴失败，请重新复制后重试。")).withLocalAccount())
+            log.warn("CodeM image paste failed", error)
+        }
+    }
+
+    private fun rememberSendKey(sendKey: String) {
+        com.intellij.ide.util.PropertiesComponent.getInstance().setValue("codem.chat.sendKey", sendKey)
+        val session = sessionRef.get()
+        if (session != null) {
+            session.rememberSendKey(sendKey)
+            publish(session.snapshot().withLocalAccount())
+        } else {
+            publish(local.copy(sendKey = sendKey, version = local.version + 1))
+        }
+    }
+
+    private fun storedSendKey(): String {
+        val value = com.intellij.ide.util.PropertiesComponent.getInstance().getValue("codem.chat.sendKey", "enter")
+        return if (value == "modEnter") "modEnter" else "enter"
+    }
+
+    private fun publishSearch(search: com.codem.intellij.webview.FileSearchView) {
+        val session = sessionRef.get()
+        if (session != null) {
+            session.publishFileSearch(search)
+            publish(session.snapshot().withLocalAccount())
+        } else {
+            publish(local.copy(fileSearch = search, version = local.version + 1))
+        }
+    }
 
     private fun failed(notice: String): ChatSnapshot =
         local.copy(phase = "failed", notice = notice, canRetry = true, version = local.version + 1)

@@ -1,78 +1,72 @@
-/**
- * VS Code 生产聊天：挂载 @codem/ui 产品壳（登录 / 欢迎 / composer），不是调试台。
- * Host 仍可下发现网 state/account 消息；此处合成共享 ChatSnapshot。
- */
-import { mountCodemUi, type CodemUiHost } from "@codem/ui"
-import { asSnapshot, initialSnapshot, parseUiAction, type AccountState, type ChatSnapshot } from "@codem/ui/contract"
+import { setNonce } from "get-nonce"
+import { mountCodemUi } from "@codem/ui"
+import type { CodemUiHost } from "@codem/ui"
+import { VscodeHostBridge } from "./host/vscodeHostBridge.ts"
 
 declare function acquireVsCodeApi(): {
-  postMessage(message: unknown): void
-  getState(): Record<string, unknown> | undefined
-  setState(state: Record<string, unknown>): void
+  postMessage(message: Record<string, unknown>): void
+  getState(): { draft?: string } | undefined
+  setState(state: { draft?: string }): void
 }
 
 const vscode = acquireVsCodeApi()
 const root = document.getElementById("codem-root")
-if (!root) throw new Error("Missing CodeM element codem-root")
+if (!root) throw new Error("Missing CodeM root")
+const script = document.querySelector<HTMLScriptElement>("script[nonce]")
+if (script?.nonce) setNonce(script.nonce)
 
+const bridge = new VscodeHostBridge()
+bridge.setBrand(root.dataset.logo ?? null)
 const listeners = new Set<(message: Record<string, unknown>) => void>()
-let account: AccountState = { status: "checking" }
-let accountOpen = false
-let snapshot: ChatSnapshot = initialSnapshot()
-const brandMark = root.dataset.logo || null
+const draftListeners = new Set<(command: { revision: number; text: string; mode: "message" | "askSideQuestion" | "steer" | "shellCommand"; focus: boolean; pendingRequestId: string | null }) => void>()
+let applyingDraft = false
+let lastPosted = ""
+let lastDraft: { revision: number; text: string; mode: "message" | "askSideQuestion" | "steer" | "shellCommand"; focus: boolean; pendingRequestId: string | null } | null = null
 
-function publish(): void {
-  const next = asSnapshot({ ...snapshot, account, accountOpen, brandMark, type: "state" })
-  if (!next) return
-  snapshot = next
-  for (const listener of listeners) listener(snapshot as unknown as Record<string, unknown>)
+function emit(update: NonNullable<ReturnType<VscodeHostBridge["receive"]>>): void {
+  if (update.draft) {
+    lastDraft = update.draft
+    applyingDraft = true
+    for (const listener of draftListeners) listener(update.draft)
+    applyingDraft = false
+    lastPosted = update.draft.text
+  }
+  if (update.snapshot) for (const listener of listeners) listener(update.snapshot as unknown as Record<string, unknown>)
+  if (update.reply) vscode.postMessage(update.reply)
 }
 
-function toHostAction(action: Record<string, unknown>): Record<string, unknown> {
-  if (action.type !== "send") return action
-  const next: Record<string, unknown> = { type: "send", text: action.text, requestId: action.requestId }
-  if (Array.isArray(action.selectionIds)) next.selectionIds = action.selectionIds
-  return next
-}
-
-window.addEventListener("message", (event: MessageEvent<{ type?: string; state?: AccountState } & Record<string, unknown>>) => {
-  const data = event.data
-  if (!data || typeof data !== "object") return
-  if (data.type === "account" && data.state) {
-    account = data.state
-    if (account.status !== "signedIn") accountOpen = false
-    publish()
-    return
-  }
-  if (data.type === "showAccount") {
-    accountOpen = true
-    publish()
-    return
-  }
-  if (data.type === "state") {
-    const next = asSnapshot({ ...data, account, accountOpen, brandMark })
-    if (next) {
-      snapshot = next
-      for (const listener of listeners) listener(snapshot as unknown as Record<string, unknown>)
-    }
-  }
+window.addEventListener("message", (event: MessageEvent) => {
+  const update = bridge.receive(event.data)
+  if (update) emit(update)
 })
 
 const host: CodemUiHost = {
+  surface: root.dataset.surface === "editor" ? "editor" : "sidebar",
   postAction(action) {
-    vscode.postMessage(toHostAction(parseUiAction(action)))
+    vscode.postMessage(bridge.toHost(action))
   },
   subscribe(listener) {
     listeners.add(listener)
+    listener(bridge.snapshot() as unknown as Record<string, unknown>)
     return () => listeners.delete(listener)
   },
+  subscribeDraft(listener) {
+    draftListeners.add(listener)
+    if (lastDraft) listener(lastDraft)
+    return () => draftListeners.delete(listener)
+  },
   getState() {
-    const persisted = vscode.getState() ?? {}
-    return { ...snapshot, account, accountOpen, brandMark, draft: persisted.draft ?? "" }
+    return { ...bridge.snapshot(), draft: vscode.getState()?.draft ?? "" }
   },
   setState(state) {
-    vscode.setState({ draft: String(state.draft ?? "") })
+    const text = typeof state.draft === "string" ? state.draft : ""
+    vscode.setState({ draft: text })
+    bridge.rememberDraft(text)
+    if (applyingDraft || text === lastPosted) return
+    lastPosted = text
+    vscode.postMessage({ type: "composerChanged", value: { draft: text } })
   },
 }
 
 mountCodemUi(root, host)
+vscode.postMessage({ type: "composerRestore", value: { draft: vscode.getState()?.draft ?? "" } })

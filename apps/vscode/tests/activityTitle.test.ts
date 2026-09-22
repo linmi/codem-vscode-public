@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import { projectToolDetails } from "../src/chat/toolDetails.ts"
-import { activityTitle } from "../../../packages/ui/src/chat/toolPresentation.ts"
+import { activityHeading, activityTitle } from "../../../packages/ui/src/chat/toolPresentation.ts"
 import type { ActivityMessage } from "../src/shared/messages.ts"
 const tool: ActivityMessage = { id: "t", role: "tool", label: "run_bash", status: "completed", summary: "", text: "private output", details: { kind: "command", code: "pnpm\ncheck", fields: [] } }
 it("summarizes safe input with the real activity status, never tool output", () => {
@@ -19,6 +19,7 @@ it("uses supplied reasoning summaries and preserves unknown tool names", () => {
 it("shows actual Core search terms and batched file names using the safe input projection", () => {
   const details = projectToolDetails("grep", { pattern: "requestId", path: "/workspace/src", glob: "*.ts", env: { SECRET: "hidden" }, unknown: "private output" }, "/workspace")!
   assert.equal(activityTitle({ ...tool, label: "grep", details }), "已搜索内容 requestId、src、*.ts")
+  assert.deepEqual(activityHeading({ ...tool, label: "grep", details }), { action: "已搜索内容", subject: "requestId、src、*.ts" })
   assert.doesNotMatch(JSON.stringify(details), /workspace|SECRET|hidden|private output/)
   const files = projectToolDetails("read_files", { files: [{ path: "/workspace/src/main.ts", offset: 10 }, { path: "/workspace/src/types.ts" }] }, "/workspace")!
   assert.equal(activityTitle({ ...tool, label: "read_files", details: files }), "已读取 src/main.ts（从第 10 行起）、src/types.ts")

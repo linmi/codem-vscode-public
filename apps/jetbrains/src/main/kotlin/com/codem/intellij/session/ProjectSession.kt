@@ -77,7 +77,16 @@ data class ModeState(
 )
 
 data class AttachmentHandle(val id: String, val label: String, val kind: String, val path: Path)
-data class SelectionHandle(val id: String, val label: String, val text: String)
+data class SelectionHandle(
+    val id: String,
+    val label: String,
+    val text: String,
+    val startLine: Int = 1,
+    val endLine: Int = 1,
+    val pinned: Boolean = true,
+)
+
+data class ListedModel(val handle: String, val modelId: String, val supportsVision: Boolean)
 data class DirectoryRef(val id: String, val label: String, val path: Path)
 
 /**
@@ -127,6 +136,13 @@ class ProjectSession(
     private var directories = mutableListOf<DirectoryRef>()
     private var attachments = mutableListOf<AttachmentHandle>()
     private var selections = mutableListOf<SelectionHandle>()
+    private var liveSelection: SelectionHandle? = null
+    private var dismissedLiveLabel: String? = null
+    private var listedModels = listOf<ListedModel>()
+    private var historyList = com.codem.intellij.webview.HistoryListView()
+    private var threadListCursor: String? = null
+    private var fileSearch: com.codem.intellij.webview.FileSearchView? = null
+    private var sendKey = "enter"
     private var diffs = mutableListOf<DiffView>()
     // 行序即 diff id 序；内容只在 Core 给出 hunks 后才有，UI 侧永远拿不到路径。
     private val diffPaths = mutableListOf<String>()
@@ -183,9 +199,7 @@ class ProjectSession(
             canResume = lastThreadId != null && threadId == null && phase == ConnectionPhase.Ready && idleTurnLocked(),
             canLoadOlder = hasOlder && threadId != null && phase == ConnectionPhase.Ready,
             composerCatalog = ComposerCatalogView(
-                models = listOf(
-                    ComposerChoiceView(settings.model, if (settings.model.endsWith("/auto")) "Auto" else settings.model, "", true),
-                ),
+                models = modelChoicesLocked(),
                 spaces = spaces?.spaces.orEmpty().map { listed ->
                     ComposerChoiceView(
                         listed.projectKey,
@@ -204,7 +218,10 @@ class ProjectSession(
                 busy = null,
             ),
             attachments = attachments.map { AttachmentView(it.id, it.label, it.kind) },
-            selections = selections.map { SelectionView(it.id, it.label) },
+            selections = selectionViewsLocked(),
+            history = historyList,
+            fileSearch = fileSearch,
+            sendKey = sendKey,
             diffs = diffs.toList(),
             background = background,
             account = accountViewLocked(),
@@ -282,6 +299,7 @@ class ProjectSession(
             failConnection(activeGeneration, error, "CodeM connection failed")
             throw error
         }
+        refreshModels()
         emitSnapshot()
         return snapshot()
     }
@@ -311,6 +329,7 @@ class ProjectSession(
             failConnection(activeGeneration, error, "CodeM space selection failed")
             throw error
         }
+        refreshModels()
         emitSnapshot()
         return snapshot()
     }
@@ -458,8 +477,134 @@ class ProjectSession(
             assertGeneration(currentGeneration)
             bindThreadLocked(actual)
             if (lastThreadId == actual) lastThreadId = null
+            historyMessages.clear()
+            historyCursor = null
+            historyList = historyList.copy(open = false)
+        }
+        if (historySource != null) {
+            try {
+                loadOlderMessages()
+            } catch (error: Throwable) {
+                lock.withLock { notice = SessionNotice(SafeNotice.from(error, "CodeM history could not be restored"), true) }
+            }
         }
         return actual
+    }
+
+    /** 打开历史只列当前工作区的会话标题，不把 cwd 画进界面。 */
+    fun showHistory() {
+        if (lock.withLock { phase != ConnectionPhase.Ready }) {
+            lock.withLock { historyList = historyList.copy(open = true, loading = false, error = "请先连接 CodeM") }
+            return
+        }
+        lock.withLock { historyList = historyList.copy(open = true, loading = true, error = null) }
+        val page = listThreads(null)
+        val entries = historyEntries(page)
+        lock.withLock {
+            threadListCursor = page.nextCursor
+            historyList = com.codem.intellij.webview.HistoryListView(
+                open = true,
+                loading = false,
+                entries = entries,
+                hasMore = page.nextCursor != null,
+                error = null,
+            )
+        }
+    }
+
+    fun moreThreads() {
+        val cursor = lock.withLock { if (historyList.open) threadListCursor else null } ?: return
+        lock.withLock { historyList = historyList.copy(loading = true, error = null) }
+        try {
+            val page = listThreads(cursor)
+            val entries = historyEntries(page)
+            lock.withLock {
+                threadListCursor = page.nextCursor
+                historyList = historyList.copy(
+                    loading = false,
+                    entries = historyList.entries + entries,
+                    hasMore = page.nextCursor != null,
+                    error = null,
+                )
+            }
+        } catch (error: Throwable) {
+            lock.withLock {
+                historyList = historyList.copy(loading = false, error = SafeNotice.from(error, "无法加载更多会话"))
+            }
+        }
+    }
+
+    private fun historyEntries(page: ThreadListPage): List<com.codem.intellij.webview.HistoryEntryView> {
+        return page.threads.map { thread ->
+            val id = thread.required("id").asText()
+            val preview = (thread.fields["preview"] as? JsonValue.Text)?.value?.trim()?.take(160)
+            com.codem.intellij.webview.HistoryEntryView(
+                id = id,
+                title = preview?.ifBlank { null } ?: "未命名会话",
+                archived = (thread.fields["archived"] as? JsonValue.Bool)?.value == true,
+            )
+        }
+    }
+
+    fun closeHistory() {
+        lock.withLock { historyList = historyList.copy(open = false, loading = false) }
+    }
+
+    fun refreshHistory() = showHistory()
+
+    fun publishFileSearch(search: com.codem.intellij.webview.FileSearchView?) {
+        lock.withLock {
+            fileSearch = search
+            snapshotVersion += 1
+        }
+    }
+
+    fun rememberSendKey(next: String) {
+        if (next != "enter" && next != "modEnter") throw CodemError.Validation("Invalid CodeM send key")
+        lock.withLock {
+            sendKey = next
+            snapshotVersion += 1
+        }
+    }
+
+    private fun modelChoicesLocked(): List<ComposerChoiceView> {
+        val rows = listedModels.ifEmpty { listOf(ListedModel("model-active", settings.model, false)) }
+        return rows.map { model ->
+            ComposerChoiceView(
+                model.handle,
+                if (model.modelId.endsWith("/auto")) "Auto" else model.modelId,
+                if (model.supportsVision) "支持图片" else "",
+                model.modelId == settings.model,
+            )
+        }
+    }
+
+    private fun selectionViewsLocked(): List<SelectionView> {
+        val pinned = selections.map { SelectionView(it.id, it.label, it.startLine, it.endLine, pinned = true) }
+        val live = liveSelection?.let { SelectionView(it.id, it.label, it.startLine, it.endLine, pinned = false) }
+        return if (live == null) pinned else pinned + live
+    }
+
+    private fun refreshModels() {
+        val (coreProcess, currentGeneration) = try {
+            readyCore()
+        } catch (_: CodemError) {
+            return
+        }
+        try {
+            val (method, params) = ThreadCommands.modelList(workingDirectory.toString())
+            val result = requestResult(coreProcess, method, params, currentGeneration)
+            val listed = (result.fields["models"] as? JsonValue.ArrayValue)?.items.orEmpty().mapIndexedNotNull { index, item ->
+                val model = item as? JsonValue.ObjectValue ?: return@mapIndexedNotNull null
+                val id = (model.fields["id"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() } ?: return@mapIndexedNotNull null
+                ListedModel("model-${index + 1}", id, (model.fields["supportsVision"] as? JsonValue.Bool)?.value == true)
+            }
+            lock.withLock {
+                assertGeneration(currentGeneration)
+                if (listed.isNotEmpty()) listedModels = listed
+            }
+        } catch (_: Throwable) {
+        }
     }
 
     fun listThreads(cursor: String? = null): ThreadListPage {
@@ -663,8 +808,17 @@ class ProjectSession(
         resumeIfThread("setEffort")
     }
 
+    /**
+     * 菜单 id 是不透明句柄。Core 只接受 model/list 里的真实模型 id，
+     * 不能把句柄或文件路径发回去。
+     */
     fun chooseModel(id: String) {
-        lock.withLock { settings = settings.copy(model = id) }
+        val modelId = lock.withLock {
+            listedModels.find { it.handle == id }?.modelId
+                ?: if (listedModels.isEmpty() && id == "model-active") settings.model
+                else throw CodemError.Validation("CodeM model is not in the current catalog")
+        }
+        lock.withLock { settings = settings.copy(model = modelId) }
         resumeIfThread("chooseModel")
     }
 
@@ -719,13 +873,62 @@ class ProjectSession(
         }
     }
 
-    /** A09：宿主选区进入不透明句柄。 */
+    /** 当前划选只展示，不进发送列表，直到用户钉住。切换选区会换掉这一条。 */
+    fun setLiveSelection(path: String?, startLine: Int, endLine: Int, text: String) {
+        lock.withLock {
+            if (path == null || text.isEmpty()) {
+                liveSelection = null
+                return@withLock
+            }
+            val file = path.substringAfterLast('/').substringAfterLast('\\')
+            val label = "$file:$startLine-$endLine"
+            if (dismissedLiveLabel == label) return@withLock
+            dismissedLiveLabel = null
+            liveSelection = SelectionHandle("sel-current", label, text, startLine, endLine, pinned = false)
+            snapshotVersion += 1
+        }
+    }
+
+    /** A09：把当前划选钉成不透明句柄。标签只有文件名和行号。 */
     fun pinSelection(): String? {
-        val snap = selectionReader?.current() ?: return null
+        val snap = selectionReader?.current()
         return lock.withLock {
+            val source = snap?.let {
+                val file = it.path.substringAfterLast('/').substringAfterLast('\\')
+                SelectionHandle("sel-current", "$file:${it.startLine}-${it.endLine}", it.text, it.startLine, it.endLine, pinned = false)
+            } ?: liveSelection
+            if (source == null || source.text.isEmpty()) return@withLock null
+            if (selections.any { it.text == source.text && it.label == source.label }) return@withLock selections.first { it.text == source.text }.id
             val id = "sel-${selections.size + 1}"
-            val file = snap.path.substringAfterLast('/').substringAfterLast('\\')
-            selections += SelectionHandle(id, "$file:${snap.startLine}-${snap.endLine}", snap.text)
+            selections += source.copy(id = id, pinned = true)
+            snapshotVersion += 1
+            id
+        }
+    }
+
+    fun removeSelection(id: String) {
+        lock.withLock {
+            if (id == "sel-current") {
+                dismissedLiveLabel = liveSelection?.label
+                liveSelection = null
+            } else {
+                selections.removeAll { it.id == id }
+            }
+            snapshotVersion += 1
+        }
+    }
+
+    /** 剪贴板图片落在宿主临时目录，不进项目树，标签也不暴露临时路径。 */
+    fun attachPastedImage(path: Path): String {
+        val real = PathGuard.realPathOrNormalized(path)
+        val tempRoot = PathGuard.realPathOrNormalized(Path.of(System.getProperty("java.io.tmpdir")))
+        if (!real.startsWith(tempRoot) || !Files.isRegularFile(real)) {
+            throw CodemError.Validation("CodeM pasted image must stay in the host temp directory")
+        }
+        return lock.withLock {
+            val id = "att-${attachments.size + 1}"
+            attachments += AttachmentHandle(id, "粘贴的图片", "image", real)
+            snapshotVersion += 1
             id
         }
     }
@@ -891,7 +1094,12 @@ class ProjectSession(
                 cancelSideQuestion(id)
             }
             ViewAction.PinSelection -> pinSelection()
-            ViewAction.ShowHistory -> Unit
+            is ViewAction.RemoveSelection -> removeSelection(action.id)
+            ViewAction.ShowHistory, ViewAction.RefreshHistory -> showHistory()
+            ViewAction.MoreThreads -> moreThreads()
+            ViewAction.CloseHistory -> closeHistory()
+            is ViewAction.SetSendKey -> rememberSendKey(action.sendKey)
+            is ViewAction.SearchFiles, is ViewAction.SelectFile, is ViewAction.PasteImages -> Unit
             is ViewAction.Send -> send(action.text, action.requestId, action.skillName, action.attachmentIds, action.selectionIds)
             is ViewAction.PanelReply -> replyToInteraction(action.id, action.choiceIds, action.text, action.cancelled)
             is ViewAction.ResumeThread -> resumeThread(action.threadId)
@@ -1206,7 +1414,8 @@ class ProjectSession(
                 attachments.find { it.id == id } ?: throw CodemError.Validation("CodeM attachment $id is not available")
             }
             val selected = selectionIds.map { id ->
-                selections.find { it.id == id } ?: throw CodemError.Validation("CodeM selection $id is not available")
+                selections.find { it.id == id } ?: liveSelection?.takeIf { it.id == id }
+                    ?: throw CodemError.Validation("CodeM selection $id is not available")
             }
             files to selected
         }

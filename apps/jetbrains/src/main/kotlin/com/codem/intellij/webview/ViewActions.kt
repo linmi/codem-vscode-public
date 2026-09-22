@@ -24,6 +24,14 @@ sealed class ViewAction {
     data object CancelSideQuestion : ViewAction()
     data object PinSelection : ViewAction()
     data object ShowHistory : ViewAction()
+    data object CloseHistory : ViewAction()
+    data object RefreshHistory : ViewAction()
+    data object MoreThreads : ViewAction()
+    data class RemoveSelection(val id: String) : ViewAction()
+    data class SearchFiles(val query: String, val requestId: String) : ViewAction()
+    data class SelectFile(val id: String, val requestId: String) : ViewAction()
+    data class SetSendKey(val sendKey: String) : ViewAction()
+    data class PasteImages(val requestId: String, val images: List<PastedImage>) : ViewAction()
     data class Send(
         val text: String,
         val requestId: String,
@@ -65,7 +73,34 @@ data class UsageView(val input: Int?, val output: Int?, val cacheRead: Int?, val
 data class PlanItemView(val content: String, val status: String)
 data class DiffView(val id: String, val label: String, val added: Int, val removed: Int, val preview: String, val available: Boolean)
 data class AttachmentView(val id: String, val label: String, val kind: String)
-data class SelectionView(val id: String, val label: String)
+data class SelectionView(
+    val id: String,
+    val label: String,
+    val startLine: Int? = null,
+    val endLine: Int? = null,
+    val pinned: Boolean = true,
+)
+
+data class HistoryEntryView(val id: String, val title: String, val archived: Boolean)
+
+data class HistoryListView(
+    val open: Boolean = false,
+    val loading: Boolean = false,
+    val entries: List<HistoryEntryView> = emptyList(),
+    val hasMore: Boolean = false,
+    val error: String? = null,
+)
+
+data class FileHitView(val id: String, val label: String)
+
+data class FileSearchView(
+    val requestId: String,
+    val status: String,
+    val files: List<FileHitView> = emptyList(),
+    val error: String? = null,
+)
+
+data class PastedImage(val mediaType: String, val data: String)
 data class BackgroundView(val id: String, val label: String, val inProgress: Boolean)
 data class SkillView(val id: String, val name: String, val description: String)
 data class PanelChoiceView(val id: String, val label: String)
@@ -159,6 +194,9 @@ data class ChatSnapshot(
     val selections: List<SelectionView> = emptyList(),
     val diffs: List<DiffView> = emptyList(),
     val background: List<BackgroundView> = emptyList(),
+    val history: HistoryListView = HistoryListView(),
+    val fileSearch: FileSearchView? = null,
+    val sendKey: String = "enter",
 )
 
 data class VisibleControls(val retry: Boolean, val resume: Boolean, val older: Boolean)
@@ -217,6 +255,18 @@ fun parseViewAction(value: JsonValue): ViewAction {
         "cancelSideQuestion" -> simple(keys, ViewAction.CancelSideQuestion)
         "pinSelection" -> simple(keys, ViewAction.PinSelection)
         "showHistory" -> simple(keys, ViewAction.ShowHistory)
+        "closeHistory" -> simple(keys, ViewAction.CloseHistory)
+        "refreshHistory" -> simple(keys, ViewAction.RefreshHistory)
+        "moreThreads" -> simple(keys, ViewAction.MoreThreads)
+        "removeSelection" -> ViewAction.RemoveSelection(handleId(obj.required("id").asText()))
+        "searchFiles" -> ViewAction.SearchFiles(searchQuery(obj.required("query").asText()), requestId(obj.required("requestId").asText()))
+        "selectFile" -> ViewAction.SelectFile(handleId(obj.required("id").asText()), requestId(obj.required("requestId").asText()))
+        "setSendKey" -> {
+            val key = obj.required("sendKey").asText()
+            if (key != "enter" && key != "modEnter") reject()
+            ViewAction.SetSendKey(key)
+        }
+        "pasteImages" -> parsePaste(obj)
         "send" -> parseSend(obj)
         "panelReply" -> {
             val id = requestId(obj.required("id").asText())
@@ -360,7 +410,37 @@ fun encodeChatSnapshot(snapshot: ChatSnapshot): JsonValue.ObjectValue {
             "busy" to nullableText(snapshot.sessionTools.busy),
         ),
         "attachments" to JsonValue.ArrayValue(snapshot.attachments.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "kind" to JsonValue.Text(it.kind)) }),
-        "selections" to JsonValue.ArrayValue(snapshot.selections.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label)) }),
+        "selections" to JsonValue.ArrayValue(snapshot.selections.map {
+            JsonValue.obj(
+                "id" to JsonValue.Text(it.id),
+                "label" to JsonValue.Text(it.label),
+                "startLine" to (it.startLine?.let { line -> JsonValue.NumberValue(line.toDouble(), line.toString()) } ?: JsonValue.Null),
+                "endLine" to (it.endLine?.let { line -> JsonValue.NumberValue(line.toDouble(), line.toString()) } ?: JsonValue.Null),
+                "pinned" to JsonValue.Bool(it.pinned),
+            )
+        }),
+        "history" to JsonValue.obj(
+            "open" to JsonValue.Bool(snapshot.history.open),
+            "loading" to JsonValue.Bool(snapshot.history.loading),
+            "hasMore" to JsonValue.Bool(snapshot.history.hasMore),
+            "error" to (snapshot.history.error?.let { JsonValue.Text(it) } ?: JsonValue.Null),
+            "entries" to JsonValue.ArrayValue(snapshot.history.entries.map {
+                JsonValue.obj(
+                    "id" to JsonValue.Text(it.id),
+                    "title" to JsonValue.Text(it.title),
+                    "archived" to JsonValue.Bool(it.archived),
+                )
+            }),
+        ),
+        "fileSearch" to (snapshot.fileSearch?.let { search ->
+            JsonValue.obj(
+                "requestId" to JsonValue.Text(search.requestId),
+                "status" to JsonValue.Text(search.status),
+                "error" to (search.error?.let { JsonValue.Text(it) } ?: JsonValue.Null),
+                "files" to JsonValue.ArrayValue(search.files.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label)) }),
+            )
+        } ?: JsonValue.Null),
+        "sendKey" to JsonValue.Text(snapshot.sendKey),
         "diffs" to JsonValue.ArrayValue(snapshot.diffs.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "added" to JsonValue.NumberValue(it.added.toDouble(), it.added.toString()), "removed" to JsonValue.NumberValue(it.removed.toDouble(), it.removed.toString()), "preview" to JsonValue.Text(it.preview), "available" to JsonValue.Bool(it.available)) }),
         "background" to JsonValue.ArrayValue(snapshot.background.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "inProgress" to JsonValue.Bool(it.inProgress)) }),
     )
@@ -413,6 +493,29 @@ private val THREAD_OPS = setOf("rename", "fork", "archive", "unarchive", "delete
 private val REQUEST_ID = Regex("^[a-zA-Z0-9-]{1,100}$")
 private val THREAD_ID = Regex("^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 private val HANDLE = Regex("^[a-zA-Z0-9-]{1,100}$")
+
+private val PASTE_TYPES = setOf("image/png", "image/jpeg", "image/gif", "image/webp")
+
+private fun searchQuery(value: String): String {
+    if (value.length > 200 || value.any { it.code < 32 }) reject()
+    return value
+}
+
+private fun parsePaste(obj: JsonValue.ObjectValue): ViewAction.PasteImages {
+    val request = requestId(obj.required("requestId").asText())
+    val images = obj.required("images").asArray().items
+    if (images.isEmpty() || images.size > 20) reject()
+    return ViewAction.PasteImages(
+        request,
+        images.map { item ->
+            val image = item.asObject()
+            val media = image.required("mediaType").asText()
+            val data = image.required("data").asText()
+            if (media !in PASTE_TYPES || data.isEmpty() || data.length > 28_000_000) reject()
+            PastedImage(media, data)
+        },
+    )
+}
 
 private fun parseSend(obj: JsonValue.ObjectValue): ViewAction.Send {
     val text = nonEmpty(obj.required("text").asText())

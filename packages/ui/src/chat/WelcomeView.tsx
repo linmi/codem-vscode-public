@@ -9,18 +9,20 @@ import { welcomeState, type WelcomeMotion } from "./welcomeState.ts"
 export function WelcomeView({
   phase,
   hasMessages,
+  hasWorkingStatus,
   brandMark,
 }: {
   phase: ChatPhase
   hasMessages: boolean
+  hasWorkingStatus: boolean
   brandMark: string | null
 }) {
   const previous = useRef<WelcomeMotion>("idle")
-  const next = welcomeState(phase, hasMessages, false, previous.current)
+  const next = welcomeState(phase, hasMessages, hasWorkingStatus, previous.current)
   previous.current = next.motion
   if (!next.visible) return null
   return (
-    <div className="welcome" data-testid="welcome" data-motion={next.motion} aria-busy={next.motion === "initializing"}>
+    <section className="welcome" id="welcome" data-testid="welcome" data-motion={next.motion} aria-label="CodeM" aria-busy={next.motion === "initializing"}>
       {brandMark ? (
         <span className="brandMark welcomeMark" role="img" aria-label="CodeM">
           {Array.from({ length: 7 }, (_, index) => (
@@ -29,13 +31,7 @@ export function WelcomeView({
         </span>
       ) : null}
       <h1 id="welcomeTitle">我们一起做点什么？</h1>
-      {next.motion === "initializing" ? (
-        <p className="welcomeStatus" role="status" data-testid="welcomeStatus">正在连接…</p>
-      ) : (
-        <span className="visuallyHidden" role="status">
-          {next.motion === "settled" ? "初始化完成" : ""}
-        </span>
-      )}
-    </div>
+      <span className="visuallyHidden" role="status">{next.motion === "initializing" ? "正在初始化 CodeM…" : next.motion === "settled" ? "初始化完成" : ""}</span>
+    </section>
   )
 }

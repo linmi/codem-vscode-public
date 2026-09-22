@@ -21,8 +21,12 @@ const snapshot = createPreviewSnapshot(
                 { id: "allow-once", label: "允许一次" },
                 { id: "reject", label: "拒绝" },
               ],
+              detail: null,
               allowText: false,
               multiple: false,
+              backChoiceId: null,
+              initialText: "",
+              confirmLabel: null,
             },
           }
         : scene === "markdown"

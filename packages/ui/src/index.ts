@@ -1,4 +1,4 @@
-export type { CodemUiHost, MountHandle } from "./host.ts"
+export type { CodemUiHost, HostDraftCommand, MountHandle } from "./host.ts"
 export { mountCodemUi } from "./mount.tsx"
 export {
   asSnapshot,

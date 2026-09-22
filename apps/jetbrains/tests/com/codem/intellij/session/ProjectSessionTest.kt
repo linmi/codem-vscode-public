@@ -174,9 +174,9 @@ class ProjectSessionTest {
         session.applyViewAction(parseViewAction(JsonValue.obj("type" to JsonValue.Text("resumeThread"), "threadId" to JsonValue.Text("thread-1"))))
         assertEquals(true, session.snapshot().canLoadOlder)
         assertEquals(true, visibleControls(session.snapshot()).older)
-        session.applyViewAction(ViewAction.OlderMessages)
         assertEquals("earlier user", session.snapshot().messages.first().text)
-        assertEquals(true, session.snapshot().canLoadOlder)
+        session.applyViewAction(ViewAction.OlderMessages)
+        assertEquals(false, session.snapshot().canLoadOlder)
 
         val modes = session.readModes()
         assertEquals("auto", modes.permissionMode)
@@ -389,6 +389,7 @@ class ProjectSessionTest {
         val pending = awaitPublished(published) { it.pendingPanel != null }
         assertEquals("approval-1", pending.pendingInteraction)
         assertEquals("approval", pending.pendingPanel?.kind)
+        assertEquals("Allow", pending.pendingPanel?.choices?.first { it.id == "allow" }?.label)
 
         session.applyViewAction(ViewAction.PanelReply("approval-1", listOf("allow"), "", false))
         assertEquals(null, session.snapshot().pendingPanel)
@@ -425,6 +426,24 @@ class ProjectSessionTest {
         assertEquals("ready", after.phase)
         assertEquals("CodeM space other is not available", after.notice)
         assertEquals("turn-1", session.send("still usable", "req-after-failure"))
+    }
+
+    @Test
+    fun historyListAndModelCatalogUseCoreResults() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        session.connect()
+        assertEquals(listOf("Auto", "other-model"), session.snapshot().composerCatalog.models.map { it.label })
+        assertEquals(true, session.snapshot().composerCatalog.models.first().selected)
+        session.applyViewAction(ViewAction.ChooseModel("model-2"))
+        assertEquals("other-model", session.snapshot().model)
+        session.showHistory()
+        val history = session.snapshot().history
+        assertEquals(true, history.open)
+        assertEquals("昨天的问题", history.entries.single().title)
+        assertEquals(false, history.entries.single().archived)
+        session.closeHistory()
+        assertEquals(false, session.snapshot().history.open)
     }
 
     @Test
@@ -591,9 +610,30 @@ class ProjectSessionTest {
                     "turn/start" -> JsonValue.obj("turn" to JsonValue.obj("id" to JsonValue.Text("turn-1")))
                     "turn/interrupt" -> JsonValue.ObjectValue(emptyMap())
                     "thread/list" -> JsonValue.obj(
-                        "threads" to JsonValue.ArrayValue(emptyList()),
+                        "threads" to JsonValue.ArrayValue(
+                            listOf(
+                                JsonValue.obj(
+                                    "id" to JsonValue.Text("thread-1"),
+                                    "archived" to JsonValue.Bool(false),
+                                    "preview" to JsonValue.Text("昨天的问题"),
+                                    "model" to JsonValue.Text("codem-router/auto"),
+                                    "profile" to JsonValue.Text("default"),
+                                    "startedAt" to JsonValue.Text("2026-09-16T00:00:00Z"),
+                                    "turnCount" to JsonValue.NumberValue(1.0, "1"),
+                                ),
+                            ),
+                        ),
                         "nextCursor" to JsonValue.Null,
-                        "total" to JsonValue.NumberValue(0.0, "0"),
+                        "total" to JsonValue.NumberValue(1.0, "1"),
+                    )
+                    "model/list" -> JsonValue.obj(
+                        "activeModel" to JsonValue.Text("codem-router/auto"),
+                        "models" to JsonValue.ArrayValue(
+                            listOf(
+                                JsonValue.obj("id" to JsonValue.Text("codem-router/auto"), "source" to JsonValue.Text("router"), "supportsVision" to JsonValue.Bool(true), "contextWindowTokens" to JsonValue.NumberValue(1.0, "1")),
+                                JsonValue.obj("id" to JsonValue.Text("other-model"), "source" to JsonValue.Text("router"), "supportsVision" to JsonValue.Bool(false), "contextWindowTokens" to JsonValue.NumberValue(1.0, "1")),
+                            ),
+                        ),
                     )
                     "thread/clear" -> JsonValue.obj(
                         "operationId" to params.required("operationId"),

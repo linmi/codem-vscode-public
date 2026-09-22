@@ -15,7 +15,7 @@ export function welcomeState(
 ): { visible: boolean; motion: WelcomeMotion } {
   if (hasMessages) return { visible: false, motion: "idle" }
   if (phase === "connecting") return { visible: true, motion: "initializing" }
-  if (hasWorkingStatus || phase === "sending" || phase === "running" || phase === "stopping") {
+  if (hasWorkingStatus || phase === "loadingHistory" || phase === "sending" || phase === "running" || phase === "stopping") {
     return { visible: false, motion: "idle" }
   }
   return { visible: true, motion: phase === "ready" && previous !== "idle" ? "settled" : "idle" }

@@ -9,6 +9,17 @@ export function displayPath(cwd: string, path: string): string {
   return local && !local.startsWith(`..${sep}`) && local !== ".." && !isAbsolute(local) ? local : basename(path)
 }
 
+/** 命令里的工作区绝对路径不进界面。`-C <cwd>` 直接去掉，其余路径收成相对路径。 */
+export function displayCommand(cwd: string, command: string): string {
+  const root = cwd.endsWith(sep) ? cwd.slice(0, -1) : cwd
+  let next = command
+  for (const path of [root, `${root}${sep}`]) {
+    next = next.replaceAll(`-C "${path}" `, "").replaceAll(`-C '${path}' `, "").replaceAll(`-C ${path} `, "")
+    next = next.replaceAll(path, ".")
+  }
+  return next.replace(/[ \t]{2,}/g, " ").trim()
+}
+
 /** Core paths are untrusted. Opening a changed file is confined to the connected workspace. */
 export async function changedFilePath(cwd: string, path: string): Promise<string> {
   const root = await realpath(cwd)

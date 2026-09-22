@@ -88,6 +88,8 @@ export function createPreviewSnapshot(overrides: Partial<ChatSnapshot> = {}): Ch
       usage: { input: 12, output: 4, cacheRead: 0, cacheWrite: null },
       activity: "working",
       changes: [{ label: "src/app.ts", added: 3, removed: 1 }],
+      guards: [],
+      hooks: [],
       threadStatus: "active",
     },
     diffs: [{ id: "diff-1", label: "src/app.ts", added: 3, removed: 1, preview: "complete", available: true }],

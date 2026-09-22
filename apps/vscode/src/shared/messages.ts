@@ -27,6 +27,7 @@ export type ViewAction =
   | { type: "searchFiles"; query: string; requestId: string }
   | { type: "selectFile"; id: string; requestId: string }
   | { type: "setTheme"; theme: "light" | "dark" }
+  | { type: "setSendKey"; sendKey: "enter" | "ctrlEnter" }
   | { type: "send"; text: string; requestId: string; selectionIds?: readonly string[] }
 
 export interface ImageResult { type: "imageResult"; id: string; preview: AttachmentView["preview"] }
@@ -59,6 +60,9 @@ export function parseViewAction(value: unknown): ViewAction {
   if (record.type === "setPermission" && Object.keys(record).length === 2) return { type: "setPermission", permission: parseCodemPermissionMode(record.permission) }
   if (record.type === "pickAttachment" && Object.keys(record).length === 2 && (record.kind === "file" || record.kind === "directory")) return { type: "pickAttachment", kind: record.kind }
   if (record.type === "setEffort" && Object.keys(record).length === 2) return { type: "setEffort", effort: parseCodemIntelligence(record.effort) }
+  if (record.type === "setSendKey" && Object.keys(record).length === 2 && (record.sendKey === "enter" || record.sendKey === "modEnter" || record.sendKey === "ctrlEnter")) {
+    return { type: "setSendKey", sendKey: record.sendKey === "enter" ? "enter" : "ctrlEnter" }
+  }
   if (record.type === "panelReply") return parsePanelReply(record)
   const capability = parseCapabilityAction(record)
   if (capability) return capability

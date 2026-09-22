@@ -1,0 +1,154 @@
+/* Shared dialog controls; confirmation and resource layouts are sized by content. */
+.toolPanelTrigger[data-slot="button"] { width: 28px; height: 28px; padding: 6px; border-radius: 8px; color: var(--muted); }
+.toolPanelTrigger[data-state="open"] { background: var(--soft); color: var(--ink); }
+.toolPanelTrigger svg { width: 16px; height: 16px; stroke-width: 1.7; }
+.toolDialog[data-slot="dialog-content"] { width: min(600px, calc(100vw - 24px)); max-width: none; height: auto; max-height: calc(100dvh - 32px); padding: 0; gap: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; box-shadow: var(--composerShadow); }
+.toolDialogHeading { display: flex; align-items: center; gap: 12px; padding: 24px 52px 20px 24px; flex-shrink: 0; }
+.toolDialogHeading > div { min-width: 0; }
+.toolDialogHeading [data-slot="dialog-description"] { font-size: var(--uiFontSize); margin-top: 4px; overflow-wrap: anywhere; color: var(--muted); }
+.toolDialogIcon { display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; background: var(--soft); border: 1px solid var(--line); border-radius: 11px; }
+.toolDialogIcon svg { width: 16px; height: 16px; stroke-width: 1.6; }
+.toolDialogClose { position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; }
+.toolTabs[data-slot="tabs"] { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 0; }
+.toolPanelNotice { margin: 0 24px 12px; color: var(--muted); overflow-wrap: anywhere; max-height: 80px; flex-shrink: 0; overflow: auto; }
+.toolTabs > [data-slot="tabs-list"] { display: flex; flex-shrink: 0; width: auto; height: 38px; margin: 0 24px 16px; padding: 3px; gap: 3px; background: var(--soft); border: 1px solid var(--line); border-radius: 9px; }
+.toolTabs [data-slot="tabs-trigger"] { height: 30px; padding: 4px 8px; font: 500 var(--uiFontSize)/20px var(--uiFont); color: var(--muted); border-radius: 6px; }
+.toolTabs [data-slot="tabs-trigger"][data-state="active"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px #00000012; }
+.toolCount { font-size: var(--captionFontSize); min-width: 16px; line-height: 16px; border-radius: 4px; background: var(--soft); color: var(--muted); }
+.toolTabs > .toolTabBody { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 4px 24px 24px; scrollbar-gutter: stable; }
+.toolTabBody[hidden] { display: none; }
+.toolSectionHeading { margin: 0 0 16px; }
+.toolSectionHeading h3 { font-size: var(--chatFont); line-height: 20px; margin: 0; font-weight: 600; }
+.toolSectionHeading p, .sessionToolSection p { font-size: var(--uiFontSize); line-height: 1.7; color: var(--muted); margin: 4px 0 0; }
+.sessionToolSection { display: grid; gap: 12px; min-width: 0; }
+.sessionToolSection > [data-slot="button"] { justify-self: start; }
+.sessionToolSection pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 220px; overflow: auto; }
+.sessionToolSection [data-slot="select-trigger"] { width: 100%; min-width: 0; max-width: 100%; }
+.sessionToolSection [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sessionToolActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sessionToolActions > [data-slot="select-trigger"] { width: auto; flex: 1; }
+.toolDialog [data-slot="button"] { font-size: var(--uiFontSize); }
+.toolDialog [data-slot="input"], .toolDialog [data-slot="textarea"] { box-sizing: border-box; color: var(--ink); font: inherit; border: 1px solid var(--line); min-width: 0; background: var(--surface); }
+.toolDialog [data-slot="textarea"] { min-height: 144px; resize: vertical; padding: 12px; border-radius: 9px; }
+.catalogRows { container-type: inline-size; margin: 0; overflow-wrap: anywhere; }
+.catalogRows > div { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); gap: 8px 16px; border-top: 1px solid var(--line); padding: 10px 0; }
+.catalogRows dt { font-weight: 600; }
+.catalogRows dd { margin: 0; color: var(--muted); }
+.toolDirectoryRow { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+.toolDirectoryRow > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.toolCardList { container-type: inline-size; display: grid; }
+.toolResourceCard { padding: 10px 0; border-top: 1px solid var(--line); display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.toolResourceCard .toolResourceTitle { flex: 1; min-width: min(220px, 100%); }
+.toolResourceCard .sessionToolActions { margin-left: auto; }
+.toolResourceCard [data-slot="button"] { height: 28px; padding: 4px 8px; }
+.resourceToolsDialog.toolDialog { width: min(720px, calc(100vw - 24px)); height: auto; max-height: min(680px, calc(100dvh - 32px)); }
+.toolDiffList { container-type: inline-size; }
+.toolDiffRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+.toolDiffRow .toolResourceMeta { max-width: 28cqw; align-items: center; flex-wrap: nowrap; gap: 8px; white-space: nowrap; }
+.toolDiffRow .diffAdded, .toolDiffRow .diffRemoved { flex-shrink: 0; }
+.toolDiffPreview { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.toolDiffRow .sessionToolActions { justify-content: flex-end; flex-wrap: nowrap; gap: 4px; }
+.toolDiffRow [data-slot="button"] { height: 28px; padding: 4px 8px; white-space: nowrap; }
+.toolDiffRow [data-size="icon"] { width: 28px; padding: 6px; }
+@container (max-width: 520px) {
+  .toolDiffRow { column-gap: 8px; }
+  .toolDiffRow .toolResourceMeta { gap: 4px; }
+}
+.toolResourceTitle { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.toolResourceTitle > svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--muted); }
+.toolResourceTitle strong { min-width: 0; flex: 1; font-size: var(--uiFontSize); overflow-wrap: anywhere; font-weight: 500; }
+.toolResourceMeta { display: flex; gap: 10px; font: 400 var(--codeFontSize)/18px var(--codeFont); color: var(--muted); }
+.diffAdded { color: var(--vscode-gitDecoration-addedResourceForeground, #16833e); }
+.diffRemoved { color: var(--vscode-gitDecoration-deletedResourceForeground, #d54040); }
+.toolStatus { flex-shrink: 0; color: var(--muted); background: var(--soft); border-radius: 5px; padding: 2px 6px; font-size: var(--captionFontSize); }
+.toolStatus[data-running="true"] { color: var(--vscode-charts-green, #16833e); }
+.toolEmpty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 20px 16px; gap: 10px; color: var(--muted); }
+.toolEmpty > svg { width: 28px; height: 28px; stroke-width: 1.3; margin-bottom: 4px; }
+.toolEmpty strong { color: var(--ink); font-size: var(--chatFont); font-weight: 500; }
+.toolEmpty p { margin: 0; max-width: 280px; }
+.toolEmptyCompact { padding: 14px; border: 1px dashed var(--line); border-radius: 9px; color: var(--muted); }
+.toolSectionToolbar { margin: 0 0 14px; }
+.toolMcpCard { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; }
+.toolMcpCard #mcpNames { display: flex; flex: 1; flex-wrap: wrap; gap: 6px; color: var(--muted); overflow-wrap: anywhere; }
+.toolServer { padding: 2px 6px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: var(--surface); }
+.toolSearch { display: flex; position: relative; flex: 1; min-width: 160px; }
+.toolSearch > svg { position: absolute; top: 9px; left: 10px; width: 14px; height: 14px; color: var(--muted); }
+.toolSearch input { width: 100%; padding-left: 30px; height: 32px; }
+.toolNameList { border-top: 1px solid var(--line); }
+.toolCatalogEntry { display: flex; align-items: start; gap: 10px; padding: 11px 4px; border-bottom: 1px solid var(--line); font: 400 var(--codeFontSize)/18px var(--codeFont); }
+.toolCatalogEntry svg { width: 14px; height: 14px; margin-top: 2px; flex-shrink: 0; color: var(--muted); }
+.toolCatalogEntry span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 440px) {
+  .toolDialogHeading { padding: 18px 44px 16px 16px; gap: 10px; }
+  .toolDialogIcon { width: 32px; height: 32px; }
+  .toolTabs > [data-slot="tabs-list"] { margin: 0 16px 12px; }
+  .toolTabs > .toolTabBody { padding: 4px 16px 20px; }
+  .toolTabs [data-slot="tabs-trigger"] { gap: 4px; padding: 4px; }
+}
+
+.toolDialog [data-slot="button"][data-variant="outline"] { border: 1px solid var(--line); background: var(--surface); }
+.toolDialog [data-slot="button"][data-variant="destructive"] { color: var(--vscode-errorForeground, #d54040); background: var(--surface); border: 1px solid color-mix(in srgb, var(--vscode-errorForeground, #d54040) 32%, var(--line)); }
+.toolDialog [data-slot="button"]:hover:not(:disabled) { background: var(--soft); }
+.toolDialog [data-slot="button"]:focus-visible, .toolTabs [data-slot="tabs-trigger"]:focus-visible { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 2px; }
+
+.turnChanges { container-type: inline-size; margin: 12px 0 24px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; font: 500 var(--uiFontSize)/1.6 var(--uiFont); }
+.turnChangesHeading { display: flex; align-items: center; gap: 8px; }
+.turnChangesHeading > svg { width: 16px; height: 16px; color: var(--muted); }
+.turnChangesHeading > span { color: var(--muted); font-size: var(--detailFontSize); }
+.turnChangesHint { color: var(--muted); margin: 8px 0; font-size: var(--detailFontSize); }
+.turnChanges ul { padding: 0; margin: 10px 0 0; list-style: none; }
+.turnChanges li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 16px; border-top: 1px solid var(--line); padding: 8px 0; }
+.turnChanges li:last-child { padding-bottom: 0; }
+.resourceFilePath { display: flex; min-width: 0; white-space: nowrap; }
+.resourceFileDirectory { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.resourceFileBasename { flex-shrink: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.turnChangeStats { display: flex; gap: 8px; white-space: nowrap; font-family: var(--codeFont); font-size: var(--detailFontSize); }
+.turnChangeActions { display: flex; max-width: 45cqw; justify-content: flex-end; align-items: center; gap: 8px; color: var(--muted); font-size: var(--detailFontSize); white-space: nowrap; }
+.turnChangeActions > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.turnChangeActions [data-slot="button"] { flex-shrink: 0; height: 28px; padding: 4px 8px; font-size: var(--detailFontSize); }
+
+.slashMenu { position: fixed; z-index: 30; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--composerShadow); overflow: hidden; background: var(--popover); font: 500 var(--uiFontSize)/1.6 var(--uiFont); }
+.slashMenu [data-slot="command-list"] { max-height: min(340px, 40dvh); overflow-y: auto; }
+.slashMenu [data-slot="command-group"] { padding: 4px 6px; }
+.slashMenu [cmdk-group-heading] { color: var(--muted); font-size: var(--captionFontSize); padding: 6px 8px; }
+.slashMenu [data-slot="command-item"] { padding: 8px; display: flex; gap: 12px; min-height: 34px; cursor: pointer; color: var(--ink); border-radius: 6px; }
+.slashMenu [data-slot="command-item"][data-selected="true"] { background: var(--soft); }
+.slashMenu [data-slot="command-item"][data-disabled="true"] { opacity: .5; cursor: default; }
+.slashName { min-width: 90px; font: 400 var(--codeFontSize)/18px var(--codeFont); }
+.slashLabel { min-width: 0; overflow-wrap: anywhere; font-size: var(--uiFontSize); }
+.slashLabel small { display: block; color: var(--muted); font-size: var(--captionFontSize); }
+.slashFooter { border-top: 1px solid var(--line); padding: 6px 12px; color: var(--muted); font-size: var(--captionFontSize); }
+.sessionCommandDialog.toolDialog { height: auto; max-height: calc(100dvh - 32px); }
+.sessionCommandConfirm.toolDialog { width: min(420px, calc(100vw - 24px)); border-radius: 12px; }
+.sessionCommandConfirm .toolDialogHeading { padding: 20px 48px 12px 20px; }
+.sessionCommandConfirm [data-slot="dialog-title"] { font-size: 15px; line-height: 22px; }
+.sessionCommandConfirm .sessionCommandBody { padding: 0 20px 20px; }
+.sessionCommandConfirm .sessionCommandBody > [role="status"] { font-size: var(--uiFontSize); margin: 0 0 12px; max-height: 64px; overflow: auto; }
+.sessionCommandConfirm .sessionToolSection { gap: 12px; }
+.sessionCommandConfirm .sessionConfirmActions { justify-content: flex-end; margin-top: 8px; }
+.sessionCommandConfirm .sessionToolActions > [data-slot="select-trigger"] { flex-basis: 130px; }
+.sessionTargetTitle { font-size: var(--chatFont); font-weight: 500; line-height: 1.6; overflow-wrap: anywhere; max-height: 100px; overflow: auto; }
+.sessionCommandShell.toolDialog { width: min(520px, calc(100vw - 24px)); }
+.sessionCommandDialog.sessionCommandCatalog { max-height: min(620px, calc(100dvh - 32px)); }
+.sessionCommandBody { min-height: 0; overflow: auto; padding: 0 24px 24px; }
+.sessionCommandBody > [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
+.composerModeBar { display: flex; align-items: center; flex-wrap: wrap; padding: 8px 12px; gap: 6px; border-bottom: 1px solid var(--line); font: 500 var(--uiFontSize)/1.5 var(--uiFont); }
+.composerModeBar > span { display: inline-flex; align-items: center; gap: 6px; }
+.composerModeBar > span svg { width: 14px; height: 14px; }
+.composerModeBar > button { margin-left: auto; padding: 2px 6px; height: 26px; font-size: var(--detailFontSize); color: var(--muted); }
+.composerModeBar p { flex-basis: 100%; margin: 0; font-size: var(--detailFontSize); color: var(--muted); overflow-wrap: anywhere; }
+.composerSideAnswer { padding: 12px; max-height: min(200px, 25dvh); overflow: auto; border-bottom: 1px solid var(--line); font: 500 var(--uiFontSize)/1.6 var(--uiFont); }
+.composerSideAnswer pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+@media (max-width: 440px) { .sessionCommandBody { padding: 0 16px 20px; } .slashName { min-width: 76px; } }
+
+@container (max-width: 380px) { .catalogRows > div { grid-template-columns: 1fr; gap: 3px; } }
+
+.rewindDialog[data-slot="dialog-content"] { width: min(420px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; gap: 12px; }
+.rewindDialog [data-slot="dialog-title"] { padding-right: 24px; font-size: 15px; }
+.rewindDialog p:empty { display: none; }
+.rewindActions { justify-content: flex-end; }
+
+@container (max-width: 460px) {
+  .turnChanges li { column-gap: 8px; }
+  .turnChangeActions { gap: 4px; }
+}

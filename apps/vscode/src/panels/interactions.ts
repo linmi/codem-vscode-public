@@ -1,14 +1,41 @@
 import type { AppServerInteraction, AppServerInteractionResponse } from "@codem/app-server"
 import type { PanelBroker } from "./panelBroker.ts"
-import { displayPath } from "../resources/filePresentation.ts"
+import { displayCommand, displayPath } from "../resources/filePresentation.ts"
+
+const toolTitles: Record<string, string> = {
+  run_bash: "执行命令", verify: "运行验证", list_dir: "查看目录", grep: "搜索内容", glob: "查找文件",
+  read_files: "读取文件", write_file: "写入文件", edit_file: "编辑文件", web_search: "搜索网页", web_fetch: "读取网页",
+}
+
+function toolTitle(name: string): string {
+  return toolTitles[name] ?? name
+}
+
+function permissionChoiceLabel(id: string, label: string): string {
+  const known: Record<string, string> = {
+    allow_once: "允许一次",
+    allow_session: "本次会话允许",
+    allow_always: "始终允许",
+    reject: "拒绝",
+    reject_once: "拒绝",
+  }
+  if (known[id]) return known[id]
+  const text = label.trim().toLowerCase()
+  if (text === "allow once") return "允许一次"
+  if (text === "allow for this session") return "本次会话允许"
+  if (text === "reject") return "拒绝"
+  return label
+}
 
 /** Explicit display projection; no raw Core frame or request/option identity reaches Webview. */
 export async function showInteraction(request: AppServerInteraction, signal: AbortSignal, panels: Pick<PanelBroker, "request">, cwd: string): Promise<AppServerInteractionResponse | null> {
   if (signal.aborted) return null
   if (request.kind === "permission") {
     const preview = request.preview
-    const detail = preview.kind === "bash_command" ? preview.command : preview.kind === "file_write" ? `${displayPath(cwd, preview.path)}\n${preview.diffExcerpt ?? preview.changeSummary}` : preview.kind === "file_read" ? displayPath(cwd, preview.path) : preview.kind === "web_fetch" ? preview.url : preview.kind === "web_search" ? preview.query : preview.kind === "mcp" ? `${preview.server}: ${preview.originalTool}\n${preview.argsRedacted}` : preview.summary
-    const answer = await panels.request({ kind: "approval", title: `允许 ${request.toolName}？`, description: request.reason, detail, choices: request.options.map(option => ({ value: option.id, label: option.label })) }, signal)
+    const detail = preview.kind === "bash_command" ? displayCommand(cwd, preview.command) : preview.kind === "file_write" ? `${displayPath(cwd, preview.path)}\n${preview.diffExcerpt ?? preview.changeSummary}` : preview.kind === "file_read" ? displayPath(cwd, preview.path) : preview.kind === "web_fetch" ? preview.url : preview.kind === "web_search" ? preview.query : preview.kind === "mcp" ? `${preview.server}: ${preview.originalTool}\n${preview.argsRedacted}` : preview.summary
+    const reason = request.reason.trim()
+    const description = !reason || reason === detail || (reason.startsWith("{") && reason.endsWith("}")) ? "" : reason
+    const answer = await panels.request({ kind: "approval", title: `允许${toolTitle(request.toolName)}？`, description, detail, choices: request.options.map(option => ({ value: option.id, label: permissionChoiceLabel(option.id, option.label) })) }, signal)
     return answer ? { kind: "permission", optionId: answer.values[0]! } : null
   }
   if (request.kind === "question") {

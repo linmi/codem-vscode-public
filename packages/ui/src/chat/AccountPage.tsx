@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef } from "react"
 import { ArrowLeftIcon, ArrowUpRightIcon, LogOutIcon, RefreshCwIcon, UserRoundIcon } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar.tsx"
 import { Button } from "../components/ui/button.tsx"
@@ -61,7 +61,7 @@ export function AccountPage({
       <div className="accountLoginContent">
         <Brand mark={brandMark} />
         {account.status === "checking" ? (
-          <CheckingStatus onRetry={() => post({ type: "refreshAccount" })} />
+          <CheckingStatus />
         ) : (
           <>
             <h1>登录 CodeM</h1>
@@ -98,28 +98,8 @@ export function AccountPage({
   )
 }
 
-/** Host 卡住时 8s 后仍露出重试；不靠屏幕外文字，也不提前闪登录按钮。 */
-function CheckingStatus({ onRetry }: { onRetry: () => void }) {
-  const [stale, setStale] = useState(false)
-  useEffect(() => {
-    const timer = window.setTimeout(() => setStale(true), 8_000)
-    return () => window.clearTimeout(timer)
-  }, [])
-  return (
-    <>
-      <h1>正在检查登录状态</h1>
-      <p role="status" data-testid="accountChecking">
-        {stale ? "检查登录状态时间过长。" : "正在读取本机登录信息…"}
-      </p>
-      {stale ? (
-        <div className="accountLoginActions">
-          <Button type="button" variant="outline" data-testid="refreshAccount" onClick={onRetry}>
-            重新检查登录状态
-          </Button>
-        </div>
-      ) : null}
-    </>
-  )
+function CheckingStatus() {
+  return <span className="sr-only" role="status">正在检查登录状态</span>
 }
 
 export function AccountTrigger({

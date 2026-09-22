@@ -19,6 +19,9 @@ import {
 export type ChatPhase =
   | "disconnected"
   | "connecting"
+  | "configuring"
+  | "loadingHistory"
+  | "sideQuestion"
   | "ready"
   | "sending"
   | "running"
@@ -52,6 +55,16 @@ export interface CatalogRow {
   label: string
   detail: string
 }
+export interface CatalogSnapshot {
+  kind: CatalogKind
+  rows: readonly CatalogRow[]
+  loaded: boolean
+  stale: boolean
+  snapshotId?: string
+  loading?: "refresh" | "turns" | "items" | null
+  error?: string | null
+  pages?: { turns: LiveSnapshotPageView; items: LiveSnapshotPageView } | null
+}
 export interface UsageView {
   input: number | null
   output: number | null
@@ -62,23 +75,101 @@ export interface PlanItem {
   content: string
   status: string
 }
+export interface GuardView {
+  id: string
+  tool: string
+  status: string
+  returnedBytes: number
+  rawBytes: number | null
+  capped: boolean
+}
+export interface HookView {
+  id: string
+  event: string
+  tool: string | null
+  outcome: string
+  elapsedMs: number
+}
+export interface LiveSnapshotPageView {
+  rows: readonly CatalogRow[]
+  total: number
+  hasMore: boolean
+}
+export interface SideQuestionView {
+  question: string
+  answer: string
+  status: SideQuestionStatus
+}
 export interface DiffView {
   id: string
+  turnId?: string
   label: string
   added: number
   removed: number
-  preview: "complete" | "partial" | "binary" | "missing"
+  preview: "complete" | "partial" | "raw-partial" | "binary" | "omitted" | "missing"
   available: boolean
 }
+export type AttachmentPreview =
+  | { kind: "deferred" }
+  | { kind: "none" }
+  | { kind: "image"; dataUrl: string }
+  | { kind: "unavailable"; reason: string }
 export interface AttachmentView {
   id: string
   label: string
   kind: "file" | "directory" | "image"
+  preview?: AttachmentPreview
+}
+export interface ArtifactView {
+  id: string
+  kind: "file" | "image" | "chart" | "url" | "diff"
+  title: string
+  detail: string
+  available: boolean
+}
+export interface BackgroundTaskView {
+  id: string
+  label: string
+  phase: BackgroundTaskPhase
 }
 export interface SelectionView {
   id: string
   label: string
+  startLine?: number | null
+  endLine?: number | null
+  pinned?: boolean
+  error?: string | null
 }
+
+export interface HistoryEntry {
+  id: string
+  title: string
+  archived: boolean
+  startedAt?: string
+  turnCount?: number
+}
+
+export interface HistoryList {
+  open: boolean
+  loading: boolean
+  entries: readonly HistoryEntry[]
+  hasMore: boolean
+  error: string | null
+}
+
+export interface FileHit {
+  id: string
+  label: string
+}
+
+export interface FileSearch {
+  requestId: string
+  status: "loading" | "empty" | "ready" | "error"
+  files: readonly FileHit[]
+  error: string | null
+}
+
+export type SendKey = "enter" | "modEnter"
 export interface BackgroundView {
   id: string
   label: string
@@ -92,18 +183,34 @@ export interface SkillView {
 export interface PanelChoice {
   id: string
   label: string
+  description?: string
+  selected?: boolean
+  icon?: PermissionChoiceIcon
 }
 export interface PendingPanel {
   id: string
   kind: PanelKind
   title: string
   description: string
+  detail: string | null
   choices: readonly PanelChoice[]
   allowText: boolean
   multiple: boolean
+  backChoiceId: string | null
+  initialText: string
+  confirmLabel: string | null
+}
+
+/** VS Code 用发送回执确认；JetBrains 用与 requestId 相同的用户消息 id。两者都算受理。 */
+export interface SubmissionReceipt {
+  requestId: string
+  accepted: boolean
 }
 export type ActivityStatus = "running" | "completed" | "failed" | "declined" | "interrupted" | "incomplete"
-export type ChatMessageRole = "user" | "assistant" | "reasoning" | "tool"
+export type ChatMessageRole = "user" | "assistant" | "reasoning" | "tool" | "turnStatus"
+export type PermissionChoiceIcon = "hand" | "shieldCheck" | "shieldAlert"
+export type BackgroundTaskPhase = "queued" | "started" | "skipped" | "cancelled" | "notFound" | "noop"
+export type SideQuestionStatus = "starting" | "running" | "stopping" | "completed" | "interrupted" | "failed" | "incomplete"
 export type AccountStatus = "checking" | "signedOut" | "signingIn" | "signedIn" | "error" | "signingOut" | "signOutFailed"
 export type SignInProgress = "opening" | "waiting" | "binding" | "cancelling"
 export type ComposerInputMode = "message" | "askSideQuestion" | "steer" | "shellCommand"
@@ -124,6 +231,9 @@ export interface ChatMessage {
   status?: ActivityStatus
   summary?: string
   details?: ToolDetails
+  outcome?: "stopped"
+  artifacts?: readonly ArtifactView[]
+  attachments?: readonly AttachmentView[]
   /** 仅用于工作分组：是否有产物，不携带路径。 */
   hasArtifacts?: boolean
 }
@@ -183,6 +293,7 @@ export interface ChatSnapshot {
   slashCommands: readonly SlashCommand[]
   pendingInteraction: string | null
   pendingPanel: PendingPanel | null
+  submission: SubmissionReceipt | null
   canRetry: boolean
   canResume: boolean
   canLoadOlder: boolean
@@ -194,19 +305,29 @@ export interface ChatSnapshot {
     usage: UsageView | null
     activity: string | null
     changes: readonly { label: string; added: number; removed: number }[]
+    guards: readonly GuardView[]
+    hooks: readonly HookView[]
     threadStatus: string | null
   }
   sessionTools: {
     skills: readonly SkillView[]
     selectedSkill: string | null
-    catalog: { kind: CatalogKind; rows: readonly CatalogRow[]; loaded: boolean } | null
+    catalog: CatalogSnapshot | null
     directories: readonly { id: string; label: string }[]
     busy: string | null
+    sideQuestion: SideQuestionView | null
   }
   attachments: readonly AttachmentView[]
   selections: readonly SelectionView[]
   diffs: readonly DiffView[]
   background: readonly BackgroundView[]
+  backgroundTasks: readonly BackgroundTaskView[]
+  backgroundBusy: boolean
+  tools: readonly string[]
+  mcpNames: readonly string[]
+  history: HistoryList
+  fileSearch: FileSearch | null
+  sendKey: SendKey
 }
 
 export const catalogKinds: readonly CatalogKind[] = [
@@ -287,33 +408,42 @@ export function initialSnapshot(): ChatSnapshot {
     slashCommands: [],
     pendingInteraction: null,
     pendingPanel: null,
+    submission: null,
     canRetry: false,
     canResume: false,
     canLoadOlder: false,
     hasOlderMessages: false,
     historyNeedsRefresh: false,
     composerCatalog: { models: [], spaces: [] },
-    capabilities: { plan: [], usage: null, activity: null, changes: [], threadStatus: null },
-    sessionTools: { skills: [], selectedSkill: null, catalog: null, directories: [], busy: null },
+    capabilities: { plan: [], usage: null, activity: null, changes: [], guards: [], hooks: [], threadStatus: null },
+    sessionTools: { skills: [], selectedSkill: null, catalog: null, directories: [], busy: null, sideQuestion: null },
     attachments: [],
     selections: [],
     diffs: [],
     background: [],
+    backgroundTasks: [],
+    backgroundBusy: false,
+    tools: [],
+    mcpNames: [],
+    history: { open: false, loading: false, entries: [], hasMore: false, error: null },
+    fileSearch: null,
+    sendKey: "enter",
   }
 }
 
-const chatPhases: readonly ChatPhase[] = ["disconnected", "connecting", "ready", "sending", "running", "stopping", "failed", "closing"]
+const chatPhases: readonly ChatPhase[] = [
+  "disconnected", "connecting", "configuring", "loadingHistory", "sideQuestion",
+  "ready", "sending", "running", "stopping", "failed", "closing",
+]
 
-/** VS Code 现网 phase 收成共享 phase，避免生产替换后旧快照无法驱动控件。 */
+/** 保留 VS Code 现网 phase。配置、读历史和旁路提问各自有界面，不并进连接中或就绪。 */
 export function normalizePhase(value: unknown): ChatPhase {
-  if (value === "sideQuestion") return "ready"
-  if (value === "loadingHistory" || value === "configuring") return "connecting"
   if (typeof value === "string" && chatPhases.some((phase) => phase === value)) return value as ChatPhase
   return "disconnected"
 }
 
 export function isBusy(phase: ChatPhase): boolean {
-  return phase === "connecting" || phase === "sending" || phase === "running" || phase === "stopping"
+  return phase !== "ready" && phase !== "disconnected" && phase !== "failed" && phase !== "closing"
 }
 
 export function parseWorkMode(value: unknown): WorkMode {
@@ -343,16 +473,31 @@ const simpleActions = [
   "addDirectory",
   "cancelSideQuestion",
   "pinSelection",
+  "closeHistory",
+  "refreshHistory",
+  "moreThreads",
+  "reloadHistory",
+  "showOutput",
+  "manageMcp",
+  "refreshTools",
 ] as const
 
 const handleActions = [
   "chooseModel",
   "chooseSpace",
   "openDiff",
+  "openArtifact",
+  "openChangedFile",
+  "openBackgroundLog",
+  "loadImage",
   "terminateBackground",
   "cancelBackgroundTask",
   "removeAttachment",
   "removeDirectory",
+  "removeSelection",
+  "removeCodeSelection",
+  "revealCodeSelection",
+  "pinCodeSelection",
 ] as const
 
 const requestIdPattern = /^[a-zA-Z0-9-]{1,100}$/u
@@ -473,6 +618,21 @@ export function parseUiAction(value: unknown): Record<string, unknown> {
   if (["compactThread", "rewindThread", "clearThread"].includes(String(record.type)) && keys.length === 3) {
     return { type: record.type, threadId: threadId(record.threadId), requestId: requestId(record.requestId) }
   }
+  if (record.type === "searchFiles" && keys.length === 3) {
+    if (typeof record.query !== "string" || record.query.length > 200 || [...record.query].some((character) => character.charCodeAt(0) < 32)) {
+      throw new Error("Invalid CodeM action")
+    }
+    return { type: "searchFiles", query: record.query, requestId: requestId(record.requestId) }
+  }
+  if (record.type === "selectFile" && keys.length === 3) {
+    return { type: "selectFile", id: handleId(record.id), requestId: requestId(record.requestId) }
+  }
+  if (record.type === "setSendKey" && keys.length === 2 && (record.sendKey === "enter" || record.sendKey === "modEnter")) {
+    return { type: "setSendKey", sendKey: record.sendKey }
+  }
+  if (record.type === "pasteImages" && keys.length === 3) {
+    return { type: "pasteImages", requestId: requestId(record.requestId), images: parsePastedImages(record.images) }
+  }
   if (keys.length === 1 && simpleActions.some((type) => type === record.type)) return { type: record.type }
   if (keys.length === 2 && handleActions.some((type) => type === record.type)) {
     return { type: record.type, id: handleId(record.id) }
@@ -512,9 +672,23 @@ export function normalizeMessages(value: unknown): ChatMessage[] {
     const text = record.text.length > 64_000 ? record.text.slice(0, 64_000) : record.text
     const turnId = optionalText(record.turnId)
     const label = optionalText(record.label)
-    const hasArtifacts = Array.isArray(record.artifacts) ? record.artifacts.length > 0 : record.hasArtifacts === true
+    const artifacts = normalizeArtifacts(record.artifacts)
+    const attachments = record.role === "user" ? normalizeAttachments(record.attachments) : []
+    const hasArtifacts = artifacts.length > 0 || record.hasArtifacts === true
+    if (record.role === "turnStatus") {
+      messages.push({ id: record.id, role: "turnStatus", text, outcome: "stopped", ...(turnId ? { turnId } : {}), ...(label ? { label } : {}) })
+      continue
+    }
     if (record.role === "user" || record.role === "assistant") {
-      messages.push({ id: record.id, role: record.role, text, ...(turnId ? { turnId } : {}), ...(label ? { label } : {}), ...(hasArtifacts ? { hasArtifacts } : {}) })
+      messages.push({
+        id: record.id,
+        role: record.role,
+        text,
+        ...(turnId ? { turnId } : {}),
+        ...(label ? { label } : {}),
+        ...(artifacts.length ? { artifacts, hasArtifacts: true } : hasArtifacts ? { hasArtifacts: true } : {}),
+        ...(attachments.length ? { attachments } : {}),
+      })
       continue
     }
     if (record.role === "reasoning" || record.role === "tool") {
@@ -593,23 +767,469 @@ function normalizeTimings(value: unknown): TurnTiming[] {
   })
 }
 
+const pasteTypes = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"])
+
+function parsePastedImages(value: unknown): { mediaType: string; data: string }[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 20) throw new Error("Invalid CodeM action")
+  return value.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("Invalid CodeM action")
+    const image = item as { mediaType?: unknown; data?: unknown }
+    if (typeof image.mediaType !== "string" || !pasteTypes.has(image.mediaType)) throw new Error("Invalid CodeM action")
+    if (typeof image.data !== "string" || !image.data || image.data.length > 28_000_000) throw new Error("Invalid CodeM action")
+    return { mediaType: image.mediaType, data: image.data }
+  })
+}
+
+function normalizeHistory(value: unknown): HistoryList {
+  const empty: HistoryList = { open: false, loading: false, entries: [], hasMore: false, error: null }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return empty
+  const record = value as Partial<HistoryList>
+  const entries = Array.isArray(record.entries)
+    ? record.entries.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const entry = item as HistoryEntry
+        if (typeof entry.id !== "string" || !threadIdPattern.test(entry.id)) return []
+        if (typeof entry.title !== "string" || !entry.title.trim()) return []
+        const startedAt = typeof entry.startedAt === "string" && entry.startedAt.length <= 40 ? entry.startedAt : undefined
+        const turnCount = typeof entry.turnCount === "number" && Number.isFinite(entry.turnCount) && entry.turnCount >= 0 ? entry.turnCount : undefined
+        return [{ id: entry.id, title: entry.title.slice(0, 160), archived: entry.archived === true, ...(startedAt ? { startedAt } : {}), ...(turnCount !== undefined ? { turnCount } : {}) }]
+      })
+    : []
+  return {
+    open: record.open === true,
+    loading: record.loading === true,
+    entries,
+    hasMore: record.hasMore === true,
+    error: typeof record.error === "string" ? record.error : null,
+  }
+}
+
+function normalizeFileSearch(value: unknown): FileSearch | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const record = value as Partial<FileSearch>
+  if (typeof record.requestId !== "string" || !requestIdPattern.test(record.requestId)) return null
+  if (record.status !== "loading" && record.status !== "empty" && record.status !== "ready" && record.status !== "error") return null
+  const files = Array.isArray(record.files)
+    ? record.files.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const file = item as FileHit
+        if (typeof file.id !== "string" || !handlePattern.test(file.id)) return []
+        if (typeof file.label !== "string" || !file.label.trim() || file.label.includes("..")) return []
+        return [{ id: file.id, label: file.label.slice(0, 240) }]
+      })
+    : []
+  return { requestId: record.requestId, status: record.status, files, error: typeof record.error === "string" ? record.error : null }
+}
+
+function normalizeSelections(value: unknown): SelectionView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const selection = item as SelectionView
+    if (typeof selection.id !== "string" || !handlePattern.test(selection.id)) return []
+    if (typeof selection.label !== "string" || !selection.label.trim()) return []
+    const error = typeof selection.error === "string" && selection.error.trim() ? selection.error.slice(0, 160) : null
+    return [{
+      id: selection.id,
+      label: selection.label.slice(0, 160),
+      startLine: typeof selection.startLine === "number" ? selection.startLine : null,
+      endLine: typeof selection.endLine === "number" ? selection.endLine : null,
+      pinned: selection.pinned !== false,
+      ...(error ? { error } : {}),
+    }]
+  })
+}
+
+const panelKinds: readonly PanelKind[] = ["approval", "question", "plan", "rewind"]
+
+function safeLabel(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.includes("..")) return null
+  const visible = trimmed.startsWith("/") || /^[A-Za-z]:[\\/]/.test(trimmed) ? trimmed.split(/[\\/]/).pop() ?? "" : trimmed
+  return visible ? visible.slice(0, 160) : null
+}
+
+function normalizePanel(value: unknown): PendingPanel | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const record = value as Partial<PendingPanel>
+  if (typeof record.id !== "string" || !requestIdPattern.test(record.id)) return null
+  const kind = panelKinds.find((item) => item === record.kind)
+  if (!kind) return null
+  if (typeof record.title !== "string" || !record.title.trim()) return null
+  const choices = Array.isArray(record.choices)
+    ? record.choices.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const choice = item as PanelChoice
+        if (typeof choice.id !== "string" || !handlePattern.test(choice.id)) return []
+        if (typeof choice.label !== "string" || !choice.label.trim()) return []
+        const description = typeof choice.description === "string" && choice.description.trim() ? choice.description.slice(0, 400) : undefined
+        const icon = choice.icon === "hand" || choice.icon === "shieldCheck" || choice.icon === "shieldAlert" ? choice.icon : undefined
+        return [{ id: choice.id, label: choice.label.slice(0, 160), ...(description ? { description } : {}), ...(choice.selected === true ? { selected: true } : {}), ...(icon ? { icon } : {}) }]
+      })
+    : []
+  const back = typeof record.backChoiceId === "string" && handlePattern.test(record.backChoiceId) ? record.backChoiceId : null
+  return {
+    id: record.id,
+    kind,
+    title: record.title.slice(0, 160),
+    description: typeof record.description === "string" ? record.description.slice(0, 4000) : "",
+    detail: typeof record.detail === "string" ? record.detail.slice(0, 8000) : null,
+    choices,
+    allowText: record.allowText === true,
+    multiple: record.multiple === true,
+    backChoiceId: back,
+    initialText: typeof record.initialText === "string" ? record.initialText.slice(0, 16_000) : "",
+    confirmLabel: typeof record.confirmLabel === "string" && record.confirmLabel.trim() ? record.confirmLabel.slice(0, 80) : null,
+  }
+}
+
+function normalizeDiffs(value: unknown): DiffView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const diff = item as DiffView
+    if (typeof diff.id !== "string" || !handlePattern.test(diff.id)) return []
+    if (typeof diff.label !== "string") return []
+    const label = safeLabel(diff.label)
+    if (!label) return []
+    const rawPreview = (item as { preview?: unknown }).preview
+    const preview = rawPreview === "complete" || rawPreview === "partial" || rawPreview === "raw-partial" || rawPreview === "binary" || rawPreview === "omitted" || rawPreview === "missing"
+      ? rawPreview
+      : null
+    if (!preview) return []
+    const turnId = typeof (item as { turnId?: unknown }).turnId === "string" ? safeId((item as { turnId: string }).turnId) : null
+    return [{
+      id: diff.id,
+      ...(turnId ? { turnId } : {}),
+      label,
+      added: typeof diff.added === "number" && diff.added >= 0 ? diff.added : 0,
+      removed: typeof diff.removed === "number" && diff.removed >= 0 ? diff.removed : 0,
+      preview,
+      available: diff.available !== false,
+    }]
+  })
+}
+
+function normalizeBackground(value: unknown): BackgroundView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const row = item as BackgroundView
+    if (typeof row.id !== "string" || !handlePattern.test(row.id)) return []
+    if (typeof row.label !== "string" || !row.label.trim()) return []
+    return [{ id: row.id, label: row.label.slice(0, 160), inProgress: row.inProgress === true }]
+  })
+}
+
+function normalizeAttachments(value: unknown): AttachmentView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const row = item as AttachmentView
+    if (typeof row.id !== "string" || !handlePattern.test(row.id)) return []
+    if (row.kind !== "file" && row.kind !== "directory" && row.kind !== "image") return []
+    if (typeof row.label !== "string") return []
+    const label = safeLabel(row.label)
+    if (!label) return []
+    const preview = attachmentPreview((row as { preview?: unknown }).preview)
+    return [{ id: row.id, label, kind: row.kind, ...(preview ? { preview } : {}) }]
+  })
+}
+
+function attachmentPreview(value: unknown): AttachmentPreview | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const preview = value as { kind?: unknown; dataUrl?: unknown; reason?: unknown }
+  if (preview.kind === "deferred" || preview.kind === "none") return { kind: preview.kind }
+  if (preview.kind === "unavailable") return { kind: "unavailable", reason: typeof preview.reason === "string" ? preview.reason.slice(0, 160) : "图片暂不可用" }
+  if (preview.kind === "image" && typeof preview.dataUrl === "string" && preview.dataUrl.startsWith("data:image/") && preview.dataUrl.length <= 2_000_000) {
+    return { kind: "image", dataUrl: preview.dataUrl }
+  }
+  return null
+}
+
+function normalizeArtifacts(value: unknown): ArtifactView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const row = item as ArtifactView
+    if (typeof row.id !== "string" || !handlePattern.test(row.id)) return []
+    if (row.kind !== "file" && row.kind !== "image" && row.kind !== "chart" && row.kind !== "url" && row.kind !== "diff") return []
+    const title = displayText(row.title, 160)
+    if (!title) return []
+    return [{ id: row.id, kind: row.kind, title, detail: typeof row.detail === "string" ? row.detail.slice(0, 400) : "", available: row.available !== false }]
+  })
+}
+
+function safeId(value: string): string | null {
+  return value.length > 0 && value.length <= 128 && !value.includes("/") && !value.includes("\\") && !value.includes("..") ? value : null
+}
+
+function boundedText(value: unknown, max: number): string | null {
+  return typeof value === "string" && value.trim() ? value.slice(0, max) : null
+}
+
+function displayText(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null
+  return safeLabel(value)?.slice(0, max) ?? null
+}
+
+function normalizeChoices(value: unknown): ComposerChoice[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const choice = item as ComposerChoice
+    if (typeof choice.id !== "string" || !handlePattern.test(choice.id)) return []
+    const label = displayText(choice.label, 160)
+    if (!label) return []
+    return [{
+      id: choice.id,
+      label,
+      description: typeof choice.description === "string" ? choice.description.slice(0, 400) : "",
+      selected: choice.selected === true,
+    }]
+  })
+}
+
+function normalizeCapabilities(value: unknown): ChatSnapshot["capabilities"] {
+  const empty = initialSnapshot().capabilities
+  if (!value || typeof value !== "object" || Array.isArray(value)) return empty
+  const record = value as ChatSnapshot["capabilities"]
+  const plan = Array.isArray(record.plan)
+    ? record.plan.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const row = item as PlanItem
+        if (typeof row.content !== "string" || !row.content.trim()) return []
+        return [{ content: row.content.slice(0, 400), status: typeof row.status === "string" ? row.status.slice(0, 40) : "" }]
+      })
+    : []
+  const usage = record.usage && typeof record.usage === "object" ? record.usage : null
+  const numberOrNull = (item: unknown) => (typeof item === "number" && Number.isFinite(item) ? item : null)
+  const changes = Array.isArray(record.changes)
+    ? record.changes.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const row = item as { label?: unknown; added?: unknown; removed?: unknown }
+        const label = displayText(row.label, 160)
+        if (!label) return []
+        return [{
+          label,
+          added: typeof row.added === "number" && row.added >= 0 ? row.added : 0,
+          removed: typeof row.removed === "number" && row.removed >= 0 ? row.removed : 0,
+        }]
+      })
+    : []
+  const guards = Array.isArray(record.guards)
+    ? record.guards.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const row = item as GuardView
+        if (typeof row.id !== "string" || !handlePattern.test(row.id)) return []
+        if (typeof row.tool !== "string" || !row.tool.trim()) return []
+        return [{
+          id: row.id,
+          tool: row.tool.slice(0, 80),
+          status: typeof row.status === "string" ? row.status.slice(0, 40) : "",
+          returnedBytes: typeof row.returnedBytes === "number" && row.returnedBytes >= 0 ? row.returnedBytes : 0,
+          rawBytes: typeof row.rawBytes === "number" && row.rawBytes >= 0 ? row.rawBytes : null,
+          capped: row.capped === true,
+        }]
+      })
+    : []
+  const hooks = Array.isArray(record.hooks)
+    ? record.hooks.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const row = item as HookView
+        if (typeof row.id !== "string" || !handlePattern.test(row.id)) return []
+        if (typeof row.event !== "string" || !row.event.trim()) return []
+        return [{
+          id: row.id,
+          event: row.event.slice(0, 80),
+          tool: typeof row.tool === "string" ? row.tool.slice(0, 80) : null,
+          outcome: typeof row.outcome === "string" ? row.outcome.slice(0, 40) : "",
+          elapsedMs: typeof row.elapsedMs === "number" && row.elapsedMs >= 0 ? row.elapsedMs : 0,
+        }]
+      })
+    : []
+  return {
+    plan,
+    usage: usage ? { input: numberOrNull(usage.input), output: numberOrNull(usage.output), cacheRead: numberOrNull(usage.cacheRead), cacheWrite: numberOrNull(usage.cacheWrite) } : null,
+    activity: boundedText(record.activity, 160),
+    changes,
+    guards,
+    hooks,
+    threadStatus: boundedText(record.threadStatus, 80),
+  }
+}
+
+function normalizeSessionTools(value: unknown): ChatSnapshot["sessionTools"] {
+  const empty = initialSnapshot().sessionTools
+  if (!value || typeof value !== "object" || Array.isArray(value)) return empty
+  const record = value as ChatSnapshot["sessionTools"] & { catalog?: { kind?: unknown; rows?: unknown; loaded?: unknown } | null }
+  const skills = Array.isArray(record.skills)
+    ? record.skills.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const skill = item as SkillView
+        if (typeof skill.id !== "string" || !handlePattern.test(skill.id)) return []
+        if (typeof skill.name !== "string" || !skill.name.trim()) return []
+        return [{ id: skill.id, name: skill.name.slice(0, 160), description: typeof skill.description === "string" ? skill.description.slice(0, 400) : "" }]
+      })
+    : []
+  const catalog = normalizeCatalog(record.catalog)
+  const directories = Array.isArray(record.directories)
+    ? record.directories.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const directory = item as { id?: unknown; label?: unknown }
+        if (typeof directory.id !== "string" || !handlePattern.test(directory.id)) return []
+        const label = displayText(directory.label, 160)
+        if (!label) return []
+        return [{ id: directory.id, label }]
+      })
+    : []
+  const side = record.sideQuestion
+  const sideStatus = side && typeof side === "object" ? (side as SideQuestionView).status : null
+  const sideQuestion = side && typeof side === "object" && (sideStatus === "starting" || sideStatus === "running" || sideStatus === "stopping" || sideStatus === "completed" || sideStatus === "interrupted" || sideStatus === "failed" || sideStatus === "incomplete")
+    ? {
+        question: typeof (side as SideQuestionView).question === "string" ? (side as SideQuestionView).question.slice(0, 4000) : "",
+        answer: typeof (side as SideQuestionView).answer === "string" ? (side as SideQuestionView).answer.slice(0, 16000) : "",
+        status: sideStatus,
+      }
+    : null
+  return {
+    skills,
+    selectedSkill: typeof record.selectedSkill === "string" && handlePattern.test(record.selectedSkill) ? record.selectedSkill : null,
+    catalog,
+    directories,
+    busy: boundedText(record.busy, 80),
+    sideQuestion,
+  }
+}
+
+function catalogRows(value: unknown): CatalogRow[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const row = item as CatalogRow
+    const label = displayText(row.label, 160)
+    if (!label) return []
+    return [{ label, detail: typeof row.detail === "string" ? row.detail.slice(0, 400) : "" }]
+  })
+}
+
+function normalizeCatalog(value: unknown): CatalogSnapshot | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const record = value as CatalogSnapshot
+  if (!catalogKinds.some((kind) => kind === record.kind)) return null
+  const loading = record.loading === "refresh" || record.loading === "turns" || record.loading === "items" ? record.loading : record.loading === null ? null : undefined
+  const pages = record.pages && typeof record.pages === "object"
+    ? {
+        turns: normalizeLivePage((record.pages as { turns?: unknown }).turns),
+        items: normalizeLivePage((record.pages as { items?: unknown }).items),
+      }
+    : undefined
+  return {
+    kind: record.kind,
+    loaded: record.loaded !== false,
+    stale: record.stale === true,
+    rows: catalogRows(record.rows),
+    ...(typeof record.snapshotId === "string" && safeId(record.snapshotId) ? { snapshotId: record.snapshotId } : {}),
+    ...(loading !== undefined ? { loading } : {}),
+    ...(typeof record.error === "string" ? { error: record.error.slice(0, 400) } : record.error === null ? { error: null } : {}),
+    ...(pages ? { pages } : {}),
+  }
+}
+
+function normalizeLivePage(value: unknown): LiveSnapshotPageView {
+  const record = value && typeof value === "object" ? value as Partial<LiveSnapshotPageView> : {}
+  return {
+    rows: catalogRows(record.rows),
+    total: typeof record.total === "number" && record.total >= 0 ? record.total : 0,
+    hasMore: record.hasMore === true,
+  }
+}
+
+const taskPhases: readonly BackgroundTaskPhase[] = ["queued", "started", "skipped", "cancelled", "notFound", "noop"]
+
+function normalizeBackgroundTasks(value: unknown): BackgroundTaskView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const row = item as BackgroundTaskView
+    if (typeof row.id !== "string" || !handlePattern.test(row.id)) return []
+    if (typeof row.label !== "string" || !row.label.trim()) return []
+    const phase = taskPhases.find((item) => item === row.phase)
+    if (!phase) return []
+    return [{ id: row.id, label: row.label.slice(0, 160), phase }]
+  })
+}
+
+function normalizeNames(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (typeof item !== "string" || !item.trim() || item.length > 160 || item.includes("..")) return []
+    return [item.slice(0, 160)]
+  })
+}
+
+function normalizeSubmission(value: unknown): SubmissionReceipt | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const record = value as SubmissionReceipt
+  if (typeof record.requestId !== "string" || !requestIdPattern.test(record.requestId)) return null
+  if (typeof record.accepted !== "boolean") return null
+  return { requestId: record.requestId, accepted: record.accepted }
+}
+
 export function asSnapshot(value: unknown): ChatSnapshot | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const record = value as Partial<ChatSnapshot> & { type?: unknown }
   if (record.type !== "state") return null
   const base = initialSnapshot()
+  const thread = typeof record.threadId === "string" && threadIdPattern.test(record.threadId) ? record.threadId : null
+  const resume = typeof record.resumeThreadId === "string" && threadIdPattern.test(record.resumeThreadId) ? record.resumeThreadId : null
   return {
-    ...base,
-    ...record,
     type: "state",
     phase: normalizePhase(record.phase),
+    workspace: displayText(record.workspace, 160),
+    space: displayText(record.space, 160),
+    threadId: thread,
+    resumeThreadId: resume,
+    model: boundedText(record.model, 160),
+    effort: record.effort === "low" || record.effort === "medium" || record.effort === "high" || record.effort === "xhigh" ? record.effort : base.effort,
+    permission: record.permission === "default" || record.permission === "auto" || record.permission === "yolo" ? record.permission : base.permission,
+    workMode: record.workMode === "plan" ? "plan" : "default",
+    modeRevision: typeof record.modeRevision === "number" && Number.isFinite(record.modeRevision) ? record.modeRevision : null,
+    notice: typeof record.notice === "string" ? record.notice.slice(0, 4000) : null,
+    version: typeof record.version === "number" && Number.isFinite(record.version) && record.version >= 0 ? record.version : base.version,
+    theme: record.theme === "dark" ? "dark" : "light",
+    assistantText: typeof record.assistantText === "string" ? record.assistantText.slice(0, 64_000) : "",
     messages: normalizeMessages(record.messages ?? base.messages),
     turnTimings: normalizeTimings(record.turnTimings ?? base.turnTimings),
     account: normalizeAccount(record.account ?? base.account),
     accountOpen: record.accountOpen === true,
     brandMark: typeof record.brandMark === "string" ? record.brandMark : base.brandMark,
     slashCommands: normalizeSlashCommands(record.slashCommands ?? base.slashCommands),
-    assistantText: typeof record.assistantText === "string" ? record.assistantText : "",
+    pendingInteraction: boundedText(record.pendingInteraction, 100),
+    pendingPanel: normalizePanel(record.pendingPanel),
+    submission: normalizeSubmission(record.submission),
+    canRetry: record.canRetry === true,
+    canResume: record.canResume === true,
+    canLoadOlder: record.canLoadOlder === true,
+    hasOlderMessages: record.hasOlderMessages === true,
+    historyNeedsRefresh: record.historyNeedsRefresh === true,
+    composerCatalog: {
+      models: normalizeChoices(record.composerCatalog?.models),
+      spaces: normalizeChoices(record.composerCatalog?.spaces),
+    },
+    capabilities: normalizeCapabilities(record.capabilities),
+    sessionTools: normalizeSessionTools(record.sessionTools),
+    attachments: normalizeAttachments(record.attachments),
+    selections: normalizeSelections(record.selections ?? base.selections),
+    diffs: normalizeDiffs(record.diffs),
+    background: normalizeBackground(record.background),
+    backgroundTasks: normalizeBackgroundTasks(record.backgroundTasks),
+    backgroundBusy: record.backgroundBusy === true,
+    tools: normalizeNames(record.tools),
+    mcpNames: normalizeNames(record.mcpNames),
+    history: normalizeHistory(record.history),
+    fileSearch: normalizeFileSearch(record.fileSearch),
+    sendKey: record.sendKey === "modEnter" ? "modEnter" : "enter",
   }
 }
 

@@ -22,6 +22,7 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 | `src/nativeChat/` | 原生 Chat 实验入口及适配；不混入正式扩展入口 |
 | `src/shared/` | Host/Webview 共用的消息契约、展示规则、输入规则和图标；无平台运行时 |
 | `webview/main.ts` | Webview 入口与组装 |
+| `webview/host/` | 把 VS Code 分条消息收成共享快照；不放界面 |
 | `webview/account/` | 独立登录页、头像入口和个人账户详情；与聊天状态分离 |
 | `webview/composer/` | 输入状态、回执、输入视图、文件引用与会话命令组件 |
 | `webview/transcript/` | 消息、工具、Markdown、工作分组和轮次变更展示 |

@@ -16,11 +16,17 @@ export type DraftRetention =
   | { readonly kind: "restore"; readonly text: string }
 
 /**
- * 发送后草稿的去留规则。宿主用 requestId 作为该条用户消息的 id，
- * 快照里出现它才算受理；此后产生的失败提示才说明这次发送没落地。
+ * 发送后草稿的去留规则。
+ * JetBrains 把 requestId 用作用户消息 id；VS Code 另发 submission 回执，消息 id 不是 requestId。
+ * 明确拒绝优先于通知文案。此后才出现、且版本更新过的失败提示，才把原文还回输入框。
  * 用户已经在输入新内容时不覆盖，只丢弃挂起项。
  */
 export function draftRetention(pending: PendingSend, snapshot: ChatSnapshot, draft: string): DraftRetention {
+  const receipt = snapshot.submission
+  if (receipt?.requestId === pending.requestId) {
+    if (receipt.accepted || draft) return { kind: "accepted" }
+    return { kind: "restore", text: pending.text }
+  }
   if (snapshot.messages.some((message) => message.id === pending.requestId)) return { kind: "accepted" }
   if (!snapshot.notice || snapshot.version <= pending.version) return { kind: "waiting" }
   if (draft) return { kind: "accepted" }

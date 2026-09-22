@@ -21,10 +21,16 @@ data class QuestionSpec(
     val allowsMultiple: Boolean,
 )
 
+data class RewindCheckpoint(val id: String, val label: String)
+
 data class RewindSpec(
-    val checkpointIds: Set<String>,
+    val checkpoints: List<RewindCheckpoint>,
     val modes: Set<String>,
-)
+) {
+    val checkpointIds: Set<String> = checkpoints.map { it.id }.toSet()
+}
+
+data class LabeledChoice(val id: String, val label: String)
 
 data class PendingInteraction(
     val requestId: String,
@@ -32,12 +38,14 @@ data class PendingInteraction(
     val kind: InteractionKind,
     val threadId: String?,
     val generation: Long,
-    val allowedChoiceIds: Set<String>,
+    val choices: List<LabeledChoice>,
     val questions: List<QuestionSpec>,
     val rewind: RewindSpec?,
     val peer: RpcPeer,
     val id: RpcId,
-)
+) {
+    val allowedChoiceIds: Set<String> = choices.map { it.id }.toSet()
+}
 
 /**
  * 仅当前连接代次、当前会话和允许选项可回复。
@@ -109,7 +117,7 @@ class InteractionRouter {
             kind = kind,
             title = title,
             description = current.method.substringAfterLast('/'),
-            choices = current.allowedChoiceIds.map { com.codem.intellij.webview.PanelChoiceView(it, it) },
+            choices = current.choices.map { com.codem.intellij.webview.PanelChoiceView(it.id, it.label) },
             allowText = current.kind == InteractionKind.Question || current.kind == InteractionKind.Plan,
             multiple = current.questions.any { it.allowsMultiple },
         )
@@ -128,22 +136,23 @@ class InteractionRouter {
         val requestThread = (params.fields["threadId"] as? JsonValue.Text)?.value ?: threadId
         return when (kind) {
             InteractionKind.Permission -> {
-                val options = permissionOptionIds(params)
+                val options = permissionChoices(params)
                 if (options.isEmpty()) throw CodemError.Validation("CodeM ${request.method} requires approval options")
                 PendingInteraction(key, request.method, kind, requestThread, generation, options, emptyList(), null, peer, request.id)
             }
             InteractionKind.Question -> {
                 val questions = questionSpecs(params)
                 if (questions.isEmpty()) throw CodemError.Validation("CodeM ${request.method} requires questions")
-                val labels = questions.flatMap { it.optionLabels }.toSet()
+                val labels = questions.flatMap { it.optionLabels }.map { LabeledChoice(it, it) }
                 PendingInteraction(key, request.method, kind, requestThread, generation, labels, questions, null, peer, request.id)
             }
             InteractionKind.Rewind -> {
                 val spec = rewindSpec(params)
-                PendingInteraction(key, request.method, kind, requestThread, generation, spec.checkpointIds + spec.modes, emptyList(), spec, peer, request.id)
+                val choices = spec.checkpoints.map { LabeledChoice(it.id, it.label) } + spec.modes.map { LabeledChoice(it, it) }
+                PendingInteraction(key, request.method, kind, requestThread, generation, choices, emptyList(), spec, peer, request.id)
             }
             InteractionKind.Plan, InteractionKind.PlanMode -> {
-                val allowed = setOf("true", "false", "approve", "reject", "approved", "agree")
+                val allowed = listOf("true", "false", "approve", "reject", "approved", "agree").map { LabeledChoice(it, it) }
                 PendingInteraction(key, request.method, kind, requestThread, generation, allowed, emptyList(), null, peer, request.id)
             }
         }
@@ -226,12 +235,16 @@ class InteractionRouter {
         }
     }
 
-    private fun permissionOptionIds(params: JsonValue.ObjectValue): Set<String> {
+    /** 回复仍用 optionId；界面文案用 Core 给的 label，没有 label 才退回 id。 */
+    private fun permissionChoices(params: JsonValue.ObjectValue): List<LabeledChoice> {
         val options = (params.fields["options"] as? JsonValue.ArrayValue)?.items.orEmpty()
         return options.mapNotNull { option ->
             val fields = (option as? JsonValue.ObjectValue)?.fields ?: return@mapNotNull null
-            ((fields["optionId"] as? JsonValue.Text) ?: (fields["id"] as? JsonValue.Text))?.value?.takeIf { it.isNotBlank() }
-        }.toSet()
+            val id = ((fields["optionId"] as? JsonValue.Text) ?: (fields["id"] as? JsonValue.Text))?.value?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+            val label = (fields["label"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() } ?: id
+            LabeledChoice(id, label)
+        }
     }
 
     private fun questionSpecs(params: JsonValue.ObjectValue): List<QuestionSpec> {
@@ -259,9 +272,13 @@ class InteractionRouter {
         val checkpoints = (params.fields["checkpoints"] as? JsonValue.ArrayValue)?.items
             ?: throw CodemError.Validation("CodeM rewind requires checkpoints")
         val ids = checkpoints.mapIndexed { index, entry ->
-            ((entry as? JsonValue.ObjectValue)?.fields?.get("id") as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() }
+            val fields = (entry as? JsonValue.ObjectValue)?.fields
                 ?: throw CodemError.Validation("CodeM rewind checkpoints[$index].id is required")
-        }.toSet()
+            val id = (fields["id"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() }
+                ?: throw CodemError.Validation("CodeM rewind checkpoints[$index].id is required")
+            val label = (fields["label"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() } ?: id
+            RewindCheckpoint(id, label)
+        }
         if (ids.isEmpty()) throw CodemError.Validation("CodeM rewind requires checkpoints")
         val modes = ((params.fields["modes"] as? JsonValue.ArrayValue)?.items.orEmpty()).mapNotNull { item ->
             (item as? JsonValue.Text)?.value?.takeIf { it in REWIND_MODES }
