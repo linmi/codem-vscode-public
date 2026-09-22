@@ -1,6 +1,8 @@
 # JetBrains 审批、附件和 Diff 完整验收
 
-2026-09-22。当前验收使用同一个 IDEA 2026.2.3 项目窗口，Core 0.8.45 / CLI 0.1.208。fixture、模拟界面、真实 Core、原生 IDEA 分别记录，未跑的项不视为通过。
+2026-09-22。验收复用 IDEA 2026.2.3 同一个项目窗口，初始 Core 0.8.45，中途随既有升级任务切至 0.8.47；CLI 0.1.208。fixture、模拟界面、真实 Core、原生 IDEA 分别记录，未跑的项不视为通过。
+
+结论：审批、附件和 Diff 的主要原生操作链路通过，附件生命周期、审批选项、多选协议和 Diff 句柄等问题已修复并回归；整体仍有保留项，不能标记为全部无异常。最终编辑轮次出现来源未确定的 Core 通用警告，且独立 JCEF 页面刷新尚未原生实测。下面各修复章节按阶段记录，当前结果以准出矩阵及最终操作复验为准。
 
 ## 附件生命周期修复
 
@@ -15,10 +17,10 @@
 
 | 边界 | 成功路径 | 失败/取消/生命周期 | 真实操作 |
 | --- | --- | --- | --- |
-| 审批 | 允许一次及拒绝由 Core 接受 | 取消停止、旧请求不能回复、重载保持待处理请求 | 待执行 |
-| 问答/计划 | 多题逐题回答、返回修改、自由文本、计划同意/反馈 | 取消、无效选项、失败恢复 | 待执行 |
-| 附件 | 文件、目录、图片、未保存选区真正进入请求 | 移除、失败保留、切换及关闭回收 | 待执行 |
-| Diff | 文件变更统计与原生两侧内容一致 | 分片、部分、二进制、损坏、路径逃逸 | 待执行 |
+| 审批 | 允许一次及拒绝由 Core 接受 | 原生取消停止；旧请求/Ready 重放由回归覆盖；IDE 重启后无旧卡片 | IDEA + Core 通过 |
+| 问答/计划 | 多题逐页、回退保留、自由文本、多选、计划同意/拒绝反馈 | 原生问答取消；非法选项/旧页由回归覆盖 | 多选修复后 IDEA + Core 通过 |
+| 附件 | 文件、目录、文件图片、真实剪贴板、未保存选区均进入请求 | 原生移除/重加/选择器取消、失败保留及重试；关闭后私有图片目录实查已回收 | IDEA + Core 通过 |
+| Diff | 实际变更统计、原生双栏及定位文件一致 | 分片/部分/二进制/损坏/路径逃逸/过期句柄由回归覆盖 | IDEA + Core 通过 |
 
 
 ## 审批展示与回答修复
@@ -74,8 +76,8 @@
 - 文件资源面板显示 sample.txt +1/-1；点击查看差异打开 IDEA 原生双栏，AX 的 Before/After 分别为原标记+color=red / 原标记+color=green。不是文件名占位或模拟截图。
 - 再次请求 green→blue，关闭审批卡。界面显示“已停止 · 已处理 39秒”，输入恢复，磁盘保持 green；旧审批未复活。
 - 中途另一个已授权任务升级锁定 Core 到 0.8.47。本任务先保存/退出同一 IDEA，再逐文件比对安装 ZIP，仅替换变化的 runtime manifest、Core 和 JAR。升级后的 green→purple 修改、原生 Diff 前后与磁盘一致。首次点击“打开文件”失败后已修复，更新 JAR 后真实打开 sample.txt 编辑器，AX 内容为保留标记+color=purple。
-- 最后安装 JAR SHA256 为 fb45e08fb60c8e846fa5167eda16bf9529e388ef99bd8edc613d8cc0e84ee1c4，含明确拒绝回收和 UUID Diff 句柄修复。Core 0.8.47 / CLI 0.1.208。
-- 最终 JAR 的真实剪贴板链路：在系统预览打开本任务 colors.png，复制图像→IDEA 粘贴→移除→再次粘贴→发送。模型回复 LEFT 纯红色 #FF0000、RIGHT 纯蓝色 #0000FF。发送后待发送附件清空；本任务创建的 colors.png 预览窗口已关闭，原有 previewDashboard.png 窗口保留。
+- 该阶段安装 JAR SHA256 为 fb45e08fb60c8e846fa5167eda16bf9529e388ef99bd8edc613d8cc0e84ee1c4，含明确拒绝回收和 UUID Diff 句柄修复。Core 0.8.47 / CLI 0.1.208。
+- 该阶段 JAR 的真实剪贴板链路：在系统预览打开本任务 colors.png，复制图像→IDEA 粘贴→移除→再次粘贴→发送。模型回复 LEFT 纯红色 #FF0000、RIGHT 纯蓝色 #0000FF。发送后待发送附件清空；本任务创建的 colors.png 预览窗口已关闭，原有 previewDashboard.png 窗口保留。
 
 原始本机 Host 动作记录在 `~/Library/Logs/JetBrains/IntelliJIdea2026.2/idea.log`（17:24 起）。以上用原生 AX/截图、文件实值与 Host 动作相互核对。模拟预览和真实 VS Code 未由本任务单独运行，不借用它们声称本次 IDEA 验收通过。
 
@@ -86,3 +88,21 @@
 - 唯一目标模型为锁定 Core 的 multiSelect：省略是单选默认值，提供时必须是布尔值。删除旧字段读取，旧字段输入和错误类型明确拒绝；同步更新 JetBrains 生产解析、fixture、负向回归和真实测试。无持久数据或独立消费者需要接受旧入站字段。
 - 此处只改变 JetBrains 的 Core 入站适配，共享 UI 的 multiple 属性不变。Node App Server 独立适配存在同样旧读取（host.ts questionList），已向正在处理 Core 升级的既有任务提供证据，未在 IDEA 变更中混入另一客户端修改。
 - 修复后 LiveQuestionTest 通过，Core 接收 Cyan、Small + Large、NOTE_TWO；默认 105 项回归通过。默认检查中另暴露一个 fixture 竞态：等待 Diff 后即断言尚未消费的 thread/status/changed；已改为等待该状态实际到达，保留全部原断言。
+
+## 最终操作复验
+
+- 最终安装的多选修复 JAR 为 `dd5cec4fb1f8b38fd90693eff68ec542555c8e34be214c28ecdc74caaa0c23a5`，Core 0.8.47。原生第二题同时显示 Small、Large 两个勾选，提交后模型确认 Cyan + NOTE_TWO、Small + Large 两项。此前失败的原生探针未作为通过证据。
+- 计划拒绝：先填写 PLAN_FEEDBACK_ORANGE，再选择拒绝。Core JSONL tool_result 明确为 `rejected: PLAN_FEEDBACK_ORANGE: do not read the fixture; end this acceptance turn.`，后续没有读取文件。计划同意：原生点击同意，Core 记录 approved，随后仅一次 read_files 读取 sample.txt，得到原标记和 purple；没有编辑、shell 或 Git。
+- 实际附件失败恢复：原生加入 retry.txt 后暂时把该测试文件改名为 retry.held。发送显示 `CodeM attachment no longer exists`，原文本和附件仍留在输入栏。恢复文件原名后点击发送，附件与草稿清空，模型返回 IDEA_RETRY_MARKER_TURQUOISE。没有重新添加附件或重复录入文本。
+- 从本任务图片会话的 Core 工具记录定位私有 PNG，关闭该 Session 后核查该 PNG 及其独立目录都不存在；原 colors.png 保留。Native 复制图片只创建一个本任务 Preview 窗口，已关闭；不关闭其他测试窗口。
+- 在本任务代码提交 `f58a748c` 时，全仓 `pnpm check` 通过（lint、所有活跃包类型检查及默认测试）；此后其他任务的未提交修改不在该结论内。JetBrains 默认 105 项。显式 LiveToolTest、LiveQuestionTest 各自通过，未把真实模型调用加入默认检查。独立 JCEF 页面刷新仍只有 Ready 重放回归，未通过原生专用刷新入口实测；IDE 完整重启和重连已实际执行。
+
+- 最终 JAR 原生审批和 Diff 复验：默认权限下，点击一次 allow_once；Core edit_file 仅替换 retry.txt 标记，磁盘为 IDEA_FINAL_MARKER_SILVER。资源面板为 retry.txt +1/-1；原生双栏 AX Before=IDEA_RETRY_MARKER_TURQUOISE、After=IDEA_FINAL_MARKER_SILVER；“打开文件”实际打开 retry.txt，编辑器 AX 与磁盘一致。UUID 句柄路径在最终安装版本中实际可用。
+- 该最终轮次不是无异常样本：界面终态显示“已处理 4分1秒”及 `CodeM reported a warning`，没有展示最终回复正文。自己的 schema 13 历史记录可见一次 edit_file 成功、一次 read_files 回读和后续 assistant_text；Core 自检还根据同时变化的工作树插入了两条 synthetic 消息，模型明确保留其他任务修改。只能确认编辑、审批及 Diff 成功，不能由这些历史记录推断实时警告的具体原因或完整正常终态。Host 警告经过 SafeNotice 泛化，现有日志没有保留可定位的原因，未声称警告已解决。总耗时包含人工审批等待及 Core 自检，不能当作单次编辑性能。
+
+## 保留项与准出边界
+
+1. P1：最终轮次的通用警告及正文未显示。证据为最终原生界面与上述同会话历史不一致；可观察交付为同样的单文件批准操作正常显示回复和终态，或给出准确可操作的失败原因。限定 JetBrains 通知诊断、投影与终态展示，不改 Core 自检策略或其他任务文件；准出须由脱敏事件证据定位原因、相应正负向回归通过，再在同一个 IDEA 窗口复验。
+2. P2：独立 JCEF 页面刷新。当前只有 Ready 重放回归和完整 IDE 重启证据；原生界面未找到专用刷新入口，Cmd+R 未触发 Ready，不能算刷新成功。限定页面/Host 生命周期；准出是在待审批及已选择的问答页实际重建 JCEF 后，恢复当前合法状态、拒绝旧页提交且 Core 只收到一次完整回复。不为验收临时增加生产测试后门。
+
+本次已完成并验证的代码按独立边界提交，未 push。模拟界面和真实 VS Code 未单独运行；真实 IDEA 与显式真实 Core 分开留证。105 项默认回归覆盖失败、取消、非法输入及句柄/资源生命周期；这些测试不能替代上面两项尚未完成的原生证据。
