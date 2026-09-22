@@ -1,3 +1,4 @@
+import { ConversationSearch } from "../sessionHistory/conversationSearch.ts"
 import { type CatalogKind } from "@codem/protocol"
 import { attachmentScope, type PasteImagesAction } from "../shared/pastedImages.ts"
 import type { ActiveConversation, ConversationScope } from "../sessionHistory/activeConversation.ts"
@@ -27,7 +28,7 @@ import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type Ac
 import { HistoryListController } from "../sessionHistory/historyList.ts"
 import { historyTurnTimings, historyPlan } from "../sessionHistory/historyMessages.ts"
 import { stoppedTurnMessage } from "../shared/turnStatus.ts"
-import type { SessionHistoryReader } from "../sessionHistory/sessionHistory.ts"
+import type { SessionHistoryReader, SessionHistorySearcher } from "../sessionHistory/sessionHistory.ts"
 
 import { displayPath } from "../resources/filePresentation.ts"
 
@@ -43,6 +44,7 @@ export interface ChatSession {
   mcpServers: AppServerThreadSettings["mcpServers"]
   authorize: () => Promise<void>
   readHistory: SessionHistoryReader
+  searchHistory: SessionHistorySearcher
 }
 interface ActiveTurn {
   finalReplyId: string | null
@@ -105,11 +107,13 @@ export class ChatController {
   private readonly liveSnapshot: LiveSnapshotCatalog
   private readonly background: BackgroundTasks
 
+  private readonly conversationSearch: ConversationSearch
   private readonly historyList: HistoryListController
   private readonly conversationHistory: ConversationHistory
 
   constructor(options: ChatControllerOptions) {
     this.options = options
+    this.conversationSearch = new ConversationSearch(() => this.publish(), options.report)
     this.liveSnapshot = new LiveSnapshotCatalog(view => this.updateTools({ catalog: view, ...(view.loading || this.state.sessionTools.busy === "catalog:live" ? { busy: view.loading ? "catalog:live" : null } : {}) }), options.assertTrusted, options.report)
     this.conversationHistory = new ConversationHistory(options.report)
     this.background = new BackgroundTasks((snapshot, notice) => this.update({ ...snapshot, ...(notice ? { notice } : {}) }), options.assertTrusted, options.report)
@@ -123,7 +127,7 @@ export class ChatController {
     const pending = this.pendingSend?.message
     const messages = pending && !this.state.messages.some(message => message.id === pending.id)
       ? [...this.state.messages, pending] : this.state.messages
-    return structuredClone({ ...this.state, composerCatalog: this.session && this.state.phase !== "disconnected" ? this.composerCatalog.snapshot(this.settings.model, this.session.space.key) : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot() })
+    return structuredClone({ ...this.state, composerCatalog: this.session && this.state.phase !== "disconnected" ? this.composerCatalog.snapshot(this.settings.model, this.session.space.key) : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot() })
   }
 
   async assertContextWorkspace(path: string): Promise<void> {
@@ -342,6 +346,10 @@ export class ChatController {
       if (connecting && this.threadId !== null) {
         this.update({ notice: "已恢复上次会话，请确认聊天内容后再次发送；输入已保留。" })
         return false
+      }
+      if (this.conversationSearch.snapshot().historical) {
+        await this.loadHistoryPage(false)
+        if (this.conversationSearch.snapshot().historical || this.state.historyNeedsRefresh || this.pendingSend !== request || this.generation !== generation) return false
       }
       return await this.sendConnected(request.message)
     } finally {
@@ -808,7 +816,23 @@ export class ChatController {
   async loadOlderMessages(): Promise<void> { if (this.conversationHistory.hasOlder) await this.loadHistoryPage(true) }
   async reloadHistory(): Promise<void> { await this.loadHistoryPage(false) }
 
-  private async loadHistoryPage(append: boolean, terminalNotice: string | null = null): Promise<void> {
+  showConversationSearch(): void { if (this.threadId && this.state.phase === "ready") this.conversationSearch.open() }
+  closeConversationSearch(): void { this.conversationSearch.close() }
+  async searchConversation(query: string): Promise<void> {
+    const session = this.session, threadId = this.threadId
+    if (!session || !threadId || this.state.phase !== "ready" || this.state.sessionTools.busy || !query.trim() || query.trim().length > 512) return
+    await this.conversationSearch.search(session.searchHistory, threadId, query.trim(), () => {
+      this.options.assertTrusted()
+      if (this.session !== session || this.threadId !== threadId || this.state.phase !== "ready" || this.disposed) throw new Error("Search context expired")
+    })
+  }
+  async selectConversationSearchHit(id: string): Promise<void> {
+    const hit = this.conversationSearch.resolve(id)
+    if (hit) await this.loadHistoryPage(false, null, hit)
+  }
+
+
+  private async loadHistoryPage(append: boolean, terminalNotice: string | null = null, hit?: { cursor: string; messageId: string }): Promise<void> {
     const session = this.session
     const threadId = this.threadId
     if (!session || !threadId || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
@@ -818,11 +842,15 @@ export class ChatController {
       await this.conversationHistory.load(this.historyContext(session), threadId, append, page => {
         const messages = this.resources.projectHistory(threadId, page, session.cwd)
         if (append && messages.some(message => this.state.messages.some(old => old.id === message.id))) throw new Error("History page overlaps the current snapshot")
+        if (hit && !messages.some(message => message.id === hit.messageId)) throw new Error("Search target disappeared")
         const diffs = this.resources.restoreDiffs(session.cwd, page, !append, this.state.diffs)
         this.update({ capabilities: { ...this.state.capabilities, plan: append ? this.state.capabilities.plan : historyPlan(page) }, diffs, messages: append ? [...messages, ...this.state.messages] : messages, turnTimings: append ? [...historyTurnTimings(page), ...this.state.turnTimings] : historyTurnTimings(page), hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false })
-      })
+        if (hit) this.conversationSearch.selected(hit.messageId)
+        else if (!append) this.conversationSearch.latest()
+      }, hit?.cursor)
     } catch {
       if (this.session !== session || this.disposed) return
+      if (hit) this.conversationSearch.failed()
       this.update({ hasOlderMessages: false, historyNeedsRefresh: true, notice: "历史记录无法继续读取。当前内容已保留，请点击「重新加载记录」重试。" })
     } finally {
       if (this.session === session && !this.disposed && this.snapshot().phase === "loadingHistory") this.update({ phase: "ready" })
@@ -842,6 +870,7 @@ export class ChatController {
   }
 
   private invalidateHistory(): void {
+    this.conversationSearch.reset()
     const historyNeedsRefresh = this.state.historyNeedsRefresh || this.conversationHistory.hasOlder || this.state.messages.some(message => message.id.startsWith("history:"))
     this.conversationHistory.invalidate()
     this.update({ hasOlderMessages: false, historyNeedsRefresh })
@@ -1363,6 +1392,7 @@ export class ChatController {
   }
 
   private resetResources(preserveAttachments = false, releaseAfter: Promise<unknown> = Promise.resolve()): void {
+    this.conversationSearch.reset()
     this.liveSnapshot.clear()
     this.side = null; this.controlTurn = null; this.skillNames.clear()
     this.state = { ...this.state, capabilities: emptyCapabilities(), sessionTools: { ...emptySessionTools(), directories: this.state.sessionTools.directories } }

@@ -1,3 +1,4 @@
+import { ConversationSearch } from "./conversationSearch.tsx"
 import { useEffect, useRef, useState } from "react"
 import { MessageSquarePlusIcon, TerminalIcon, XIcon } from "lucide-react"
 import { Button } from "../components/ui/button.tsx"
@@ -325,6 +326,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
           <span className="statusDot" data-connected={connected ? "true" : "false"} title="连接状态" />
         </span>
         <div className="headerActions">
+          <ConversationSearch key={`${snapshot.workspace}:${snapshot.space}:${snapshot.threadId}`} snapshot={snapshot} post={post} />
           <ResourceTools snapshot={snapshot} post={post} />
           {isSignedIn(account) ? (
             <AccountTrigger
@@ -357,6 +359,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             <span id="loadingLabel">正在恢复会话记录…</span>
             <div className="loadingLines" aria-hidden="true"><i /><i /><i /></div>
           </section>
+          {snapshot.conversationSearch?.historical ? <div className="historyPaging"><span>正在查看搜索结果附近的历史消息</span><button type="button" className="textButton" disabled={busy} onClick={() => post({ type: "reloadHistory" })}>回到最新消息</button></div> : null}
           <HistoryPaging snapshot={snapshot} post={post} />
           <WelcomeView phase={snapshot.phase} hasMessages={!empty} hasWorkingStatus={activity !== null} brandMark={snapshot.brandMark} />
           <MessageList snapshot={snapshot} post={post} />

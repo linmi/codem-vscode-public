@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type ReactNode } from "react"
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react"
 import { CheckIcon, CopyIcon, FileDiffIcon } from "lucide-react"
 import { Button } from "../components/ui/button.tsx"
 import { elapsedTime, type ArtifactView, type ChatMessage, type ChatSnapshot, type DiffView } from "../contract.ts"
@@ -39,7 +39,7 @@ export function MessageList({
   const nodes: { key: string; node: ReactNode }[] = []
   for (const group of groups) {
     if (group.kind === "message") {
-      nodes.push({ key: group.message.id, node: <ChatMessageView message={group.message} post={post} /> })
+      nodes.push({ key: group.message.id, node: <ChatMessageView message={group.message} post={post} selected={snapshot.conversationSearch?.target === group.message.id} /> })
     } else {
       nodes.push({
         key: group.id,
@@ -73,13 +73,15 @@ export function MessageList({
   )
 }
 
-function ChatMessageView({ message, post }: { message: ChatMessage; post: (action: Record<string, unknown>) => void }) {
+function ChatMessageView({ message, post, selected }: { message: ChatMessage; post: (action: Record<string, unknown>) => void; selected: boolean }) {
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => { if (selected) ref.current?.scrollIntoView({ block: "center" }) }, [selected])
   if (message.role === "turnStatus") {
     return <div className="turnStatus"><p role="status" data-turn-id={message.turnId}>{message.text}</p></div>
   }
   if (message.role === "reasoning" || message.role === "tool") return <ActivityItem message={message} />
   return (
-    <article className="message" data-role={message.role} data-testid="chatMessage">
+    <article ref={ref} className={`message${selected ? " searchTarget" : ""}`} data-message-id={message.id} data-role={message.role} data-testid="chatMessage">
       <div className="messageLabel" hidden />
       {message.role === "user" ? <UserMessageBody text={message.text} /> : (
         <div className="messageBody chatMarkdown"><SafeMarkdown text={message.text} /></div>
@@ -144,7 +146,7 @@ function WorkGroup({
       </summary>
       <div className="workGroupContent">
         {work.map((message) => message.role === "assistant"
-          ? <ChatMessageView key={message.id} message={message} post={post} />
+          ? <ChatMessageView key={message.id} message={message} post={post} selected={false} />
           : <ActivityItem key={message.id} message={message} />)}
       </div>
     </details>

@@ -10,7 +10,7 @@ afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
 })
 const at = "2026-09-16T00:00:00Z"
-async function fixture() {
+async function fixture(turnCount = 3) {
   const sessionsRoot = await mkdtemp(join(tmpdir(), "codem-history-"))
   roots.push(sessionsRoot)
   const cwd = "/workspace",
@@ -29,7 +29,7 @@ async function fixture() {
       provider: "openai_compat",
     },
   ]
-  for (let i = 0; i < 3; i++)
+  for (let i = 0; i < turnCount; i++)
     records.push(
       { type: "user_invocation", at, submission_id: `s${i}`, input: { kind: "message", content: `question ${i}` } },
       { type: "turn_request", at, turn_index: i, model: "codem-router/auto" },
@@ -221,4 +221,45 @@ it("returns the current durable task snapshot even when task creation is outside
   f.records.push({ type: "todo_list_reset", reset_at_ms: time + 2, new_summary: null })
   await f.save()
   assert.deepEqual((await readSessionHistory(f.options)).todoSnapshot?.items, [])
+})
+
+it("searches unloaded message bodies with bounded excerpts and revision-bound jump cursors", async () => {
+  const { searchSessionHistory } = await import("../src/index.ts")
+  const f = await fixture()
+  const result = await searchSessionHistory({ ...f.options, query: "first line" })
+  assert.equal(result.hits.length, 1)
+  assert.equal(result.hits[0]!.role, "assistant")
+  assert.match(result.hits[0]!.excerpt, /FIRST LINE/)
+  const page = await readSessionHistory({ ...f.options, cursor: result.hits[0]!.cursor })
+  assert.equal(page.turns.at(-1)!.turn.index, 0)
+  assert.equal((await searchSessionHistory({ ...f.options, query: "hidden reminder" })).hits.length, 0)
+  assert.equal((await searchSessionHistory({ ...f.options, query: "accepted" })).hits.length, 0)
+  assert.equal((await searchSessionHistory({ ...f.options, query: "question" })).hits.length, 3)
+  await assert.rejects(searchSessionHistory({ ...f.options, query: " " }), /query/)
+  await assert.rejects(searchSessionHistory({ ...f.options, query: "x".repeat(513) }), /query/)
+  await assert.rejects(searchSessionHistory({ ...f.options, query: "question", cwd: "/other" }))
+  const abort = new AbortController(); abort.abort()
+  await assert.rejects(searchSessionHistory({ ...f.options, query: "question", signal: abort.signal }), /abort/i)
+  await appendFile(f.path, '\n')
+  await assert.rejects(readSessionHistory({ ...f.options, cursor: result.hits[0]!.cursor }), /changed/)
+})
+
+it("search rejects corrupt or symlinked history instead of returning partial matches", async () => {
+  const { searchSessionHistory } = await import("../src/index.ts")
+  const f = await fixture()
+  f.records.push({ type: "assistant_text", at, text: "invalid sequence", record_seq: 1 })
+  await writeFile(f.path, f.records.map((r, i) => JSON.stringify({ record_seq: i + 1, ...r })).join('\n') + '\n')
+  await assert.rejects(searchSessionHistory({ ...f.options, query: "question" }))
+  await f.save()
+  await rename(f.path, `${f.path}.moved`); await symlink(`${f.path}.moved`, f.path)
+  await assert.rejects(searchSessionHistory({ ...f.options, query: "question" }), /symbolic/)
+})
+
+it("bounds search results while validating the entire history", async () => {
+  const { searchSessionHistory } = await import("../src/index.ts")
+  const f = await fixture(205)
+  const result = await searchSessionHistory({ ...f.options, query: "question" })
+  assert.equal(result.hits.length, 200)
+  assert.equal(result.truncated, true)
+  assert.equal(result.hits[0]!.role, "user")
 })

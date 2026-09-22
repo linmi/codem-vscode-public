@@ -1,4 +1,4 @@
-import { readSessionHistory, type SessionHistoryPage } from "@codem/history"
+import { readSessionHistory, searchSessionHistory, type SessionSearchResult, type SessionHistoryPage } from "@codem/history"
 
 export type SessionHistoryReader = (threadId: string, cursor: string | undefined, signal: AbortSignal) => Promise<SessionHistoryPage>
 
@@ -13,5 +13,15 @@ export function createSessionHistoryReader(options: {
     await options.authorize()
     signal.throwIfAborted()
     return readSessionHistory({ sessionsRoot: options.sessionsRoot, cwd: options.cwd, threadId, cursor, signal, limit: 30 })
+  }
+}
+
+export type SessionHistorySearcher = (threadId: string, query: string, signal: AbortSignal) => Promise<SessionSearchResult>
+export function createSessionHistorySearcher(options: { cwd: string; sessionsRoot: string; authorize: () => Promise<void> }): SessionHistorySearcher {
+  return async (threadId, query, signal) => {
+    signal.throwIfAborted()
+    await options.authorize()
+    signal.throwIfAborted()
+    return searchSessionHistory({ ...options, threadId, query, signal })
   }
 }

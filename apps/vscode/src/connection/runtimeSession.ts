@@ -3,7 +3,7 @@ import * as vscode from "vscode"
 import { realpath } from "node:fs/promises"
 import { AppServerHost, assertAppServerAuthenticated, listAppServerSpaces, prepareAppServerSpace, prepareInitialAppServerSpace, readAppServerAuthStatus, resolveBundledAppServerRuntime, type AppServerAuthStatus } from "@codem/app-server"
 import { resolveSessionsRoot } from "@codem/history"
-import { createSessionHistoryReader } from "../sessionHistory/sessionHistory.ts"
+import { createSessionHistoryReader, createSessionHistorySearcher } from "../sessionHistory/sessionHistory.ts"
 import { type ChatSession } from "../chat/chatController.ts"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
 
@@ -67,6 +67,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   // Reuse only the authentication already verified within this startup transaction.
   // Later reconnects and operations always call authorize again.
   let starting = true
+  const searchHistory = createSessionHistorySearcher({ cwd, sessionsRoot: resolveSessionsRoot(process.env), authorize })
   const readHistory = createSessionHistoryReader({ cwd, sessionsRoot: resolveSessionsRoot(process.env), authorize })
   const host = new AppServerHost({
     runtime,
@@ -84,7 +85,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
     if (!catalog.models.some((model) => model.id === catalog.activeModel)) throw new UserVisibleError("Core 没有返回可用的当前模型。")
     assertTrusted()
     signal.throwIfAborted()
-    return { host, cwd, authorize, readHistory, workspace: folder.name, space: { key, name: space.displayName }, spaceDirectory: directory, model: catalog.activeModel, models: catalog.models, mcpServers: [] }
+    return { host, cwd, authorize, readHistory, searchHistory, workspace: folder.name, space: { key, name: space.displayName }, spaceDirectory: directory, model: catalog.activeModel, models: catalog.models, mcpServers: [] }
   } catch (error) {
     await host.close()
     throw error

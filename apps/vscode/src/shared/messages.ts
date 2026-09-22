@@ -1,3 +1,4 @@
+import type { ConversationSearchView } from "@codem/protocol"
 import { parsePastedImages, type PasteImagesAction } from "./pastedImages.ts"
 import { MAX_PINNED_CODE_SELECTIONS } from "./editorContext.ts"
 import { CODEM_DEFAULT_INTELLIGENCE, parseCodemIntelligence, parseCodemPermissionMode, type CodemBuiltinIntelligence } from "@codem/protocol"
@@ -7,13 +8,14 @@ import { parsePanelReply, type PanelReply } from "./panelTypes.ts"
 import { emptyHistoryList, type HistoryAction, type HistoryList } from "./historyTypes.ts"
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
-const simpleActions = ["showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground", "pinSelection"] as const
-const handleActions = ["chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask", "removeCodeSelection", "revealCodeSelection", "pinCodeSelection"] as const
+const simpleActions = ["showConversationSearch", "closeConversationSearch", "showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground", "pinSelection"] as const
+const handleActions = ["selectConversationSearchHit", "chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask", "removeCodeSelection", "revealCodeSelection", "pinCodeSelection"] as const
 export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" } }
 export interface CodeSelectionView { id: string; label: string; path: string; startLine: number; endLine: number; error: string | null }
 export interface CodeSelectionsView { current: CodeSelectionView | null; pinned: readonly CodeSelectionView[] }
 export type EditorMessage = { type: "codeSelection"; value: CodeSelectionsView } | { type: "composerDraft"; value: ComposerDraft; focus: boolean; pendingRequestId: string | null } | { type: "appendContext"; id: string; text: string } | { type: "focusComposer" } | { type: "editorSettings"; sendKey: string }
 export type ViewAction =
+  | { type: "searchConversation"; query: string }
   | PasteImagesAction
   | ComposerSettingAction
   | { type: "pickAttachment"; kind: "file" | "directory" }
@@ -66,6 +68,7 @@ export function parseViewAction(value: unknown): ViewAction {
   if (record.type === "panelReply") return parsePanelReply(record)
   const capability = parseCapabilityAction(record)
   if (capability) return capability
+  if (record.type === "searchConversation" && Object.keys(record).length === 2 && typeof record.query === "string" && record.query.trim() && record.query.length <= 512) return { type: "searchConversation", query: record.query }
   const keys = Object.keys(record)
   if (keys.length === 3 && typeof record.requestId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.requestId)) {
     if (record.type === "searchFiles" && typeof record.query === "string" && record.query.length <= 200 && ![...record.query].some(character => character.charCodeAt(0) < 32)) return { type: "searchFiles", query: record.query, requestId: record.requestId }
@@ -100,6 +103,7 @@ export type ActivityMessage = MessageContent & { role: "reasoning" | "tool"; sta
 export type TurnStatusMessage = MessageContent & { role: "turnStatus"; turnId: string; outcome: "stopped" }
 export type ChatMessage = (MessageContent & { role: "user" | "assistant"; attachments?: readonly AttachmentView[] }) | ActivityMessage | TurnStatusMessage
 export interface ChatSnapshot {
+  conversationSearch: ConversationSearchView
   composerCatalog: ComposerCatalog
   capabilities: CapabilityState
   sessionTools: SessionToolsState
@@ -127,7 +131,7 @@ export interface ChatSnapshot {
   historyNeedsRefresh: boolean
 }
 export function initialSnapshot(): ChatSnapshot {
-  return { composerCatalog: { models: [], spaces: [] }, capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
+  return { conversationSearch: { open: false, status: "idle", query: "", hits: [], truncated: false, error: null, target: null, historical: false }, composerCatalog: { models: [], spaces: [] }, capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
 }
 export function isBusy(phase: ChatPhase): boolean {
   return phase !== "ready" && phase !== "disconnected"

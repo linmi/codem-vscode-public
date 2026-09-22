@@ -1,3 +1,4 @@
+import { conversationSearchPreview } from "./preview/conversationSearchPreview.ts"
 import { initialSnapshot } from "./contract.ts"
 import { createPreviewSnapshot, markdownPreviewMessages, markdownPreviewText, mountPreview, workPreviewMessages, type PreviewHostKind } from "./previewHost.ts"
 
@@ -55,7 +56,11 @@ if (label) label.textContent = hostKind === "vscode" ? "VS Code 预览宿主" : 
 
 const root = document.getElementById("codem-root")
 if (root) {
-  const mounted = mountPreview(root, hostKind, snapshot)
+  let onAction: ((action: Record<string, unknown>) => void) | undefined
+  let starting = snapshot
+  let mounted: ReturnType<typeof mountPreview> | undefined
+  if (scene === "search") onAction = conversationSearchPreview(next => { starting = next; mounted?.host.publish(next) }, snapshot)
+  mounted = mountPreview(root, hostKind, starting, action => onAction?.(action))
   // 预览未完成轮次：只推进 assistantText，不另建 transcript 存储。
   if (scene === "streaming") {
     const chunks = ["先看 ", "**重点**", "：\n\n- 列表项\n\n```ts\nconst ready", " = true\n```\n\n", markdownPreviewText.slice(markdownPreviewText.indexOf("<script>"))]
@@ -67,7 +72,7 @@ if (root) {
         return
       }
       text += chunks[index++]
-      mounted.host.publish({ ...snapshot, phase: "running", assistantText: text })
+      mounted!.host.publish({ ...snapshot, phase: "running", assistantText: text })
     }, 200)
   }
 }

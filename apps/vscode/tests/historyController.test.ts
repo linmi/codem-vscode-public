@@ -37,7 +37,7 @@ function setup(activeConversation?: ActiveConversation) {
     async cancelBackgroundTask() { return "cancelled" },
     async interruptTurn() {}, async respondToInteraction() {}, async close() {},
   }
-  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { assert.ok(trusted) }, readHistory: async (_id, cursor) => { read.push(cursor); return cursor ? page(0, null) : page(1, "older") } }
+  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { assert.ok(trusted) }, searchHistory: async () => ({ hits: [], truncated: false }), readHistory: async (_id, cursor) => { read.push(cursor); return cursor ? page(0, null) : page(1, "older") } }
   const snapshots: ReturnType<ChatController["snapshot"]>[] = []
   const chat = new ChatController({ activeConversation, connect: async () => session, assertTrusted() { assert.ok(trusted) }, publish(state) { snapshots.push(state) }, interact: async () => null, report() {} })
   return { chat, host, session, snapshots, resumed, released, sent, read, starts: () => starts, untrust: () => { trusted = false }, emit: (event: AppServerHostEvent) => listener(event) }
@@ -508,4 +508,70 @@ it("restores current tasks from history, keeps them on pagination/read failure a
   f.session.readHistory = read
   await f.chat.showHistory(); await f.chat.resumeThread("history-2")
   assert.deepEqual(f.chat.snapshot().capabilities.plan, [])
+})
+
+it("search opens an unloaded hit, preserves paging and restores latest before sending", async () => {
+  const f = setup()
+  f.session.searchHistory = async () => ({ hits: [{ messageId: "history:history-1:0:answer-0", role: "assistant", excerpt: "answer 0", cursor: "older" }], truncated: false })
+  try {
+    await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    f.chat.showConversationSearch()
+    await f.chat.searchConversation("answer")
+    const hit = f.chat.snapshot().conversationSearch.hits[0]!
+    assert.ok(hit.id); assert.ok(!JSON.stringify(hit).includes("cursor"))
+    await f.chat.selectConversationSearchHit("unknown")
+    assert.equal(f.chat.snapshot().conversationSearch.historical, false)
+    await f.chat.selectConversationSearchHit(hit.id)
+    assert.equal(f.chat.snapshot().conversationSearch.historical, true)
+    assert.equal(f.chat.snapshot().conversationSearch.open, false)
+    assert.equal(f.chat.snapshot().conversationSearch.target, "history:history-1:0:answer-0")
+    assert.ok(f.chat.snapshot().messages.some(m => m.text === "answer 0"))
+    assert.equal(await f.chat.send("continue"), true)
+    assert.ok(f.chat.snapshot().messages.some(m => m.text === "answer 1"))
+    assert.deepEqual(f.sent, ["history-1"])
+  } finally { await f.chat.dispose() }
+})
+
+it("search results cannot outlive cancellation, replacement or conversation switches", async () => {
+  const f = setup()
+  const pending: (() => void)[] = []
+  const signals: AbortSignal[] = []
+  f.session.searchHistory = async (_id, query, signal) => {
+    signals.push(signal)
+    await new Promise<void>(resolve => pending.push(resolve))
+    return { hits: [{ messageId: "history:history-1:0:answer-0", role: "assistant", excerpt: query, cursor: "older" }], truncated: false }
+  }
+  try {
+    await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    const first = f.chat.searchConversation("first"), second = f.chat.searchConversation("second")
+    assert.equal(signals[0]!.aborted, true)
+    pending[1]!(); await second; pending[0]!(); await first
+    assert.equal(f.chat.snapshot().conversationSearch.hits[0]!.excerpt, "second")
+    const closed = f.chat.searchConversation("closed"); f.chat.closeConversationSearch()
+    pending[2]!(); await closed
+    assert.equal(f.chat.snapshot().conversationSearch.open, false)
+    assert.equal(f.chat.snapshot().conversationSearch.hits.length, 0)
+    const switched = f.chat.searchConversation("switched"); await f.chat.newChat()
+    pending[3]!(); await switched
+    assert.equal(f.chat.snapshot().conversationSearch.hits.length, 0)
+    assert.equal(f.chat.snapshot().conversationSearch.open, false)
+  } finally { pending.forEach(resolve => resolve()); await f.chat.dispose() }
+})
+
+it("failed search and stale hit keep the displayed history and allow retry", async () => {
+  const f = setup()
+  try {
+    await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    f.session.searchHistory = async () => { throw new Error("corrupt") }
+    await f.chat.searchConversation("answer")
+    assert.equal(f.chat.snapshot().conversationSearch.status, "error")
+    const before = f.chat.snapshot().messages
+    f.session.searchHistory = async () => ({ hits: [{ messageId: "history:history-1:0:answer-0", role: "assistant", excerpt: "answer", cursor: "stale" }], truncated: false })
+    await f.chat.searchConversation("answer")
+    f.session.readHistory = async () => { throw new Error("revision changed") }
+    await f.chat.selectConversationSearchHit(f.chat.snapshot().conversationSearch.hits[0]!.id)
+    assert.deepEqual(f.chat.snapshot().messages, before)
+    assert.equal(f.chat.snapshot().conversationSearch.status, "error")
+    assert.equal(f.chat.snapshot().phase, "ready")
+  } finally { await f.chat.dispose() }
 })

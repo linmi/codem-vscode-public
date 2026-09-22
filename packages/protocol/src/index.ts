@@ -213,3 +213,4 @@ export interface CodemLiveUsageSnapshot {
 export type CodemCommandResult<T extends object> = T | { readonly error: string }
 
 export { catalogKinds, type CatalogKind } from "./catalog.ts"
+export type { ConversationSearchView } from "./conversationSearch.ts"

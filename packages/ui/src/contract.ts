@@ -1,3 +1,4 @@
+import type { ConversationSearchView } from "@codem/protocol"
 import { catalogKinds, type CatalogKind } from "@codem/protocol"
 /**
  * Cycle 3：双宿主正式聊天壳。
@@ -260,6 +261,7 @@ export interface SlashCommand {
 }
 
 export interface ChatSnapshot {
+  conversationSearch: ConversationSearchView | null
   type: "state"
   phase: ChatPhase
   workspace: string | null
@@ -390,6 +392,7 @@ export function initialSnapshot(): ChatSnapshot {
     canRetry: false,
     canResume: false,
     canLoadOlder: false,
+    conversationSearch: null,
     hasOlderMessages: false,
     historyNeedsRefresh: false,
     composerCatalog: { models: [], spaces: [] },
@@ -435,6 +438,7 @@ export function parseTheme(value: unknown): ChatTheme {
 }
 
 const simpleActions = [
+  "showConversationSearch", "closeConversationSearch",
   "ready",
   "connect",
   "signIn",
@@ -461,6 +465,7 @@ const simpleActions = [
 ] as const
 
 const handleActions = [
+  "selectConversationSearchHit",
   "chooseModel",
   "chooseSpace",
   "openDiff",
@@ -520,6 +525,7 @@ function optionalIds(value: unknown): readonly string[] | undefined {
 export function parseUiAction(value: unknown): Record<string, unknown> {
   const record = asRecord(value)
   const keys = Object.keys(record)
+  if (record.type === "searchConversation" && keys.length === 2 && typeof record.query === "string" && record.query.trim() && record.query.length <= 512) return { type: "searchConversation", query: record.query }
   if (record.type === "send") {
     const selectionIds = optionalIds(record.selectionIds)
     const attachmentIds = optionalIds(record.attachmentIds)
@@ -1189,6 +1195,7 @@ export function asSnapshot(value: unknown): ChatSnapshot | null {
     canRetry: record.canRetry === true,
     canResume: record.canResume === true,
     canLoadOlder: record.canLoadOlder === true,
+    conversationSearch: normalizeConversationSearch(record.conversationSearch),
     hasOlderMessages: record.hasOlderMessages === true,
     historyNeedsRefresh: record.historyNeedsRefresh === true,
     composerCatalog: {
@@ -1222,4 +1229,16 @@ export function elapsedTime(timing: TurnTiming, now: number): string {
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) return `${minutes}分${seconds % 60}秒`
   return `${Math.floor(minutes / 60)}小时${minutes % 60}分`
+}
+
+function normalizeConversationSearch(value: unknown): ConversationSearchView | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const row = value as ConversationSearchView
+  if (!["idle", "loading", "ready", "error"].includes(row.status) || typeof row.query !== "string" || !Array.isArray(row.hits)) return null
+  return {
+    open: row.open === true, status: row.status, query: row.query.slice(0, 512),
+    hits: row.hits.slice(0, 200).flatMap(hit => hit && typeof hit.id === "string" && handlePattern.test(hit.id) && (hit.role === "user" || hit.role === "assistant") && typeof hit.excerpt === "string" ? [{ id: hit.id, role: hit.role, excerpt: hit.excerpt.slice(0, 800) }] : []),
+    truncated: row.truncated === true, error: typeof row.error === "string" ? row.error.slice(0, 500) : null,
+    target: typeof row.target === "string" ? row.target.slice(0, 500) : null, historical: row.historical === true,
+  }
 }

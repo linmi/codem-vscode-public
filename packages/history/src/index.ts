@@ -1,3 +1,5 @@
+import type { SessionSearchHit, SessionSearchResult } from "./search/searchTypes.ts"
+export type { SessionSearchHit, SessionSearchResult } from "./search/searchTypes.ts"
 export type { ConversationAttachment } from "./shared/session/attachment.ts"
 export { readSessionImage } from "./sessionImage.ts"
 import { createHash } from "node:crypto"
@@ -33,14 +35,28 @@ export function resolveSessionsRoot(environment: NodeJS.ProcessEnv, home = homed
 }
 
 /** The shared reducer owns record semantics. This host boundary owns paths and viewport pagination. */
-export async function readSessionHistory(options: {
+interface HistoryReadOptions {
   readonly sessionsRoot: string
   readonly cwd: string
   readonly threadId: string
   readonly limit?: number
   readonly cursor?: string
   readonly signal?: AbortSignal
-}): Promise<SessionHistoryPage> {
+}
+export async function readSessionHistory(options: HistoryReadOptions): Promise<SessionHistoryPage> {
+  return replayHistory(options)
+}
+
+/** Searches rendered user/assistant text, including unloaded turns; never raw records or hidden prompts. */
+export async function searchSessionHistory(options: Omit<HistoryReadOptions, "cursor" | "limit"> & { query: string }): Promise<SessionSearchResult> {
+  const query = options.query.trim()
+  if (!query || query.length > 512) throw new Error("History search query must contain 1–512 characters")
+  const result: { hits: SessionSearchHit[]; truncated: boolean } = { hits: [], truncated: false }
+  await replayHistory(options, { query: query.toLowerCase(), result })
+  return result
+}
+
+async function replayHistory(options: HistoryReadOptions, search?: { query: string; result: { hits: SessionSearchHit[]; truncated: boolean } }): Promise<SessionHistoryPage> {
   const { cwd, threadId, signal } = options
   signal?.throwIfAborted()
   assertValidCodeMSessionId(threadId)
@@ -78,7 +94,25 @@ export async function readSessionHistory(options: {
           )
         submissions.add(submission.submissionId)
       }
-      if (count++ >= end) return
+      const ordinal = count++
+      if (search) {
+        for (const item of turn.items) {
+          if (item.kind !== "message") continue
+          const index = item.text.toLowerCase().indexOf(search.query)
+          if (index < 0) continue
+          if (search.result.hits.length === 200) { search.result.truncated = true; continue }
+          const from = Math.max(0, index - 70)
+          const to = Math.min(item.text.length, index + search.query.length + 100)
+          search.result.hits.push({
+            messageId: `history:${threadId}:${turn.index}:${item.id}`,
+            cursor: `${revision}:${ordinal + 1}`,
+            role: item.role,
+            excerpt: `${from ? "…" : ""}${item.text.slice(from, to)}${to < item.text.length ? "…" : ""}`,
+          })
+        }
+        return
+      }
+      if (ordinal >= end) return
       turns.push({ turn, submissionId: submission.source === "user-invocation" ? submission.submissionId : null })
       if (turns.length > limit) turns.shift()
     },

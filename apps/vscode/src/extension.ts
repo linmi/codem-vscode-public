@@ -122,6 +122,10 @@ export function activate(context: vscode.ExtensionContext): void {
       case "signIn": await account.login(); break
       case "cancelSignIn": account.cancel(); break
       case "refreshAccount": await account.refresh(); break
+      case "showConversationSearch": chat.showConversationSearch(); break
+      case "closeConversationSearch": chat.closeConversationSearch(); break
+      case "searchConversation": await chat.searchConversation(action.query); break
+      case "selectConversationSearchHit": await chat.selectConversationSearchHit(action.id); break
       case "showHistory": await chat.showHistory(); break
       case "closeHistory": chat.closeHistory(); break
       case "refreshHistory": await chat.refreshHistory(); break

@@ -247,3 +247,13 @@ describe("@codem/ui host contract", () => {
     assert.equal(initialSnapshot().account.status, "checking")
   })
 })
+
+it("accepts bounded body search intents and hides unsupported search before host state", () => {
+  assert.equal(initialSnapshot().conversationSearch, null)
+  for (const type of ["showConversationSearch", "closeConversationSearch"]) assert.deepEqual(parseUiAction({ type }), { type })
+  assert.deepEqual(parseUiAction({ type: "searchConversation", query: "needle" }), { type: "searchConversation", query: "needle" })
+  assert.throws(() => parseUiAction({ type: "searchConversation", query: " " }))
+  assert.throws(() => parseUiAction({ type: "searchConversation", query: "x".repeat(513) }))
+  assert.throws(() => parseUiAction({ type: "searchConversation", query: "needle", path: "/secret" }))
+  assert.throws(() => parseUiAction({ type: "selectConversationSearchHit", id: "../secret" }))
+})

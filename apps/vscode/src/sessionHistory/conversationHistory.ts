@@ -90,8 +90,8 @@ export class ConversationHistory {
     }
   }
 
-  async load(context: HistoryContext, threadId: string, append: boolean, accept: (page: SessionHistoryPage) => void): Promise<void> {
-    const cursor = append ? this.cursor ?? undefined : undefined
+  async load(context: HistoryContext, threadId: string, append: boolean, accept: (page: SessionHistoryPage) => void, targetCursor?: string): Promise<void> {
+    const cursor = targetCursor ?? (append ? this.cursor ?? undefined : undefined)
     const operation = this.begin(null)
     try {
       context.assertCurrent()

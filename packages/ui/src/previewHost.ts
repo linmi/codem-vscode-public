@@ -128,8 +128,8 @@ export function createPreviewHost(kind: PreviewHostKind, snapshot: ChatSnapshot,
   }
 }
 
-export function mountPreview(root: HTMLElement, kind: PreviewHostKind, snapshot: ChatSnapshot): { host: ReturnType<typeof createPreviewHost>; dispose: () => void } {
-  const host = createPreviewHost(kind, { ...snapshot, theme: snapshot.theme })
+export function mountPreview(root: HTMLElement, kind: PreviewHostKind, snapshot: ChatSnapshot, onAction?: (action: Record<string, unknown>) => void): { host: ReturnType<typeof createPreviewHost>; dispose: () => void } {
+  const host = createPreviewHost(kind, { ...snapshot, theme: snapshot.theme }, onAction)
   const handle = mountCodemUi(root, host)
   root.dataset.previewHost = kind
   return { host, dispose: () => handle.dispose() }

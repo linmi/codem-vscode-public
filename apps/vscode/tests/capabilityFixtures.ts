@@ -23,7 +23,7 @@ export function capabilityFixture() {
     async startTurn(input) { turn++; listener({ type: "turn-started", threadId: "thread-1", turnId: `turn-${turn}`, submissionId: input.submissionId }); return `turn-${turn}` },
     async interruptTurn() {}, async unsubscribeThread() {}, async respondToInteraction() {}, async close() {},
   }
-  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { calls.push("authorize") }, readHistory: async () => ({ todoSnapshot: null, turns: [], nextCursor: null }) }
+  const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { calls.push("authorize") }, searchHistory: async () => ({ hits: [], truncated: false }), readHistory: async () => ({ todoSnapshot: null, turns: [], nextCursor: null }) }
   const controller = new ChatController({ connect: async () => session, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   const emit = (event: AppServerHostEvent) => listener(event)
   const finish = () => emit({ type: "turn-completed", threadId: "thread-1", turnId: `turn-${turn}`, outcome: "completed", stopReason: "end", error: null })

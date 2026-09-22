@@ -17,3 +17,10 @@
 .historySearch { width: 100%; margin: 8px 0 2px; padding: 7px 8px; font: 500 var(--uiFontSize) var(--uiFont); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .historySearch:focus-visible { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 1px; }
 .historyDay { padding: 12px 8px 4px; font-size: var(--captionFontSize); color: var(--muted); }
+.conversationSearchDialog { max-height: min(640px, calc(100vh - 32px)); display: flex; flex-direction: column; }
+.conversationSearchDialog form { display: flex; gap: 8px; }
+.conversationSearchResults { min-height: 0; overflow: auto; list-style: none; padding: 0; margin: 0; }
+.conversationSearchResults button { width: 100%; height: auto; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; align-items: start; flex-direction: column; padding: 10px; }
+.conversationSearchResults button > span:first-child { color: var(--muted); }
+.conversationSearchResults mark { background: var(--vscode-editor-findMatchHighlightBackground, #e5b90055); color: inherit; }
+.message.searchTarget { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 4px; border-radius: 6px; }
