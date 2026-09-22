@@ -318,7 +318,10 @@ it("background processes use host-owned IDs and logs, with task cancellation sep
   await fixture.controller.connect(); await fixture.controller.send("first")
   await fixture.controller.refreshBackground()
   const row = fixture.controller.snapshot().background[0]!
-  assert.doesNotMatch(JSON.stringify(fixture.controller.snapshot()), /4321|\/private/)
+  assert.notEqual(row.id, "4321")
+  assert.deepEqual(Object.keys(row).sort(), ["id", "inProgress", "label"])
+  assert.equal(row.label, "后台进程 1")
+  assert.doesNotMatch(JSON.stringify(fixture.controller.snapshot()), /"processId"|\/private/)
   let terminated = 0
   fixture.host.terminateBackgroundTerminal = async (_cwd, thread, pid) => { assert.equal(thread, "thread-1"); assert.equal(pid, 4321); terminated++ }
   await fixture.controller.terminateBackground("4321")
