@@ -1,0 +1,101 @@
+/* Reading navigation, API reference and coverage surfaces. */
+.searchField { display: flex; position: relative; align-items: center; width: 100%; min-width: 0; }
+.searchField > svg { position: absolute; left: 10px; color: #81798e; pointer-events: none; }
+.searchField [data-slot="input"] { padding-left: 33px; background: #fff; border-color: #e4dfea; font-size: 13px; box-shadow: none; height: 36px; }
+.sidebarSearch { margin: 0 0 20px; }
+.searchResultCount { font-size: 12px; color: #7b7289; margin: -9px 8px 15px; }
+.navEmpty { padding: 8px 0 20px; font-size: 13px; color: #736b80; }
+.coverageRibbon { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 20px; padding: 12px 14px; border: 1px solid #e6dff1; border-radius: 7px; font-size: 12px; color: #766187; background: #fbf9fe; }
+.coverageRibbon > span { display: inline-flex; gap: 7px; align-items: center; }
+.coverageRibbon > span:last-child { white-space: nowrap; }
+.coverageRibbon svg { flex-shrink: 0; }
+.pageContents { padding: 18px 20px; margin: 24px 0 8px; border: 1px solid #e9e5ee; background: #fcfbfe; border-radius: 8px; }
+.pageContents > span { display: block; font-size: 12px; font-weight: 600; color: #81748f; margin-bottom: 11px; }
+.pageContents > div { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); column-gap: 20px; row-gap: 7px; }
+.pageContents a { display: flex; align-items: baseline; gap: 9px; font-size: 13px; color: #686071; padding: 4px 0; line-height: 1.6; }
+.pageContents a > span { font: 11px ui-monospace, monospace; color: #a194ad; }
+.pageContents a svg { margin-left: auto; flex-shrink: 0; align-self: center; }
+.pageContents a:hover { color: #64428d; }
+.tableScroll { overflow-x: auto; border: 1px solid #e6e0ee; border-radius: 8px; margin: 20px 0; }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; line-height: 1.8; }
+th { background: #f7f4fa; color: #61536f; font-weight: 550; padding: 12px 16px; border-bottom: 1px solid #e6e0ee; white-space: nowrap; }
+td { color: #6c627a; padding: 13px 16px; vertical-align: top; border-bottom: 1px solid #ede8f2; overflow-wrap: anywhere; }
+tr:last-child td { border-bottom: none; }
+td:first-child { color: #483955; }
+td a { display: inline-flex; align-items: center; gap: 5px; }
+td a:hover { color: #7552a0; }
+.callout { padding: 17px 20px; margin: 22px 0; border-left: 3px solid #b29dce; background: #f8f5fc; border-radius: 0 7px 7px 0; }
+.callout strong { font-size: 14px; font-weight: 600; color: #6c4e8b; }
+.callout p { margin: 6px 0 0; font-size: 14px; line-height: 1.9; color: #7a698a; }
+.referenceBody { padding-top: 26px; }
+.referenceToolbar { display: flex; align-items: center; gap: 15px; }
+.referenceToolbar .searchField { max-width: 350px; }
+.referenceToolbar > span { font-size: 12px; white-space: nowrap; color: #80738d; }
+.referenceHint { color: #85788f; line-height: 1.9; font-size: 13px; margin: 15px 0 22px; }
+.apiList { display: grid; gap: 16px; }
+.apiCard { padding: 23px; border: 1px solid #e7e1ee; border-radius: 9px; }
+.apiTitle { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.apiTitle h2 { margin: 0; font: 600 16px ui-monospace, SFMono-Regular, monospace; color: #554366; overflow-wrap: anywhere; }
+.evidenceBadge { padding: 3px 7px; border: 1px solid #e5e1e9; border-radius: 4px; white-space: nowrap; color: #8e8199; font-size: 11px; }
+.evidenceBadge.hasExample { color: #756086; background: #f7f3fb; border-color: #e9dff2; }
+.apiCard > p { font-size: 14px; color: #6a5c78; line-height: 1.9; margin: 14px 0; }
+.signature { display: block; padding: 13px 15px; border-radius: 6px; color: #715688; background: #f8f6fa; font: 12px/1.9 ui-monospace, monospace; overflow-wrap: anywhere; }
+.apiCard > .apiBoundary { font-size: 13px; color: #84728e; }
+.apiLinks { display: flex; gap: 22px; flex-wrap: wrap; border-top: 1px dashed #e9e1f0; padding-top: 14px; }
+.apiLinks a { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #775693; }
+.emptyState { padding: 60px 20px; text-align: center; border: 1px dashed #e4dceb; border-radius: 8px; color: #8a769d; }
+.emptyState > svg { margin: 0 auto 15px; }
+.emptyState h2 { font-size: 18px; }
+.emptyState p { font-size: 14px; margin: 12px 0 20px; }
+.eventRow { padding: 24px 0; border-bottom: 1px solid #e9e4ee; }
+.eventRow h2 { font-size: 15px; color: #654c7d; font-weight: 550; }
+.eventRow p { font-size: 15px; line-height: 1.85; color: #6f607b; margin: 10px 0; }
+.eventRow > div { display: flex; gap: 12px; align-items: baseline; }
+.eventRow > div > span { font-size: 11px; white-space: nowrap; color: #9a88a7; }
+.eventRow > div > code { font-size: 12px; line-height: 1.8; color: #887292; overflow-wrap: anywhere; }
+.coverageSummary h2 { margin: 19px 0 10px; font-size: 25px; font-weight: 600; color: #46354f; }
+.coverageSummary p, .coverageSection > p { font-size: 15px; color: #76677e; line-height: 1.9; margin: 12px 0; }
+.coverageStats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border: 1px solid #e6dcec; border-radius: 8px; margin: 24px 0 32px; background: #fcfaff; }
+.coverageStats > div { padding: 24px 18px; border-right: 1px solid #e9e0f0; }
+.coverageStats > div:last-child { border: none; }
+.coverageStats strong { display: block; font-size: 32px; color: #61437e; font-weight: 550; line-height: 1.3; }
+.coverageStats small { font-size: 15px; color: #a18bad; font-weight: 400; }
+.coverageStats span { display: block; margin-top: 8px; font-size: 12px; color: #82708e; }
+.coverageSection { margin: 30px 0; }
+.coverageSection > h2 { font-size: 19px; font-weight: 600; color: #5c436c; margin-bottom: 15px; }
+.coverageSection > p > code { font-size: .87em; color: #765a8d; overflow-wrap: anywhere; }
+.gapList { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.gapList a { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; font-size: 11px; border: 1px solid #e7ddee; border-radius: 5px; color: #856992; max-width: 100%; overflow-wrap: anywhere; }
+.verificationRows > div { display: flex; gap: 10px; align-items: baseline; padding: 14px 0; border-bottom: 1px solid #eee7f3; font-size: 13px; }
+.verificationRows svg { align-self: center; color: #857094; flex-shrink: 0; }
+.verificationRows strong { font-weight: 500; white-space: nowrap; color: #66516f; }
+.verificationRows > div > span:last-child { margin-left: auto; color: #8e7b99; }
+.uncheckedMark { width: 17px; text-align: center; color: #9b85a5; }
+.recipeIndex { padding-top: 26px; }
+.recipeIndex h2 { font-size: 18px; color: #5e4e70; font-weight: 550; }
+.recipeIndex p { font-size: 13px; line-height: 1.9; color: #85738e; margin: 10px 0 18px; }
+.recipeIndex > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.recipeIndex a { display: flex; gap: 9px; align-items: center; border: 1px solid #e5deed; border-radius: 6px; padding: 12px; font-size: 12px; color: #715885; overflow-wrap: anywhere; }
+.recipeIndex a svg:last-child { margin-left: auto; flex-shrink: 0; }
+@media (max-width:720px) {
+  .articleSection { scroll-margin-top: 85px; }
+  .pageContents > div { grid-template-columns: 1fr; }
+  .coverageRibbon { align-items: flex-start; flex-direction: column; font-size: 12px; }
+  .coverageStats { grid-template-columns: 1fr; }
+  .coverageStats > div { border-right: 0; border-bottom: 1px solid #e9e0f0; display: flex; align-items: center; gap: 16px; padding: 16px; }
+  .coverageStats span { margin: 0; }
+  .verificationRows > div { flex-wrap: wrap; }
+  .verificationRows > div > span:last-child { margin-left: 27px; width: 100%; }
+  .apiCard { padding: 17px; }
+  .apiTitle { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .recipeIndex > div { grid-template-columns: 1fr; }
+  .referenceToolbar { align-items: flex-start; flex-direction: column; gap: 9px; }
+  .tableScroll { font-size: 12px; }
+  th, td { padding: 10px; min-width: 100px; }
+}
+
+.articleSection .tableScroll table { min-width: 580px; }
+.articleSection .tableScroll td:first-child { white-space: nowrap; }
+.tableScroll:focus-visible { outline: 2px solid #9a7bb6; outline-offset: 3px; }
+.articleSection > .tableHint { display: none; }
+@media (max-width:720px) { .articleSection > .tableHint { display: block; color: #94839e; font-size: 12px; margin: -10px 0 20px; } }

@@ -10,4 +10,4 @@ export async function readCatalogs(host: AppServerHost, cwd: string) {
   return { models, skills }
 }
 // 按连接保存目录；空间 / 连接切换或变更通知后失效。
-// 模型和强度选项以返回目录为准，不硬编码其他产品的名称。
+// 模型以目录为准；强度使用 APP_SERVER_BUILTIN_INTELLIGENCE_TIERS。

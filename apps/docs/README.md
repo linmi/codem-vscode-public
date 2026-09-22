@@ -29,3 +29,14 @@ Button / Tabs / cn 从 `packages/ui/src/components/` 复制，来源提交 `f58a
 - 浏览器验收记录见 `docs/appServerWebsiteAcceptance.md`。
 
 品牌 Logo 使用 `apps/vscode/assets/codemMark.svg` 的原始 SVG（来源提交 `e4f6a4b5ac00e5df98cec1ec2e8eccef5c383e60`，上游来源见根目录 UPSTREAM.md），本地副本位于 `src/assets/codemMark.svg`，用于网页标识与 favicon；保留原品牌用途及许可证。
+
+
+## 阅读与覆盖评估（2026-09-22）
+
+文档增加常驻导航搜索、页内目录、章节深链接、方法详情筛选、事件字段表及覆盖报告。搜索仅在浏览器内匹配静态文档，不发网络请求；导航选择后清空搜索，Escape 清空输入，移动导航随路由切换收起。方法筛选由 API 组件拥有，章节 / 方法直达参数由 URL 保存；无效参数显示未找到，不静默回到其他章节。
+
+- `apiReference.ts` 维护按 Host 类型穷尽校验的接口与事件清单，网页指标从该清单计算。只统计公开可调用实例方法，不把 getter、顶层函数或相邻包偷偷计入分母。
+- 38 个方法有用途、签名摘要和使用条件；23 个方法链接实际调用示例；31 类事件有字段与处理规则。统计口径、剩余 15 项示例缺口、顶层 / 底层范围与真实运行验证缺口在网页 `#/coverage` 公开展示。
+- 新增 Input 从 `apps/vscode/webview/components/ui/input.tsx` 复制，来源提交 `0c17e7e6`，保留 shadcn MIT 许可证。
+- 初始 9 个示例文件包含 12 个不同 Host 方法调用；本轮 16 个示例文件覆盖 23 个 Host 方法。编译和调用引用检查不等于真实 Core 执行。
+- 本轮评估、验收与限制见 [覆盖评估记录](../../docs/appServerDocumentationCoverage.md)。

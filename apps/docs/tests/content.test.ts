@@ -24,3 +24,11 @@ test("deep links retain their identity and invalid routes remain explicit", () =
     assert.equal(resolvePage(hash), undefined)
   }
 })
+
+test("section and method deep links validate targets instead of silently falling back", () => {
+  assert.equal(resolvePage("#/modes?section=2")?.id, "modes")
+  assert.equal(resolvePage("#/api?method=setModes")?.id, "api")
+  for (const hash of ["#/modes?section=999", "#/modes?section=0", "#/api?method=missing", "#/modes?method=setModes", "#/modes?section=1&section=2", "#/modes?unknown=1"]) {
+    assert.equal(resolvePage(hash), undefined, hash)
+  }
+})
