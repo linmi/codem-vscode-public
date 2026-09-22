@@ -164,6 +164,12 @@ settings:
 
 catalogs:
   default:
+    '@hugeicons/core-free-icons':
+      specifier: 4.3.4
+      version: 4.3.4
+    '@hugeicons/react':
+      specifier: 1.1.10
+      version: 1.1.10
     '@tailwindcss/postcss':
       specifier: 4.3.3
       version: 4.3.3
@@ -188,9 +194,6 @@ catalogs:
     esbuild:
       specifier: 0.28.2
       version: 0.28.2
-    lucide-react:
-      specifier: 1.47.0
-      version: 1.47.0
     marked:
       specifier: 18.0.13
       version: 18.0.13
@@ -229,15 +232,18 @@ importers:
 
   apps/docs:
     dependencies:
+      '@hugeicons/core-free-icons':
+        specifier: 'catalog:'
+        version: 4.3.4
+      '@hugeicons/react':
+        specifier: 'catalog:'
+        version: 1.1.10(react@19.3.0)
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
-      lucide-react:
-        specifier: 'catalog:'
-        version: 1.47.0(react@19.3.0)
       radix-ui:
         specifier: 'catalog:'
         version: 1.6.7(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -726,6 +732,14 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@hugeicons/core-free-icons@4.3.4':
+    resolution: {integrity: sha512-TMbzqGFD4XnEyVYut4sTzT7Wpq+Mghe7ChGd+R3bkyhJc31tcsfxtX8gmgrV3zIqn5dumsNJhvsX+h3OPjLMGQ==}
+
+  '@hugeicons/react@1.1.10':
+    resolution: {integrity: sha512-9tAsd92yMVVGP+E+d8cM+wc0VnXuYZHNbWQi7TOe8k2neawmhiaFmVFbzyruejhOMa197/LbgvSED32ayUo3ZA==}
+    peerDependencies:
+      react: '>=16.0.0'
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -2890,6 +2904,12 @@ snapshots:
       react-dom: 19.3.0(react@19.3.0)
 
   '@floating-ui/utils@0.2.12': {}
+
+  '@hugeicons/core-free-icons@4.3.4': {}
+
+  '@hugeicons/react@1.1.10(react@19.3.0)':
+    dependencies:
+      react: 19.3.0
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:

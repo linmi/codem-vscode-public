@@ -28,6 +28,10 @@ Button / Tabs / cn 从 `packages/ui/src/components/` 复制，来源提交 `f58a
 - 构建通过 esbuild metafile 阻止 Node App Server / history 实现进入浏览器。
 - 浏览器验收记录见 `docs/appServerWebsiteAcceptance.md`。
 
+界面图标统一使用 [Hugeicons React](https://hugeicons.com/docs/integrations/react/quick-start) 与免费 Stroke Rounded 图标包；通过命名导入按需打包，统一 1.5 描边、继承文字颜色，装饰图标对读屏隐藏。版本由根 catalog 固定，品牌标识独立保留。此次替换仅涉及装饰图标和依赖，不新增状态；首次展示、重复操作、复制失败、导航关闭、重载与路由切换沿用现有交互。
+
+图标替换验证（2026-09-22）：文档 lint、类型检查、5 项已有测试、构建及 frozen lockfile 安装通过；复用本地浏览器确认桌面导航 / 能力卡片、390px 移动菜单展开与收起、代码复制成功反馈，控制台无错误。未执行真实 Core 或 IDE 验证，本次没有改动这些边界。
+
 品牌 Logo 使用 `apps/vscode/assets/codemMark.svg` 的原始 SVG（来源提交 `e4f6a4b5ac00e5df98cec1ec2e8eccef5c383e60`，上游来源见根目录 UPSTREAM.md），本地副本位于 `src/assets/codemMark.svg`，用于网页标识与 favicon；保留原品牌用途及许可证。
 
 
