@@ -113,14 +113,15 @@ it("a directory selection resumes once on the same thread and native cancellatio
   const scopes: readonly string[][] = []
   f.host.resumeThread = async (_cwd, id, settings) => { assert.equal(id, "thread-1"); (scopes as string[][]).push([...settings.additionalDirectories]); f.emit({ type: "thread-closed", cwd: "/workspace", threadId: id, reason: "unsubscribed" }) }
   await f.controller.addDirectory(async () => [root, root])
-  assert.equal(scopes.length, 1); assert.equal(scopes[0]?.length, 1)
+  assert.equal(scopes.length, 1); assert.equal(scopes[0]?.length, 2)
+  assert.ok(scopes[0]![1]!.includes("codem-images-"))
   assert.equal(f.controller.snapshot().threadId, "thread-1")
   const directory = f.controller.snapshot().sessionTools.directories[0]!
   assert.ok(directory); assert.doesNotMatch(directory.label, /\//)
   await f.controller.addDirectory(async () => [])
   assert.equal(scopes.length, 1)
   await f.controller.removeDirectory(directory.id)
-  assert.deepEqual(scopes[1], [])
+  assert.deepEqual(scopes[1], [scopes[0]![1]])
 })
 
 it("directory reads authorize once, hide secrets and paths, and discard retired-session replies", async t => {
@@ -179,4 +180,49 @@ it("thread mutations target verified catalog identities and do not detach after 
   assert.equal(f.controller.snapshot().threadId, "thread-1")
   assert.equal(f.controller.snapshot().phase, "ready")
   assert.deepEqual(calls, ["thread/name/set", "thread/fork", "thread/unarchive", "thread/archive"])
+})
+
+
+it("tools catalog creates one thread on explicit refresh and reuses it for the resource panel", async t => {
+  const f = capabilityFixture(); t.after(() => f.controller.dispose())
+  await f.controller.connect()
+  assert.ok(!f.calls.includes("startThread"))
+  let reads = 0
+  f.host.listTools = async (_cwd, threadId) => {
+    reads++; assert.equal(threadId, "thread-1")
+    return { threadId, model: "model", tools: ["read_files", "mcp__fixture__echo"] }
+  }
+  await f.controller.loadCatalog("tools")
+  assert.equal(f.calls.filter(call => call === "startThread").length, 1)
+  assert.equal(reads, 1)
+  assert.deepEqual(f.controller.snapshot().sessionTools.catalog, { kind: "tools", loaded: true, stale: false, rows: [
+    { label: "read_files", detail: "当前会话可用工具" }, { label: "mcp__fixture__echo", detail: "当前会话可用工具" },
+  ] })
+  await f.controller.refreshTools()
+  assert.equal(reads, 2)
+  assert.equal(f.calls.filter(call => call === "startThread").length, 1)
+  assert.deepEqual(f.controller.snapshot().tools, ["read_files", "mcp__fixture__echo"])
+  f.host.listTools = async () => { throw new Error("private detail") }
+  await f.controller.loadCatalog("tools")
+  assert.equal(f.controller.snapshot().sessionTools.busy, null)
+  assert.equal(f.controller.snapshot().sessionTools.catalog?.rows.length, 2)
+  assert.match(f.controller.snapshot().notice!, /目录读取失败/)
+  assert.doesNotMatch(JSON.stringify(f.controller.snapshot()), /private detail/)
+})
+
+it("tools catalog ignores duplicate refreshes and late results after connection retirement", async t => {
+  const f = capabilityFixture(); t.after(() => f.controller.dispose())
+  await f.controller.connect(); await f.controller.createThread()
+  let resolve!: (value: { threadId: string; model: string; tools: string[] }) => void
+  let reads = 0
+  f.host.listTools = () => { reads++; return new Promise(done => { resolve = done }) }
+  const pending = f.controller.loadCatalog("tools")
+  await new Promise(done => setImmediate(done))
+  await f.controller.loadCatalog("tools")
+  assert.equal(reads, 1)
+  await f.controller.resetAccount()
+  resolve({ threadId: "thread-1", model: "model", tools: ["late"] })
+  await pending
+  assert.equal(f.controller.snapshot().sessionTools.catalog, null)
+  assert.deepEqual(f.controller.snapshot().tools, [])
 })

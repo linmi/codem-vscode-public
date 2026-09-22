@@ -1,3 +1,4 @@
+import { catalogKinds, type CatalogKind } from "@codem/protocol"
 /**
  * Cycle 3：双宿主正式聊天壳。
  *
@@ -31,17 +32,6 @@ export type ChatPhase =
 
 export type ChatTheme = "light" | "dark"
 export type WorkMode = "default" | "plan"
-export type CatalogKind =
-  | "skills"
-  | "environment"
-  | "config"
-  | "hooks"
-  | "plugins"
-  | "permissions"
-  | "spaces"
-  | "provider"
-  | "live"
-  | "tools"
 export type ThreadOperation = "rename" | "fork" | "archive" | "unarchive" | "delete"
 export type PanelKind = "approval" | "question" | "plan" | "rewind"
 
@@ -330,18 +320,6 @@ export interface ChatSnapshot {
   sendKey: SendKey
 }
 
-export const catalogKinds: readonly CatalogKind[] = [
-  "skills",
-  "environment",
-  "config",
-  "hooks",
-  "plugins",
-  "permissions",
-  "spaces",
-  "provider",
-  "live",
-  "tools",
-]
 
 export const workModes: readonly { value: WorkMode; label: string; description: string }[] = [
   { value: "default", label: "Agent", description: "执行任务" },

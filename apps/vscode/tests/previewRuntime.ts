@@ -1,3 +1,4 @@
+import { catalogKinds } from "@codem/protocol"
 import { attachmentScope, parsePastedImages } from "../src/shared/pastedImages.ts"
 import { stoppedTurnMessage } from "../src/shared/turnStatus.ts"
 import { appendContext, codePrompt } from "../src/shared/editorContext.ts"
@@ -6,7 +7,7 @@ import type { AccountState } from "../src/shared/accountTypes.ts"
 import type { PanelReply } from "../src/shared/panelTypes.ts"
 import { createPreviewState, type PreviewSearch } from "./previewState.ts"
 import { applyPreviewCatalog, previewImage, contentScenario } from "./previewContent.ts"
-import { catalogKinds } from "../src/shared/capabilityTypes.ts"
+
 
 export function createPreviewRuntime(initial: PreviewSearch) {
   let search = initial

@@ -211,3 +211,5 @@ export interface CodemLiveUsageSnapshot {
 
 /** 带 requestID 的 CodeM 控制面结果：成功载荷或失败原因，互斥。 */
 export type CodemCommandResult<T extends object> = T | { readonly error: string }
+
+export { catalogKinds, type CatalogKind } from "./catalog.ts"

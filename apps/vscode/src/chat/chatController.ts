@@ -1,3 +1,4 @@
+import { type CatalogKind } from "@codem/protocol"
 import { attachmentScope, type PasteImagesAction } from "../shared/pastedImages.ts"
 import type { ActiveConversation, ConversationScope } from "../sessionHistory/activeConversation.ts"
 import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from "../sessionHistory/conversationHistory.ts"
@@ -11,7 +12,7 @@ import { realpath, stat } from "node:fs/promises"
 import { basename, relative, isAbsolute, sep } from "node:path"
 import { LiveSnapshotCatalog } from "./liveSnapshotCatalog.ts"
 import { projectCatalog } from "./capabilityCatalog.ts"
-import { emptySessionTools, type CatalogKind, type LiveSnapshotPageKind, type ThreadOperation, type SessionToolsState, emptyCapabilities } from "../shared/capabilityTypes.ts"
+import { emptySessionTools, type LiveSnapshotPageKind, type ThreadOperation, type SessionToolsState, emptyCapabilities } from "../shared/capabilityTypes.ts"
 import type { SpaceDirectory } from "../connection/spaceDirectory.ts"
 import type { SettingsPersistence } from "../connection/connectionPreferences.ts"
 import { projectToolDetails } from "./toolDetails.ts"
@@ -410,7 +411,7 @@ export class ChatController {
 
   async loadCatalog(kind: CatalogKind): Promise<void> {
     const session = this.session
-    const threadId = this.threadId
+    let threadId = this.threadId
     if (!session || this.disposed || this.state.sessionTools.busy || !["ready", "running"].includes(this.state.phase)) return
     if (kind === "live") {
       await this.liveSnapshot.refresh({ host: session.host, cwd: session.cwd, threadId, authorize: () => session.authorize() })
@@ -421,7 +422,13 @@ export class ChatController {
     try {
       this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted()
       if (this.session !== session || this.threadId !== threadId) return
-      if (kind === "skills") {
+      if (kind === "tools") {
+        threadId = await this.ensureThread(session)
+        const result = await session.host.listTools(session.cwd, threadId)
+        if (this.session !== session || this.threadId !== threadId) return
+        this.update({ tools: result.tools })
+        this.updateTools({ catalog: { kind, loaded: true, stale: false, rows: result.tools.map(label => ({ label, detail: "当前会话可用工具" })) } })
+      } else if (kind === "skills") {
         const skills = await session.host.listSkills(session.cwd, threadId ?? undefined)
         if (this.session !== session || this.threadId !== threadId) return
         const previous = new Map([...this.skillNames].map(([id, name]) => [name, id]))
@@ -1322,18 +1329,7 @@ export class ChatController {
   }
 
   async refreshTools(): Promise<void> {
-    await this.configure(async (settings, session) => {
-      if (!this.threadId) {
-        const threadId = await session.host.startThread(session.cwd, this.settingsForCore(settings))
-        if (this.session !== session || this.disposed) return null
-        this.threadId = threadId
-        await this.rememberActiveConversation(session, threadId)
-        if (this.session !== session || this.disposed) return null
-      }
-      const result = await session.host.listTools(session.cwd, this.threadId)
-      if (this.session === session) this.update({ tools: result.tools })
-      return null
-    })
+    await this.loadCatalog("tools")
   }
 
   private backgroundContext(): BackgroundContext | null {

@@ -1,3 +1,6 @@
+import { catalogKinds } from "@codem/protocol"
+import { parseUiAction } from "../../../packages/ui/src/contract.ts"
+import { parseViewAction } from "../src/shared/messages.ts"
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { draftRetention } from "../../../packages/ui/src/chat/draftRetention.ts"
@@ -101,4 +104,15 @@ describe("VS Code host bridge", () => {
     const sent = bridge.toHost({ type: "send", text: "你好", requestId: "req-2", selectionIds: ["sel-1"], attachmentIds: ["file-1"] })
     assert.deepEqual(sent, { type: "send", text: "你好", requestId: "req-2", selectionIds: ["sel-1"] })
   })
+})
+
+
+it("every displayed catalog crosses the shared UI, bridge and Host validation unchanged", () => {
+  const bridge = new VscodeHostBridge()
+  for (const kind of catalogKinds) {
+    const action = { type: "loadCatalog", kind }
+    assert.deepEqual(parseViewAction(bridge.toHost(parseUiAction(action))), action)
+  }
+  assert.throws(() => parseViewAction({ type: "loadCatalog", kind: "secrets" }))
+  assert.throws(() => parseUiAction({ type: "loadCatalog", kind: "tools", path: "/tmp" }))
 })

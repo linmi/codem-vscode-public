@@ -1,6 +1,7 @@
+import { type CatalogKind } from "@codem/protocol"
 import { previewTools } from "./fixtures/previewTools.ts"
 import type { ActivityStatus, ChatSnapshot } from "../src/shared/messages.ts"
-import type { CatalogKind } from "../src/shared/capabilityTypes.ts"
+
 import type { PanelView } from "../src/shared/panelTypes.ts"
 import { appendContext, codePrompt } from "../src/shared/editorContext.ts"
 import { stoppedTurnMessage } from "../src/shared/turnStatus.ts"
@@ -30,6 +31,7 @@ const longPanel: PanelView = { id: "longQuestion", kind: "question", title: "验
 const rewindPanel: PanelView = { ...longPanel, id: "rewindPreview", kind: "rewind", title: "选择回退检查点", description: "仅演示检查点选择，不执行真实回退。", initialText: "", multiple: false, allowText: false, confirmLabel: "继续", choices: [{ id: "checkpoint1", label: "添加表单校验之前", description: "2 个文件 · 首次实现", selected: true }, { id: "checkpoint2", label: "补充错误提示之前", description: "1 个文件 · 最近一次修改", selected: false }] }
 
 const catalogSamples: Record<Exclude<CatalogKind, "live">, { label: string; detail: string }[]> = {
+  tools: [{ label: "read_files", detail: "当前会话可用工具" }],
   skills: [{ label: "review-ui", detail: "检查布局、键盘操作与状态反馈" }, { label: "inspect-tests", detail: "整理测试覆盖与未验证项" }],
   environment: [{ label: "Node.js", detail: "22.23.2 · 本地运行环境样例" }, { label: "包管理器", detail: "pnpm 12.4.1" }, { label: "工作区", detail: "codem-plugin · 已信任（模拟）" }],
   config: [{ label: "工作模式", detail: "Agent" }, { label: "权限", detail: "默认审批" }, { label: "思考强度", detail: "medium" }],
@@ -47,7 +49,7 @@ export function applyPreviewCatalog(state: ChatSnapshot, kind: CatalogKind) {
   state.sessionTools.skills = [{ id: "reviewUi", name: "review-ui", description: "检查布局与交互" }, { id: "inspectTests", name: "inspect-tests", description: "检查测试覆盖" }]
 }
 const catalogDefinitions = [
-  ["catalogSkills", "技能目录", "skills"], ["catalogEnvironment", "运行环境与依赖", "environment"],
+  ["catalogTools", "可用工具目录", "tools"], ["catalogSkills", "技能目录", "skills"], ["catalogEnvironment", "运行环境与依赖", "environment"],
   ["catalogConfig", "配置概览", "config"], ["catalogHooks", "Hooks 目录", "hooks"],
   ["catalogPlugins", "插件目录", "plugins"], ["catalogPermissions", "权限档案", "permissions"],
   ["catalogSpaces", "Core 空间快照", "spaces"], ["catalogProvider", "模型能力目录", "provider"], ["catalogLive", "实时会话快照", "live"],

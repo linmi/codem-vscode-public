@@ -1,9 +1,10 @@
+import { type CatalogKind } from "@codem/protocol"
 import type { AppServerHost } from "@codem/app-server"
-import type { CatalogKind, CatalogRow } from "../shared/capabilityTypes.ts"
+import type { CatalogRow } from "../shared/capabilityTypes.ts"
 
 type CatalogHost = Pick<AppServerHost, "readEnvironmentInfo" | "readConfigSnapshot" | "listHooks" | "listPlugins" | "listPermissionProfiles" | "readCoreSpaceSnapshot" | "readModelProviderCapabilities">
 /** Copy approved fields only; never serialize a Core object into the Webview. */
-export async function projectCatalog(host: CatalogHost, cwd: string, kind: Exclude<CatalogKind, "skills" | "live">): Promise<readonly CatalogRow[]> {
+export async function projectCatalog(host: CatalogHost, cwd: string, kind: Exclude<CatalogKind, "skills" | "live" | "tools">): Promise<readonly CatalogRow[]> {
   switch (kind) {
     case "environment": {
       const info = await host.readEnvironmentInfo(cwd)

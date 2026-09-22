@@ -1,10 +1,11 @@
+import { catalogKinds, type CatalogKind } from "@codem/protocol"
 import { useRef, useState } from "react"
 import { SlidersHorizontalIcon } from "lucide-react"
 import { Button } from "../components/ui/button.tsx"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../components/ui/dialog.tsx"
 import { Input } from "../components/ui/input.tsx"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select.tsx"
-import { catalogKinds, type CatalogKind, type ChatSnapshot, type ThreadOperation } from "../contract.ts"
+import { type ChatSnapshot, type ThreadOperation } from "../contract.ts"
 
 const catalogLabels: Record<string, string> = { skills: "技能", environment: "运行环境", config: "配置概览", hooks: "Hooks", plugins: "插件", permissions: "权限档案", spaces: "Core 空间快照", provider: "模型能力", live: "实时线程快照", tools: "工具" }
 const operationDescriptions: Record<ThreadOperation, string> = { rename: "为当前会话设置新名称。", fork: "创建当前会话的独立副本。", archive: "归档当前会话，可在之后解除归档。", unarchive: "选择已归档会话，恢复为可继续对话的会话。", delete: "将永久删除此会话，无法恢复。" }

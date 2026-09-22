@@ -1,3 +1,4 @@
+import { catalogKinds, type CatalogKind } from "@codem/protocol"
 /** Display-only projections. No credentials, raw RPC objects or filesystem paths. */
 export interface CapabilityState {
   plan: readonly { content: string; status: string }[]
@@ -13,8 +14,6 @@ export function emptyCapabilities(): CapabilityState {
   return { activity: null, plan: [], usage: null, changes: [], guards: [], hooks: [], threadStatus: null }
 }
 
-export const catalogKinds = ["skills", "environment", "config", "hooks", "plugins", "permissions", "spaces", "provider", "live"] as const
-export type CatalogKind = typeof catalogKinds[number]
 export type ThreadOperation = "rename" | "fork" | "archive" | "unarchive" | "delete"
 export interface CatalogRow { label: string; detail: string }
 export type LiveSnapshotPageKind = "turns" | "items"

@@ -1,8 +1,9 @@
+import { catalogKinds } from "@codem/protocol"
 import { it } from "node:test"
 import assert from "node:assert/strict"
 import { createPreviewState, parsePreviewSearch } from "./previewState.ts"
 import { previewScenarios } from "./previewScenarios.ts"
-import { catalogKinds } from "../src/shared/capabilityTypes.ts"
+
 
 it("validates preview URL state and preserves existing direct fixture links", () => {
   assert.deepEqual(parsePreviewSearch({}), {scenario:"conversation",theme:"light"})
