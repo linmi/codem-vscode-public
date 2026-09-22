@@ -81,6 +81,7 @@ class LiveToolTest {
             val first = session.send("Read the attached file and directory. Report their two marker strings, the marker in the supplied selection, and the LEFT and RIGHT colors in the attached image. Do not change files. Reply briefly in English.", "live-context", attachmentIds = ids, selectionIds = listOf("sel-current"))
             assertTrue(session.snapshot().attachments.isEmpty(), "Accepted attachments must leave the composer")
             val context = finish(first) { choose(it, true) }.messages.filter { it.role == "assistant" }.joinToString("\n") { it.text }
+            println("Live fixture context response: ${context.take(2000)}")
             for (marker in listOf("FILE_MARKER_MAGENTA", "DIRECTORY_MARKER_CYAN", "UNSAVED_MARKER_YELLOW")) assertTrue(context.contains(marker), "Model did not read $marker")
             assertTrue(context.contains("red", true) && context.contains("blue", true), "Model did not identify the image colors")
             println("Live attachments verified: file, directory, unsaved selection, image colors")

@@ -39,6 +39,9 @@ sealed class CodemError(
         stage: String? = null,
     ) : CodemError(errorClass, message, cause, operationId, stage)
 
+    /** A correlated JSON-RPC error proves that this request was rejected, unlike a timeout or transport failure. */
+    class RequestRejected(val method: String, message: String) : CodemError(Class.Protocol, message, stage = method)
+
     class Authentication(message: String, cause: Throwable? = null, operationId: String? = null) :
         CodemError(Class.Authentication, message, cause, operationId, "auth")
 

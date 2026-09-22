@@ -724,6 +724,25 @@ class ProjectSessionTest {
     }
 
     @Test
+    fun rejectedImageSendKeepsComposerButRemovalReclaimsTheFile() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities(), failMethod = "turn/start"); process }
+        try {
+            session.connect()
+            val id = session.attachPastedImages(listOf(ImageAttachment("image/png", byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10)))).single()
+            org.junit.jupiter.api.Assertions.assertThrows(Exception::class.java) { session.send("image", "rejected-image", attachmentIds = listOf(id)) }
+            val request = process.writes.map { JsonValue.parse(it).asObject() }.first { (it.fields["method"] as? JsonValue.Text)?.value == "turn/start" }
+            val inputs = request.required("params").asObject().required("input").asArray().items.map { it.asObject() }
+            val image = inputs.first { (it.fields["type"] as? JsonValue.Text)?.value == "localImage" }
+            val path = Path.of(image.required("path").asText())
+            assertEquals(id, session.snapshot().attachments.single().id)
+            assertTrue(Files.exists(path))
+            session.removeAttachment(id)
+            assertTrue(!Files.exists(path), "A rejected request must not retain a removed image until disconnect")
+        } finally { session.close().join() }
+    }
+
+    @Test
     fun noAcceptedReceiptBeforeCoreReplyAndValidationAlsoRejects() {
         val entered = java.util.concurrent.CountDownLatch(1)
         val release = java.util.concurrent.CountDownLatch(1)

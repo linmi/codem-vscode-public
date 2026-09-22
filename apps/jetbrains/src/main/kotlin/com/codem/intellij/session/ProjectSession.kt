@@ -388,6 +388,8 @@ class ProjectSession(
         } catch (error: Throwable) {
             lock.withLock {
                 if (generation.get() == currentGeneration) {
+                    val failure = generateSequence(error) { it.cause }.last()
+                    if (failure is CodemError.RequestRejected && failure.method == "turn/start") attachments.release(currentGeneration)
                     turns.clearIfTerminal()
                     if (turns.current?.phase == TurnPhase.Submitting) turns.resetActive()
                     historyMessages.removeAll { it.id == requestId }
@@ -1532,12 +1534,11 @@ class ProjectSession(
             )
         }
         val (resolvedAttachments, resolvedSelections) = lock.withLock {
-            val files = attachments.retain(attachmentIds, generation.get())
             val selected = selectionIds.map { id ->
                 selections.find { it.id == id } ?: liveSelection?.takeIf { it.id == id }
                     ?: throw CodemError.Validation("CodeM selection $id is not available")
             }
-            files to selected
+            attachments.retain(attachmentIds, generation.get()) to selected
         }
         val images = resolvedAttachments.filter { it.kind == "image" }
         val files = resolvedAttachments.filter { it.kind != "image" }

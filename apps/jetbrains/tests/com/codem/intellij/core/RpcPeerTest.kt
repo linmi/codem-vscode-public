@@ -8,6 +8,22 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 class RpcPeerTest {
     @Test
+    fun onlyCorrelatedErrorResponsesProveRequestRejection() {
+        val writes = mutableListOf<String>()
+        val peer = peer(writes)
+        val rejected = peer.request("turn/start")
+        peer.consume("""{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"invalid input"}}""")
+        val rejection = assertThrows(java.util.concurrent.ExecutionException::class.java) { rejected.get() }.cause
+        assertTrue(rejection is CodemError.RequestRejected)
+        assertEquals("turn/start", (rejection as CodemError.RequestRejected).method)
+        val uncertain = peer.request("turn/start")
+        peer.close()
+        val closed = assertThrows(java.util.concurrent.ExecutionException::class.java) { uncertain.get() }.cause
+        assertTrue(closed is CodemError.Protocol)
+        assertEquals(CodemError.Class.ConnectionClosed, (closed as CodemError).errorClass)
+    }
+
+    @Test
     fun writesJsonrpcRequestsAndRecordsOmittedResponses() {
         val writes = mutableListOf<String>()
         val peer = peer(writes)

@@ -168,7 +168,7 @@ class RpcPeer(
                 return
             }
             current.future.completeExceptionally(
-                CodemError.Protocol(CodemError.Class.Protocol, "CodeM App Server ${current.method} failed (${(error.fields["code"] as JsonValue.NumberValue).literal}): ${(error.fields["message"] as JsonValue.Text).value}"),
+                CodemError.RequestRejected(current.method, "CodeM App Server ${current.method} failed (${(error.fields["code"] as JsonValue.NumberValue).literal}): ${(error.fields["message"] as JsonValue.Text).value}"),
             )
             return
         }
