@@ -7,6 +7,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { bundleNotices } from "./support/bundleNotices.ts"
 import { compileStylesheet } from "./support/webviewStyles.ts"
+import { productionEntries } from "./support/productionEntries.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const require = createRequire(import.meta.url)
@@ -35,8 +36,8 @@ const webviewStyles: Plugin = {
 await writeFile(resolve(root, "tests/fixtures/previewTools.ts"), previewToolsSource())
 
 const configurations: BuildOptions[] = [
-  { entryPoints: ["src/extension.ts"], outfile: "dist/extension.cjs", platform: "node", format: "cjs", external: ["vscode"], target: "node22" },
-  { entryPoints: ["webview/main.ts"], outfile: "dist/webview.js", platform: "browser", format: "iife", target: "es2022", define: { "process.env.NODE_ENV": '"production"' } },
+  { entryPoints: [productionEntries.extension.path], outfile: "dist/extension.cjs", platform: productionEntries.extension.platform, format: "cjs", external: ["vscode"], target: "node22" },
+  { entryPoints: [productionEntries.webview.path], outfile: "dist/webview.js", platform: productionEntries.webview.platform, format: "iife", target: "es2022", define: { "process.env.NODE_ENV": '"production"' } },
   { entryPoints: ["tests/previewNavigation.tsx"], outfile: "dist/previewNavigation.js", platform: "browser", format: "iife", target: "es2022", jsx: "automatic", define: { "process.env.NODE_ENV": '"production"' }, minify: true },
   { entryPoints: ["webview/styles.css"], outfile: "dist/webview.css" },
   { entryPoints: ["tests/extensionSmoke.ts"], outfile: "dist/extensionSmoke.cjs", platform: "node", format: "cjs", external: ["vscode"], target: "node22" },
