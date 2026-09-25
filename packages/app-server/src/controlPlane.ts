@@ -1,29 +1,6 @@
 import { parseAppServerItem, type AppServerItem, type AppServerJsonValue } from "./items.ts"
 import type { JsonObject } from "./rpc.ts"
 
-/**
- * Core 0.8.37 App Server 已声明、但原先未进入 Host 的控制面 / 线程扩展 RPC。
- * 方法名来自 pinned Core 分发表与 initialize 能力位，不 invent 额外协议。
- */
-export const APP_SERVER_CONTROL_PLANE_METHODS = [
-  "environment/info",
-  "config/read",
-  "hooks/list",
-  "plugin/list",
-  "permissionProfile/list",
-  "space/list",
-  "modelProvider/capabilities/read",
-  "tools/list",
-  "thread/loaded/list",
-  "thread/shellCommand",
-  "thread/backgroundTerminals/list",
-  "thread/backgroundTerminals/terminate",
-  "thread/backgroundTerminals/clean",
-  "thread/clear",
-  "thread/turns/list",
-  "thread/items/list",
-] as const
-
 /** Host 已理解的 Core 通知。未知 method 必须 fail closed，不能静默丢弃。 */
 export const APP_SERVER_KNOWN_NOTIFICATIONS = [
   "warning",

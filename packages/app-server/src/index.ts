@@ -115,7 +115,6 @@ export {
 
 export { type AppServerModeState, type AppServerPermissionMode } from "./modes.ts"
 export {
-  APP_SERVER_CONTROL_PLANE_METHODS,
   APP_SERVER_KNOWN_NOTIFICATIONS,
   isAppServerKnownNotification,
   parseAppServerConfigSnapshot,
