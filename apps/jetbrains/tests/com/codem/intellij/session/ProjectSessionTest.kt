@@ -1363,6 +1363,59 @@ class ProjectSessionTest {
     }
 
     /**
+     * 与 VS Code BackgroundTasks.clean 一致：清理成功后向 Core 重新读取列表，列表内容以 Core 为准。
+     * 旧实现在本地清空列表，Core 仍保留的终端（这里是仍在运行的 4242）从界面消失，也就无法再终止。
+     * 清理失败时不重读，保留原列表。
+     */
+    @Test
+    fun cleaningRefetchesTheTerminalListFromCore() {
+        val cleaned = java.util.concurrent.atomic.AtomicBoolean(false)
+        val rejectClean = java.util.concurrent.atomic.AtomicBoolean(true)
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(
+                process,
+                handshakeCapabilities(),
+                shouldFail = { it == "thread/backgroundTerminals/clean" && rejectClean.get() },
+                results = { method, _ ->
+                    when (method) {
+                        "thread/backgroundTerminals/list" -> backgroundListing(if (cleaned.get()) "running-terminal" else "keeps-core-order")
+                        "thread/backgroundTerminals/clean" -> JsonValue.obj(
+                            "cwd" to JsonValue.Text("/workspace"),
+                            "results" to JsonValue.ArrayValue(listOf(JsonValue.obj("processId" to JsonValue.NumberValue(7.0, "7")))),
+                        ).also { cleaned.set(true) }
+                        else -> null
+                    }
+                },
+            )
+            process
+        }
+        fun methodsAfter(start: Int) = process.writes.drop(start).mapNotNull { JsonValue.parse(it).asObject().stringOrNull("method") }
+        try {
+            session.connect()
+            session.resumeThread("thread-1")
+            session.applyViewAction(ViewAction.RefreshBackground)
+            val listed = listOf("7" to false, "4242" to true)
+            assertEquals(listed, session.snapshot().background.map { it.id to it.inProgress })
+
+            val beforeRejected = process.writes.size
+            org.junit.jupiter.api.Assertions.assertThrows(Exception::class.java) { session.applyViewAction(ViewAction.CleanBackground) }
+            assertEquals(listOf("thread/backgroundTerminals/clean"), methodsAfter(beforeRejected), "a failed clean does not refetch")
+            assertEquals(listed, session.snapshot().background.map { it.id to it.inProgress }, "a failed clean keeps the list")
+
+            rejectClean.set(false)
+            val beforeClean = process.writes.size
+            session.applyViewAction(ViewAction.CleanBackground)
+            assertEquals(
+                listOf("thread/backgroundTerminals/clean", "thread/backgroundTerminals/list"),
+                methodsAfter(beforeClean),
+                "clean is followed by exactly one list request",
+            )
+            assertEquals(listOf("4242" to true), session.snapshot().background.map { it.id to it.inProgress }, "Core kept the running terminal")
+        } finally { session.close().join() }
+    }
+
+    /**
      * 与 host.ts threadSummary / thread/list 一致：preview 必须是字符串、archived 必须是布尔值、total 必须是非负整数。
      * 旧实现把错类型的 preview 显示成“未命名会话”、archived 当作 false，total 1.5 截断成 1。
      */

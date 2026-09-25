@@ -1094,7 +1094,8 @@ class ProjectSession(
         val (coreProcess, currentThread, currentGeneration) = readyThread()
         val (method, params) = ThreadCommands.cleanBackground(currentThread)
         requestResult(coreProcess, method, params, currentGeneration)
-        mutate { background = emptyList() }
+        // As VS Code BackgroundTasks.clean: Core decides what clean removed, so the list is read from Core again.
+        listBackgroundTerminals()
     }
 
     fun loadCatalog(kind: String): List<CatalogRowView> {
