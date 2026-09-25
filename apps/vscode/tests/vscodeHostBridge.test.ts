@@ -1,6 +1,7 @@
 import { catalogKinds } from "@codem/protocol"
 import { parseUiAction } from "../../../packages/ui/src/contract.ts"
 import { parseViewAction } from "../src/shared/messages.ts"
+import { attachmentScope } from "../src/shared/pastedImages.ts"
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { draftRetention } from "../../../packages/ui/src/chat/draftRetention.ts"
@@ -149,6 +150,8 @@ describe("VS Code host bridge", () => {
     assert.deepEqual(bridge.toHost({ type: "removeSelection", id: "sel-1" }), { type: "removeCodeSelection", id: "sel-1" })
     const paste = bridge.toHost({ type: "pasteImages", requestId: "req-1", images: [] })
     assert.equal(paste.scope, JSON.stringify(["codem-plugin", "研发团队", "thread-1"]))
+    // Host 用同一个 attachmentScope 校验粘贴范围；两侧不能各写一份。
+    assert.equal(paste.scope, attachmentScope({ workspace: "codem-plugin", space: "研发团队", threadId: "thread-1" }))
     assert.deepEqual(bridge.toHost({ type: "setSendKey", sendKey: "modEnter" }), { type: "setSendKey", sendKey: "ctrlEnter" })
     assert.equal(bridge.receive({ type: "editorSettings", sendKey: "ctrlEnter" })?.snapshot.sendKey, "modEnter")
     const sent = bridge.toHost({ type: "send", text: "你好", requestId: "req-2", selectionIds: ["sel-1"], attachmentIds: ["file-1"] })

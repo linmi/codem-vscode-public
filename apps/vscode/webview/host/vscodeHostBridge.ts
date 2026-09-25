@@ -1,5 +1,6 @@
 import { asSnapshot, type ChatSnapshot, type ChatTheme, type SelectionView } from "@codem/ui/contract"
 import { appendContext } from "../../src/shared/editorContext.ts"
+import { attachmentScope } from "../../src/shared/pastedImages.ts"
 
 interface DraftCommand {
   revision: number
@@ -74,7 +75,7 @@ export class VscodeHostBridge {
       return this.unpinnedSelectionId ? { type: "pinCodeSelection", id: this.unpinnedSelectionId } : { type: "pinSelection" }
     }
     if (action.type === "pasteImages") {
-      return { ...action, scope: JSON.stringify([this.state.workspace ?? null, this.state.space ?? null, this.state.threadId ?? null]) }
+      return { ...action, scope: scopeOf(this.state) }
     }
     if (action.type === "setSendKey") {
       this.sendKey = action.sendKey === "modEnter" ? "modEnter" : "enter"
@@ -181,11 +182,10 @@ export class VscodeHostBridge {
   }
 
   private absorbState(record: Record<string, unknown>): void {
-    const previous = JSON.stringify([this.state.workspace ?? null, this.state.space ?? null, this.state.threadId ?? null])
+    const previous = scopeOf(this.state)
     this.pasteNotice = null
     this.state = record
-    const next = JSON.stringify([record.workspace ?? null, record.space ?? null, record.threadId ?? null])
-    if (previous !== next) this.fileSearch = null
+    if (scopeOf(record) !== previous) this.fileSearch = null
     const tools = record.sessionTools
     if (!tools || typeof tools !== "object" || Array.isArray(tools)) return
     const result = (tools as { result?: unknown }).result
@@ -241,6 +241,12 @@ export class VscodeHostBridge {
     }
     return asSnapshot({ ...projected, version: this.version }) ?? asSnapshot({ type: "state", version: this.version })!
   }
+}
+
+/** Host 下发的会话范围；粘贴校验与文件搜索失效共用 Host 的同一算法。 */
+function scopeOf(state: Record<string, unknown>): string {
+  const text = (value: unknown) => typeof value === "string" ? value : null
+  return attachmentScope({ workspace: text(state.workspace), space: text(state.space), threadId: text(state.threadId) })
 }
 
 /** 按 VS Code 写在 body 上的主题 class 判断明暗。 */
