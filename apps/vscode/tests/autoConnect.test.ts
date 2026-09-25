@@ -17,7 +17,9 @@ it("initializes on opening chat by default, once per activation, with explicit r
     contents: `export { activate, deactivate } from './apps/vscode/src/extension.ts'; export { control } from 'vscode';`, resolveDir: root,
   }, plugins: [{ name: "fixture", setup(b) {
     b.onResolve({ filter: /^vscode$/ }, () => ({ path: "vscode", namespace: "fixture" }))
-    b.onResolve({ filter: /^\.\// }, args => args.importer.endsWith("/src/extension.ts") && !args.path.endsWith("accountController.ts") ? { path: "dependencies", namespace: "fixture" } : undefined)
+    // The account, auto-connect and chat-log owners run for real; the rest of the entry's collaborators are stubbed.
+    const real = ["accountController.ts", "autoConnect.ts", "chatLog.ts"]
+    b.onResolve({ filter: /^\.\// }, args => args.importer.endsWith("/src/extension.ts") && !real.some(name => args.path.endsWith(`/${name}`)) ? { path: "dependencies", namespace: "fixture" } : undefined)
     b.onLoad({ filter: /.*/, namespace: "fixture" }, args => ({ contents: args.path === "vscode" ? `
       const disposable = {dispose(){}};
       export const control = {available:false, trusted:true, folders:[{}], setting:undefined, calls:0, authReads:0, logins:0, logouts:0, resets:0, draftsCleared:0, selectionsCleared:0, signedIn:true, accountPages:0, focusCalls:0, loginPending:Promise.resolve(), contexts:{}, commands:{}, pending:Promise.resolve()};
@@ -28,19 +30,20 @@ it("initializes on opening chat by default, once per activation, with explicit r
         onDidChangeConfiguration(fn){control.configuration=fn;return disposable},
       };
       export const window = {createOutputChannel(){return {appendLine(){},dispose(){}}}};
+      export class EventEmitter {listeners=[];event=fn=>{this.listeners.push(fn);return disposable};fire(value){for(const fn of this.listeners)fn(value)}dispose(){}}
       export const commands = {async executeCommand(name,key,value){if(name!=="setContext")throw new Error(name);control.contexts[key]=value},registerCommand(name,fn){control.commands[name]=fn;return disposable}};
     ` : `
       import {control} from 'vscode';
       export function accountOperations(){return {logout:async()=>{control.logouts++;control.signedIn=false;return {loggedIn:false,routerCredential:false}},read:async()=>{control.authReads++;return {avatar:{kind:"none"},loggedIn:control.signedIn,routerCredential:control.signedIn,displayName:null,userId:null,tenantId:null,authMethod:null}},login:async()=>{control.logins++;await control.loginPending;control.signedIn=true;return {avatar:{kind:"none"},loggedIn:true,routerCredential:true,displayName:null,userId:null,tenantId:null,authMethod:null}}}}
       export class ChatController { async connect(){control.calls++;await control.pending} async dispose(){} async resetAccount(){control.resets++} publish(){} }
-      export class ChatSurfaces {constructor(context,panels,dispatch){control.dispatch=dispatch} get available(){return control.available} post(){} resetDraft(){control.draftsCleared++} async focus(){control.focusCalls++} async openAccount(){control.accountPages++} dispose(){} }
+      export class ChatSurfaces {serve(handlers){control.dispatch=(action,reply)=>handlers.dispatch(action,reply)} get available(){return control.available} post(){} resetDraft(){control.draftsCleared++} async focus(){control.focusCalls++} async openAccount(){control.accountPages++} dispose(){} }
       export class ConnectionPreferences {}
       export class EditorSelection {state={snapshot(){return null},setContext(){},clear(){control.selectionsCleared++}};dispose(){}}
       export class EditorReview {contextChanged(){} dispose(){}}
       export class NextEdit {contextChanged(){} dispose(){}}
       export class ActiveConversation {}
       export class NativeFeatures {dispose(){}}
-      export class PanelBroker {cancel(){}}
+      export class PanelBroker {cancel(){} followChat(){}}
       export class UserVisibleError extends Error {}
       export function assertTrusted(){}
       export async function connectRuntime(){throw new Error('No real runtime in this fixture')}

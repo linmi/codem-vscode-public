@@ -24,21 +24,47 @@ async function fixture(t: TestContext) {
         }
       }
       function make(){const s=surface();s.webview.owner=s;return s}
-      export const control={sidebar:make(),editors:[],provider:null,providerOptions:null,serializer:null};
+      export const control={sidebar:make(),editors:[],provider:null,providerOptions:null,serializer:null,configuration:null,settings:{}};
       export const Uri={joinPath(){return {}}};
       export const ViewColumn={Active:1};
-      export const workspace={isTrusted:true,getConfiguration(){return {get:(k,d)=>d}}};
+      export const workspace={isTrusted:true,getConfiguration(){return {get:(k,d)=>control.settings[k]??d}},onDidChangeConfiguration(fn){control.configuration=fn;return disposable}};
       export const window={registerWebviewViewProvider(id,p,options){control.provider=p;control.providerOptions=options;return disposable},registerWebviewPanelSerializer(id,serializer){control.serializer=serializer;return disposable},createWebviewPanel(id,title,column,options){const s=make();delete s.onDidChangeVisibility;s.options=options;control.editors.push(s);return s},showErrorMessage(){}};
       export const commands={async executeCommand(){if(!control.sidebar.webview.html)control.provider.resolveWebviewView(control.sidebar)}};
     ` }))
   } }] })
   return import(pathToFileURL(outfile).href)
 }
+/** The entry creates the container first and serves it once its handlers exist. */
+function serve<T extends { serve(handlers: object): void }>(surfaces: T, dispatch: (action: never, reply: never) => Promise<void>, publish: () => void): T {
+  surfaces.serve({ dispatch, publish })
+  return surfaces
+}
+
+it("registers the sidebar and editor restore only when served, once, and reposts a changed send key", async t => {
+  const { ChatSurfaces, PanelBroker, control } = await fixture(t)
+  const surfaces = new ChatSurfaces({ extensionUri: {} }, new PanelBroker())
+  t.after(() => surfaces.dispose())
+  assert.equal(control.provider, null, "Nothing can mount before the handlers exist")
+  assert.equal(control.serializer, null)
+  const actions: string[] = []
+  surfaces.serve({ dispatch: async (action: { type: string }) => { actions.push(action.type) }, publish() {} })
+  assert.ok(control.provider)
+  assert.ok(control.serializer)
+  assert.throws(() => surfaces.serve({ dispatch: async () => {}, publish() {} }), /already served/)
+  await surfaces.focus(); control.sidebar.receive({ type: "ready" })
+  assert.deepEqual(actions, ["ready"])
+  control.settings["chat.sendKey"] = "ctrlEnter"
+  control.sidebar.messages.length = 0
+  control.configuration({ affectsConfiguration: (key: string) => key === "codem.autoConnect" })
+  assert.equal(control.sidebar.messages.length, 0, "Other settings do not repost editor settings")
+  control.configuration({ affectsConfiguration: (key: string) => key === "codem.chat.sendKey" })
+  assert.deepEqual(control.sidebar.messages, [{ type: "editorSettings", sendKey: "ctrlEnter" }])
+})
 
 it("moves one chat surface, preserves draft and pending sends, reuses the editor and rejects old surface messages", async t => {
   const { ChatSurfaces, PanelBroker, control } = await fixture(t)
   let receipt: (message: unknown) => void = () => {}
-  const surfaces = new ChatSurfaces({ extensionUri: {} }, new PanelBroker(), async (action: {type: string}, reply: typeof receipt) => { if (action.type === "send") receipt = reply }, () => {})
+  const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async (action: {type: string}, reply: typeof receipt) => { if (action.type === "send") receipt = reply }, () => {})
   t.after(() => surfaces.dispose())
   await surfaces.focus(); control.sidebar.receive({ type: "ready" }); control.sidebar.receive({ type: "composerRestore", value: { draft: "original" } })
   assert.match(control.sidebar.webview.html, /id="codem-root" data-surface="sidebar"/)
@@ -92,7 +118,7 @@ for (const location of ["sidebar", "editor"] as const) {
     const actions: string[] = []
     let phase = "ready"
     let publications = 0
-    const surfaces = new ChatSurfaces({ extensionUri: {} }, panels, async (action: { type: string }) => { actions.push(action.type) }, () => {
+    const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, panels), async (action: { type: string }) => { actions.push(action.type) }, () => {
       publications++
       surfaces.post({ type: "state", phase })
     })
@@ -142,7 +168,7 @@ for (const location of ["sidebar", "editor"] as const) {
 it("replays an explicit page reload from Host without changing its connection or draft", async t => {
   const { ChatSurfaces, PanelBroker, control } = await fixture(t)
   let publications = 0
-  const surfaces = new ChatSurfaces({ extensionUri: {} }, new PanelBroker(), async () => {}, () => { publications++ })
+  const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async () => {}, () => { publications++ })
   t.after(() => surfaces.dispose())
   await surfaces.focus()
   const sidebar = control.sidebar
@@ -160,7 +186,7 @@ it("replays an explicit page reload from Host without changing its connection or
 
 it("logout clears pending context and saved drafts so surface reload cannot restore old account input", async t => {
   const { ChatSurfaces, PanelBroker, control } = await fixture(t)
-  const surfaces = new ChatSurfaces({ extensionUri: {} }, new PanelBroker(), async () => {}, () => {})
+  const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async () => {}, () => {})
   t.after(() => surfaces.dispose())
   await surfaces.focus(); control.sidebar.receive({ type: "ready" }); control.sidebar.receive({ type: "composerRestore", value: { draft: "old account draft" } })
   const insertion = surfaces.addContext("old context")
@@ -178,7 +204,7 @@ it("logout clears pending context and saved drafts so surface reload cannot rest
 
 it("logout cancels context insertion waiting for Webview restoration", async t => {
   const { ChatSurfaces, PanelBroker, control } = await fixture(t)
-  const surfaces = new ChatSurfaces({ extensionUri: {} }, new PanelBroker(), async () => {}, () => {})
+  const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async () => {}, () => {})
   t.after(() => surfaces.dispose())
   const insertion = surfaces.addContext("previous account code")
   const rejected = assert.rejects(insertion, /上下文已取消/)
@@ -191,7 +217,7 @@ it("logout cancels context insertion waiting for Webview restoration", async t =
 
 it("opens account after readiness, once, without stealing focus when the draft restores", async t => {
   const { ChatSurfaces, PanelBroker, control } = await fixture(t)
-  const surfaces = new ChatSurfaces({ extensionUri: {} }, new PanelBroker(), async () => {}, () => surfaces.post({ type: "account", state: { status: "signedIn" } }))
+  const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async () => {}, () => surfaces.post({ type: "account", state: { status: "signedIn" } }))
   t.after(() => surfaces.dispose())
   await surfaces.focus()
   await surfaces.openAccount(); await surfaces.openAccount()

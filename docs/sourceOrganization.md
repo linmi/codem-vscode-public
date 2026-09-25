@@ -57,3 +57,36 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 仍在生效的规则测试随实现迁入 `packages/ui/tests/`（时间线分组、轮次变更、欢迎与工作状态、斜杠命令可用性、耗时格式）；历史重载耗时和真实回复分组保留 Host 侧，改用共享 UI 投影与规则。只覆盖已删除 `ComposerState` 回执模型的测试随实现删除，现行回执规则由 `draftRetention` 测试覆盖。
 
 门禁：`sourceLayout.test.ts` 只允许 `webview/` 下的 `main.ts`、`styles.css` 与 `host/`，并对重建 `components/`、`composer/`、`styles/` 给出反例；`webviewStyles.test.ts` 编译真实入口，校验共享样式原样包含且额外规则只限 `body.vscode-*`，反例覆盖未限定规则、分叉/缺失副本和桥接外的 at-rule；`productionReachability.test.ts` 拒绝 `src/` 与 `webview/` 下任何正式入口到不了的 TypeScript 文件（运行时与仅类型引用都算可达，测试引用不算），入口清单由构建脚本共用。
+
+## 扩展入口只做激活、组装与释放（2026-09-25）
+
+问题：`src/extension.ts`（258 行）除组装外还承担功能逻辑并持有可变状态。`dispatch` 是 73 个 case 标签的 `switch`，内含登录准入与拒绝回执、线程标识校验、本地插件文件夹校验、文件搜索/选择失败映射、发送失败提示和退出登录清理顺序；`publish` 回调在断线时撤回 Host 面板并计算相位耗时；命令表内有登录/账户页导航判断；另有会话打开（运行时、MCP、分段耗时、失败关闭 Host）、回合事件日志和加入上下文。可变状态为 7 个闭包变量（`surfaces`、`selection`、`review`、`nextEdit`、`connectingAt`、`previousPhase`、`autoConnectAttempted`）和 2 个模块变量（`controller`、`accountController`）。构造顺序成环：界面容器构造时需要 `dispatch`，而 `dispatch`、账户、选区与聊天发布又都要调用界面容器，于是 `surfaces` 迟后赋值并到处 `?.`，`selection!` 10 处、`surfaces!` 与 `review!` 各 1 处非空断言。`integrations/gitActions.ts` 拿到整个 `ChatController`，只用其中 3 个方法。
+
+目标边界：入口只创建对象、按依赖顺序连接窄能力、注册释放；任何判断都属于某个功能所有者。
+
+| 职责 | 所有者 | 只接收 |
+| --- | --- | --- |
+| Webview 动作到功能调用的映射：未登录准入与拒绝回执、线程标识校验、文件搜索/选择与图片回执、发送失败提示、退出登录清理顺序 | `chat/viewActionRouter.ts` | 所调方法的 `Pick`（聊天、账户、选区、面板、界面容器、原生能力、会话打开）与日志、提示、输出面板三个函数；不引用 `vscode` 运行时 |
+| 本地插件文件夹 → 安装来源（取消、非本地文件夹拒绝） | `plugins/pluginSource.ts` | 选择结果；文件夹对话框由 `integrations/nativeFeatures.ts` 提供 |
+| 自动连接的唯一一次尝试及其触发（ready、授予信任、改设置） | `connection/autoConnect.ts` | 是否登录、界面是否可用、连接 |
+| 会话打开：运行时 → MCP、分段耗时、失败关闭；上次连接的读取与记住；回合事件日志 | `connection/sessionOpener.ts` | 偏好、MCP 读取、认证状态回调、日志 |
+| 相位耗时与失败日志 | `chat/chatLog.ts` | 写一行日志 |
+| 断线撤回面板 | `panels/panelBroker.ts` 的 `followChat` | 聊天相位 |
+| 聊天命令（打开、历史、新会话、连接、账户、登录） | `chat/chatCommands.ts` | 所调方法的 `Pick` |
+| 加入上下文（信任、选区匹配、工作区校验、消费选区） | `integrations/editorSelection.ts` 的 `addContext` | 追加草稿与校验路径两个函数 |
+| 登录准入 | `connection/accountController.ts` 的 `assertSignedIn` | — |
+| 发送键设置的读、写与变更监听 | `chat/chatSurfaces.ts` | — |
+| 提交说明生成可调用的聊天方法 | `integrations/gitActions.ts` | `Pick<ChatController, "contextKey" \| "assertContextDirectory" \| "generateText">` |
+
+构造顺序：界面容器先创建，只注册发送键设置监听，账户、选区、聊天交互直接拿到它；路由创建后调用 `surfaces.serve(handlers)` 才注册侧栏视图与编辑器恢复，所以任何界面挂载时处理器已经存在，`serve` 只能调用一次。聊天快照经入口持有的 `vscode.EventEmitter` 发布：编辑器建议功能要调用聊天，只能在聊天之后创建，因此只有这一条边迟后订阅；监听器按原 `publish` 的顺序调用面板、日志、选区、编辑器审阅、Next Edit、界面容器。
+
+| 状态 | 所有者 | 保存范围 | 清理时机 |
+| --- | --- | --- | --- |
+| 自动连接已尝试 | `AutoConnect` | 一次激活 | 退出登录时重置；失败不重置；随订阅释放注销监听 |
+| 上一个相位、本次连接开始时刻 | `ChatLog` | 一次激活 | 随激活结束 |
+| 界面处理器 | `ChatSurfaces` | 一次激活 | 只写一次；释放时注销视图与序列化注册 |
+| 当前激活的异步释放 | 入口模块的 `deactivations` 集合（唯一模块状态） | 激活到 `deactivate` | `deactivate` 取出、清空并等待 |
+
+必须保持的交互（每个 Webview 动作行为不变）：未登录只接受 ready、登录、退出、取消登录、刷新账户和查看日志，其余动作不触达功能，粘贴图片与发送得到拒绝回执并重新发布账户；控制类线程动作（steer、旁路提问、Shell、压缩、回退、清空）只作用于当前线程，`manageThread` 照旧不校验；文件搜索失败回空列表与“文件搜索失败，请重试。”，选中文件失败回 `accepted: false`；附带选区发送失败提示原因并回 `accepted: false`；退出登录依次撤回面板、清空选区、重置草稿、允许下个账户再自动连接一次，再重置聊天并记录 `Account disconnect`；插件文件夹取消返回无来源，非本地文件夹以“插件需要可访问的本地文件夹。”拒绝，对话框关闭后已取消的操作不再继续；自动连接每次激活最多一次，未打开聊天、未信任、无文件夹或关闭设置时不连接；命令与账户页导航不变。关闭时 `deactivate` 等待 `ChatController` 与 `AccountController` 释放，订阅释放仍撤回面板；`pnpm test:shutdown` 的关闭预算不变。
+
+调用链：不新增认证、RPC、子进程或缓存；会话打开仍是一次 connectRuntime → 一次 SecretStorage MCP 读取，失败关闭 Host；ready 仍是一次账户读取加最多一次连接。

@@ -18,39 +18,37 @@ import { ChatController } from "./chat/chatController.ts"
 import { UserVisibleError } from "./shared/userVisibleError.ts"
 import { assertTrusted, connectRuntime } from "./connection/runtimeSession.ts"
 import { showInteraction } from "./panels/interactions.ts"
-import { type ImageResult, type FileSearchResult, type FileSelected, type SendResult, type ViewAction } from "./shared/messages.ts"
-
+import { type ChatSnapshot, type ImageResult, type FileSearchResult, type FileSelected, type SendResult, type ViewAction } from "./shared/messages.ts"
+import { AutoConnect } from "./connection/autoConnect.ts"
+import { ChatLog } from "./chat/chatLog.ts"
 import { PanelBroker } from "./panels/panelBroker.ts"
 
 import { NativeFeatures } from "./integrations/nativeFeatures.ts"
 
-let controller: ChatController | undefined
-let accountController: AccountController | undefined
+/** The only module state: each activation's asynchronous disposal, which deactivate awaits. VS Code does not await `context.subscriptions`. */
+const deactivations = new Set<() => Promise<unknown>>()
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("CodeM")
+  const log = (line: string) => output.appendLine(line)
   // One verifier per extension host: account reads and connections reuse a digest only
   // while the bundled executable is unchanged; the manifest check runs on every call.
   const runtime = createBundledAppServerRuntimeResolver({
     extensionRoot: context.extensionPath,
-    observe: ({ elapsedMs, hashed, reused }) => output.appendLine(`Runtime integrity: ${elapsedMs}ms; hashed ${hashed}, reused ${reused}`),
+    observe: ({ elapsedMs, hashed, reused }) => log(`Runtime integrity: ${elapsedMs}ms; hashed ${hashed}, reused ${reused}`),
   })
   const preferences = new ConnectionPreferences(context.workspaceState)
   const features = new NativeFeatures(context.secrets)
   context.subscriptions.push(features)
   const panels = new PanelBroker()
-  let surfaces: ChatSurfaces | undefined
-  const account = new AccountController(accountOperations(runtime, (stage, ms) => output.appendLine(`Account ${stage}: ${ms}ms`)), state => {
+  const surfaces = new ChatSurfaces(context, panels)
+  const account = new AccountController(accountOperations(runtime, (stage, ms) => log(`Account ${stage}: ${ms}ms`)), state => {
     void vscode.commands.executeCommand("setContext", "codem.accountStatus", state.status)
-    surfaces?.post({ type: "account", state })
+    surfaces.post({ type: "account", state })
   })
   account.publish()
-  accountController = account
-  let selection: EditorSelection | undefined
-  let review: EditorReview | undefined
-  let nextEdit: NextEdit | undefined
-  let connectingAt: number | null = null
-  let previousPhase: string | null = null
+  const chatLog = new ChatLog(log)
+  const chatStates = new vscode.EventEmitter<ChatSnapshot>()
   const openSession = async (signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
     const runtimeStarted = performance.now()
     const session = await connectRuntime(runtime, context.extension.packageJSON.version as string, signal, target, directory, status => { if (!signal.aborted) account.observe(status) })
@@ -62,7 +60,7 @@ export function activate(context: vscode.ExtensionContext): void {
       return session
     } catch (error) { await session.host.close(); throw error }
   }
-  controller = new ChatController({
+  const chat = new ChatController({
     preferences,
     authenticationInvalidated: () => account.invalidate(),
     activeConversation: new ActiveConversation(context.workspaceState),
@@ -77,39 +75,17 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     assertTrusted: () => { assertTrusted(); if (!account.signedIn) throw new UserVisibleError("请先登录 CodeM。") },
     interact: async (request, signal, cwd) => {
-      await surfaces?.focus()
+      await surfaces.focus()
       return showInteraction(request, signal, panels, cwd)
     },
     requestApproval: (question, signal) => panels.request(question, signal),
-    publish: (state) => {
-      if (state.phase === "disconnected") panels.cancel()
-      if (state.phase !== previousPhase) {
-        if (state.phase === "connecting") connectingAt = performance.now()
-        else if (connectingAt !== null) {
-          output.appendLine(`Connection ${state.phase}: ${Math.round(performance.now() - connectingAt)}ms`)
-          connectingAt = null
-        }
-        output.appendLine(`UI phase: ${state.phase}`); previousPhase = state.phase
-      }
-      selection?.state.setContext(state)
-      review?.contextChanged()
-      nextEdit?.contextChanged()
-      surfaces?.post(state)
-    },
-    report: (operation, error) => {
-      // Do not log raw Core frames, broker output, tokens, or arbitrary exception payloads.
-      output.appendLine(`${new Date().toISOString()} ${operation}: ${error instanceof UserVisibleError ? error.message : "操作失败；请检查运行时文件、CodeM 登录和网络连接。"}`)
-    },
+    publish: state => chatStates.fire(state),
+    report: (operation, error) => chatLog.report(operation, error),
   })
-  const chat = controller
-  let autoConnectAttempted = false
-  const autoConnect = async () => {
-    if (!account.signedIn || autoConnectAttempted || !surfaces?.available || !vscode.workspace.isTrusted || !vscode.workspace.workspaceFolders?.length) return
-    if (!vscode.workspace.getConfiguration("codem").get<boolean>("autoConnect", true)) return
-    autoConnectAttempted = true
-    await chat.connect()
-  }
-  context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => { void autoConnect() }))
+  const autoConnect = new AutoConnect({ signedIn: () => account.signedIn, surfaceAvailable: () => surfaces.available, connect: () => chat.connect() })
+  context.subscriptions.push(autoConnect)
+  const selection = new EditorSelection(value => surfaces.post({ type: "codeSelection", value }))
+  context.subscriptions.push(selection)
   const dispatch = async (action: ViewAction, reply: (result: PasteImagesResult | SendResult | FileSearchResult | FileSelected | ImageResult) => void): Promise<void> => {
     if (!account.signedIn && !["ready", "signIn", "signOut", "cancelSignIn", "refreshAccount", "showOutput"].includes(action.type)) {
       if (action.type === "pasteImages") reply({ type: "pasteImagesResult", requestId: action.requestId, error: "请先登录后再粘贴图片。" })
@@ -117,13 +93,13 @@ export function activate(context: vscode.ExtensionContext): void {
       account.publish(); return
     }
     switch (action.type) {
-      case "ready": await account.initialize(); account.publish(); await autoConnect(); break
+      case "ready": await account.initialize(); account.publish(); await autoConnect.run(); break
       case "composerChanged": case "composerRestore": case "contextAdded": break
       case "panelReply": break
       case "connect": await account.initialize(); if (account.signedIn) await chat.connect(); else account.publish(); break
       case "signOut": await account.logout(async () => {
-        panels.cancel(); selection!.state.clear(); surfaces?.resetDraft()
-        autoConnectAttempted = false
+        panels.cancel(); selection.state.clear(); surfaces.resetDraft()
+        autoConnect.reset()
         const started = performance.now()
         try { await chat.resetAccount() }
         finally { output.appendLine(`Account disconnect: ${Math.round(performance.now() - started)}ms`) }
@@ -154,14 +130,14 @@ export function activate(context: vscode.ExtensionContext): void {
       case "resumeThread": await chat.resumeThread(action.threadId); break
       case "olderMessages": await chat.loadOlderMessages(); break
       case "reloadHistory": await chat.reloadHistory(); break
-      case "newChat": await chat.newChat(); selection!.state.clear(); break
-      case "pinCodeSelection": selection!.state.pin(action.id); break
-      case "removeCodeSelection": selection!.state.remove(action.id); break
-      case "revealCodeSelection": await selection!.reveal(action.id); break
+      case "newChat": await chat.newChat(); selection.state.clear(); break
+      case "pinCodeSelection": selection.state.pin(action.id); break
+      case "removeCodeSelection": selection.state.remove(action.id); break
+      case "revealCodeSelection": await selection.reveal(action.id); break
       case "send": {
         if (!account.signedIn) { account.publish(); reply({ type: "sendResult", requestId: action.requestId, accepted: false }); break }
         let accepted = false
-        try { accepted = await selection!.send(action.text, action.selectionIds, text => chat.send(text), path => chat.assertContextWorkspace(path)) }
+        try { accepted = await selection.send(action.text, action.selectionIds, text => chat.send(text), path => chat.assertContextWorkspace(path)) }
         catch (error) { void vscode.window.showErrorMessage(error instanceof Error ? error.message : "无法附带选中代码，请重新选择后重试。") }
         reply({ type: "sendResult", requestId: action.requestId, accepted }); break
       }
@@ -216,43 +192,47 @@ export function activate(context: vscode.ExtensionContext): void {
         break
     }
   }
-  selection = new EditorSelection(value => surfaces?.post({ type: "codeSelection", value }))
-  context.subscriptions.push(selection)
-  surfaces = new ChatSurfaces(context, panels, dispatch, () => {
-    chat.publish()
-    account.publish()
-    surfaces?.post({ type: "codeSelection", value: selection!.state.snapshot() })
-  })
   const addContext = async (text: string, uri?: vscode.Uri) => {
     assertTrusted()
-    const selectionIds = uri ? selection!.state.matchingIds(uri.toString(), text) : []
+    const selectionIds = uri ? selection.state.matchingIds(uri.toString(), text) : []
     if (uri?.scheme === "file") await chat.assertContextWorkspace(uri.fsPath)
-    await surfaces!.addContext(text)
-    selection!.state.consume(selectionIds)
+    await surfaces.addContext(text)
+    selection.state.consume(selectionIds)
   }
-  review = new EditorReview({ contextKey: () => chat.contextKey(), ready: () => chat.phase() === "ready", checkFile: path => chat.assertContextWorkspace(path), generate: (text, signal, scope) => chat.generateText(text, signal, scope) }, message => output.appendLine(message))
-  nextEdit = new NextEdit({ contextKey: () => chat.contextKey(), completionContext: () => chat.completionContext(), assertContextWorkspace: path => chat.assertContextWorkspace(path), generateText: (prompt, signal, scope) => chat.generateText(prompt, signal, scope) }, message => output.appendLine(message))
-  context.subscriptions.push(nextEdit)
-  context.subscriptions.push(output, surfaces, review, registerGitActions(chat, message => output.appendLine(message)), registerInlineCompletion(chat, message => output.appendLine(message)), registerEditorActions(addContext, (action, document, range, diagnostics) => review!.generate(action, document, range, diagnostics)), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
-    if (event.affectsConfiguration("codem.chat.sendKey")) surfaces?.postSettings()
-    if (event.affectsConfiguration("codem.autoConnect")) void autoConnect()
+  const review = new EditorReview({ contextKey: () => chat.contextKey(), ready: () => chat.phase() === "ready", checkFile: path => chat.assertContextWorkspace(path), generate: (text, signal, scope) => chat.generateText(text, signal, scope) }, log)
+  const nextEdit = new NextEdit({ contextKey: () => chat.contextKey(), completionContext: () => chat.completionContext(), assertContextWorkspace: path => chat.assertContextWorkspace(path), generateText: (prompt, signal, scope) => chat.generateText(prompt, signal, scope) }, log)
+  // Chat states reach the editor features created after the chat; listeners run in this order on every publish.
+  context.subscriptions.push(nextEdit, chatStates, chatStates.event(state => {
+    panels.followChat(state.phase)
+    chatLog.phase(state.phase)
+    selection.state.setContext(state)
+    review.contextChanged()
+    nextEdit.contextChanged()
+    surfaces.post(state)
   }))
+  // Surfaces mount only from here on, so the first Webview message already has its handler.
+  surfaces.serve({ dispatch, publish: () => {
+    chat.publish()
+    account.publish()
+    surfaces.post({ type: "codeSelection", value: selection.state.snapshot() })
+  } })
+  context.subscriptions.push(output, surfaces, review, registerGitActions(chat, log), registerInlineCompletion(chat, log), registerEditorActions(addContext, (action, document, range, diagnostics) => review.generate(action, document, range, diagnostics)), registerTerminalActions(text => addContext(text)))
   const commands: Record<string, () => unknown> = {
-    "codem.open": () => surfaces?.focus(),
-    "codem.focusChatInput": () => surfaces?.focus(),
-    "codem.openInTab": () => surfaces?.openInTab(),
-    "codem.openInSidebar": () => surfaces?.openInSidebar(),
+    "codem.open": () => surfaces.focus(),
+    "codem.focusChatInput": () => surfaces.focus(),
+    "codem.openInTab": () => surfaces.openInTab(),
+    "codem.openInSidebar": () => surfaces.openInSidebar(),
     "codem.settings": () => vscode.commands.executeCommand("workbench.action.openSettings", "@ext:codem.codem"),
     "codem.stop": () => chat.stop(),
-    "codem.history": async () => { await surfaces?.focus(); await chat.toggleHistory() },
-    "codem.newChat": async () => { await surfaces?.focus(); await chat.newChat(); selection!.state.clear() },
-    "codem.connect": async () => { await account.initialize(); if (account.signedIn) await chat.connect(); else await surfaces?.focus() },
-    "codem.account": async () => { if (account.snapshot().status === "checking") await account.initialize(); await surfaces?.openAccount() },
+    "codem.history": async () => { await surfaces.focus(); await chat.toggleHistory() },
+    "codem.newChat": async () => { await surfaces.focus(); await chat.newChat(); selection.state.clear() },
+    "codem.connect": async () => { await account.initialize(); if (account.signedIn) await chat.connect(); else await surfaces.focus() },
+    "codem.account": async () => { if (account.snapshot().status === "checking") await account.initialize(); await surfaces.openAccount() },
     "codem.signIn": async () => {
       if (account.snapshot().status === "checking") await account.initialize()
-      if (account.signedIn) await surfaces?.openAccount()
+      if (account.signedIn) await surfaces.openAccount()
       else {
-        await surfaces?.focus()
+        await surfaces.focus()
         if (account.snapshot().status === "signedOut" || account.snapshot().status === "error") await account.login()
       }
     },
@@ -260,6 +240,11 @@ export function activate(context: vscode.ExtensionContext): void {
   }
   for (const [name, run] of Object.entries(commands)) context.subscriptions.push(vscode.commands.registerCommand(name, run))
   context.subscriptions.push({ dispose: () => { panels.cancel(); void account.dispose(); void chat.dispose().catch(() => undefined) } })
+  deactivations.add(() => Promise.all([chat.dispose(), account.dispose()]))
 }
 
-export async function deactivate(): Promise<void> { await Promise.all([controller?.dispose(), accountController?.dispose()]); controller = undefined; accountController = undefined }
+export async function deactivate(): Promise<void> {
+  const pending = [...deactivations]
+  deactivations.clear()
+  await Promise.all(pending.map(dispose => dispose()))
+}

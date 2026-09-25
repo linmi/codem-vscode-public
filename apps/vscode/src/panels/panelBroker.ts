@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { PermissionChoiceIcon, PanelKind, PanelMessage, PanelReply, PanelView } from "../shared/panelTypes.ts"
+import type { ChatPhase } from "../shared/messages.ts"
 
 export interface PanelInput<T> {
   kind: PanelKind
@@ -37,6 +38,8 @@ export class PanelBroker {
   }
   replay(): void { this.publish?.({ type: "panel", panel: this.pending?.view ?? null }) }
   cancel(): void { this.pending?.cancel() }
+  /** A chat that disconnected withdraws its pending panel, which resolves as declined. */
+  followChat(phase: ChatPhase): void { if (phase === "disconnected") this.cancel() }
   answer(owner: object, reply: PanelReply): void {
     const pending = this.pending
     if (owner !== this.owner || !pending || reply.id !== pending.view.id) return

@@ -130,3 +130,14 @@ it("moves a pending approval to another surface without cancelling or authorizin
   f.broker.answer(nextOwner, reply)
   assert.deepEqual(await result, { values: ["allow"], text: "" })
 })
+
+it("keeps a pending panel while the chat is live and withdraws it once the chat disconnects", async () => {
+  const f = fixture()
+  const result = f.broker.request({ kind: "approval", title: "Approve", choices: [{ label: "Allow", value: "allow" }] })
+  const panel = f.view()
+  for (const phase of ["connecting", "ready", "running", "stopping"] as const) f.broker.followChat(phase)
+  assert.equal(f.view().id, panel.id, "Phases of a live chat keep the decision open")
+  f.broker.followChat("disconnected")
+  assert.equal(await result, null)
+  assert.equal(f.messages.at(-1)?.panel, null)
+})

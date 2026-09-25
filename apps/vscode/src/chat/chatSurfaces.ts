@@ -6,6 +6,13 @@ import type { ComposerDraft, ViewAction } from "../shared/messages.ts"
 import { parseViewAction } from "../shared/messages.ts"
 
 type Surface = vscode.WebviewView | vscode.WebviewPanel
+/** What a mounted surface asks of the Host. */
+export interface SurfaceHandlers {
+  /** Handles one parsed action; `reply` answers the surface that sent it. */
+  dispatch(action: ViewAction, reply: (value: unknown) => void): Promise<void>
+  /** Republishes authoritative state to a surface that became ready or visible again. */
+  publish(): void
+}
 /** One interactive surface and one controller; moving chat never creates a second session. */
 export class ChatSurfaces implements vscode.Disposable {
   private sidebar: vscode.WebviewView | undefined
@@ -23,8 +30,16 @@ export class ChatSurfaces implements vscode.Disposable {
   private readonly contexts = new Map<string, { text: string; finish: (accepted: boolean) => void }>()
   private surfaceSubscriptions: vscode.Disposable[] = []
   private readonly subscriptions: vscode.Disposable[] = []
+  private handlers: SurfaceHandlers | null = null
   private disposed = false
-  constructor(private readonly context: vscode.ExtensionContext, private readonly panels: PanelBroker, private readonly dispatch: (action: ViewAction, reply: (value: unknown) => void) => Promise<void>, private readonly publish: () => void) {
+  /** Created before the features that post to it; nothing mounts until `serve` provides the handlers. */
+  constructor(private readonly context: vscode.ExtensionContext, private readonly panels: PanelBroker) {
+    this.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration("codem.chat.sendKey")) this.postSettings() }))
+  }
+  /** Registers the sidebar view and editor-tab restore once the handlers exist, so every mounted surface has them. Served once. */
+  serve(handlers: SurfaceHandlers): void {
+    if (this.handlers) throw new Error("CodeM chat surfaces are already served.")
+    this.handlers = handlers
     this.subscriptions.push(vscode.window.registerWebviewViewProvider("codem.chat", { resolveWebviewView: view => {
       this.sidebar = view
       this.subscriptions.push(view.onDidDispose(() => { if (this.active === view) this.detach(view); if (this.sidebar === view) this.sidebar = undefined }))
@@ -109,10 +124,11 @@ export class ChatSurfaces implements vscode.Disposable {
   }
   private synchronize(): void {
     if (this.disposed || !this.ready || !this.active) return
-    this.publish(); this.panels.replay(); this.postSettings(); this.showPendingAccount()
+    this.handlers?.publish(); this.panels.replay(); this.postSettings(); this.showPendingAccount()
   }
   private mount(surface: Surface): void {
-    if (this.disposed || this.active === surface) return
+    const handlers = this.handlers
+    if (this.disposed || !handlers || this.active === surface) return
     const previous = this.active
     if (previous) { this.detach(previous); previous.webview.html = "" }
     this.active = surface; this.ready = false; this.restored = false
@@ -155,7 +171,7 @@ export class ChatSurfaces implements vscode.Disposable {
         }
         const submittedRevision = this.draftRevision
         if (action.type === "send") this.pendingSend = { id: action.requestId, revision: submittedRevision }
-        void this.dispatch(action, result => {
+        void handlers.dispatch(action, result => {
           if (action.type === "send" && (result as { accepted?: boolean }).accepted && this.draft?.draft === action.text && this.draftRevision === submittedRevision) {
             this.draft = { ...this.draft, draft: "" }
 
