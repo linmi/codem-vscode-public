@@ -611,14 +611,16 @@ class ProjectSession(
         }
     }
 
+    /** As host.ts threadSummary: preview is a string (blank still shows as untitled) and archived a boolean. */
     private fun historyEntries(page: ThreadListPage): List<com.codem.intellij.webview.HistoryEntryView> {
-        return page.threads.map { thread ->
+        return page.threads.mapIndexed { index, thread ->
+            val label = "thread/list result.threads[$index]"
             val id = thread.required("id").asText()
-            val preview = thread.stringOrNull("preview")?.trim()?.take(160)
+            val preview = thread.requiredString("preview", label).trim().take(160)
             com.codem.intellij.webview.HistoryEntryView(
                 id = id,
-                title = preview?.ifBlank { null } ?: "未命名会话",
-                archived = thread.booleanOrNull("archived") == true,
+                title = preview.ifBlank { "未命名会话" },
+                archived = thread.requiredBoolean("archived", label),
             )
         }
     }
@@ -684,8 +686,7 @@ class ProjectSession(
             is JsonValue.Text -> value.value
             else -> throw CodemError.Protocol(CodemError.Class.InvalidFrame, "thread/list nextCursor is invalid")
         }
-        val total = result.numberOrNull("total")?.toInt()
-            ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "thread/list total is invalid")
+        val total = result.requiredInt("total", "$method result")
         if (total < 0) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "thread/list total is invalid")
         return ThreadListPage(threads, next, total)
     }

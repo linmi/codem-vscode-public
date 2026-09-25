@@ -1314,6 +1314,54 @@ class ProjectSessionTest {
         } finally { session.close().join() }
     }
 
+    /**
+     * 与 host.ts threadSummary / thread/list 一致：preview 必须是字符串、archived 必须是布尔值、total 必须是非负整数。
+     * 旧实现把错类型的 preview 显示成“未命名会话”、archived 当作 false，total 1.5 截断成 1。
+     */
+    @Test
+    fun threadListRequiresTypedPreviewArchivedAndTotal() {
+        val listing = java.util.concurrent.atomic.AtomicReference<JsonValue>()
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, _ -> if (method == "thread/list") listing.get() else null })
+            process
+        }
+        fun page(total: JsonValue = JsonValue.NumberValue(1.0, "1"), vararg fields: Pair<String, JsonValue?>): JsonValue.ObjectValue {
+            val thread = linkedMapOf<String, JsonValue>("id" to JsonValue.Text("thread-1"), "preview" to JsonValue.Text("昨天的问题"), "archived" to JsonValue.Bool(false))
+            for ((key, value) in fields) if (value == null) thread.remove(key) else thread[key] = value
+            return JsonValue.obj("threads" to JsonValue.ArrayValue(listOf(JsonValue.ObjectValue(thread))), "nextCursor" to JsonValue.Null, "total" to total)
+        }
+        try {
+            session.connect()
+            listing.set(page(JsonValue.NumberValue(1.0, "1"), "preview" to JsonValue.Text("  "), "archived" to JsonValue.Bool(true)))
+            session.showHistory()
+            val blank = session.snapshot().history
+            assertEquals(null, blank.error)
+            assertEquals("未命名会话", blank.entries.single().title)
+            assertEquals(true, blank.entries.single().archived)
+
+            for (fields in listOf(
+                arrayOf("preview" to JsonValue.NumberValue(42.0, "42")),
+                arrayOf("preview" to JsonValue.Null),
+                arrayOf("preview" to null),
+                arrayOf("archived" to JsonValue.Text("false")),
+                arrayOf("archived" to null),
+            )) {
+                listing.set(page(JsonValue.NumberValue(1.0, "1"), *fields))
+                session.showHistory()
+                val failed = session.snapshot().history
+                assertEquals("无法加载会话列表，请刷新重试。", failed.error, fields.toList().toString())
+                assertEquals(false, failed.loading)
+            }
+
+            for (total in listOf(JsonValue.NumberValue(1.5, "1.5"), JsonValue.NumberValue(-1.0, "-1"), JsonValue.Text("1"), JsonValue.Null)) {
+                listing.set(page(total))
+                val error = org.junit.jupiter.api.Assertions.assertThrows(CodemError.Protocol::class.java, { session.listThreads() }, total.toString())
+                assertEquals(CodemError.Class.InvalidFrame, error.errorClass, total.toString())
+            }
+        } finally { session.close().join() }
+    }
+
     /** 历史列表读取失败：loading 必须结束并推给界面，面板给出可读错误；刷新成功后恢复条目并清掉错误。 */
     @Test
     fun failedHistoryLoadClearsLoadingAndRefreshRecovers() {
