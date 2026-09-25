@@ -53,11 +53,8 @@ export {
   REQUIRED_APP_SERVER_BOOLEAN_CAPABILITIES,
   REQUIRED_APP_SERVER_ITEM_STATUSES,
   REQUIRED_APP_SERVER_ITEM_TYPES,
-  preflightAppServer,
   validateAppServerInitializeResult,
   type AppServerInitialization,
-  type AppServerPreflight,
-  type PreflightAppServerOptions,
 } from "./preflight.ts"
 export {
   APP_SERVER_ABANDONED_REQUEST_LIMIT,

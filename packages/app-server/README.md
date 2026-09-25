@@ -93,7 +93,7 @@ The default tests include real child-process fixtures that withhold unsubscribe,
 
 ### Child process termination
 
-`src/processLifecycle.ts` decides how each asynchronous child process this package starts is stopped. Each caller uses one named policy, and the timeouts are named constants there. `preflightAppServer` runs Core through `spawnSync` and relies on its built-in timeout.
+`src/processLifecycle.ts` decides how each child process this package starts is stopped. Each caller uses one named policy, and the timeouts are named constants there.
 
 | Process | Policy | Tree | Sequence |
 | --- | --- | --- | --- |
