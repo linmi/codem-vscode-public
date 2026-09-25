@@ -4,7 +4,7 @@
 
 ## 查看入口
 
-复用现有 `http://127.0.0.1:4318/` 预览服务。没有服务时先运行 `pnpm build:vscode`，再运行 `pnpm --filter codem exec node --experimental-strip-types tests/webviewPreview.ts`；不要重复启动服务或浏览器实例。
+复用现有 `http://127.0.0.1:4318/` 预览服务。没有服务时先运行 `pnpm build:vscode`，再运行 `pnpm --filter codem exec node --experimental-strip-types tests/webviewPreview.ts`；不要重复启动服务或浏览器实例。4318 已被其他并行任务占用时，用 `CODEM_WEBVIEW_PREVIEW_PORT=<端口>` 在空闲端口启动本任务自己的服务，结束后只停止该服务；端口被占用时服务报错退出，不会改用其他端口。
 
 推荐直接打开：
 

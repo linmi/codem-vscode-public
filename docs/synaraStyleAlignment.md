@@ -45,7 +45,7 @@ pnpm build:vscode
 node --experimental-strip-types apps/vscode/tests/webviewPreview.ts
 ```
 
-打开 `http://127.0.0.1:4318/`；`?theme=dark` 切换深色，`?empty=1` 显示空白页。服务器只监听 loopback，使用固定测试 DTO，不连接 Core，不读取用户历史或凭据。
+打开 `http://127.0.0.1:4318/`（`CODEM_WEBVIEW_PREVIEW_PORT` 可改端口）；`?theme=dark` 切换深色，`?empty=1` 显示空白页。服务器只监听 loopback，使用固定测试 DTO，不连接 Core，不读取用户历史或凭据。
 
 用 Playwright CLI 打开上述地址后，将 `apps/vscode/tests/webviewChecks.mjs` 默认导出的函数传给 CLI `run-code` 即可执行交互和内容安全断言。成功返回 `WEBVIEW_CHECKS_OK`。测试不依赖已登录状态；真实模型验证仍单独运行 `test:live`。
 

@@ -6,7 +6,10 @@ import { parsePreviewSearch } from "./previewState.ts"
 import { chatHtml } from "../src/chat/html.ts"
 
 
-const port = 4318
+// Parallel sessions each run their own fixture; 4318 stays the shared default.
+const portSetting = process.env.CODEM_WEBVIEW_PREVIEW_PORT ?? "4318"
+if (!/^[1-9]\d{0,4}$/.test(portSetting) || Number(portSetting) > 65535) throw new Error(`CODEM_WEBVIEW_PREVIEW_PORT must be a TCP port (1-65535), got ${JSON.stringify(portSetting)}`)
+const port = Number(portSetting)
 const routes: Record<string, { path: string; type: string }> = {
   "/previewDashboard.png": { path: "./fixtures/previewDashboard.png", type: "image/png" },
   "/previewNavigation.js": { path: "../dist/previewNavigation.js", type: "text/javascript" },
@@ -34,4 +37,7 @@ createServer((request, response) => {
     response.setHeader("Content-Type", route.type)
     response.end(readFileSync(fileURLToPath(new URL(route.path, import.meta.url))))
   } catch { response.writeHead(404); response.end() }
+}).on("error", error => {
+  console.error(`CodeM visual fixture could not listen on 127.0.0.1:${port}: ${error.message}. Set CODEM_WEBVIEW_PREVIEW_PORT to a free port.`)
+  process.exitCode = 1
 }).listen(port, "127.0.0.1", () => console.log(`CodeM visual fixture: http://127.0.0.1:${port} (mock transport only)`))
