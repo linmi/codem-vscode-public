@@ -45,6 +45,12 @@ JetBrains 发行包不带 Node，Kotlin 端保留自己的协议实现；漂移�
 
 边界：活动文案只存在于 VS Code `chatController.ts`，不在共享包中，Kotlin 测试按其现值断言，不能随 TypeScript 改动自动失败；`toolPresentation` 键与 `parseAppServerItem` 工具名的一致性由 TypeScript 侧自身保证。
 
+### JetBrains JSON 字段读取
+
+Kotlin 解码统一经 `JsonValue.ObjectValue` 的类型化读取：`requiredX(key, path)` 缺失、null 或类型不符以 InvalidFrame 失败并带字段路径；`optionalX` 视缺失与 null 为缺省、其它类型失败；`xOrNull` 为宽松读取，只用于 Node Host 同样宽松或调用方自带错误类（History、Validation、Capability）的字段。`JsonCastGuardTest` 扫描 `src/main` 与 `src/plugin`（经 `codem.kotlinSources` 注入并声明为测试输入），除允许清单中的 `JsonValue.kt` 外，出现 `as? JsonValue.X`（含包名限定与从 `JsonValue` 导入的嵌套类型）即失败；`is JsonValue.X` 模式匹配不受限。正反例覆盖直接、带空白、导入与包名限定四种写法，以及注释、其它类型的 `as?` 与 `is` 分支。
+
+2026-09-25 反向验证：只在 `src/plugin` 插入两处转换，测试照常重跑并逐行报出；移除后通过。迁移前活跃源码共 127 处（120 行）此类转换，迁移后为 0。
+
 ## 目录组织门禁
 
 VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.test.ts` 检查入口目录只保留组装文件、功能目录有明确归属，`webview/` 只有入口、样式入口和 `host/`；反例覆盖旧平铺路径、无归属目录及重建组件/输入区/样式副本。`webviewStyles.test.ts` 要求 VS Code 样式等于共享 `@codem/ui` 样式加 `body.vscode-*` 限定的主题桥接。`productionReachability.test.ts` 要求 `src/` 与 `webview/` 下每个 TypeScript 文件都能从 `scripts/support/productionEntries.ts` 列出的正式入口（扩展、Webview、原生 Chat 实验，两个构建脚本共用这份清单）到达：运行时依赖取 esbuild 解析，仅类型引用取 `tsc --listFilesOnly`，只被测试或其他死文件引用的文件同样报错；反例覆盖孤立文件、仅被孤立文件或测试引用的文件、孤立类型与移除入口，正例覆盖值、类型、再导出、动态导入、`require` 与声明文件。架构解析检查 Webview → 共享契约、共享契约 → 纯代码的依赖方向，含别名解析与类型导入反例；基础组件边界由 `@codem/ui` 的 UI 规则负责。全部进入 `pnpm check`。

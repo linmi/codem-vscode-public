@@ -66,6 +66,12 @@ tasks.test {
     }
     systemProperty("codem.sessionRecordContract", sessionRecordContract.path)
     inputs.file(sessionRecordContract).withPropertyName("sessionRecordContract").withPathSensitivity(PathSensitivity.RELATIVE)
+    // JsonCastGuardTest scans the production sources; src/plugin is not compiled here, so declare both as inputs.
+    val guardedSources = listOf("src/main/kotlin", "src/plugin/kotlin").map { projectDir.resolve(it) }
+    systemProperty("codem.kotlinSources", guardedSources.joinToString(File.pathSeparator) { it.path })
+    guardedSources.forEach { source ->
+        inputs.dir(source).withPropertyName("kotlinSources-${source.parentFile.name}").withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     testLogging {
         events("passed", "skipped", "failed")
     }
