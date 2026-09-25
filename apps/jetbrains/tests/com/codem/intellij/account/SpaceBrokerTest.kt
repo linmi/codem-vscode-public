@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -86,6 +88,30 @@ class SpaceBrokerTest {
         } finally {
             Thread.setDefaultUncaughtExceptionHandler(previous)
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            // 读到 initialize 后直接退出。
+            "read line; exit 0",
+            // 关闭 stdout 但进程仍在，等 stdin 关闭：失败必须由 EOF 触发，不靠进程退出。
+            "read line; exec >&-; exec cat >/dev/null",
+        ],
+    )
+    @DisabledOnOs(OS.WINDOWS)
+    fun brokerClosingStdoutWithoutAnsweringFailsThePendingRequestImmediately(script: String) {
+        val broker = SpaceBroker(
+            runtime(),
+            Path.of(System.getProperty("java.io.tmpdir")).toAbsolutePath(),
+            timeouts = Timeouts(spaceBrokerMs = 10_000),
+            openPeer = { _, cwd, environment -> javaBrokerSession(listOf("/bin/sh", "-c", script), cwd, environment) },
+        )
+        val started = System.currentTimeMillis()
+        val error = assertThrows(CodemError.Authentication::class.java) { broker.list() }
+        val elapsed = System.currentTimeMillis() - started
+        assertEquals("CodeM App Server closed stdout unexpectedly", error.cause?.cause?.message, error.cause.toString())
+        assertTrue(elapsed < 1_000, "broker request took ${elapsed}ms to fail after stdout closed")
     }
 
     private fun runtime(): ResolvedRuntime {

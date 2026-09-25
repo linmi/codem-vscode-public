@@ -172,11 +172,16 @@ fun javaBrokerSession(command: List<String>, cwd: Path, environment: Map<String,
         onProtocolError = {},
     )
     Thread {
-        process.inputStream.bufferedReader().use { reader ->
-            while (true) {
-                val line = reader.readLine() ?: break
-                if (line.isNotBlank()) peer.consume(line)
+        try {
+            process.inputStream.bufferedReader().use { reader ->
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    if (line.isNotBlank()) peer.consume(line)
+                }
             }
+        } finally {
+            // 对照 TS 读循环：broker 未答复就关闭 stdout 时立即拒绝 pending，不空等 spaceBrokerMs；close 之后调用无效果。
+            peer.failUnexpectedStdoutClose()
         }
     }.apply { isDaemon = true; name = "codem-space-broker" }.start()
     Thread {
