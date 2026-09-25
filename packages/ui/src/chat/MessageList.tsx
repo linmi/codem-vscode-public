@@ -1,7 +1,7 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react"
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { CheckIcon, CopyIcon, FileDiffIcon } from "lucide-react"
 import { Button } from "../components/ui/button.tsx"
-import { elapsedTime, type ArtifactView, type ChatMessage, type ChatSnapshot, type DiffView } from "../contract.ts"
+import { elapsedTime, type ArtifactView, type ChatMessage, type ChatSnapshot, type DiffView, type TurnTiming } from "../contract.ts"
 import { LoadingState } from "./LoadingState.tsx"
 import { SafeMarkdown } from "./SafeMarkdown.tsx"
 import { activityBadge, activityPlaceholder, activityTitle, toolPresentation } from "./toolPresentation.ts"
@@ -20,25 +20,35 @@ const previewLabels: Record<DiffView["preview"], string> = {
   complete: "",
 }
 
+type Post = (action: Record<string, unknown>) => void
+
 /**
  * 对照 VS Code messageView + workGroups：原生 details、工作分组和轮次变更。
  * 运行中的思考才放像素加载；工具行不再叠一条同样的标题。
+ *
+ * 每个增量都会重算分组，但消息、工作分组和轮次变更按自身输入复用上次渲染：没变的消息保持同一对象
+ * （见 contract 的 normalizeMessages），只有内容、状态或工具变化的那几行重新渲染。展开状态是各行自己的 state，不受影响。
  */
 export function MessageList({
   snapshot,
   post,
 }: {
   snapshot: ChatSnapshot
-  post: (action: Record<string, unknown>) => void
+  post: Post
 }) {
+  // 调用方每次渲染可能给出新的 post；各行拿到的是固定的转发函数，才能按其余输入复用。
+  const latestPost = useRef(post)
+  useLayoutEffect(() => { latestPost.current = post })
+  const stablePost = useCallback<Post>((action) => latestPost.current(action), [])
   const groups = timelineGroups(snapshot.messages)
   const activityId = lastActivityId(snapshot.messages)
   const changes = turnChanges(snapshot.messages, snapshot.diffs)
   const nodes: { key: string; node: ReactNode }[] = []
   for (const group of groups) {
     if (group.kind === "message") {
-      nodes.push({ key: group.message.id, node: <ChatMessageView message={group.message} post={post} selected={snapshot.conversationSearch?.target === group.message.id} /> })
+      nodes.push({ key: group.message.id, node: <ChatMessageView message={group.message} post={stablePost} selected={snapshot.conversationSearch?.target === group.message.id} /> })
     } else {
+      const latest = group.messages.some((message) => message.id === activityId)
       nodes.push({
         key: group.id,
         node: (
@@ -46,9 +56,9 @@ export function MessageList({
             work={group.messages}
             hasResult={group.hasResult}
             phase={snapshot.phase}
-            lastActivityId={activityId}
-            timings={snapshot.turnTimings}
-            post={post}
+            lastActivityId={latest ? activityId : null}
+            timing={snapshot.turnTimings.find((item) => group.messages.some((message) => message.turnId === item.turnId))}
+            post={stablePost}
           />
         ),
       })
@@ -59,10 +69,10 @@ export function MessageList({
       if (group.kind === "message") return group.message.id === anchor
       return group.messages.some((message) => message.id === anchor)
     })
-    for (const change of placed) nodes.push({ key: `changes-${change.turnId}`, node: <TurnChangeList group={change} post={post} /> })
+    for (const change of placed) nodes.push({ key: `changes-${change.turnId}`, node: <TurnChangeList group={change} post={stablePost} /> })
   }
   for (const change of changes.filter((change) => !change.afterMessageId || !nodes.some((item) => item.key === `changes-${change.turnId}`))) {
-    nodes.push({ key: `changes-${change.turnId}`, node: <TurnChangeList group={change} post={post} /> })
+    nodes.push({ key: `changes-${change.turnId}`, node: <TurnChangeList group={change} post={stablePost} /> })
   }
   return (
     <section id="messages" data-testid="messages" className="messages" role="log" aria-label="对话记录" aria-live="off" aria-busy={snapshot.phase === "loadingHistory"}>
@@ -71,7 +81,8 @@ export function MessageList({
   )
 }
 
-function ChatMessageView({ message, post, selected }: { message: ChatMessage; post: (action: Record<string, unknown>) => void; selected: boolean }) {
+/** 消息对象不变就不重渲染。 */
+const ChatMessageView = memo(function ChatMessageView({ message, post, selected }: { message: ChatMessage; post: Post; selected: boolean }) {
   const ref = useRef<HTMLElement>(null)
   useEffect(() => { if (selected) ref.current?.scrollIntoView({ block: "center" }) }, [selected])
   if (message.role === "turnStatus") {
@@ -89,31 +100,40 @@ function ChatMessageView({ message, post, selected }: { message: ChatMessage; po
       <ArtifactList items={message.artifacts} post={post} />
     </article>
   )
+})
+
+interface WorkGroupProps {
+  work: readonly WorkMessage[]
+  hasResult: boolean
+  phase: string
+  /** 本组含最近一次活动时才是它的 id，否则为 null，别的分组不因最近活动换了而重渲染。 */
+  lastActivityId: string | null
+  timing: TurnTiming | undefined
+  post: Post
 }
 
-function WorkGroup({
+/** 分组数组每次重算；成员对象、阶段、计时都没变就复用上次渲染。 */
+function sameWorkGroup(previous: WorkGroupProps, next: WorkGroupProps): boolean {
+  return previous.hasResult === next.hasResult && previous.phase === next.phase && previous.lastActivityId === next.lastActivityId && previous.post === next.post
+    && previous.timing?.turnId === next.timing?.turnId && previous.timing?.startedAt === next.timing?.startedAt && previous.timing?.finishedAt === next.timing?.finishedAt
+    && previous.work.length === next.work.length && previous.work.every((message, index) => message === next.work[index])
+}
+
+const WorkGroup = memo(function WorkGroup({
   work,
   hasResult,
   phase,
   lastActivityId: activityId,
-  timings,
+  timing,
   post,
-}: {
-  work: readonly WorkMessage[]
-  hasResult: boolean
-  phase: string
-  lastActivityId: string | null
-  timings: ChatSnapshot["turnTimings"]
-  post: (action: Record<string, unknown>) => void
-}) {
+}: WorkGroupProps) {
   const state = workGroupState(work, work[0]?.id ?? "", activityId, phase, hasResult)
   const running = state === "running"
   const failed = state === "failed"
   const [touched, setTouched] = useState(false)
   const [open, setOpen] = useState(running || failed)
   const [now, setNow] = useState(() => Date.now())
-  const latest = work.some((message) => message.id === activityId)
-  const timing = timings.find((item) => work.some((message) => message.turnId === item.turnId))
+  const latest = activityId !== null
   useEffect(() => {
     if (!touched) setOpen(running || failed)
   }, [running, failed, touched])
@@ -149,9 +169,10 @@ function WorkGroup({
       </div>
     </details>
   )
-}
+}, sameWorkGroup)
 
-function ActivityItem({ message }: { message: ChatMessage }) {
+/** 消息对象不变就不重渲染；状态或输出变化会换成新对象。 */
+const ActivityItem = memo(function ActivityItem({ message }: { message: ChatMessage }) {
   const status = message.status ?? "completed"
   const thinking = message.role === "reasoning" && status === "running"
   const title = activityTitle(message)
@@ -208,7 +229,7 @@ function ActivityItem({ message }: { message: ChatMessage }) {
       </details>
     </article>
   )
-}
+})
 
 function iconFor(kind: string): Parameters<typeof uiIcon>[0] {
   if (kind === "command" || kind === "process") return "terminal"
@@ -279,13 +300,22 @@ function ArtifactList({ items, post }: { items: readonly ArtifactView[] | undefi
   )
 }
 
-function TurnChangeList({
-  group,
-  post,
-}: {
+interface TurnChangeProps {
   group: { turnId: string; files: readonly DiffView[] }
-  post: (action: Record<string, unknown>) => void
-}) {
+  post: Post
+}
+
+/** 变更行每次重算；文件与统计都没变就复用上次渲染。 */
+function sameTurnChanges(previous: TurnChangeProps, next: TurnChangeProps): boolean {
+  const before = previous.group.files, after = next.group.files
+  return previous.post === next.post && previous.group.turnId === next.group.turnId && before.length === after.length
+    && before.every((file, index) => {
+      const other = after[index]!
+      return file.id === other.id && file.label === other.label && file.added === other.added && file.removed === other.removed && file.preview === other.preview && file.available === other.available
+    })
+}
+
+const TurnChangeList = memo(function TurnChangeList({ group, post }: TurnChangeProps) {
   const repeated = new Set(group.files.map((file) => file.label)).size < group.files.length
   return (
     <section className="turnChanges" aria-label="本轮文件变更" data-turn-id={group.turnId}>
@@ -310,4 +340,4 @@ function TurnChangeList({
       </ul>
     </section>
   )
-}
+}, sameTurnChanges)
