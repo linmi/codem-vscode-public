@@ -1,4 +1,4 @@
-import { asSnapshot, type ChatSnapshot, type SelectionView } from "@codem/ui/contract"
+import { asSnapshot, type ChatSnapshot, type ChatTheme, type SelectionView } from "@codem/ui/contract"
 import { appendContext } from "../../src/shared/editorContext.ts"
 
 interface DraftCommand {
@@ -45,6 +45,7 @@ export class VscodeHostBridge {
   private signature = ""
   private unpinnedSelectionId: string | null = null
   private brandMark: string | null = null
+  private theme: ChatTheme = "light"
   private previews = new Map<string, { kind: "image"; dataUrl: string } | { kind: "unavailable"; reason: string }>()
 
   rememberDraft(text: string): void {
@@ -53,6 +54,13 @@ export class VscodeHostBridge {
 
   setBrand(mark: string | null): void {
     this.brandMark = mark
+  }
+
+  /** VS Code 换主题只改 body class，不发 Host 消息；入口观察到变化后交给这里重新投影。 */
+  setTheme(theme: ChatTheme): BridgeUpdate | null {
+    if (theme === this.theme) return null
+    this.theme = theme
+    return { snapshot: this.project() }
   }
 
   snapshot(): ChatSnapshot {
@@ -207,14 +215,12 @@ export class VscodeHostBridge {
           return preview ? { ...item, preview } : item
         })
       : this.state.attachments
-    const body = (globalThis as { document?: { body?: { classList: { contains(token: string): boolean } } } }).document?.body
-    const theme = body?.classList.contains("vscode-dark") || body?.classList.contains("vscode-high-contrast") ? "dark" : "light"
     const projected = {
       ...this.state,
       type: "state",
       attachments,
       brandMark: this.brandMark,
-      theme,
+      theme: this.theme,
       account: this.account,
       accountRequest: this.accountRequest,
       pendingPanel: this.panel,
@@ -232,6 +238,11 @@ export class VscodeHostBridge {
     }
     return asSnapshot({ ...projected, version: this.version }) ?? asSnapshot({ type: "state", version: this.version })!
   }
+}
+
+/** 按 VS Code 写在 body 上的主题 class 判断明暗。 */
+export function vscodeTheme(classes: { contains(token: string): boolean }): ChatTheme {
+  return classes.contains("vscode-dark") || classes.contains("vscode-high-contrast") ? "dark" : "light"
 }
 
 function projectSelections(value: unknown): SelectionView[] {

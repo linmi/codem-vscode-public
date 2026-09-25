@@ -1,7 +1,7 @@
 import { setNonce } from "get-nonce"
 import { mountCodemUi } from "@codem/ui"
 import type { CodemUiHost } from "@codem/ui"
-import { VscodeHostBridge } from "./host/vscodeHostBridge.ts"
+import { VscodeHostBridge, vscodeTheme } from "./host/vscodeHostBridge.ts"
 
 declare function acquireVsCodeApi(): {
   postMessage(message: Record<string, unknown>): void
@@ -17,6 +17,7 @@ if (script?.nonce) setNonce(script.nonce)
 
 const bridge = new VscodeHostBridge()
 bridge.setBrand(root.dataset.logo ?? null)
+bridge.setTheme(vscodeTheme(document.body.classList))
 const listeners = new Set<(message: Record<string, unknown>) => void>()
 const draftListeners = new Set<(command: { revision: number; text: string; mode: "message" | "askSideQuestion" | "steer" | "shellCommand"; focus: boolean; pendingRequestId: string | null }) => void>()
 let applyingDraft = false
@@ -39,6 +40,12 @@ window.addEventListener("message", (event: MessageEvent) => {
   const update = bridge.receive(event.data)
   if (update) emit(update)
 })
+
+// VS Code 切换主题时只改 body class，不会发来任何 Host 消息。
+new MutationObserver(() => {
+  const update = bridge.setTheme(vscodeTheme(document.body.classList))
+  if (update) emit(update)
+}).observe(document.body, { attributes: true, attributeFilter: ["class"] })
 
 const host: CodemUiHost = {
   surface: root.dataset.surface === "editor" ? "editor" : "sidebar",

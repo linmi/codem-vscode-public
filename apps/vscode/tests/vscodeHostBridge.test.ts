@@ -4,7 +4,7 @@ import { parseViewAction } from "../src/shared/messages.ts"
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { draftRetention } from "../../../packages/ui/src/chat/draftRetention.ts"
-import { VscodeHostBridge } from "../webview/host/vscodeHostBridge.ts"
+import { VscodeHostBridge, vscodeTheme } from "../webview/host/vscodeHostBridge.ts"
 
 describe("VS Code host bridge", () => {
   it("projects panels, selections and diffs without file paths", () => {
@@ -69,6 +69,22 @@ describe("VS Code host bridge", () => {
     assert.equal(signedOut.accountRequest, 2)
     assert.equal(again.accountRequest, 2, "Signing back in must not replay an old request")
     assert.equal("accountOpen" in again, false)
+  })
+
+  it("re-projects a VS Code theme switch that arrives without any Host message", () => {
+    const bridge = new VscodeHostBridge()
+    const light = bridge.receive({ type: "state", phase: "ready", threadId: "thread-1" })!.snapshot
+    assert.equal(light.theme, "light")
+    const dark = bridge.setTheme("dark")
+    assert.equal(dark?.snapshot.theme, "dark")
+    assert.equal(dark!.snapshot.version > light.version, true)
+    assert.equal(bridge.setTheme("dark"), null, "Unrelated body class changes must not publish again")
+    assert.equal(bridge.receive({ type: "state", phase: "running", threadId: "thread-1" })!.snapshot.theme, "dark")
+    const classes = (...tokens: string[]) => ({ contains: (token: string) => tokens.includes(token) })
+    assert.equal(vscodeTheme(classes("vscode-dark")), "dark")
+    assert.equal(vscodeTheme(classes("vscode-high-contrast")), "dark")
+    assert.equal(vscodeTheme(classes("vscode-light", "vscode-reduce-motion")), "light")
+    assert.equal(vscodeTheme(classes()), "light")
   })
 
   it("ignores notices and restores only explicitly rejected requests", () => {
