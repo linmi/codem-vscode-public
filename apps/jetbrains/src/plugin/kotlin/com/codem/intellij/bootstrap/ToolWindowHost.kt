@@ -13,7 +13,6 @@ import com.codem.intellij.ide.IdeaAttachmentStore
 import com.codem.intellij.ide.IdeaDiffPresenter
 import com.codem.intellij.ide.IdeaSelectionReader
 import com.codem.intellij.ide.IdeaWorkspaceTrust
-import com.codem.intellij.ide.PathGuard
 import com.codem.intellij.ide.SelectionReader
 import com.codem.intellij.history.HistoryReplay
 import com.codem.intellij.history.SessionsRoot
@@ -21,13 +20,11 @@ import com.codem.intellij.ide.HistorySource
 import com.codem.intellij.session.HostLoadingFeedback
 import com.codem.intellij.session.ProjectSession
 import com.codem.intellij.session.SafeNotice
-import com.codem.intellij.webview.AttachmentView
 import com.codem.intellij.webview.ChatSnapshot
 import com.codem.intellij.webview.FileHitView
 import com.codem.intellij.webview.FileSearchView
 import com.codem.intellij.webview.IdeTheme
 import com.codem.intellij.webview.JcefHostPanel
-import com.codem.intellij.webview.SelectionView
 import com.codem.intellij.webview.SnapshotPublisher
 import com.codem.intellij.webview.SubmissionReceiptView
 import com.codem.intellij.webview.submissionRequestId
@@ -363,25 +360,24 @@ class ToolWindowHost(
         }
     }
 
+    /**
+     * 选区和附件句柄只由会话签发。连接前不再显示 Host 占位条目：它们从不交给会话，
+     * 发送时必然被拒，界面上的条目也会在会话出现时无声消失。
+     */
     private fun pinSelection() {
-        val session = sessionRef.get()
-        if (session != null) {
-            session.pinSelection()
-            publisher.refresh()
+        val session = sessionRef.get() ?: run {
+            notify(CONNECT_BEFORE_SELECTION)
             return
         }
-        val snap = selectionReader.current()
-        if (snap == null) {
-            notify("CodeM has no editor selection")
-            return
-        }
-        val file = snap.path.substringAfterLast('/').substringAfterLast('\\')
-        publisher.update {
-            it.copy(selections = listOf(SelectionView("sel-local", "$file:${snap.startLine}-${snap.endLine}")), notice = null)
-        }
+        session.pinSelection()
+        publisher.refresh()
     }
 
     private fun pickAttachment(kind: String) {
+        if (sessionRef.get() == null) {
+            notify(CONNECT_BEFORE_ATTACHMENT)
+            return
+        }
         ApplicationManager.getApplication().invokeLater {
             val descriptor = if (kind == "directory") {
                 FileChooserDescriptorFactory.createSingleFolderDescriptor()
@@ -394,19 +390,14 @@ class ToolWindowHost(
     }
 
     private fun attachChosen(kind: String, path: Path) {
-        val session = sessionRef.get()
-        val storeKind = attachmentKind(kind, path)
+        // 选择框打开期间会话可能已被注销。
+        val session = sessionRef.get() ?: run {
+            notify(CONNECT_BEFORE_ATTACHMENT)
+            return
+        }
         try {
-            if (session != null) {
-                session.attach(path, storeKind)
-                publisher.refresh()
-                return
-            }
-            val root = project.basePath?.let { Path.of(it) } ?: throw CodemError.Validation("CodeM has no project directory")
-            val bound = PathGuard.bind(root, path)
-            attachments.validate(bound, storeKind)
-            val view = AttachmentView("att-local", bound.fileName.toString(), storeKind.name.lowercase())
-            publisher.update { it.copy(attachments = it.attachments + view, notice = null) }
+            session.attach(path, attachmentKind(kind, path))
+            publisher.refresh()
         } catch (error: Throwable) {
             notify(SafeNotice.from(error, "CodeM attachment failed"))
         }
@@ -446,13 +437,9 @@ class ToolWindowHost(
     }
 
     private fun removeAttachment(id: String) {
-        val session = sessionRef.get()
-        if (session != null) {
-            session.removeAttachment(id)
-            publisher.refresh()
-            return
-        }
-        publisher.update { snapshot -> snapshot.copy(attachments = snapshot.attachments.filterNot { it.id == id }) }
+        val session = sessionRef.get() ?: return
+        session.removeAttachment(id)
+        publisher.refresh()
     }
 
     private fun applyOnSession(action: ViewAction) {
@@ -540,13 +527,9 @@ class ToolWindowHost(
     }
 
     private fun removeSelection(id: String) {
-        val session = sessionRef.get()
-        if (session != null) {
-            session.removeSelection(id)
-            publisher.refresh()
-            return
-        }
-        publisher.update { snapshot -> snapshot.copy(selections = snapshot.selections.filterNot { it.id == id }) }
+        val session = sessionRef.get() ?: return
+        session.removeSelection(id)
+        publisher.refresh()
     }
 
     /** 额外目录用 IDEA 的目录框，不再固定返回空。必须在 EDT 上选。 */
@@ -693,5 +676,7 @@ class ToolWindowHost(
 
     companion object {
         private val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp")
+        private const val CONNECT_BEFORE_SELECTION = "请先连接后再引用选区"
+        private const val CONNECT_BEFORE_ATTACHMENT = "请先连接后再添加附件"
     }
 }
