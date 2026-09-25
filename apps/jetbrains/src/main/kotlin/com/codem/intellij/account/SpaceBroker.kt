@@ -97,8 +97,8 @@ class SpaceBroker(
 }
 
 fun parseSpaces(payload: JsonValue.ObjectValue): SpaceList {
-    val projects = payload.fields["projects"] as? JsonValue.ArrayValue ?: throw CodemError.Validation("Invalid CodeM space list")
-    val spaces = projects.items.map { entry ->
+    val projects = payload.arrayOrNull("projects") ?: throw CodemError.Validation("Invalid CodeM space list")
+    val spaces = projects.map { entry ->
         val project = entry.asObject()
         Space(spaceKey(project.required("project_key").asText()), textValue(project.required("display_name").asText(), "space name"))
     }
@@ -113,10 +113,10 @@ fun parseSpaces(payload: JsonValue.ObjectValue): SpaceList {
 }
 
 fun parsePrepared(payload: JsonValue.ObjectValue, projectKey: String): PreparedSpace {
-    if (payload.fields["project_key"] !is JsonValue.Text || (payload.fields["project_key"] as JsonValue.Text).value != projectKey) {
+    if (payload.stringOrNull("project_key") != projectKey) {
         throw CodemError.Validation("CodeM space_prepare returned an invalid space or status")
     }
-    val status = (payload.fields["status"] as? JsonValue.Text)?.value
+    val status = payload.stringOrNull("status")
     if (status != "ok" && status != "empty") throw CodemError.Validation("CodeM space_prepare returned an invalid space or status")
     val directory = when (val value = payload.fields["managed_dir"]) {
         null, JsonValue.Null -> null

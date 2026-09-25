@@ -301,43 +301,28 @@ class JavaAuthProcessRunner : AuthProcessRunner {
 }
 
 fun parseStatus(text: String): AuthStatus? {
-    val value = try {
-        JsonValue.parse(text.trim())
-    } catch (_: CodemError) {
-        return null
-    }
-    val obj = value as? JsonValue.ObjectValue ?: return null
-    val loggedIn = (obj.fields["loggedIn"] as? JsonValue.Bool)?.value ?: return null
+    val obj = cliJsonObject(text) ?: return null
+    val loggedIn = obj.booleanOrNull("loggedIn") ?: return null
     return AuthStatus(
         loggedIn = loggedIn,
-        authMethod = optionalText(obj.fields["authMethod"]),
-        routerCredential = optionalBool(obj.fields["routerCredential"]),
-        serverUrl = optionalText(obj.fields["serverUrl"]),
-        tenantId = optionalText(obj.fields["tenantId"]),
-        userId = optionalText(obj.fields["userId"]),
-        displayName = optionalText(obj.fields["displayName"]),
+        authMethod = obj.stringOrNull("authMethod"),
+        routerCredential = obj.booleanOrNull("routerCredential"),
+        serverUrl = obj.stringOrNull("serverUrl"),
+        tenantId = obj.stringOrNull("tenantId"),
+        userId = obj.stringOrNull("userId"),
+        displayName = obj.stringOrNull("displayName"),
     )
 }
 
 fun parseLoginEvent(line: String): LoginEvent? {
-    val value = try {
-        JsonValue.parse(line.trim())
-    } catch (_: CodemError) {
-        return null
-    }
-    val obj = value as? JsonValue.ObjectValue ?: return null
-    val type = (obj.fields["type"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() } ?: return null
-    return LoginEvent(type, optionalText(obj.fields["authorizationUrl"]), optionalText(obj.fields["code"]), optionalText(obj.fields["message"]))
+    val obj = cliJsonObject(line) ?: return null
+    val type = obj.stringOrNull("type")?.takeIf { it.isNotBlank() } ?: return null
+    return LoginEvent(type, obj.stringOrNull("authorizationUrl"), obj.stringOrNull("code"), obj.stringOrNull("message"))
 }
 
-private fun optionalText(value: JsonValue?): String? = when (value) {
-    null, JsonValue.Null -> null
-    is JsonValue.Text -> value.value
-    else -> null
-}
-
-private fun optionalBool(value: JsonValue?): Boolean? = when (value) {
-    null, JsonValue.Null -> null
-    is JsonValue.Bool -> value.value
-    else -> null
+/** CLI output that is not a JSON object is not a status or event; the caller reports it, this returns null. */
+private fun cliJsonObject(text: String): JsonValue.ObjectValue? = try {
+    JsonValue.parse(text.trim()).asObject()
+} catch (_: CodemError) {
+    null
 }

@@ -62,6 +62,36 @@ class SpaceBrokerTest {
         assertEquals("C:\\Users\\codem\\space", launched.second["CODEM_MANAGED_DIR"])
     }
 
+    /** 与 spaces.ts 相同：项目表必须是数组，space_prepare 必须回显所请求的 key 与 ok/empty 状态，否则以 Validation 失败。 */
+    @Test
+    fun spacePayloadsFailClosedOnMissingOrMistypedFields() {
+        val prepared = JsonValue.obj(
+            "project_key" to JsonValue.Text("proj_a"),
+            "project_name" to JsonValue.Text("Space A"),
+            "status" to JsonValue.Text("empty"),
+        )
+        assertEquals("proj_a", parsePrepared(prepared, "proj_a").projectKey)
+        val invalid = listOf(
+            "project_key" to JsonValue.Text("proj_b"),
+            "project_key" to JsonValue.NumberValue(1.0, "1"),
+            "project_key" to null,
+            "status" to JsonValue.Text("failed"),
+            "status" to JsonValue.Bool(true),
+            "status" to null,
+        )
+        for ((key, value) in invalid) {
+            val payload = JsonValue.ObjectValue(if (value == null) prepared.fields - key else prepared.fields + (key to value))
+            val error = assertThrows(CodemError::class.java, { parsePrepared(payload, "proj_a") }, "$key=$value")
+            assertEquals(CodemError.Class.Validation, error.errorClass, "$key=$value")
+        }
+        assertEquals(emptyList<Space>(), parseSpaces(JsonValue.obj("projects" to JsonValue.ArrayValue(emptyList()))).spaces)
+        for (projects in listOf(null, JsonValue.Null, JsonValue.obj())) {
+            val payload = if (projects == null) JsonValue.obj() else JsonValue.obj("projects" to projects)
+            val error = assertThrows(CodemError::class.java, { parseSpaces(payload) }, "projects=$projects")
+            assertEquals(CodemError.Class.Validation, error.errorClass, "projects=$projects")
+        }
+    }
+
     @Test
     @DisabledOnOs(OS.WINDOWS)
     fun unexpectedNotificationFailsThePendingRequestWithoutKillingTheReader() {
