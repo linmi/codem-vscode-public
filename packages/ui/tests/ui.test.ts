@@ -246,6 +246,16 @@ describe("@codem/ui host contract", () => {
     assert.equal(snapshot.messages[0]?.details?.fields[0]?.value, "src/main.ts")
     assert.equal(initialSnapshot().account.status, "checking")
   })
+
+  it("carries Host account-page requests as a counter, never as open state", () => {
+    assert.equal(initialSnapshot().accountRequest, 0)
+    assert.equal("accountOpen" in initialSnapshot(), false)
+    assert.equal(asSnapshot({ type: "state", accountRequest: 3 })?.accountRequest, 3)
+    assert.equal("accountOpen" in asSnapshot({ type: "state", accountOpen: true })!, false)
+    for (const accountRequest of [-1, 1.5, Number.NaN, "2", true, null]) {
+      assert.equal(asSnapshot({ type: "state", accountRequest })?.accountRequest, 0, String(accountRequest))
+    }
+  })
 })
 
 it("accepts bounded body search intents and hides unsupported search before host state", () => {

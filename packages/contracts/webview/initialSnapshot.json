@@ -18,6 +18,7 @@
     "canRetry": false,
     "canResume": false,
     "canLoadOlder": false,
+    "accountRequest": 0,
     "hiddenUntilReady": ["olderMessages", "retryConnect", "resumeThread"]
   }
 }

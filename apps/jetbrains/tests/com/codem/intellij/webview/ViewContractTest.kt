@@ -49,6 +49,8 @@ class ViewContractTest {
         assertFalse(controls.retry)
         assertFalse(controls.resume)
         assertFalse(controls.older)
+        // 账户页开合归界面；Host 只下发请求序号，首屏没有请求，也不再下发 accountOpen。
+        assertFalse(encoded.fields.containsKey("accountOpen"))
     }
 
     /** 对应 Webview 线协议的 `type`，如 `SetWorkMode` → `setWorkMode`。 */

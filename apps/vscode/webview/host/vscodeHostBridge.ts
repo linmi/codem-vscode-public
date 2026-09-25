@@ -32,7 +32,7 @@ interface CodeChip {
 export class VscodeHostBridge {
   private state: Record<string, unknown> = { type: "state" }
   private account: unknown = { status: "checking" }
-  private accountOpen = false
+  private accountRequest = 0
   private panel: unknown = null
   private selections: SelectionView[] = []
   private submission: { requestId: string; accepted: boolean } | null = null
@@ -85,12 +85,11 @@ export class VscodeHostBridge {
     const record = message as Record<string, unknown>
     if (record.type === "account" && record.state && typeof record.state === "object") {
       this.account = record.state
-      const status = (record.state as { status?: unknown }).status
-      if (status !== "signedIn") this.accountOpen = false
       return { snapshot: this.project() }
     }
+    // 只转达“请打开”的请求；开合与退出后关闭都由界面负责。
     if (record.type === "showAccount") {
-      this.accountOpen = true
+      this.accountRequest += 1
       return { snapshot: this.project() }
     }
     if (record.type === "state") {
@@ -217,7 +216,7 @@ export class VscodeHostBridge {
       brandMark: this.brandMark,
       theme,
       account: this.account,
-      accountOpen: this.accountOpen,
+      accountRequest: this.accountRequest,
       pendingPanel: this.panel,
       selections: this.selections,
       submission: this.submission,

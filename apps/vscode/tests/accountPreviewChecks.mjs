@@ -74,6 +74,11 @@ export default async function accountPreviewChecks(page) {
       if (expected) await status.getByText(expected, {exact:true}).waitFor()
       else await status.waitFor({state:'detached'})
     }
+    // 返回只关闭界面自己的账户页；Host 再次请求必须重新打开。
+    await page.getByRole('button', {name:'返回聊天',exact:true}).click()
+    await page.getByRole('heading', {name:'个人账户',exact:true}).waitFor({state:'detached'})
+    await page.evaluate(() => window.postMessage({type:'showAccount'}, '*'))
+    await page.getByRole('heading', {name:'个人账户',exact:true}).waitFor()
     await page.goto('http://127.0.0.1:4318/?scenario=accountFailure&theme=dark')
     await page.getByRole('alert').waitFor()
     await page.getByRole('button', {name:'重新检查登录状态',exact:true}).click()

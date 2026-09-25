@@ -194,7 +194,8 @@ data class ChatSnapshot(
     val messages: List<ChatMessageView> = emptyList(),
     val turnTimings: List<TurnTimingView> = emptyList(),
     val account: AccountView = AccountView(),
-    val accountOpen: Boolean = false,
+    /** 请求界面打开账户页的序号；开合归界面，JetBrains 目前不发起请求。 */
+    val accountRequest: Long = 0,
     val brandMark: String? = null,
     val slashCommands: List<SlashCommandView> = emptyList(),
     val pendingInteraction: String?,
@@ -384,7 +385,7 @@ fun encodeChatSnapshot(snapshot: ChatSnapshot): JsonValue.ObjectValue {
             )
         }),
         "account" to encodeAccount(snapshot.account),
-        "accountOpen" to JsonValue.Bool(snapshot.accountOpen),
+        "accountRequest" to JsonValue.NumberValue(snapshot.accountRequest.toDouble(), snapshot.accountRequest.toString()),
         "brandMark" to nullableText(snapshot.brandMark),
         "slashCommands" to JsonValue.ArrayValue(snapshot.slashCommands.map {
             JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "group" to JsonValue.Text(it.group))

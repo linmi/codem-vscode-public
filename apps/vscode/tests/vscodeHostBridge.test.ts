@@ -54,6 +54,23 @@ describe("VS Code host bridge", () => {
     assert.equal(snapshot.version > 0, true)
   })
 
+  it("turns every Host showAccount into a new account request without owning the page", () => {
+    const bridge = new VscodeHostBridge()
+    const signedIn = { status: "signedIn", profile: { avatar: { kind: "none" }, displayName: "林晓", userId: "user", tenantId: null, authMethod: "browser" }, refreshing: false, notice: null }
+    assert.equal(bridge.receive({ type: "account", state: signedIn })!.snapshot.accountRequest, 0)
+    const first = bridge.receive({ type: "showAccount" })!.snapshot
+    assert.equal(first.accountRequest, 1)
+    // 返回聊天只改界面状态，不经过 Host；再次请求必须换一个序号，界面才能再次打开。
+    const second = bridge.receive({ type: "showAccount" })!.snapshot
+    assert.equal(second.accountRequest, 2)
+    assert.equal(second.version > first.version, true)
+    const signedOut = bridge.receive({ type: "account", state: { status: "signedOut", notice: null } })!.snapshot
+    const again = bridge.receive({ type: "account", state: signedIn })!.snapshot
+    assert.equal(signedOut.accountRequest, 2)
+    assert.equal(again.accountRequest, 2, "Signing back in must not replay an old request")
+    assert.equal("accountOpen" in again, false)
+  })
+
   it("ignores notices and restores only explicitly rejected requests", () => {
     const bridge = new VscodeHostBridge()
     const ready = bridge.receive({ type: "state", phase: "ready", threadId: "thread-1", notice: null })!

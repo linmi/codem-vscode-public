@@ -45,9 +45,7 @@ const snapshot = createPreviewSnapshot(
                     ? { account: { status: "error", message: "登录状态检查失败" }, phase: "disconnected", threadId: null }
                     : scene === "checking"
                       ? { ...initialSnapshot(), account: { status: "checking" } }
-                      : scene === "accountProfile"
-                        ? { accountOpen: true }
-                        : {},
+                      : {},
 )
 
 const bar = document.querySelector("[data-testid='hostBar']")
@@ -63,6 +61,8 @@ if (root) {
   if (scene === "search") onAction = conversationSearchPreview(next => { starting = next; mounted?.host.publish(next) }, snapshot)
   if (scene === "plugins") onAction = pluginManagementPreview(next => { starting = next; mounted?.host.publish(next) }, snapshot)
   mounted = mountPreview(root, hostKind, starting, action => onAction?.(action))
+  // 与 Host 一样在挂载后请求打开账户页，而不是在首屏快照里预置开合。
+  if (scene === "accountProfile") mounted.host.publish({ ...starting, accountRequest: starting.accountRequest + 1 })
   // 预览未完成轮次：只推进 assistantText，不另建 transcript 存储。
   if (scene === "streaming") {
     const chunks = ["先看 ", "**重点**", "：\n\n- 列表项\n\n```ts\nconst ready", " = true\n```\n\n", markdownPreviewText.slice(markdownPreviewText.indexOf("<script>"))]

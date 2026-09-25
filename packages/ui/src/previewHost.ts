@@ -113,6 +113,8 @@ export function createPreviewHost(kind: PreviewHostKind, snapshot: ChatSnapshot,
     },
     subscribe(listener) {
       listeners.add(listener)
+      // 与 VS Code 宿主一致：订阅时补发当前快照，挂载与订阅之间发布的请求不会丢。
+      listener(current)
       return () => listeners.delete(listener)
     },
     getState() {

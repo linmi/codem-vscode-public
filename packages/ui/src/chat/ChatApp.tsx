@@ -45,7 +45,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const [draft, setDraft] = useState(() => String(host.getState()?.draft ?? ""))
   const [panelText, setPanelText] = useState("")
   const [openMenu, setOpenMenu] = useState<string | null>(null)
-  const [accountOpen, setAccountOpen] = useState(initial.accountOpen)
+  const [accountOpen, setAccountOpen] = useState(false)
   const [accountFocus, setAccountFocus] = useState(0)
   const [inputMode, setInputMode] = useState<ComposerInputMode>("message")
   const [slashOpen, setSlashOpen] = useState(false)
@@ -56,6 +56,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const prompt = useRef<HTMLTextAreaElement>(null)
   const scroller = useRef<HTMLElement>(null)
   const accountStatus = useRef(initial.account.status)
+  const accountRequest = useRef(initial.accountRequest)
   const [showJump, setShowJump] = useState(false)
   const busy = isBusy(snapshot.phase)
   const running = snapshot.phase === "running" || snapshot.phase === "sending" || snapshot.phase === "stopping"
@@ -96,9 +97,12 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     root.style.colorScheme = dark ? "dark" : "light"
   }, [snapshot.theme])
 
+  // 账户页开合只归这里；Host 每请求一次就递增序号，返回聊天只改本地，下次请求照样打开。
   useEffect(() => {
-    setAccountOpen(snapshot.accountOpen)
-  }, [snapshot.accountOpen])
+    if (snapshot.accountRequest === accountRequest.current) return
+    accountRequest.current = snapshot.accountRequest
+    setAccountOpen(true)
+  }, [snapshot.accountRequest])
 
   useEffect(() => {
     if (snapshot.account.status !== "signedIn") setAccountOpen(false)
