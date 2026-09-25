@@ -4,6 +4,7 @@ import java.io.BufferedWriter
 import java.io.InputStream
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -104,8 +105,7 @@ class CoreProcess(
         } catch (error: Throwable) {
             expectedClose.set(true)
             initialize.abandon()
-            close().join()
-            throw when (error) {
+            val failure = when (error) {
                 is java.util.concurrent.TimeoutException -> {
                     initialize.abandon()
                     CodemError.Protocol(CodemError.Class.Protocol, "CodeM App Server initialize timed out after ${timeouts.initializeMs}ms")
@@ -113,6 +113,21 @@ class CoreProcess(
                 is CodemError -> error
                 else -> CodemError.Process("CodeM App Server initialize failed", error, "initialize")
             }
+            // 启动失败始终是抛出的错误。Core 在清理后仍未退出时经 onProtocolError 上报，不能取而代之。
+            try {
+                close().join()
+            } catch (cleanup: Throwable) {
+                reportStartupCleanupFailure(failure, (cleanup as? CompletionException)?.cause ?: cleanup)
+            }
+            throw failure
+        }
+    }
+
+    private fun reportStartupCleanupFailure(failure: CodemError, cleanup: Throwable) {
+        try {
+            onProtocolError(CodemError.Process("CodeM App Server startup cleanup failed: ${cleanup.message}", cleanup, "close"))
+        } catch (callback: Throwable) {
+            failure.addSuppressed(callback)
         }
     }
 

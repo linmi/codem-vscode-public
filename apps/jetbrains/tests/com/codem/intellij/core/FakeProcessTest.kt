@@ -143,6 +143,39 @@ class FakeProcessTest {
         assertTrue(!process.isAlive, "the reader must destroy the process after reporting the failure")
     }
 
+    /** Core 在清理后仍存活时，抛出的仍是启动失败本身；清理失败经 onProtocolError 上报并保留原因。 */
+    @Test
+    fun startupFailureSurvivesACoreThatOutlivesItsCleanup() {
+        val scripted = ScriptedProcess()
+        val leak = CodemError.Process("CodeM App Server did not exit after stdin close, SIGTERM, and SIGKILL", stage = "close")
+        val survivor = object : ProcessHandleAdapter by scripted {
+            override fun shutdown(stageMs: Long) {
+                throw leak
+            }
+        }
+        val reports = java.util.concurrent.LinkedBlockingQueue<CodemError>()
+        try {
+            val thrown = org.junit.jupiter.api.Assertions.assertThrows(CodemError.Protocol::class.java) {
+                CoreProcess(
+                    runtime = fakeRuntime(),
+                    workingDirectory = Files.createTempDirectory("codem-core-cwd"),
+                    timeouts = Timeouts(initializeMs = 50, rpcMs = 800, closeStageMs = 50),
+                    onNotification = {},
+                    onRequest = { _, _ -> },
+                    onProtocolError = { reports.add(it) },
+                    processFactory = { _, _, _ -> survivor },
+                ).start()
+            }
+            assertEquals("CodeM App Server initialize timed out after 50ms", thrown.message)
+            val report = reports.single()
+            assertTrue(report is CodemError.Process, report.toString())
+            assertEquals("CodeM App Server startup cleanup failed: ${leak.message}", report.message)
+            org.junit.jupiter.api.Assertions.assertSame(leak, report.cause)
+        } finally {
+            scripted.destroy(true)
+        }
+    }
+
     private fun answerInitialize(process: ScriptedProcess) {
         val capabilities = handshakeCapabilities()
         Thread {
