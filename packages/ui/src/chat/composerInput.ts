@@ -1,4 +1,4 @@
-import type { ChatSnapshot, ComposerInputMode, SendKey } from "../contract.ts"
+import type { ChatSnapshot, ComposerInputMode, FileHit, FileSearch, SendKey } from "../contract.ts"
 
 export interface InputModeText {
   /** 模式栏标题；普通对话不显示模式栏。 */
@@ -33,6 +33,46 @@ export function mentionQuery(text: string, caret: number): { query: string; star
   const match = /(?:^|\s)@([^\s@]*)$/u.exec(head)
   if (!match || match[1]!.length > 200) return null
   return { query: match[1]!, start: caret - match[1]!.length - 1 }
+}
+
+/**
+ * 一次 `@` 提及：最新发出的搜索请求，以及它的结果到达前继续显示的上一批结果。
+ * 每敲一个字就换一次请求；只认最新请求会让菜单在两次结果之间收起再弹出。
+ */
+export interface MentionSession {
+  request: string
+  previous: string | null
+}
+
+/** 发出新请求时，上一个请求若已有结果（arrived），就由它接替成继续显示的那一批。 */
+export function nextMentionSession(session: MentionSession | null, request: string, arrived: string | undefined): MentionSession {
+  if (!session) return { request, previous: null }
+  return { request, previous: arrived === session.request ? session.request : session.previous }
+}
+
+/**
+ * 这次提及能显示的结果：Host 手里最新的一份必须是本次提及发出的最新请求或上一批，别的请求一律不认。
+ * 没有文件、也不在搜索中且没有错误时不显示菜单，不留一个空框。
+ */
+export function mentionResults(search: FileSearch | null, session: MentionSession | null): FileSearch | null {
+  if (!search || !session) return null
+  if (search.requestId !== session.request && search.requestId !== session.previous) return null
+  return search.status === "loading" || search.files.length > 0 || search.error ? search : null
+}
+
+/** 高亮项只对同一批结果有效；换了一批或该项已不在列表里，回到第一项。 */
+export function activeMention(search: FileSearch | null, highlight: { requestId: string; id: string } | null): string | null {
+  if (!search) return null
+  if (highlight && highlight.requestId === search.requestId && search.files.some((file) => file.id === highlight.id)) return highlight.id
+  return search.files[0]?.id ?? null
+}
+
+/** 方向键在结果里循环移动高亮。 */
+export function stepMention(files: readonly FileHit[], active: string | null, step: 1 | -1): string | null {
+  if (files.length === 0) return null
+  const index = files.findIndex((file) => file.id === active)
+  if (index < 0) return files[0]!.id
+  return files[(index + step + files.length) % files.length]!.id
 }
 
 /**

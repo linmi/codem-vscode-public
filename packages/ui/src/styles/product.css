@@ -239,9 +239,14 @@
 .workGroupContent { display: flex; flex-direction: column; gap: 0; padding: 8px 0 2px; }
 .workGroup[data-state="failed"] > summary { color: var(--vscode-errorForeground, #e02e2a); }
 .workingRow { max-width: var(--chatWidth); width: 100%; margin: 0 auto; padding: 8px 4px 20px; font: 500 var(--uiFontSize)/1.625 var(--uiFont); color: var(--muted); }
-.fileMentions { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 6px); max-height: 220px; overflow: auto; padding: 4px; border: 1px solid var(--surfaceBorder); border-radius: 12px; background: var(--popover); box-shadow: var(--composerShadow); z-index: 3; }
-.fileMention, .fileSearchStatus { display: block; width: 100%; text-align: left; padding: 6px 8px; border-radius: 8px; font-size: var(--detailFontSize); }
-.fileMention[aria-selected="true"] { background: var(--hover); }
+/* @ 提及是锚在输入栏上沿的 Popover：两侧各收 12px，最高 220px 并受上方可用空间约束，列表内部滚动。 */
+.fileMentions { z-index: 30; display: flex; flex-direction: column; box-sizing: border-box; width: calc(var(--radix-popover-trigger-width) - 24px); max-width: calc(100vw - 24px); max-height: min(220px, var(--radix-popover-content-available-height)); padding: 4px; border: 1px solid var(--surfaceBorder); border-radius: 12px; overflow: hidden; background: var(--popover); color: var(--ink); box-shadow: var(--composerShadow); font: 500 var(--uiFontSize)/1.5 var(--uiFont); }
+.fileMentions [data-slot="command"] { min-height: 0; background: transparent; }
+.fileMentions [data-slot="command-list"] { max-height: none; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.fileMentions [data-slot="command-item"], .fileSearchStatus { padding: 6px 8px; border-radius: 8px; font-size: var(--detailFontSize); overflow-wrap: anywhere; }
+.fileMentions [data-slot="command-item"] { cursor: pointer; }
+.fileMentions [data-slot="command-item"][data-selected="true"] { background: var(--hover); color: var(--ink); }
+.fileSearchStatus { margin: 0; flex-shrink: 0; }
 .shellPreview { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: var(--codeSurface); white-space: pre-wrap; font: 400 var(--codeFontSize)/1.6 var(--codeFont); }
 .attachments { max-height: min(144px, 24dvh); overflow-y: auto; overscroll-behavior: contain; display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 12px 0; list-style: none; margin: 0; }
 .attachments:empty { display: none; }

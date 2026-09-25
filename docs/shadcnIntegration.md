@@ -181,3 +181,12 @@ VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<he
 斜杠菜单原本按 `getElementById("prompt")` 量输入框、自己监听窗口尺寸算 `position: fixed` 的底边和宽度，再在 document 上挂 pointerdown 判断点外收起，等于手写了一遍 Popover，且左边距固定 16px，编辑器宽栏里与居中的输入框对不齐。现在改用 shadcn Popover：`PopoverAnchor` 取自官方 new-york-v4 popover（MIT），以 `virtualRef` 锚定输入框，浮层贴在输入框上沿 8px、左对齐，宽度取输入框宽度与 480px 的较小值，高度受上方可用空间约束，列表内部滚动。点外收起由 Radix DismissableLayer 负责，不抢焦点；Esc 收起并把焦点还给输入框，草稿保留；选中命令后焦点交给它打开的界面（例如模型菜单的搜索框），关闭时不再把焦点拉回。输入框里原先重复处理的 Esc 分支删除。浮层带 `aria-label="会话命令"`，`data-testid="slashMenu"` 与 cmdk 结构不变，预览钩子沿用。
 
 斜杠菜单验证：`pnpm check`、`pnpm build:vscode` 通过；在独立端口的 VS Code 模拟预览中实际展开，900×700 浅色与深色、380×480 深色检查位置（间距 8px、左缘对齐、宽度 480px 或随输入框收窄、无横向溢出）、搜索过滤、方向键与 `aria-activedescendant`、Esc 焦点返回与草稿保留、点外收起、`/model` 转交模型菜单焦点，以及旁路提问进行中输入 `/` 展开并可选 `/ask`。控制台无 error。真实 Core 与真实 VS Code / JetBrains 未运行。
+
+@ 提及列表原本是手写的 `role="listbox"` + `<button role="option">`，键盘处理散在 ChatApp 的输入框里：焦点留在输入框却没有 `aria-activedescendant`，读屏不播报当前项；高亮用下标，结果换了一批也不复位；Esc 只改了一个 ref，界面要等下一次渲染才收起，而且防抖中的搜索照样发出；点在列表外也不收起；无结果时留一个空框。现在由 `chat/FileMentions.tsx` 的 `useFileMentions` 持有全部提及状态（本次提及的请求、上一批仍在显示的结果、高亮项、列表与选项 id），视图用 shadcn Popover + Command（cmdk，`shouldFilter={false}`，结果由 Host 搜索）。显示与高亮规则是纯函数，放在 `mentionQuery` 旁边（`composerInput.ts`），由 `ui.test.ts` 覆盖。
+
+- 位置：照原样浮在整个输入栏上方 6px、两侧各收 12px，不挡附件；最高 220px 并受上方可用空间约束，列表内部滚动，长路径换行。
+- 焦点与键盘：焦点始终在输入框，照常输入；有结果时 ↑/↓ 循环移动高亮（滚动到可见），Enter 或 Tab 选中，Shift / 修饰键组合与输入法组字不拦截；Esc 或点在列表外收起并取消待发的搜索，直到下一次输入。指针悬停改高亮，点选不移走输入框焦点。
+- 可访问性：输入框一直带 `aria-autocomplete="list"`；有高亮项时 `aria-controls` 指向 cmdk 列表、`aria-activedescendant` 指向高亮选项（id 由 cmdk 生成，挂载时记下），读屏随方向键播报。列表名为“工作区文件”，浮层名为“引用工作区文件”。
+- 结果：每敲一个字换一次请求，新结果到达前继续显示上一批，菜单不闪；只认本次提及发出的请求，Host 清空结果（切换工作区、空间、会话）即收起；搜索中和出错显示状态行，没有文件时不显示菜单。
+
+提及列表验证：`pnpm check`、`pnpm build:vscode`、`pnpm --filter @codem/ui build` 通过；独立端口的 VS Code 模拟预览中，900×700 浅色与深色、380×480 深色实际展开，检查位置、10 项时内部滚动与高亮滚动到可见、↑/↓ 循环、`aria-activedescendant` 与选中项一致、Enter / Tab 选中（发出 `selectFile`、去掉 `@query`、不发送消息、焦点留在输入框）、Esc 收起且不再发搜索、再输入重新展开、悬停与点选、点外收起、错误状态与空结果。多项结果由页面注入同一请求 id 的模拟回执。控制台无 error。真实 Core 与真实 VS Code / JetBrains 未运行，读屏软件未实测。

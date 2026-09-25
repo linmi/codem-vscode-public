@@ -19,9 +19,9 @@ import { CodeSelectionList } from "./codeSelection.tsx"
 import { ComposerMenus, type MenuName } from "./composerMenus.tsx"
 import { DecisionPanel } from "./decisionPanel.tsx"
 import { draftRetention, type PendingSend } from "./draftRetention.ts"
-import { FileMentions } from "./FileMentions.tsx"
+import { FileMentions, useFileMentions } from "./FileMentions.tsx"
 import { HistoryButton, HistoryPaging, HistoryPanel, HistoryResume } from "./HistoryPanel.tsx"
-import { composerMessageAction, inputModeText, mentionQuery, sendOnEnter } from "./composerInput.ts"
+import { composerMessageAction, inputModeText, sendOnEnter } from "./composerInput.ts"
 import { phaseFlags, sessionIdle } from "./chatPhase.ts"
 import { LoadingState } from "./LoadingState.tsx"
 import { MessageList } from "./MessageList.tsx"
@@ -56,9 +56,8 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const [slashOpen, setSlashOpen] = useState(false)
   const [pendingSend, setPendingSend] = useState<PendingSend | null>(null)
   const [sessionRequest, setSessionRequest] = useState<SessionRequest | null>(null)
-  const [mentionIndex, setMentionIndex] = useState(0)
-  const mentionRequest = useRef<string | null>(null)
   const prompt = useRef<HTMLTextAreaElement>(null)
+  const composer = useRef<HTMLFormElement>(null)
   const scroller = useRef<HTMLElement>(null)
   const accountStatus = useRef(initial.account.status)
   const accountRequest = useRef(initial.accountRequest)
@@ -144,24 +143,6 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   }, [snapshot, pendingSend, draft])
 
   useEffect(() => {
-    if (inputMode !== "message" || busy) {
-      mentionRequest.current = null
-      return
-    }
-    const node = prompt.current
-    const caret = node?.selectionStart ?? draft.length
-    const mention = mentionQuery(draft, caret)
-    if (!mention) {
-      mentionRequest.current = null
-      return
-    }
-    const requestId = nextRequestId("mention")
-    mentionRequest.current = requestId
-    const timer = window.setTimeout(() => post({ type: "searchFiles", query: mention.query, requestId }), 150)
-    return () => window.clearTimeout(timer)
-  }, [draft, inputMode, busy])
-
-  useEffect(() => {
     const previous = accountStatus.current
     accountStatus.current = snapshot.account.status
     if (previous === "signedIn" && snapshot.account.status === "signingOut") saveDraft("")
@@ -195,6 +176,8 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     setDraft(text)
     host.setState({ draft: text })
   }
+
+  const mentions = useFileMentions({ draft, enabled: inputMode === "message" && !busy, prompt, fileSearch: snapshot.fileSearch, post, saveDraft })
 
   const themeClass = snapshot.theme === "dark" ? "codem-dark vscode-dark" : "codem-light"
   const showAccount = !signedIn || accountOpen
@@ -273,25 +256,6 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     }
     setPendingSend({ requestId: id, text: draft })
     setInputMode("message")
-  }
-
-  const activeMention =
-    inputMode === "message" && snapshot.fileSearch && snapshot.fileSearch.requestId === mentionRequest.current
-      ? snapshot.fileSearch
-      : null
-
-  const chooseMention = (id: string | undefined) => {
-    if (!id) return
-    const requestId = nextRequestId("pick")
-    mentionRequest.current = null
-    const node = prompt.current
-    const caret = node?.selectionStart ?? draft.length
-    const mention = mentionQuery(draft, caret)
-    if (mention && node) {
-      const next = `${draft.slice(0, mention.start)}${draft.slice(caret)}`
-      saveDraft(next)
-    }
-    post({ type: "selectFile", id, requestId })
   }
 
   const pasteImages = (clipboard: DataTransfer | null) => {
@@ -386,6 +350,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
         <RewindPanel panel={snapshot.pendingPanel} post={post} />
         {sessionRequest ? <SessionCommandPanel snapshot={snapshot} request={sessionRequest} close={() => setSessionRequest(null)} post={post} onShell={confirmShell} /> : null}
         <form
+          ref={composer}
           id="composer"
           className="composer"
           data-testid="composerMenus"
@@ -436,17 +401,11 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             placeholder={modeText.placeholder}
             value={draft}
             disabled={snapshot.pendingPanel !== null}
+            {...mentions.inputProps}
             onChange={(event) => saveDraft(event.target.value)}
             onPaste={(event) => pasteImages(event.clipboardData)}
             onKeyDown={(event) => {
-              const mentionOpen = Boolean(activeMention && activeMention.files.length > 0)
-              if (mentionOpen && ["ArrowDown", "ArrowUp", "Enter", "Escape"].includes(event.key)) {
-                event.preventDefault()
-                if (event.key === "Escape") mentionRequest.current = null
-                else if (event.key === "Enter") chooseMention(activeMention!.files[mentionIndex]?.id)
-                else setMentionIndex((index) => (index + (event.key === "ArrowDown" ? 1 : activeMention!.files.length - 1)) % activeMention!.files.length)
-                return
-              }
+              if (mentions.keyDown(event)) return
               if (
                 event.key === "Enter" &&
                 !slashOpen &&
@@ -457,9 +416,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
               }
             }}
           />
-          {activeMention ? (
-            <FileMentions search={activeMention} active={mentionIndex} onActive={setMentionIndex} onChoose={chooseMention} />
-          ) : null}
+          {mentions.menu ? <FileMentions menu={mentions.menu} anchor={composer} /> : null}
           {slashOpen && slash !== null ? (
             <SlashMenu snapshot={snapshot} query={slash} anchor={prompt} onClose={(focus) => {
               setSlashOpen(false)

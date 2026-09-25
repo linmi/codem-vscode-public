@@ -127,6 +127,13 @@ describe("composer controls", () => {
     assert.match(html, /placeholder="提出问题，或输入 \/ 选择会话操作…"/u)
     assert.match(html, /<button[^>]*id="send"[^>]*aria-label="发送消息"/u)
   })
+
+  it("announces @ suggestions from the prompt without pointing at a list that is not open", () => {
+    const prompt = /<textarea[^>]*id="prompt"[^>]*>/u.exec(render({ ...initialSnapshot(), account: signedIn, phase: "ready", fileSearch: { requestId: "mention-x-1", status: "ready", files: [{ id: "file-1", label: "src/main.ts" }], error: null } }))?.[0] ?? ""
+    assert.match(prompt, /aria-autocomplete="list"/u)
+    // Host 手里的结果不是这次提及发出的请求：首屏不展开，也不留指向列表或选项的引用。
+    assert.doesNotMatch(prompt, /aria-controls=|aria-activedescendant=/u)
+  })
 })
 
 /** 控件自身带 hidden 或根本没渲染都算隐藏；不依赖外层容器是否隐藏。 */

@@ -10,7 +10,8 @@ import { activityTitle } from "../src/chat/toolPresentation.ts"
 import { workingStatus } from "../src/chat/workingStatus.ts"
 import { builtinSlashCommands, commandUnavailable, slashQuery } from "../src/chat/slashCommands.ts"
 import { draftRetention } from "../src/chat/draftRetention.ts"
-import { composerMessageAction, inputModeText, mentionQuery, sendOnEnter } from "../src/chat/composerInput.ts"
+import { activeMention, composerMessageAction, inputModeText, mentionQuery, mentionResults, nextMentionSession, sendOnEnter, stepMention } from "../src/chat/composerInput.ts"
+import type { FileSearch } from "../src/contract.ts"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -85,6 +86,46 @@ describe("@codem/ui host contract", () => {
     parseUiAction({ type: "setSendKey", sendKey: "modEnter" })
     parseUiAction({ type: "closeHistory" })
     parseUiAction({ type: "removeSelection", id: "sel-current" })
+  })
+
+  it("keeps showing a mention's previous results until the next search answers, and nothing else", () => {
+    const results = (requestId: string, files: string[], status: FileSearch["status"] = files.length ? "ready" : "empty"): FileSearch =>
+      ({ requestId, status, files: files.map((id) => ({ id, label: `src/${id}.ts` })), error: null })
+    let session = nextMentionSession(null, "mention-1", undefined)
+    assert.equal(mentionResults(results("mention-1", ["a"]), session)?.requestId, "mention-1")
+    // 下一个字：mention-1 的结果已到，新结果到达前继续显示它，菜单不收起。
+    session = nextMentionSession(session, "mention-2", "mention-1")
+    assert.equal(mentionResults(results("mention-1", ["a"]), session)?.requestId, "mention-1")
+    assert.equal(mentionResults(results("mention-2", ["b"]), session)?.requestId, "mention-2")
+    // 连续快打：mention-3 还没发出就被 mention-4 取代，继续显示的仍是 mention-2。
+    session = nextMentionSession(nextMentionSession(session, "mention-3", "mention-2"), "mention-4", "mention-2")
+    assert.deepEqual(session, { request: "mention-4", previous: "mention-2" })
+    // 不是本次提及发出的请求、Host 清空结果、收起后，都不显示。
+    assert.equal(mentionResults(results("mention-1", ["a"]), session), null)
+    assert.equal(mentionResults(null, session), null)
+    assert.equal(mentionResults(results("mention-4", ["a"]), null), null)
+    // 没有文件且不在搜索、也没有错误时不留空框；搜索中和出错时显示状态。
+    assert.equal(mentionResults(results("mention-4", []), session), null)
+    assert.equal(mentionResults(results("mention-4", [], "loading"), session)?.status, "loading")
+    assert.equal(mentionResults({ ...results("mention-4", [], "error"), error: "文件搜索失败，请重试。" }, session)?.error, "文件搜索失败，请重试。")
+  })
+
+  it("resets the highlighted mention when the results change and wraps arrow keys", () => {
+    const first = { requestId: "mention-1", status: "ready" as const, files: [{ id: "a", label: "a.ts" }, { id: "b", label: "b.ts" }, { id: "c", label: "c.ts" }], error: null }
+    assert.equal(activeMention(first, null), "a")
+    assert.equal(activeMention(first, { requestId: "mention-1", id: "c" }), "c")
+    // 新一批结果：上一批的高亮不再作数，即使同名文件还在。
+    const next = { ...first, requestId: "mention-2", files: [{ id: "d", label: "d.ts" }, { id: "c", label: "c.ts" }] }
+    assert.equal(activeMention(next, { requestId: "mention-1", id: "c" }), "d")
+    assert.equal(activeMention(next, { requestId: "mention-2", id: "c" }), "c")
+    assert.equal(activeMention(next, { requestId: "mention-2", id: "gone" }), "d")
+    assert.equal(activeMention({ ...next, files: [] }, { requestId: "mention-2", id: "c" }), null)
+    assert.equal(activeMention(null, null), null)
+    assert.equal(stepMention(first.files, "c", 1), "a")
+    assert.equal(stepMention(first.files, "a", -1), "c")
+    assert.equal(stepMention(first.files, "a", 1), "b")
+    assert.equal(stepMention(first.files, "gone", 1), "a")
+    assert.equal(stepMention([], null, 1), null)
   })
 
   it("waits for explicit receipts even after optimistic messages and unrelated notices", () => {
