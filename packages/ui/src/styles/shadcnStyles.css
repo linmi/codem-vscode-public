@@ -35,6 +35,11 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="select-trigger"], [data-slot="select-content"] { animation: none; transition: none; }
 }
+/* 两个宿主都不注入 Preflight，Dialog 需要显式层级、底色、边框和字体。 */
+[data-slot="dialog-overlay"] { z-index: 90; }
+[data-slot="dialog-content"] { z-index: 91; background: var(--surface); color: var(--ink); border: 1px solid var(--line); font: 500 var(--uiFontSize)/1.6 var(--uiFont); box-sizing: border-box; }
+[data-slot="dialog-title"], [data-slot="dialog-description"] { margin: 0; flex-shrink: 0; }
+[data-slot="dialog-title"] { font-size: 16px; line-height: 24px; }
 
 #effortSelector { display: inline-flex; width: 28px; height: 28px; }
 #selectEffort.effortTrigger { width: 28px; height: 28px; padding: 4px; border: 0; background: transparent; box-shadow: none; color: var(--vscode-descriptionForeground); }

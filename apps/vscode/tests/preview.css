@@ -1,12 +1,15 @@
 /* Model the VS Code webview host defaults below application styles.
    This exposes body-padding shifts caused by modal scroll locking in previews. */
 @layer vscodeHost { body { margin: 0; padding: 0 20px; } }
+/* VS Code also injects theme colors as --vscode-* on <html>. The shared tokens only carry light fallbacks for the two
+   theme-derived ones, so the fixture supplies them per theme the way the host would. */
+body.vscode-light, body.vscode-dark { --vscode-descriptionForeground: var(--muted); --vscode-toolbar-hoverBackground: var(--hover); }
 body { display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: 100%; height: 100dvh; overflow: hidden; }
 .previewNavigation { min-width: 0; min-height: 0; border-right: 1px solid var(--line); background: var(--soft); }
 .previewSidebar { height: 100%; display: flex; flex-direction: column; }
 .previewHeading { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 10px 14px; flex-shrink: 0; }
 .previewHeading strong { white-space: nowrap; font-size: 12px; }
-.previewHeading .previewTocToggle { display: none; }
+.previewHeading .previewTocToggle { display: none; width: 32px; height: 32px; }
 .previewSidebarContent { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .previewControls { display: flex; align-items: center; gap: 8px; padding: 0 12px 12px; }
 .previewControls [data-slot="button"] { font-size: 12px; }

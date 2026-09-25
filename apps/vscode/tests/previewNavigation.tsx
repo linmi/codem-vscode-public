@@ -3,12 +3,16 @@ import { createPreviewRuntime } from "./previewRuntime.ts"
 import { parsePreviewSearch } from "./previewState.ts"
 import { useEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
+import { setNonce } from "get-nonce"
 import { MenuIcon } from "lucide-react"
-import { Button } from "../webview/components/ui/button.tsx"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../webview/components/ui/collapsible.tsx"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../webview/components/ui/select.tsx"
+import { Button } from "../../../packages/ui/src/components/ui/button.tsx"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../../packages/ui/src/components/ui/collapsible.tsx"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../packages/ui/src/components/ui/select.tsx"
 import { previewScenarios } from "./previewScenarios.ts"
 
+// This bundle has its own get-nonce instance; Radix scroll locking needs the page nonce, as in webview/main.ts.
+const script = document.querySelector<HTMLScriptElement>("script[nonce]")
+if (script?.nonce) setNonce(script.nonce)
 const runtime = createPreviewRuntime(parsePreviewSearch(Object.fromEntries(new URL(location.href).searchParams)))
 const rootRoute = createRootRoute()
 const previewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", validateSearch: parsePreviewSearch, component: PreviewNavigation })
@@ -34,7 +38,7 @@ function PreviewNavigation() {
     <div className="previewHeading">
       <strong>CodeM · 模拟预览</strong>
       <CollapsibleTrigger asChild>
-        <Button variant="ghost" size="icon-sm" className="previewTocToggle" aria-label="场景目录"><MenuIcon /></Button>
+        <Button variant="ghost" size="icon" className="previewTocToggle" aria-label="场景目录"><MenuIcon /></Button>
       </CollapsibleTrigger>
     </div>
     <CollapsibleContent className="previewSidebarContent">

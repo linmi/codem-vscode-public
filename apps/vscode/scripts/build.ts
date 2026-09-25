@@ -1,24 +1,24 @@
 import { previewToolsSource } from "../tests/previewToolSamples.ts"
-import postcss from "postcss"
-import tailwindcss from "@tailwindcss/postcss"
-import { readFile, writeFile } from "node:fs/promises"
+import { writeFile } from "node:fs/promises"
 import { build, context, type BuildOptions, type Plugin } from "esbuild"
 import { stageAppServerRuntime } from "@codem/app-server/build"
 import { createRequire } from "node:module"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { bundleNotices } from "./support/bundleNotices.ts"
+import { compileStylesheet } from "./support/webviewStyles.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const require = createRequire(import.meta.url)
 const packageRoot = resolve(dirname(require.resolve("@codem/app-server")), "..")
 stageAppServerRuntime({ packageRoot, extensionRoot: root })
 
-const shadcnStyles: Plugin = {
-  name: "shadcnStyles",
+// webview/styles.css imports the shared @codem/ui stylesheet and appends only the VS Code theme bridge.
+const webviewStyles: Plugin = {
+  name: "webviewStyles",
   setup(builder) {
-    builder.onLoad({ filter: /shadcnStyles\.css$/ }, async args => {
-      const result = await postcss([tailwindcss()]).process(await readFile(args.path, "utf8"), { from: args.path })
+    builder.onLoad({ filter: /[\\/]webview[\\/]styles\.css$/ }, async args => {
+      const result = await compileStylesheet(args.path)
       for (const message of result.messages) {
         if (message.type === "dependency" && typeof message.file === "string") productionInputs.add(message.file)
       }
@@ -44,7 +44,7 @@ const configurations: BuildOptions[] = [
 
 const productionInputs = new Set<string>()
 for (const configuration of configurations) {
-  const options: BuildOptions = { ...configuration, absWorkingDir: root, jsx: "automatic", bundle: true, plugins: [shadcnStyles], sourcemap: true, logLevel: "info", logOverride: { "css-syntax-error": "error" } }
+  const options: BuildOptions = { ...configuration, absWorkingDir: root, jsx: "automatic", bundle: true, plugins: [webviewStyles], sourcemap: true, logLevel: "info", logOverride: { "css-syntax-error": "error" } }
   if (process.argv.includes("--watch")) {
     await (await context(options)).watch()
   } else {
