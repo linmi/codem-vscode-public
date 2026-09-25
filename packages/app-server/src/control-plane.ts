@@ -63,17 +63,29 @@ export const APP_SERVER_KNOWN_NOTIFICATIONS = [
   "backgroundTask/wakeSkipped",
 ] as const
 
-const SECRET_CONFIG_KEYS = new Set([
-  "apikey",
-  "api_key",
-  "secret",
-  "token",
-  "password",
-  "credential",
+/**
+ * Secret detection works on the key's final word after splitting on separators and camelCase, so
+ * `OPENAI_API_KEY`, `x-api-key` and `githubToken` match while `max_tokens`, `tokenUsage`,
+ * `api_key_env` and `keyboard` do not. It sees key names only: a credential inside an ordinary
+ * value (for example a URL with a password) is not detected.
+ */
+const SECRET_KEY_WORDS = new Set([
+  "auth",
   "authorization",
-  "access_token",
-  "refresh_token",
+  "cookie",
+  "cookies",
+  "credential",
+  "credentials",
+  "passphrase",
+  "passwords",
+  "secrets",
 ])
+/** Also matched as the end of a single run-together word such as `NPMTOKEN` or `PGPASSWORD`. */
+const SECRET_KEY_SUFFIXES = ["apikey", "passwd", "password", "secret", "token"] as const
+/** `<qualifier>_key` names that hold key material, unlike `sort_key` or `projectKey`. */
+const SECRET_KEY_QUALIFIERS = new Set(["access", "api", "auth", "client", "encryption", "master", "private", "secret", "signing"])
+/** Maps whose entry names are safe to show but whose values are routinely credentials. */
+const SECRET_VALUE_MAP_WORDS = new Set(["env", "environment", "headers"])
 
 export function isAppServerKnownNotification(method: string): boolean {
   return (APP_SERVER_KNOWN_NOTIFICATIONS as readonly string[]).includes(method)
@@ -385,13 +397,40 @@ export function redactAppServerSecrets(value: unknown, label: string): AppServer
   const object = objectValue(value, label)
   const redacted: { [key: string]: AppServerJsonValue } = {}
   for (const [key, entry] of Object.entries(object)) {
-    redacted[key] = isSecretConfigKey(key) ? null : redactAppServerSecrets(entry, `${label}.${key}`)
+    const words = keyWords(key)
+    redacted[key] = isSecretKey(words)
+      ? null
+      : isSecretValueMap(words, entry)
+        ? clearEntryValues(entry)
+        : redactAppServerSecrets(entry, `${label}.${key}`)
   }
   return redacted
 }
 
-function isSecretConfigKey(key: string): boolean {
-  return SECRET_CONFIG_KEYS.has(key.toLowerCase())
+function keyWords(key: string): readonly string[] {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+}
+
+function isSecretKey(words: readonly string[]): boolean {
+  const last = words.at(-1)
+  if (last === undefined) return false
+  if (SECRET_KEY_WORDS.has(last) || SECRET_KEY_SUFFIXES.some((suffix) => last.endsWith(suffix))) return true
+  return last === "key" && SECRET_KEY_QUALIFIERS.has(words.at(-2) ?? "")
+}
+
+function isSecretValueMap(words: readonly string[], value: unknown): boolean {
+  return SECRET_VALUE_MAP_WORDS.has(words.at(-1) ?? "") && typeof value === "object" && value !== null
+}
+
+function clearEntryValues(value: unknown): AppServerJsonValue {
+  if (Array.isArray(value)) return value.map((entry) => clearEntryValues(entry))
+  if (typeof value === "object" && value !== null) return Object.fromEntries(Object.keys(value).map((key) => [key, null]))
+  return null
 }
 
 function pluginMap(

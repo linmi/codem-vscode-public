@@ -812,7 +812,10 @@ export class AppServerHost {
     )
   }
 
-  /** 读取 config/read，并剥离密钥字段后再交给调用方。 */
+  /**
+   * 读取 config/read。按键名隐藏常见密钥字段，并清空 env/headers 映射的值；
+   * 普通字段值里的凭据（如带口令的 URL）无法识别，调用方仍只能投影允许展示的字段。
+   */
   async readConfigSnapshot(cwd: string): Promise<AppServerConfigSnapshot> {
     const connection = await this.connection(cwd)
     return parseAppServerConfigSnapshot(

@@ -12,7 +12,7 @@ import {
   redactAppServerSecrets,
 } from "../src/index.ts"
 
-import { parseAppServerLiveTurns, parseAppServerBackgroundTerminalList } from "../src/control-plane.ts"
+import { parseAppServerLiveTurns, parseAppServerBackgroundTerminalList, parseAppServerPluginList } from "../src/control-plane.ts"
 
 describe("App Server control-plane projection", () => {
   it("projects Core alive into terminal state and rejects the obsolete wire inProgress field", () => {
@@ -34,6 +34,55 @@ describe("App Server control-plane projection", () => {
         active: { model: "codem-router/auto" },
         custom: [{ apikey: null, api_key_env: "DEEPSEEK_API_KEY", model: "meego" }],
       },
+    )
+  })
+
+  it("redacts secret keys regardless of case, separators and camelCase", () => {
+    const secretKeys = [
+      "apikey", "apiKey", "API_KEY", "x-api-key", "XApiKey", "OPENAI_API_KEY", "AWS_SECRET_ACCESS_KEY", "private_key",
+      "token", "github_token", "GITHUB_TOKEN", "githubToken", "bearer_token", "access_token", "refresh_token", "NPMTOKEN",
+      "secret", "Secret", "client_secret", "password", "db_password", "PGPASSWORD", "passphrase", "credentials",
+      "Authorization", "proxy-authorization", "basic_auth", "Cookie", "set-cookie",
+    ]
+    const leaked = Object.fromEntries(secretKeys.map((key) => [key, { value: "leak" }]))
+    assert.deepEqual(redactAppServerSecrets({ providers: [leaked] }, "config"), {
+      providers: [Object.fromEntries(secretKeys.map((key) => [key, null]))],
+    })
+  })
+
+  it("keeps configuration keys that only resemble secret names", () => {
+    const lookAlikes = {
+      max_tokens: 4096, context_window_tokens: 200000, tokenUsage: { inputTokens: 1 }, token_count: 3, tokenizer: "o200k",
+      keyboard: "dvorak", keys: ["a"], api_key_env: "DEEPSEEK_API_KEY", apiKeyHelper: "/usr/local/bin/key-helper",
+      projectKey: "demo", sort_key: "name", author: "me", auth_mode: "oauth", passwordless: true, secretary: "none",
+      environment_name: "prod", env: "production", model: "codem-router/auto",
+    }
+    assert.deepEqual(redactAppServerSecrets(lookAlikes, "config"), lookAlikes)
+  })
+
+  it("clears env and header map values but keeps entry names", () => {
+    const server = {
+      command: "/usr/bin/github-mcp",
+      args: ["stdio"],
+      env: { GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_leak", OPENAI_KEY: "sk-leak", DATABASE_URL: "postgres://user:pass@db/app" },
+      headers: { Authorization: "Bearer leak", "X-Region": "cn" },
+      environment: [{ name: "STRIPE_KEY", value: "sk_live_leak" }],
+    }
+    const redacted = {
+      command: "/usr/bin/github-mcp",
+      args: ["stdio"],
+      env: { GITHUB_PERSONAL_ACCESS_TOKEN: null, OPENAI_KEY: null, DATABASE_URL: null },
+      headers: { Authorization: null, "X-Region": null },
+      environment: [{ name: null, value: null }],
+    }
+    assert.deepEqual(redactAppServerSecrets({ mcp_servers: { github: server } }, "config"), { mcp_servers: { github: redacted } })
+    assert.deepEqual(
+      parseAppServerConfigSnapshot({ writable: false, writeOwner: "codem-bridge", config: { OPENAI_API_KEY: "sk-leak", mcp_servers: { github: server } } }, "config/read").config,
+      { OPENAI_API_KEY: null, mcp_servers: { github: redacted } },
+    )
+    assert.deepEqual(
+      parseAppServerPluginList({ installed: { github: { name: "github", mcpServers: { github: server } } }, marketplaces: {} }, "plugin/list").installed,
+      { github: { name: "github", mcpServers: { github: redacted } } },
     )
   })
 
