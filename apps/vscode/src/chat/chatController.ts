@@ -33,6 +33,7 @@ import { stoppedTurnMessage } from "../shared/turnStatus.ts"
 import type { SessionHistoryReader, SessionHistorySearcher } from "../sessionHistory/sessionHistory.ts"
 
 import { displayPath } from "../resources/filePresentation.ts"
+import { freezeSnapshot } from "../shared/frozenSnapshot.ts"
 
 export type ChatHost = Pick<AppServerHost, "control" | "compactThread" | "rewindThread" | "clearThread" | "steerTurn" | "startSideQuestion" | "cancelSideQuestion" | "runShellCommand" | "listSkills" | "readEnvironmentInfo" | "readConfigSnapshot" | "listHooks" | "listPlugins" | "listPermissionProfiles" | "readCoreSpaceSnapshot" | "readModelProviderCapabilities" | "listLoadedThreadIds" | "listLiveThreadTurns" | "listLiveThreadItems" | "listThreads" | "readThread" | "resumeThread" | "readModes" | "setModes" | "listTools" | "listBackgroundTerminals" | "terminateBackgroundTerminal" | "cleanBackgroundTerminals" | "cancelBackgroundTask" | "onEvent" | "startThread" | "startTurn" | "interruptTurn" | "unsubscribeThread" | "respondToInteraction" | "close">
 export interface ChatSession {
@@ -143,11 +144,15 @@ export class ChatController {
     this.historyList = new HistoryListController(() => this.publish(), options.report)
   }
 
+  /**
+   * A frozen snapshot that shares every unchanged object with the previous one, so a streaming delta
+   * costs what it changed rather than the whole conversation. State is only ever replaced, never edited.
+   */
   snapshot(): ChatSnapshot {
     const pending = this.pendingSend?.message
     const messages = pending && !this.state.messages.some(message => message.id === pending.id)
       ? [...this.state.messages, pending] : this.state.messages
-    return structuredClone({ ...this.state, composerCatalog: this.session && this.state.phase !== "disconnected" ? this.composerCatalog.snapshot(this.settings.model, this.session.space.key) : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
+    return freezeSnapshot({ ...this.state, composerCatalog: this.session && this.state.phase !== "disconnected" ? this.composerCatalog.snapshot(this.settings.model, this.session.space.key) : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
   }
 
   async assertContextWorkspace(path: string): Promise<void> {

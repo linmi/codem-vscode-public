@@ -22,7 +22,8 @@ export class HistoryListController {
     this.report = report
   }
 
-  snapshot(): HistoryList { return { ...this.state, entries: this.state.entries.map((entry) => ({ ...entry })) } }
+  /** The list is replaced on every change and published frozen, so it is shared rather than copied per publish. */
+  snapshot(): HistoryList { return this.state }
 
   bind(context: HistoryListContext | null): void {
     this.revision++

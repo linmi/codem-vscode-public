@@ -22,7 +22,7 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 | `src/integrations/nextEdit/` | 当前文件的下一处修改预测、严格原文锚点、原生展示与接受生命周期；不持有聊天状态 |
 | `src/panels/` | Host 交互面板、审批转发和设置选择 |
 | `src/nativeChat/` | 原生 Chat 实验入口及适配；不混入正式扩展入口 |
-| `src/shared/` | Host/Webview 共用的消息契约、编辑器上下文和账户类型；无平台运行时 |
+| `src/shared/` | Host/Webview 共用的消息契约、编辑器上下文、账户类型和已发布快照的冻结规则；无平台运行时 |
 | `webview/main.ts` | Webview 入口：设置 CSP nonce，经 Host 桥挂载 `@codem/ui` |
 | `webview/host/` | 把 VS Code 分条消息收成共享快照；不放界面 |
 | `webview/styles.css` | 样式入口：引入 `@codem/ui/styles.css`，只追加 VS Code 主题桥接 |

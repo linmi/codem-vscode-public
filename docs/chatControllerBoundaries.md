@@ -49,3 +49,13 @@
 调用次数：每次轮询仍为一次 `terminals/list`；发布由每次 3 次降为列表未变 0 次、变化 1 次；慢轮询不叠加。终止/清理/取消仍为一次变更 + 一次 `terminals/list`。
 
 验证：新增回归覆盖轮询不改忙碌且列表未变不发布、慢轮询不叠加、变更后晚到的轮询结果作废、会话切换后旧读取不释放新读取，空闲会话轮询期间新建会话不被丢弃，以及慢轮询期间手动刷新仍读取、结果胜出并报告自身失败；新增用例在原实现上失败。`pnpm check` 与 `pnpm build:vscode` 通过。模拟界面未运行（Webview 未改动，快照序列由测试断言）；真实 Core 受阻（`codem-auth auth status` 报告未登录）；真实 VS Code 未运行（同一登录前提，没有可复用的开发宿主，未新开窗口）。
+
+## 流式快照的发布成本
+
+问题：流式回复每个增量发布一次聊天快照。`snapshot()` 对整个状态（含全部消息正文）做 `structuredClone`，每个 token 都按会话长度付一次复制。控制器本就只替换状态、不就地修改，这次复制只起防御作用。
+
+修复（Host）：快照与上一份共享所有未变化的对象，发布时由 `src/shared/frozenSnapshot.ts` 只冻结本次新建的对象，已冻结的子树直接跳过，消息正文不再复制；历史列表同样直接返回自身不可变的状态。已发布数据只读：就地修改会抛错，控制器全部测试在冻结下运行。没有新增缓存。
+
+测量：`node --experimental-strip-types apps/vscode/scripts/benchmarkSnapshots.ts` 在无 Core、无 VS Code 的 fixture 上逐段计时（Host、模拟 postMessage 的 JSON 往返、Webview bridge、ChatApp `asSnapshot`）并计数。501 条消息（每份状态约 597 KiB）× 200 个增量：Host 每增量中位数 0.36 ms → 0.05 ms，整状态克隆 1 → 0 次，重新创建的未变消息约 498 → 0 条。
+
+验收：`snapshotPublishing.test.ts` 在 10 条与 500 条消息下断言每个增量整状态克隆 0 次、未变消息重建 0 条，已发布快照深度冻结且不随后续增量变化，未变的消息、历史列表与能力区在前后快照间是同一对象；两项在原实现上均失败。
