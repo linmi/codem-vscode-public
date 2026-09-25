@@ -136,7 +136,11 @@ class FakeProcessTest {
         org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.ExecutionException::class.java) {
             pending.get(1, TimeUnit.SECONDS)
         }
-        assertTrue(!process.isAlive)
+        // The reader reports the failure before its `finally` destroys the process, so the queue can wake this
+        // thread first. Wait for the destroy rather than racing it.
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2)
+        while (process.isAlive && System.nanoTime() < deadline) Thread.sleep(5)
+        assertTrue(!process.isAlive, "the reader must destroy the process after reporting the failure")
     }
 
     private fun answerInitialize(process: ScriptedProcess) {
