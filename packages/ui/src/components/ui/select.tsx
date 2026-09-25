@@ -4,6 +4,9 @@ import { cn } from "../utils.ts"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
+// Radix 把视口滚动条样式写成内联 <style>；带 nonce CSP 的宿主（VS Code Webview）要沿用页面脚本的 nonce。
+const styleNonce = typeof document === "undefined" ? undefined : document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce || undefined
+
 function Select(props: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />
 }
@@ -62,7 +65,7 @@ function SelectContent({
         <SelectPrimitive.ScrollUpButton className="flex items-center justify-center py-1">
           <ChevronUpIcon className="size-4" />
         </SelectPrimitive.ScrollUpButton>
-        <SelectPrimitive.Viewport className={cn("p-1", position === "popper" && "min-w-[var(--radix-select-trigger-width)]")}>
+        <SelectPrimitive.Viewport nonce={styleNonce} className={cn("p-1", position === "popper" && "min-w-[var(--radix-select-trigger-width)]")}>
           {children}
         </SelectPrimitive.Viewport>
         <SelectPrimitive.ScrollDownButton className="flex items-center justify-center py-1">
