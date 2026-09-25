@@ -1,6 +1,13 @@
 import { spawn } from "node:child_process"
 import { open, realpath } from "node:fs/promises"
 import { isAbsolute, join } from "node:path"
+import {
+  PLUGIN_COMMAND_DEADLINE_MS,
+  PLUGIN_COMMAND_TERMINATION,
+  requirePositiveTimeout,
+  terminateChildProcess,
+  terminationSpawnOptions,
+} from "../processLifecycle.ts"
 import type { AppServerRuntime } from "../runtime.ts"
 
 export interface InstalledPlugin {
@@ -44,6 +51,7 @@ export function parseInstalledPlugins(value: unknown): InstalledPlugin[] {
 /** Management commands are bounded subprocesses; agent traffic remains on App Server stdio. */
 export function createPluginCommands(options: PluginCommandOptions): PluginCommands {
   if (!isAbsolute(options.cwd)) throw new Error("Plugin management requires an absolute workspace")
+  requirePositiveTimeout(options.timeoutMs, "plugin command")
   const run = (args: string[], signal: AbortSignal) => runPluginCommand(options, args, signal)
   const list = async (signal: AbortSignal) => parseInstalledPlugins(JSON.parse(await run(["list", "--json"], signal)))
   return {
@@ -96,28 +104,17 @@ async function runPluginCommand(options: PluginCommandOptions, args: string[], s
   const started = performance.now()
   try {
     return await new Promise<string>((resolve, reject) => {
-      const child = spawn(options.runtime.executablePath, ["plugin", ...args], { cwd: options.cwd, env: options.environment ?? process.env, shell: false, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"], windowsHide: true })
+      const child = spawn(options.runtime.executablePath, ["plugin", ...args], { cwd: options.cwd, env: options.environment ?? process.env, shell: false, ...terminationSpawnOptions(PLUGIN_COMMAND_TERMINATION), stdio: ["ignore", "pipe", "pipe"], windowsHide: true })
+      const closed = new Promise<void>(resolve => child.once("close", () => resolve()))
       let stdout = "", bytes = 0, failure: Error | null = null
-      let killing: ReturnType<typeof setTimeout> | undefined
       const stop = (error: Error) => {
         if (failure) return
         failure = error
-        const terminate = (signal: NodeJS.Signals) => {
-          if (!child.pid) return
-          if (process.platform === "win32") {
-            // taskkill owns this child tree only; no process-name or window-wide cleanup.
-            const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore", windowsHide: true })
-            killer.on("error", () => { child.kill("SIGKILL") })
-          } else {
-            try { process.kill(-child.pid, signal) }
-            catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") child.kill(signal) }
-          }
-        }
-        terminate("SIGTERM")
-        killing = setTimeout(() => terminate("SIGKILL"), 1000)
+        // The command settles only on "close", so a tree that outlives SIGKILL keeps it pending rather than leaking.
+        void terminateChildProcess(child, closed, PLUGIN_COMMAND_TERMINATION).catch(() => undefined)
       }
       const abort = () => stop(new PluginOperationError("cancelled", "Plugin operation cancelled; verify the registry before retrying"))
-      const timeout = setTimeout(() => stop(new PluginOperationError("timeout", "Plugin operation timed out; verify the registry before retrying")), options.timeoutMs ?? 60_000)
+      const timeout = setTimeout(() => stop(new PluginOperationError("timeout", "Plugin operation timed out; verify the registry before retrying")), options.timeoutMs ?? PLUGIN_COMMAND_DEADLINE_MS)
       signal.addEventListener("abort", abort, { once: true })
       if (signal.aborted) abort()
       child.stdout.setEncoding("utf8")
@@ -126,7 +123,7 @@ async function runPluginCommand(options: PluginCommandOptions, args: string[], s
       child.stderr.on("data", (chunk: Buffer) => { bytes += chunk.length; if (bytes > 1024 * 1024) stop(new Error("Core plugin output exceeded 1 MB")) })
       child.on("error", error => { failure = new Error(`Cannot start Core plugin ${args[0]}`, { cause: error }) })
       child.on("close", (code, exitSignal) => {
-        clearTimeout(timeout); clearTimeout(killing); signal.removeEventListener("abort", abort)
+        clearTimeout(timeout); signal.removeEventListener("abort", abort)
         if (failure) reject(failure)
         else if (code !== 0 || exitSignal) reject(new PluginOperationError("commandFailed", `Core plugin ${args[0]} failed (exit ${code ?? exitSignal}); check the source and refresh before retrying`))
         else resolve(stdout)

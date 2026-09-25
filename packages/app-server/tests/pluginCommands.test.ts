@@ -42,6 +42,12 @@ it("uses bounded argument-array commands, validates local installs, rejects dupl
   assert.equal(timings.filter(op => op === "plugin/install").length, 1)
 })
 
+it("rejects a timeout that would expire every command at once", () => {
+  for (const timeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(() => createPluginCommands({ runtime: { executablePath: process.execPath } as AppServerRuntime, cwd: tmpdir(), timeoutMs }), /CodeM plugin command timeout must be positive/)
+  }
+})
+
 for (const mode of ["cancel", "timeout", "overflow", "failure"] as const) {
   it(`reaps plugin subprocess after ${mode} without exposing stderr`, async t => {
     const root = await mkdtemp(join(tmpdir(), "codem-plugin-process-")); t.after(() => rm(root, { recursive: true, force: true }))
