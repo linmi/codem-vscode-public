@@ -23,7 +23,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   assertTrusted()
   signal.throwIfAborted()
   const cwd = await realpath(folder.uri.fsPath)
-  const runtime = resolveBundledAppServerRuntime({ extensionRoot })
+  const runtime = await resolveBundledAppServerRuntime({ extensionRoot })
   const options = { runtime, workingDirectory: cwd, signal }
   const readStatus = async (signal: AbortSignal) => {
     const status = await readAppServerAuthStatus({ ...options, signal })

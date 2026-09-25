@@ -69,17 +69,17 @@ describe("App Server runtime", () => {
 })
 
 describe("bundled App Server runtime", () => {
-  it("stages and resolves a self-contained runtime", () => {
+  it("stages and resolves a self-contained runtime", async () => {
     const fixture = createRuntimeFixture()
     const extensionRoot = createTemporaryDirectory("codem-extension-")
-    const runtime = stageAppServerRuntime({
+    const runtime = await stageAppServerRuntime({
       packageRoot: fixture.root,
       extensionRoot,
       platform: "darwin",
       arch: "arm64",
     })
 
-    assert.deepEqual(resolveBundledAppServerRuntime({ extensionRoot, platform: "darwin", arch: "arm64" }), runtime)
+    assert.deepEqual(await resolveBundledAppServerRuntime({ extensionRoot, platform: "darwin", arch: "arm64" }), runtime)
     assert.equal(readFileSync(runtime.executablePath, "utf8"), readFileSync(fixture.executablePath, "utf8"))
     assert.equal(readFileSync(runtime.licensePath, "utf8"), "fixture license\n")
     assert.equal(readFileSync(runtime.authExecutablePath, "utf8"), readFileSync(fixture.authExecutablePath, "utf8"))
@@ -88,10 +88,10 @@ describe("bundled App Server runtime", () => {
     assert.match(runtime.authSha256, /^[a-f0-9]{64}$/u)
   })
 
-  it("rejects a bundled executable whose content no longer matches the manifest", () => {
+  it("rejects a bundled executable whose content no longer matches the manifest", async () => {
     const fixture = createRuntimeFixture()
     const extensionRoot = createTemporaryDirectory("codem-extension-")
-    const runtime = stageAppServerRuntime({
+    const runtime = await stageAppServerRuntime({
       packageRoot: fixture.root,
       extensionRoot,
       platform: "darwin",
@@ -99,16 +99,16 @@ describe("bundled App Server runtime", () => {
     })
     writeFileSync(runtime.executablePath, "tampered")
 
-    assert.throws(
-      () => resolveBundledAppServerRuntime({ extensionRoot, platform: "darwin", arch: "arm64" }),
+    await assert.rejects(
+      resolveBundledAppServerRuntime({ extensionRoot, platform: "darwin", arch: "arm64" }),
       /bundle SHA-256 mismatch/u,
     )
   })
 
-  it("rejects a bundled authentication executable whose content no longer matches the manifest", () => {
+  it("rejects a bundled authentication executable whose content no longer matches the manifest", async () => {
     const fixture = createRuntimeFixture()
     const extensionRoot = createTemporaryDirectory("codem-extension-")
-    const runtime = stageAppServerRuntime({
+    const runtime = await stageAppServerRuntime({
       packageRoot: fixture.root,
       extensionRoot,
       platform: "darwin",
@@ -116,32 +116,55 @@ describe("bundled App Server runtime", () => {
     })
     writeFileSync(runtime.authExecutablePath, "tampered")
 
-    assert.throws(
-      () => resolveBundledAppServerRuntime({ extensionRoot, platform: "darwin", arch: "arm64" }),
+    await assert.rejects(
+      resolveBundledAppServerRuntime({ extensionRoot, platform: "darwin", arch: "arm64" }),
       /auth bundle SHA-256 mismatch/u,
     )
+  })
+
+  it("keeps the event loop running while it hashes a large executable, then still rejects tampering", async () => {
+    const fixture = createRuntimeFixture()
+    // Realistic size: the pinned Core is ~13 MB and the authentication CLI ~77 MB.
+    writeFileSync(fixture.executablePath, Buffer.alloc(32 * 1024 * 1024, 7))
+    const extensionRoot = createTemporaryDirectory("codem-extension-")
+    const options = { extensionRoot, platform: "darwin" as const, arch: "arm64" }
+    const runtime = await stageAppServerRuntime({ ...options, packageRoot: fixture.root })
+
+    // Timers queued after verification starts must run before it settles. A synchronous
+    // read-and-hash settles first and lets none of them run.
+    const turns = countEventLoopTurns()
+    let settledAfterTurns = -1
+    const verification = Promise.resolve(resolveBundledAppServerRuntime(options)).then(result => { settledAfterTurns = turns.count; return result })
+    assert.deepEqual(await verification, runtime)
+    turns.stop()
+    assert.ok(settledAfterTurns >= 8, `verification settled after ${settledAfterTurns} event-loop turns`)
+
+    const tampered = readFileSync(runtime.executablePath)
+    tampered[tampered.length - 1] = 8
+    writeFileSync(runtime.executablePath, tampered)
+    await assert.rejects(resolveBundledAppServerRuntime(options), /bundle SHA-256 mismatch/u)
   })
 })
 
 for (const arch of ["x64", "arm64"] as const) {
-  it(`bundles Windows ${arch} EXEs and rejects wrong architecture, missing files and tampering`, () => {
+  it(`bundles Windows ${arch} EXEs and rejects wrong architecture, missing files and tampering`, async () => {
     const fixture = createRuntimeFixture({ target: `win32-${arch}` })
     const extensionRoot = createTemporaryDirectory("codem Windows 中文 ")
     const options = { packageRoot: fixture.root, extensionRoot, platform: "win32" as const, arch }
-    const runtime = stageAppServerRuntime(options)
+    const runtime = await stageAppServerRuntime(options)
     assert.equal(runtime.target, `win32-${arch}`)
     assert.equal(runtime.executablePath, join(extensionRoot, "bin", "app-server", "codem-core.exe"))
     assert.equal(runtime.authExecutablePath, join(extensionRoot, "bin", "app-server", "codem-auth.exe"))
-    assert.deepEqual(resolveBundledAppServerRuntime(options), runtime)
-    assert.throws(() => resolveBundledAppServerRuntime({ ...options, arch: arch === "x64" ? "arm64" : "x64" }), /this host requires/)
+    assert.deepEqual(await resolveBundledAppServerRuntime(options), runtime)
+    await assert.rejects(resolveBundledAppServerRuntime({ ...options, arch: arch === "x64" ? "arm64" : "x64" }), /this host requires/)
     writeFileSync(runtime.authExecutablePath, "tampered")
-    assert.throws(() => resolveBundledAppServerRuntime(options), /auth bundle SHA-256 mismatch/)
-    stageAppServerRuntime(options)
+    await assert.rejects(resolveBundledAppServerRuntime(options), /auth bundle SHA-256 mismatch/)
+    await stageAppServerRuntime(options)
     writeFileSync(runtime.executablePath, "tampered")
-    assert.throws(() => resolveBundledAppServerRuntime(options), /bundle SHA-256 mismatch/)
-    stageAppServerRuntime(options)
+    await assert.rejects(resolveBundledAppServerRuntime(options), /bundle SHA-256 mismatch/)
+    await stageAppServerRuntime(options)
     rmSync(runtime.authExecutablePath)
-    assert.throws(() => resolveBundledAppServerRuntime(options), /authentication executable is missing/)
+    await assert.rejects(resolveBundledAppServerRuntime(options), /authentication executable is missing/)
     rmSync(fixture.executablePath)
     assert.throws(() => resolveAppServerRuntime(options), /executable is missing/)
   })
@@ -211,6 +234,18 @@ function createRuntimeFixture(
     authExecutablePath: realpathSync(authExecutablePath),
     authLicensePath: realpathSync(authLicensePath),
   }
+}
+
+/** Counts check-phase turns until stopped; each turn needs the event loop to be free. */
+function countEventLoopTurns(): { readonly count: number; stop(): void } {
+  const state = { count: 0, running: true }
+  const turn = () => {
+    if (!state.running) return
+    state.count++
+    setImmediate(turn)
+  }
+  setImmediate(turn)
+  return { get count() { return state.count }, stop() { state.running = false } }
 }
 
 function createTemporaryDirectory(prefix: string): string {

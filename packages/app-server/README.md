@@ -31,7 +31,7 @@ Installed editor clients resolve the staged runtime, then give the package their
 ```ts
 import { resolveBundledAppServerRuntime, startAppServerConnection } from "@codem/app-server"
 
-const runtime = resolveBundledAppServerRuntime({ extensionRoot })
+const runtime = await resolveBundledAppServerRuntime({ extensionRoot })
 const connection = await startAppServerConnection({
   runtime,
   workingDirectory: workspacePath,
@@ -56,10 +56,10 @@ Build scripts import staging from `@codem/app-server/build`:
 ```ts
 import { stageAppServerRuntime } from "@codem/app-server/build"
 
-stageAppServerRuntime({ packageRoot, extensionRoot })
+await stageAppServerRuntime({ packageRoot, extensionRoot })
 ```
 
-Each target-specific extension contains its matching Core executable, authentication broker executable, both published licenses, and `bin/app-server/runtime.json`. Consumers fail closed when either platform, version, executable metadata, or SHA-256 differs.
+Each target-specific extension contains its matching Core executable, authentication broker executable, both published licenses, and `bin/app-server/runtime.json`. Consumers fail closed when either platform, version, executable metadata, or SHA-256 differs. Both functions are asynchronous: executables are hashed as a stream from the opened file, so verification never blocks the host's event loop.
 
 Thread permission modes use `readModes` / `setModes` and the strict `AppServerModeState` DTO, which is a re-export of `@codem/protocol`. Pass the revision the user actually saw as `expectedRevision`; a conflict must remain visible, not become an unconditional write. `thread-modes-updated` events carry validated Core state, including permission epoch. Old responses from a retired thread are rejected; stale revisions cannot overwrite a newer snapshot. `@codem/app-server/modes` keeps raw-frame parsers; hosts and webviews import the shared DTO from `@codem/protocol`.
 

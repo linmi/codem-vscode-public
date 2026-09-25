@@ -8,7 +8,7 @@ import { APP_SERVER_CLI_VERSION, resolveBundledAppServerRuntime, startAppServerC
 
 // Explicit native-binary smoke: initialize only, without login or model requests.
 const extensionRoot = fileURLToPath(new URL("..", import.meta.url))
-const runtime = resolveBundledAppServerRuntime({ extensionRoot })
+const runtime = await resolveBundledAppServerRuntime({ extensionRoot })
 const root = await mkdtemp(join(tmpdir(), "codem native 中文 "))
 try {
   const home = join(root, "home")

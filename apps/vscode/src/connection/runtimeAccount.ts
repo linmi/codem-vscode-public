@@ -7,9 +7,9 @@ import type { AccountIdentity, AccountOperations } from "./accountController.ts"
 
 /** Auth runs in the user's home, independent of workspace trust, selection and Core. */
 export function accountOperations(extensionRoot: string, timing?: (stage: "status" | "login" | "logout", durationMs: number) => void): AccountOperations {
-  const options = () => ({ runtime: resolveBundledAppServerRuntime({ extensionRoot }), workingDirectory: homedir() })
+  const options = async () => ({ runtime: await resolveBundledAppServerRuntime({ extensionRoot }), workingDirectory: homedir() })
   const identity = async (status: AppServerAuthStatus, signal: AbortSignal): Promise<AccountIdentity> => ({ ...status, avatar: await readAccountAvatar(status, accountProfilePath(process.env, homedir()), signal) })
-  const read = async (authentication: ReturnType<typeof options>, signal: AbortSignal) => {
+  const read = async (authentication: Awaited<ReturnType<typeof options>>, signal: AbortSignal) => {
     const started = performance.now()
     try { return await readAppServerAuthStatus({ ...authentication, signal }) }
     finally { timing?.("status", Math.round(performance.now() - started)) }
@@ -17,12 +17,12 @@ export function accountOperations(extensionRoot: string, timing?: (stage: "statu
   return {
     logout: async signal => {
       const started = performance.now()
-      try { return await signOutAppServer({ ...options(), signal }) }
+      try { return await signOutAppServer({ ...(await options()), signal }) }
       finally { timing?.("logout", Math.round(performance.now() - started)) }
     },
-    read: async signal => identity(await read(options(), signal), signal),
+    read: async signal => identity(await read(await options(), signal), signal),
     login: async (signal, progress) => {
-      const authentication = options()
+      const authentication = await options()
       const current = await read(authentication, signal)
       signal.throwIfAborted()
       if (current.loggedIn && current.routerCredential === true) return identity(current, signal)

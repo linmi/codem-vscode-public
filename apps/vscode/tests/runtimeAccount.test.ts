@@ -24,7 +24,7 @@ async function setup(t: TestContext): Promise<{ accountOperations: typeof Operat
       import {control} from 'accountFixture';
       const status=()=>({loggedIn:control.loggedIn,routerCredential:control.loggedIn,displayName:null,userId:'u',tenantId:'t',authMethod:'browser',serverUrl:null});
       export const signOutAppServer=async options=>{control.calls.push('logout');control.cwd=options.workingDirectory;options.signal.throwIfAborted();control.loggedIn=false;return status()};
-      export const resolveBundledAppServerRuntime=()=>({});
+      export const resolveBundledAppServerRuntime=async()=>({});
       export const readAppServerAuthStatus=async options=>{control.calls.push('status');control.cwd=options.workingDirectory;options.signal.throwIfAborted();return status()};
       export function startAppServerLogin(options){
         control.calls.push('login');control.cwd=options.workingDirectory;

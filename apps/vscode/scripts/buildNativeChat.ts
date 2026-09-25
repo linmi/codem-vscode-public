@@ -34,7 +34,7 @@ const manifest = {
   },
 }
 await writeFile(resolve(destination, "package.json"), JSON.stringify(manifest, null, 2) + "\n")
-stageAppServerRuntime({ packageRoot: resolve(dirname(require.resolve("@codem/app-server")), ".."), extensionRoot: destination })
+await stageAppServerRuntime({ packageRoot: resolve(dirname(require.resolve("@codem/app-server")), ".."), extensionRoot: destination })
 await build({ absWorkingDir: root, entryPoints: [productionEntries.nativeChat.path], outfile: resolve(destination, "extension.cjs"), bundle: true, platform: productionEntries.nativeChat.platform, format: "cjs", external: ["vscode"], target: "node22", sourcemap: true, logLevel: "info" })
 await build({ absWorkingDir: root, entryPoints: ["tests/nativeChatExtensionSmoke.ts"], outfile: resolve(destination, "extensionSmoke.cjs"), bundle: true, platform: "node", format: "cjs", external: ["vscode"], target: "node22" })
 console.log(`Native CodeM experiment: ${destination}`)

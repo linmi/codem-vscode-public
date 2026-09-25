@@ -82,3 +82,24 @@ node --experimental-strip-types apps/vscode/scripts/profileConnection.ts --works
 CodeM 输出面板新增 `Webview ready`、`Connection runtime`、`Connection MCP settings`、`Connection ready/disconnected` 耗时，可区分界面启动、后端和 SecretStorage 等待。runtime 时间包含用户登录/选择对话框的等待；它与完整 connection 时间有包含关系，不应相加。
 
 新增 9 个默认回归测试覆盖：同一 broker 只初始化一次、启动材料不重复准备、目录失效后选择、选择后重新认证、选择取消、准备后取消、第二次 RPC 挂起/失败时回收与脱敏、模型读取失败关闭 Core、重试不复用旧授权。`pnpm check` 的静态检查、类型检查及 228 个测试通过，`pnpm build:vscode` 通过。真实 Core 只做连接预检，未发送模型消息。模拟界面未运行；真实 VS Code 自动化仍只能定位主窗口，无法选中已有开发宿主，未新开窗口，完整首次打开体验尚未验收。
+
+## 安装包完整性校验不阻塞事件循环（2026-09-25）
+
+调用链：Webview ready → `AccountController.initialize` → `runtimeAccount.read` → `resolveBundledAppServerRuntime` → auth status；随后 autoConnect → `connectRuntime` → `resolveBundledAppServerRuntime` → auth / 空间 / Core。登录、退出、刷新账户、切换空间和断线重连各再调用一次。每次校验先同步读 `runtime.json` 并检查文件与可执行权限，再对 Core（约 13 MB）和认证 CLI（约 77 MB）做 SHA-256，与清单比对后才返回路径，之后才可能启动任何进程。
+
+原实现用 `readFileSync` 整体读入再哈希，校验期间扩展宿主事件循环完全停住。现在 `sha256File` 打开文件后在同一文件描述符上检查普通文件并以 1 MiB 块流式读取、逐块哈希；比对清单、失败即拒绝、不降级到其他 Core 的规则不变，`stageAppServerRuntime` 写清单时使用同一实现。剩余的同步前段（读取约 0.5 KB 清单、stat 与 access）实测中位数 0.15ms，保持不变。
+
+同一台 macOS ARM64、Node 22.23.2、页缓存已热，使用 `pnpm build:vscode` 产出的真实 bundle，每项 7 次取中位数：
+
+| 实现 | 每次校验耗时 | 事件循环最长停顿 | 期间 1ms 定时器执行次数 |
+| --- | ---: | ---: | ---: |
+| 同步整读后哈希（原实现） | 32.1ms | 32.2ms | 0 |
+| 流式异步哈希 | 29.5ms | 1.3ms | 30 |
+
+1.3ms 受 1ms 定时器分辨率限制。冷缓存、较慢磁盘或无 SHA 指令的 CPU 上原实现停顿会更长，本机未测。可复现命令（无 bundle 时自动生成同尺寸文件）：
+
+```bash
+node --experimental-strip-types apps/vscode/scripts/benchmarkRuntimeIntegrity.ts
+```
+
+回归门槛接入 `pnpm check`：32 MiB 的 Core fixture 校验完成前必须已让出至少 8 次事件循环，同步实现为 0 次；同尺寸改写一个字节仍须因 SHA-256 不匹配被拒绝。

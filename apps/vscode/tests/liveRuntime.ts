@@ -9,7 +9,7 @@ import type { ChatSession } from "../src/chat/chatController.ts"
 /** Explicit, opt-in headless Core adapter for reusing an already-created acceptance workspace. */
 export async function liveRuntime(extensionRoot: string, workspace: string, signal: AbortSignal): Promise<ChatSession> {
   const cwd = await realpath(workspace)
-  const runtime = resolveBundledAppServerRuntime({ extensionRoot })
+  const runtime = await resolveBundledAppServerRuntime({ extensionRoot })
   const options = { runtime, workingDirectory: cwd, signal }
   const authorize = async () => { signal.throwIfAborted(); assertAppServerAuthenticated(await readAppServerAuthStatus(options)) }
   const status = await readAppServerAuthStatus(options)

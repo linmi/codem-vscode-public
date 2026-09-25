@@ -11,7 +11,7 @@ export async function runLivePluginManagement(extensionRoot: string): Promise<vo
   await mkdir(cwd); await mkdir(join(source, ".codem-plugin"), { recursive: true }); await mkdir(join(source, "skills", "hello"), { recursive: true })
   await writeFile(join(source, ".codem-plugin", "plugin.json"), JSON.stringify({ name: "acceptance-only", version: "1.0.0", description: "Disposable plugin management fixture" }))
   await writeFile(join(source, "skills", "hello", "SKILL.md"), "---\nname: hello\ndescription: Disposable acceptance skill\n---\nReply with a greeting.\n")
-  const runtime = resolveBundledAppServerRuntime({ extensionRoot })
+  const runtime = await resolveBundledAppServerRuntime({ extensionRoot })
   const environment = { ...process.env, LINCO_HOME: join(root, "core"), CODEM_HOME: join(root, "cli"), XDG_CONFIG_HOME: join(root, "config") }
   const timings: { operation: string; elapsedMs: number }[] = []
   const commands = createPluginCommands({ runtime, cwd, environment, observe: (operation, elapsedMs) => timings.push({ operation, elapsedMs }) })

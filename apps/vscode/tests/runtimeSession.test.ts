@@ -44,7 +44,7 @@ async function setup(t: TestContext): Promise<{ connectRuntime: typeof ConnectRu
         export { createPluginCommands } from '../../packages/app-server/src/plugins/pluginCommands.ts';
         const space = {projectKey:'proj_test', displayName:'Test', managedDirectory:null};
         const catalog = {current:'proj_test',spaces:[{projectKey:'proj_test',displayName:'Test'}]};
-        export const resolveBundledAppServerRuntime=()=>({});
+        export const resolveBundledAppServerRuntime=async()=>({});
         export const readAppServerAuthStatus=async()=>{control.calls.push('auth'); return {loggedIn:control.loggedIn,routerCredential:control.loggedIn,userId:'user',tenantId:'tenant',serverUrl:'https://fixture.invalid'}};
         export const startAppServerLogin=()=>{throw Error('unexpected login')};
         export const listAppServerSpaces=async()=>{control.calls.push('list'); return catalog};

@@ -11,7 +11,7 @@ export function packageTarget(requested: string | undefined, platform: NodeJS.Pl
 /** Copy an explicit distribution surface into an empty, task-owned directory. */
 export async function stageVsix(root: string, destination: string, target: AppServerRuntimeTarget): Promise<string> {
   const [platform, arch] = target.split("-")
-  resolveBundledAppServerRuntime({ extensionRoot: root, platform: platform as NodeJS.Platform, arch })
+  await resolveBundledAppServerRuntime({ extensionRoot: root, platform: platform as NodeJS.Platform, arch })
   const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as Record<string, unknown>
   if (manifest.name !== "codem" || typeof manifest.version !== "string" || !/^\d+\.\d+\.\d+$/.test(manifest.version)) throw new Error("Invalid CodeM VSIX name or version")
   if (manifest.main !== "./dist/extension.cjs") throw new Error("Unexpected CodeM VSIX entrypoint")
@@ -36,6 +36,6 @@ export async function stageVsix(root: string, destination: string, target: AppSe
   }
   await writeFile(join(destination, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`)
   // Recheck the copied executables and their digests, not just the build directory.
-  resolveBundledAppServerRuntime({ extensionRoot: destination, platform: platform as NodeJS.Platform, arch })
+  await resolveBundledAppServerRuntime({ extensionRoot: destination, platform: platform as NodeJS.Platform, arch })
   return `codem-${manifest.version}-${target}.vsix`
 }

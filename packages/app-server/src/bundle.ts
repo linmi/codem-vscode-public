@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto"
 import {
   accessSync,
   chmodSync,
@@ -11,6 +10,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { basename, dirname, isAbsolute, join } from "node:path"
+import { sha256File } from "./fileDigest.ts"
 import {
   APP_SERVER_CLI_VERSION,
   APP_SERVER_CORE_VERSION,
@@ -57,7 +57,7 @@ export interface ResolveBundledAppServerRuntimeOptions {
   readonly arch?: string
 }
 
-export function stageAppServerRuntime(options: StageAppServerRuntimeOptions): BundledAppServerRuntime {
+export async function stageAppServerRuntime(options: StageAppServerRuntimeOptions): Promise<BundledAppServerRuntime> {
   requireAbsoluteExtensionRoot(options.extensionRoot)
   const platform = options.platform ?? process.platform
   const runtime = resolveAppServerRuntime({
@@ -87,11 +87,11 @@ export function stageAppServerRuntime(options: StageAppServerRuntimeOptions): Bu
     packageName: runtime.packageName,
     coreVersion: runtime.coreVersion,
     executableName,
-    sha256: sha256(executablePath),
+    sha256: await sha256File(executablePath),
     authPackageName: runtime.authPackageName,
     cliVersion: runtime.cliVersion,
     authExecutableName,
-    authSha256: sha256(authExecutablePath),
+    authSha256: await sha256File(authExecutablePath),
   }
   writeFileSync(join(bundleDirectory, APP_SERVER_BUNDLE_MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`)
 
@@ -102,9 +102,9 @@ export function stageAppServerRuntime(options: StageAppServerRuntimeOptions): Bu
   })
 }
 
-export function resolveBundledAppServerRuntime(
+export async function resolveBundledAppServerRuntime(
   options: ResolveBundledAppServerRuntimeOptions,
-): BundledAppServerRuntime {
+): Promise<BundledAppServerRuntime> {
   requireAbsoluteExtensionRoot(options.extensionRoot)
   const platform = options.platform ?? process.platform
   const expectedTarget = appServerRuntimeTarget(platform, options.arch ?? process.arch)
@@ -170,13 +170,13 @@ export function resolveBundledAppServerRuntime(
   const authLicensePath = join(bundleDirectory, "LICENSE.auth")
   assertRegularFile(authLicensePath, "authentication license")
 
-  const actualSha256 = sha256(executablePath)
+  const actualSha256 = await sha256File(executablePath)
   if (actualSha256 !== manifest.sha256) {
     throw new Error(
       `CodeM App Server bundle SHA-256 mismatch for ${executablePath}; expected ${manifest.sha256}, received ${actualSha256}`,
     )
   }
-  const actualAuthSha256 = sha256(authExecutablePath)
+  const actualAuthSha256 = await sha256File(authExecutablePath)
   if (actualAuthSha256 !== manifest.authSha256) {
     throw new Error(
       `CodeM App Server auth bundle SHA-256 mismatch for ${authExecutablePath}; expected ${manifest.authSha256}, received ${actualAuthSha256}`,
@@ -273,10 +273,6 @@ function assertExecutable(path: string): void {
   } catch (error: unknown) {
     throw new Error(`CodeM App Server bundled executable is not executable: ${path}`, { cause: error })
   }
-}
-
-function sha256(path: string): string {
-  return createHash("sha256").update(readFileSync(path)).digest("hex")
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

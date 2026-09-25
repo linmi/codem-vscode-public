@@ -5,8 +5,8 @@ import { stageAppServerRuntime } from "@codem/app-server/build"
 export function stageRuntime(packageRoot: string, extensionRoot: string) {
   return stageAppServerRuntime({ packageRoot, extensionRoot })
 }
-// 安装后运行；绝对路径由应用平台提供。
+// 安装后运行；绝对路径由应用平台提供。哈希以流式异步读取，不阻塞宿主事件循环。
 export function resolveInstalledRuntime(extensionRoot: string) {
   return resolveBundledAppServerRuntime({ extensionRoot })
 }
-// 版本、平台、manifest 或 SHA-256 不匹配会抛错，不降级到其他 Core。
+// 两者均返回 Promise；版本、平台、manifest 或 SHA-256 不匹配时拒绝，不降级到其他 Core。

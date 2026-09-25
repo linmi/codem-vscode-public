@@ -12,7 +12,7 @@ import { productionEntries } from "./support/productionEntries.ts"
 const root = fileURLToPath(new URL("..", import.meta.url))
 const require = createRequire(import.meta.url)
 const packageRoot = resolve(dirname(require.resolve("@codem/app-server")), "..")
-stageAppServerRuntime({ packageRoot, extensionRoot: root })
+await stageAppServerRuntime({ packageRoot, extensionRoot: root })
 
 // webview/styles.css imports the shared @codem/ui stylesheet and appends only the VS Code theme bridge.
 const webviewStyles: Plugin = {
