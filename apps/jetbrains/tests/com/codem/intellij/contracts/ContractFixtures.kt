@@ -24,4 +24,12 @@ object ContractFixtures {
 
     fun cases(relative: String): List<JsonValue.ObjectValue> =
         json(relative).fields.getValue("cases").asArray().items.map { it.asObject() }
+
+    /** schema 13 SessionRecord 类型表属于 `@codem/history`，由 Gradle `codem.sessionRecordContract` 注入。 */
+    fun sessionRecordContract(): JsonValue.ObjectValue {
+        val configured = System.getProperty("codem.sessionRecordContract")
+            ?: error("codem.sessionRecordContract is not set; run the Kotlin tests through Gradle")
+        val path = Path.of(configured).also { check(Files.isRegularFile(it)) { "CodeM session record contract is missing: $it" } }
+        return JsonValue.parse(Files.readString(path)).asObject()
+    }
 }

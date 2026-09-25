@@ -2,6 +2,7 @@ package com.codem.intellij.history
 
 import com.codem.intellij.contracts.ContractFixtures
 import com.codem.intellij.core.CodemError
+import com.codem.intellij.core.required
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -116,6 +117,48 @@ class HistoryReplayTest {
             "\"kind\":\"skill\",\"name\":\"review\",\"arguments\":\"working tree\"",
         ))
         assertEquals(listOf("/review working tree"), HistoryReplay.read(root, "/workspace", "thread-1").turns.first().userTexts)
+    }
+
+    /** 契约新增或删除类型时这里失败：每个 schema 13 记录类型都必须明确投影或隐藏，且不重复归类。 */
+    @Test
+    fun classifiesEverySchema13RecordTypeFromTheSharedContract() {
+        val records = ContractFixtures.sessionRecordContract().required("records").asArray().items.map { it.asObject() }
+        val types = records.map { it.required("type").asText() }
+        assertEquals(types.size, types.toSet().size, "session-record-contract-v13.json lists a type twice")
+        assertEquals(emptySet<String>(), HistoryRecordTypes.projected intersect HistoryRecordTypes.hidden)
+        assertEquals(types.sorted(), (HistoryRecordTypes.projected + HistoryRecordTypes.hidden).sorted())
+    }
+
+    @Test
+    fun skipsEveryKnownHiddenRecordWithoutReportingIt(@TempDir root: Path) {
+        val cwd = "/workspace"
+        val lines = mutableListOf(
+            """{"type":"header","schema_version":13,"session_id":"thread-1","cwd":"$cwd","record_seq":1}""",
+            """{"type":"user_invocation","submission_id":"s0","input":{"kind":"message","content":"question"},"record_seq":2}""",
+        )
+        for (type in HistoryRecordTypes.hidden.sorted()) lines += """{"type":"$type","record_seq":${lines.size + 1}}"""
+        lines += """{"type":"assistant_text","text":"answer","record_seq":${lines.size + 1}}"""
+        write(root, cwd, "thread-1", lines.joinToString("\n") + "\n")
+        val page = HistoryReplay.read(root, cwd, "thread-1")
+        assertEquals(listOf(listOf("answer")), page.turns.map { it.assistantTexts })
+        assertEquals(emptySet<String>(), page.unknownRecordTypes)
+    }
+
+    /** 与 Node 读取器相同，append-only 扩展不打断重放；但会如实报告，而不是像旧实现那样静默丢弃。 */
+    @Test
+    fun reportsRecordTypesOutsideTheContractWithoutDroppingTheConversation(@TempDir root: Path) {
+        val cwd = "/workspace"
+        val base = fixture("multiTurn.jsonl").replace("\${cwd}", cwd).trimEnd('\n')
+        val extended = base + "\n" +
+            """{"type":"future_record","record_seq":13}""" + "\n" +
+            """{"type":"another_extension","record_seq":14}""" + "\n" +
+            """{"type":"future_record","record_seq":15}""" + "\n"
+        write(root, cwd, "thread-1", extended)
+        val page = HistoryReplay.read(root, cwd, "thread-1")
+        assertEquals(listOf("s0", "s1"), page.turns.map { it.submissionId })
+        assertEquals(setOf("another_extension", "future_record"), page.unknownRecordTypes)
+        write(root, cwd, "thread-1", base + "\n")
+        assertEquals(emptySet<String>(), HistoryReplay.read(root, cwd, "thread-1").unknownRecordTypes)
     }
 
     private fun write(root: Path, cwd: String, threadId: String, body: String) {

@@ -17,7 +17,79 @@ data class HistoryTurn(
 data class HistoryPage(
     val turns: List<HistoryTurn>,
     val nextCursor: String?,
+    /** 契约之外的记录类型：不中断重放，但如实报告，不静默吞掉。 */
+    val unknownRecordTypes: Set<String> = emptySet(),
 )
+
+/**
+ * schema 13 全部 SessionRecord 类型的处置，与 `@codem/history` 的
+ * `session-record-contract-v13.json` 逐项一致（HistoryRecordContractTest 校验）。
+ * 已知类型要么由 [HistoryReplay] 投影/校验，要么明确隐藏；契约之外的类型按 Node 读取器的 append-only
+ * 扩展规则不中断重放，并记入 [HistoryPage.unknownRecordTypes]。
+ */
+object HistoryRecordTypes {
+    /** 用户输入、正文、工具调用与结果，以及 header / cleared / rewind_mark 这类重放控制。 */
+    val projected: Set<String> = setOf(
+        "header",
+        "user_invocation",
+        "user_message",
+        "assistant_text",
+        "tool_call",
+        "tool_result",
+        "cleared",
+        "rewind_mark",
+    )
+
+    /** 已知但 JetBrains 历史视图不展示的类型，逐项列出，不与未知类型共用跳过路径。 */
+    val hidden: Set<String> = setOf(
+        // 会话级元数据与模型侧输入：不是用户可见的对话内容。
+        "session_renamed",
+        "project_switched",
+        "model_input",
+        "hook_execution",
+        "root_added",
+        "root_removed",
+        "root_cleared",
+        "compaction",
+        "governance_event",
+        "reviewer_audit",
+        "background_session_linked",
+        "file_read",
+        // 轮次内的思考、差异、审批、问答、计划、用量与后台任务：VS Code 已展示，JetBrains 历史视图尚未投影。
+        "thinking",
+        "redacted_thinking",
+        "file_diff",
+        "tool_guard_result",
+        "permission_requested",
+        "permission_decided",
+        "plan_approval_requested",
+        "plan_approval_decided",
+        "plan_mode_requested",
+        "plan_mode_decided",
+        "steer_accepted",
+        "user_question_asked",
+        "user_question_answered",
+        "usage",
+        "turn_request",
+        "turn_response",
+        "governance_snapshot",
+        "turn_end",
+        "error",
+        "background_dispatched",
+        "background_completed",
+        "background_cancelled",
+        "background_progress",
+        "background_question",
+        "background_replied",
+        "background_done",
+        "checkpoint",
+        // 任务清单状态。
+        "todo_item_added",
+        "todo_item_updated",
+        "todo_item_deleted",
+        "todo_list_reset",
+    )
+}
 
 /**
  * 流式重放 schema 13，不是读取最后 N 行。
@@ -85,6 +157,7 @@ object HistoryReplay {
         val turns = mutableListOf<MutableTurn>()
         var header = false
         val submissions = mutableSetOf<String>()
+        val unknown = sortedSetOf<String>()
         var lastSequence: Int? = null
         // 只消费换行结束的行；尾部无换行半条写入忽略，完整坏行失败。
         readCommittedLines(path, cancelled) { line ->
@@ -97,6 +170,10 @@ object HistoryReplay {
             lastSequence = acceptRecordSequence(record, lastSequence, threadId)
             val type = (record.fields["type"] as? JsonValue.Text)?.value
                 ?: throw CodemError.History("CodeM history $threadId contains a malformed record")
+            if (type !in HistoryRecordTypes.projected) {
+                if (type !in HistoryRecordTypes.hidden) unknown += type
+                return@readCommittedLines
+            }
             when (type) {
                 "header" -> {
                     header = true
@@ -170,6 +247,7 @@ object HistoryReplay {
                         throw CodemError.History("CodeM history $threadId rewind_mark is missing its checkpoint identity")
                     }
                 }
+                else -> throw CodemError.History("CodeM history record $type is declared projected but has no handler")
             }
         }
         if (!header) throw CodemError.History("CodeM history $threadId is missing its header")
@@ -183,6 +261,7 @@ object HistoryReplay {
         return HistoryPage(
             turns = page.map { HistoryTurn(it.submissionId, it.users, it.assistant, it.tools.toList()) },
             nextCursor = if (first > 0) "$revision:$first" else null,
+            unknownRecordTypes = unknown,
         )
     }
 

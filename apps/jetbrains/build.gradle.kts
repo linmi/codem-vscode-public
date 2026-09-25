@@ -54,6 +54,7 @@ dependencies {
 
 // Kotlin 测试直接读取 TypeScript 侧共用的契约样本。声明为输入，样本变化时测试必须重跑，不能 UP-TO-DATE 跳过。
 val contractsRoot = repoRoot.resolve("packages/contracts")
+val sessionRecordContract = repoRoot.resolve("packages/history/src/shared/cli-adapter/records/session-record-contract-v13.json")
 
 tasks.test {
     useJUnitPlatform { excludeTags("nativeRuntime", "liveCore") }
@@ -63,6 +64,8 @@ tasks.test {
     for (directory in listOf("core", "webview", "history")) {
         inputs.dir(contractsRoot.resolve(directory)).withPropertyName("contracts-$directory").withPathSensitivity(PathSensitivity.RELATIVE)
     }
+    systemProperty("codem.sessionRecordContract", sessionRecordContract.path)
+    inputs.file(sessionRecordContract).withPropertyName("sessionRecordContract").withPathSensitivity(PathSensitivity.RELATIVE)
     testLogging {
         events("passed", "skipped", "failed")
     }
