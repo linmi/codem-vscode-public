@@ -1,6 +1,6 @@
 import { useMemo, useRef, type ReactNode } from "react"
 import { CheckIcon } from "lucide-react"
-import { CODEM_BUILTIN_INTELLIGENCE_TIERS, CODEM_DEFAULT_INTELLIGENCE } from "@codem/protocol"
+import { CODEM_BUILTIN_INTELLIGENCE_TIERS, CODEM_DEFAULT_INTELLIGENCE, type CodemPermissionMode } from "@codem/protocol"
 import { Button } from "../components/ui/button.tsx"
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "../components/ui/command.tsx"
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover.tsx"
@@ -9,13 +9,23 @@ import { permissions, workModes, type ChatSnapshot, type ComposerChoice } from "
 import { ComposerMenuHeading } from "./composerMenuHeading.tsx"
 import { permissionIcons, uiIcon, type UiIconName } from "./uiIcons.ts"
 
-type MenuName = "permission" | "workMode" | "model" | "space" | "attachment" | "effort"
+/** 输入栏各菜单的名称；同一时间最多展开一个，由 ChatApp 持有。 */
+export type MenuName = "permission" | "workMode" | "model" | "space" | "attachment" | "effort"
+
+/** 固定菜单的一项。图标和警示色随选项声明，不按触发器 id 推断。 */
+interface FixedChoice<T extends string> {
+  value: T
+  label: string
+  description: string
+  icon?: UiIconName
+  warning?: boolean
+}
 
 function MenuIcon({ name }: { name: UiIconName }) {
   return <span className="composerMenuIcon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: uiIcon(name) }} />
 }
 
-function FixedMenu({
+function FixedMenu<T extends string>({
   id,
   title,
   label,
@@ -27,24 +37,39 @@ function FixedMenu({
   onOpenChange,
   select,
   className,
+  menuClassName,
+  mode,
 }: {
   id: string
   title: string
   label: string
-  value: string
-  choices: readonly { value: string; label: string; description: string }[]
+  value: T | ""
+  choices: readonly FixedChoice<T>[]
   children: ReactNode
   enabled: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
-  select: (value: string) => void
+  select: (value: T) => void
   className?: string
+  /** 菜单面板的附加类名，用于宽度等变体。 */
+  menuClassName?: string
+  /** 写到触发器 data-mode，供样式区分当前取值。 */
+  mode?: T
 }) {
   return (
-    <Select value={value} open={open} onOpenChange={onOpenChange} disabled={!enabled} onValueChange={select}>
+    <Select
+      value={value}
+      open={open}
+      onOpenChange={onOpenChange}
+      disabled={!enabled}
+      onValueChange={(next) => {
+        const choice = choices.find((item) => item.value === next)
+        if (choice) select(choice.value)
+      }}
+    >
       <SelectTrigger
         id={id}
-        data-mode={id === "selectPermission" ? value : undefined}
+        data-mode={mode}
         className={`composerMenuTrigger ${className ?? "optionButton"}`}
         aria-label={label}
         title={label}
@@ -52,7 +77,7 @@ function FixedMenu({
         {children}
       </SelectTrigger>
       <SelectContent
-        className={`composerPickerMenu composerChoiceMenu${id === "selectWorkMode" ? " composerWorkModeMenu" : ""}`}
+        className={`composerPickerMenu composerChoiceMenu${menuClassName ? ` ${menuClassName}` : ""}`}
         position="popper"
         side="top"
         align="end"
@@ -66,11 +91,11 @@ function FixedMenu({
           {choices.map((choice) => (
             <SelectItem
               key={choice.value}
-              className={id === "selectPermission" && choice.value === "yolo" ? "composerPermissionWarning" : undefined}
+              className={choice.warning ? "composerPermissionWarning" : undefined}
               value={choice.value}
               textValue={choice.label}
             >
-              {id === "selectPermission" ? <MenuIcon name={permissionIcons[choice.value as keyof typeof permissionIcons]} /> : null}
+              {choice.icon ? <MenuIcon name={choice.icon} /> : null}
               <span className="composerChoiceText">
                 <span>{choice.label}</span>
                 <small>{choice.description}</small>
@@ -169,6 +194,18 @@ function CatalogMenu({
   )
 }
 
+const attachmentChoices: readonly FixedChoice<"file" | "directory">[] = [
+  { value: "file", label: "文件或图片", description: "选择本地文件" },
+  { value: "directory", label: "文件夹", description: "选择本地文件夹" },
+]
+
+/** 完全访问跳过审批，用警示色标出。 */
+const permissionChoices: readonly FixedChoice<CodemPermissionMode>[] = permissions.map((choice) => ({
+  ...choice,
+  icon: permissionIcons[choice.value],
+  warning: choice.value === "yolo",
+}))
+
 /**
  * 对照 VS Code composerMenus + effortSelector：
  * 左附件/模式，右权限/思考/模型，底栏空间；模型与空间是可搜索目录，不是原生 select。
@@ -183,8 +220,8 @@ export function ComposerMenus({
 }: {
   snapshot: ChatSnapshot
   enabled: boolean
-  openMenu: string | null
-  setOpenMenu: (name: string | null) => void
+  openMenu: MenuName | null
+  setOpenMenu: (name: MenuName | null) => void
   post: (action: Record<string, unknown>) => void
   region: "leading" | "trailing" | "space"
 }) {
@@ -224,14 +261,9 @@ export function ComposerMenus({
             title="添加附件"
             label="添加附件"
             value=""
-            choices={[
-              { value: "file", label: "文件或图片", description: "选择本地文件" },
-              { value: "directory", label: "文件夹", description: "选择本地文件夹" },
-            ]}
+            choices={attachmentChoices}
             className="composerIconTrigger"
-            select={(value) => {
-              if (value === "file" || value === "directory") send({ type: "pickAttachment", kind: value })
-            }}
+            select={(kind) => send({ type: "pickAttachment", kind })}
           >
             <MenuIcon name="plus" />
           </FixedMenu>
@@ -244,7 +276,8 @@ export function ComposerMenus({
             label="切换工作模式"
             value={snapshot.workMode}
             choices={workModes}
-            select={(value) => send({ type: "setWorkMode", workMode: value })}
+            menuClassName="composerWorkModeMenu"
+            select={(workMode) => send({ type: "setWorkMode", workMode })}
           >
             {snapshot.workMode === "plan" ? "Plan" : "Agent"}
           </FixedMenu>
@@ -283,9 +316,10 @@ export function ComposerMenus({
           title="权限模式"
           label={`权限模式：${permissions.find((item) => item.value === snapshot.permission)?.label ?? snapshot.permission}`}
           value={snapshot.permission}
-          choices={permissions}
+          mode={snapshot.permission}
+          choices={permissionChoices}
           className="composerIconTrigger permission"
-          select={(value) => send({ type: "setPermission", permission: value })}
+          select={(permission) => send({ type: "setPermission", permission })}
         >
           <MenuIcon name={permissionIcons[snapshot.permission]} />
         </FixedMenu>

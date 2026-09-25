@@ -94,7 +94,10 @@ describe("composer menu icons", () => {
     for (const permission of ["default", "auto", "yolo"] as const) {
       const html = renderApp({ ...ready, permission })
       assert.ok(trigger(html, "selectPermission").includes(`<span class="composerMenuIcon" aria-hidden="true">${uiIcon(permissionIcons[permission])}</span>`), permission)
+      assert.match(trigger(html, "selectPermission"), new RegExp(`^<button[^>]*data-mode="${permission}"`, "u"), permission)
     }
+    // 只有权限触发器按当前取值带 data-mode。
+    for (const id of ["selectWorkMode", "addAttachment"]) assert.doesNotMatch(trigger(renderApp(ready), id), /^<button[^>]*data-mode=/u, id)
     const html = renderApp(ready)
     assert.ok(trigger(html, "addAttachment").includes(uiIcon("plus")))
     const space = trigger(html, "selectSpace")

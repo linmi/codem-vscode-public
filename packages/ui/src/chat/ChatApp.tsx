@@ -16,7 +16,7 @@ import type { CodemUiHost } from "../host.ts"
 import { AccountPage, AccountTrigger } from "./AccountPage.tsx"
 import { AttachmentCard } from "./attachments.tsx"
 import { CodeSelectionList } from "./codeSelection.tsx"
-import { ComposerMenus } from "./composerMenus.tsx"
+import { ComposerMenus, type MenuName } from "./composerMenus.tsx"
 import { DecisionPanel } from "./decisionPanel.tsx"
 import { draftRetention, type PendingSend } from "./draftRetention.ts"
 import { FileMentions } from "./FileMentions.tsx"
@@ -49,7 +49,7 @@ const sessionPanelCommands: readonly string[] = ["skills", "catalog", "directori
 export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSnapshot }) {
   const [snapshot, setSnapshot] = useState<ChatSnapshot>(initial)
   const [draft, setDraft] = useState(() => String(host.getState()?.draft ?? ""))
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [openMenu, setOpenMenu] = useState<MenuName | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
   const [accountFocus, setAccountFocus] = useState(0)
   const [inputMode, setInputMode] = useState<ComposerInputMode>("message")
