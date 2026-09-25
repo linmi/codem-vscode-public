@@ -1,0 +1,103 @@
+{
+  "id": "core.background-terminals.list.v1",
+  "capabilityId": "B09",
+  "coreVersion": "0.8.47",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": [
+      "packages/app-server/src/controlPlane.ts",
+      "packages/app-server/README.md",
+      "apps/vscode/tests/liveFeatures.ts"
+    ],
+    "revision": "eb92cc2b73237daf697c73df91020d513086e7cb"
+  },
+  "method": "thread/backgroundTerminals/list",
+  "notes": "Each result is a complete thread/backgroundTerminals/list response. Core reports whether a terminal is still running as the boolean `alive`. packages/app-server/README.md records this for the pinned Core (the Node parser moved from `inProgress` to `alive` in 584c4d6b for Core 0.8.37), and the opt-in VS Code resource test waits for a running row from a real Core, which the Node parser can only produce from `alive`. `inProgress` is only the name the hosts give that value in their own view model. It is not a wire field, and a row without a boolean `alive` is a protocol error, not an exited terminal. Rows also carry `logPath` and process `meta`; hosts keep `logPath` private and do not forward `meta`. `running` in an expected terminal is the projected `alive`. Every rejected case breaks exactly one field, and the error must name that field.",
+  "cases": [
+    {
+      "name": "running-terminal",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": 4242, "logPath": "/tmp/codem-bg/4242.log", "alive": true, "meta": { "command": "sleep 60" } }] },
+      "expected": { "kind": "accepted", "terminals": [{ "processId": 4242, "running": true }] }
+    },
+    {
+      "name": "exited-terminal",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": 4242, "logPath": "/tmp/codem-bg/4242.log", "alive": false, "meta": { "command": "sleep 60" } }] },
+      "expected": { "kind": "accepted", "terminals": [{ "processId": 4242, "running": false }] }
+    },
+    {
+      "name": "keeps-core-order",
+      "result": { "cwd": "/workspace", "terminals": [
+        { "processId": 7, "logPath": "/tmp/codem-bg/7.log", "alive": false },
+        { "processId": 4242, "logPath": "/tmp/codem-bg/4242.log", "alive": true }
+      ] },
+      "expected": { "kind": "accepted", "terminals": [{ "processId": 7, "running": false }, { "processId": 4242, "running": true }] }
+    },
+    {
+      "name": "no-terminals",
+      "result": { "cwd": "/workspace", "terminals": [] },
+      "expected": { "kind": "accepted", "terminals": [] }
+    },
+    {
+      "name": "obsolete-in-progress-is-not-liveness",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": 4242, "logPath": "/tmp/codem-bg/4242.log", "inProgress": true }] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "alive" }
+    },
+    {
+      "name": "alive-as-string",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": 4242, "logPath": "/tmp/codem-bg/4242.log", "alive": "true" }] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "alive" }
+    },
+    {
+      "name": "alive-null",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": 4242, "logPath": "/tmp/codem-bg/4242.log", "alive": null }] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "alive" }
+    },
+    {
+      "name": "process-id-missing",
+      "result": { "cwd": "/workspace", "terminals": [{ "logPath": "/tmp/codem-bg/4242.log", "alive": true }] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "processId" }
+    },
+    {
+      "name": "process-id-zero",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": 0, "logPath": "/tmp/codem-bg/4242.log", "alive": true }] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "processId" }
+    },
+    {
+      "name": "process-id-negative",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": -3, "logPath": "/tmp/codem-bg/4242.log", "alive": true }] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "processId" }
+    },
+    {
+      "name": "process-id-fraction",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": 1.5, "logPath": "/tmp/codem-bg/4242.log", "alive": true }] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "processId" }
+    },
+    {
+      "name": "process-id-string",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": "4242", "logPath": "/tmp/codem-bg/4242.log", "alive": true }] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "processId" }
+    },
+    {
+      "name": "process-id-null",
+      "result": { "cwd": "/workspace", "terminals": [{ "processId": null, "logPath": "/tmp/codem-bg/4242.log", "alive": true }] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "processId" }
+    },
+    {
+      "name": "terminal-not-an-object",
+      "result": { "cwd": "/workspace", "terminals": ["terminal"] },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "terminals" }
+    },
+    {
+      "name": "terminals-null",
+      "result": { "cwd": "/workspace", "terminals": null },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "terminals" }
+    },
+    {
+      "name": "terminals-missing",
+      "result": { "cwd": "/workspace" },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "terminals" }
+    }
+  ]
+}

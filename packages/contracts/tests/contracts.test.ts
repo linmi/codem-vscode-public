@@ -13,6 +13,7 @@ import {
   APP_SERVER_PROTOCOL_VERSION,
   APP_SERVER_KNOWN_NOTIFICATIONS,
   AppServerRpcPeer,
+  parseAppServerBackgroundTerminalList,
   parseAppServerItem,
   validateAppServerInitializeResult,
 } from "@codem/app-server"
@@ -65,6 +66,7 @@ describe("@codem/contracts package integrity", () => {
       "core/knownNotifications.json",
       "core/jsonText.json",
       "core/itemProjection.json",
+      "core/backgroundTerminals.json",
       "webview/sendAction.json",
       "webview/panelReply.json",
       "webview/initialSnapshot.json",
@@ -87,6 +89,7 @@ describe("@codem/contracts package integrity", () => {
     const files = [
       "manifest.json",
       "core/initializeHandshake.json",
+      "core/backgroundTerminals.json",
       "webview/sendAction.json",
       "history/multiTurn.jsonl",
     ]
@@ -200,6 +203,25 @@ describe("core transport samples", () => {
       } else {
         assert.deepEqual(testCase.expected, { kind: "protocol-error", class: "invalid-frame" }, testCase.name)
         assert.throws(() => parseAppServerItem(testCase.item, "item"), testCase.name)
+      }
+    }
+  })
+
+  it("reads background terminal liveness from Core alive like the Node host", async () => {
+    const sample = await readJson(join(root, "core/backgroundTerminals.json"))
+    const method = String(sample.method)
+    const cases = sample.cases as readonly { readonly name: string; readonly result: unknown; readonly expected: Record<string, unknown> }[]
+    assert.ok(cases.some((testCase) => testCase.expected.kind === "accepted"))
+    assert.ok(cases.some((testCase) => testCase.expected.kind === "protocol-error"))
+    for (const testCase of cases) {
+      const label = `${method} result`
+      if (testCase.expected.kind === "accepted") {
+        const listed = parseAppServerBackgroundTerminalList(testCase.result, label)
+        assert.deepEqual(listed.terminals.map((terminal) => ({ processId: terminal.processId, running: terminal.inProgress })), testCase.expected.terminals, testCase.name)
+      } else {
+        assert.deepEqual({ kind: testCase.expected.kind, class: testCase.expected.class }, { kind: "protocol-error", class: "invalid-frame" }, testCase.name)
+        const field = String(testCase.expected.field)
+        assert.throws(() => parseAppServerBackgroundTerminalList(testCase.result, label), (error: Error) => error.message.includes(field), testCase.name)
       }
     }
   })

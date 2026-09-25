@@ -114,6 +114,7 @@ export { type AppServerModeState, type AppServerPermissionMode } from "./modes.t
 export {
   APP_SERVER_KNOWN_NOTIFICATIONS,
   isAppServerKnownNotification,
+  parseAppServerBackgroundTerminalList,
   parseAppServerConfigSnapshot,
   parseAppServerCoreSpaceSnapshot,
   parseAppServerEnvironmentInfo,
