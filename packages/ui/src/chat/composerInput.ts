@@ -6,7 +6,7 @@ export interface InputModeText {
   /** 模式栏说明，输入不可用时由不可用原因替代；普通对话不显示。 */
   hint: string
   placeholder: string
-  /** 输入框的可访问名称。 */
+  /** 输入框的可访问名称；能力输入写明是哪种输入，读屏切换模式后能听出来。 */
   field: string
   /**
    * 发送按钮的可访问名称，说明按下后投递的动作：补充指令走 steer，旁路提问走 askSideQuestion，
@@ -17,9 +17,9 @@ export interface InputModeText {
 
 const inputModeTexts: Readonly<Record<ComposerInputMode, InputModeText>> = {
   message: { label: "", hint: "", placeholder: "提出问题，或输入 / 选择会话操作…", field: "发送给 CodeM 的消息", submit: "发送消息" },
-  steer: { label: "补充指令", hint: "补充当前任务的执行方向。", placeholder: "输入补充指令…", field: "会话命令输入", submit: "发送补充指令" },
-  askSideQuestion: { label: "旁路提问", hint: "单独提问，回答显示在这里。", placeholder: "输入旁路提问…", field: "会话命令输入", submit: "发送旁路提问" },
-  shellCommand: { label: "Shell 命令", hint: "发送前会展示命令并请求确认。", placeholder: "输入要执行的命令…", field: "会话命令输入", submit: "检查命令" },
+  steer: { label: "补充指令", hint: "补充当前任务的执行方向。", placeholder: "输入补充指令…", field: "补充指令输入", submit: "发送补充指令" },
+  askSideQuestion: { label: "旁路提问", hint: "单独提问，回答显示在这里。", placeholder: "输入旁路提问…", field: "旁路提问输入", submit: "发送旁路提问" },
+  shellCommand: { label: "Shell 命令", hint: "发送前会展示命令并请求确认。", placeholder: "输入要执行的命令…", field: "Shell 命令输入", submit: "检查命令" },
 }
 
 /** 输入栏各处按输入模式显示的文案都从这里取。 */

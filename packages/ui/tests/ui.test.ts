@@ -62,9 +62,16 @@ describe("@codem/ui host contract", () => {
 
   it("names the mode bar, field, placeholder and send button from one table per input mode", () => {
     assert.deepEqual(inputModeText("message"), { label: "", hint: "", placeholder: "提出问题，或输入 / 选择会话操作…", field: "发送给 CodeM 的消息", submit: "发送消息" })
-    assert.deepEqual(inputModeText("steer"), { label: "补充指令", hint: "补充当前任务的执行方向。", placeholder: "输入补充指令…", field: "会话命令输入", submit: "发送补充指令" })
-    assert.deepEqual(inputModeText("askSideQuestion"), { label: "旁路提问", hint: "单独提问，回答显示在这里。", placeholder: "输入旁路提问…", field: "会话命令输入", submit: "发送旁路提问" })
-    assert.deepEqual(inputModeText("shellCommand"), { label: "Shell 命令", hint: "发送前会展示命令并请求确认。", placeholder: "输入要执行的命令…", field: "会话命令输入", submit: "检查命令" })
+    assert.deepEqual(inputModeText("steer"), { label: "补充指令", hint: "补充当前任务的执行方向。", placeholder: "输入补充指令…", field: "补充指令输入", submit: "发送补充指令" })
+    assert.deepEqual(inputModeText("askSideQuestion"), { label: "旁路提问", hint: "单独提问，回答显示在这里。", placeholder: "输入旁路提问…", field: "旁路提问输入", submit: "发送旁路提问" })
+    assert.deepEqual(inputModeText("shellCommand"), { label: "Shell 命令", hint: "发送前会展示命令并请求确认。", placeholder: "输入要执行的命令…", field: "Shell 命令输入", submit: "检查命令" })
+  })
+
+  it("names the prompt after its input mode so a mode switch is announced", () => {
+    // 迁入 @codem/ui 时三种能力输入都成了“会话命令输入”；原 Webview 按模式命名，浏览器检查也按这些名称找输入框。
+    for (const mode of ["steer", "askSideQuestion", "shellCommand"] as const) assert.equal(inputModeText(mode).field, `${inputModeText(mode).label}输入`, mode)
+    const fields = (["message", "steer", "askSideQuestion", "shellCommand"] as const).map((mode) => inputModeText(mode).field)
+    assert.equal(new Set(fields).size, fields.length, `prompt names must differ per mode: ${fields.join(", ")}`)
   })
 
   it("names the send button after the request each mode posts, never another mode's", () => {
