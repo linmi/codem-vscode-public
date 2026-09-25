@@ -1362,6 +1362,37 @@ class ProjectSessionTest {
         } finally { session.close().join() }
     }
 
+    /** 与 host.ts listModels 一致：supportsVision 必须是布尔值。旧实现把缺失或错类型当作“不支持图片”。 */
+    @Test
+    fun modelListRequiresABooleanSupportsVision() {
+        fun connectWith(vararg vision: JsonValue?): ProjectSession {
+            val listing = JsonValue.obj(
+                "activeModel" to JsonValue.Text("model-0"),
+                "models" to JsonValue.ArrayValue(vision.mapIndexed { index, value ->
+                    JsonValue.ObjectValue(listOfNotNull("id" to JsonValue.Text("model-$index"), value?.let { "supportsVision" to it }).toMap())
+                }),
+            )
+            val process = ScriptedProcess()
+            return session {
+                startResponder(process, handshakeCapabilities(), results = { method, _ -> if (method == "model/list") listing else null })
+                process
+            }
+        }
+        val valid = connectWith(JsonValue.Bool(true), JsonValue.Bool(false))
+        try {
+            valid.connect()
+            assertEquals(listOf("支持图片", ""), valid.snapshot().composerCatalog.models.map { it.description })
+        } finally { valid.close().join() }
+        for (vision in listOf(JsonValue.Text("true"), JsonValue.Null, null)) {
+            val session = connectWith(JsonValue.Bool(true), vision)
+            try {
+                org.junit.jupiter.api.Assertions.assertThrows(CodemError::class.java, { session.connect() }, vision.toString())
+                assertTrue(session.snapshot().phase != "ready", vision.toString())
+                assertTrue(session.snapshot().composerCatalog.models.none { it.label == "model-1" }, vision.toString())
+            } finally { session.close().join() }
+        }
+    }
+
     /** 历史列表读取失败：loading 必须结束并推给界面，面板给出可读错误；刷新成功后恢复条目并清掉错误。 */
     @Test
     fun failedHistoryLoadClearsLoadingAndRefreshRecovers() {

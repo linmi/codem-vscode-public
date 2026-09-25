@@ -667,7 +667,8 @@ class ProjectSession(
             val model = item.asObject()
             val id = model.required("id").asText()
             if (id.isBlank()) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "model/list contains an empty id")
-            ListedModel("model-${index + 1}", id, model.booleanOrNull("supportsVision") == true)
+            // host.ts listModels reads supportsVision with booleanValue: absent or mistyped is an invalid catalog, not "no".
+            ListedModel("model-${index + 1}", id, model.requiredBoolean("supportsVision", "model/list result.models[$index]"))
         }
         val active = result.required("activeModel").asText()
         if (listed.none { it.modelId == active }) {
