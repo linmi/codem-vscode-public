@@ -534,7 +534,8 @@ private fun parsePaste(obj: JsonValue.ObjectValue): ViewAction.PasteImages {
 private fun parseSend(obj: JsonValue.ObjectValue): ViewAction.Send {
     val text = nonEmpty(obj.required("text").asText())
     val requestId = requestId(obj.required("requestId").asText())
-    val skill = (obj.fields["skillName"] as? JsonValue.Text)?.value?.let { handleId(it) }
+    // Like parseUiAction: an absent skillName is a plain message; any other value must be a valid handle, never ignored.
+    val skill = obj.optional("skillName")?.let { handleId(it.asText("send.skillName")) }
     val attachments = stringList(obj.fields["attachmentIds"])
     val selections = stringList(obj.fields["selectionIds"])
     if (skill != null && attachments.isNotEmpty()) reject()

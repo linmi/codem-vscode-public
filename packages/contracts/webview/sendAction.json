@@ -43,6 +43,16 @@
       "name": "skill-with-attachments-rejected",
       "input": { "type": "send", "text": "review this", "requestId": "req-2", "skillName": "review", "attachmentIds": ["file-1"] },
       "expected": { "kind": "rejected", "class": "invalid-action" }
+    },
+    {
+      "name": "skill-name-not-a-string-rejected",
+      "input": { "type": "send", "text": "review this", "requestId": "req-2", "skillName": 42 },
+      "expected": { "kind": "rejected", "class": "invalid-action" }
+    },
+    {
+      "name": "skill-name-null-rejected",
+      "input": { "type": "send", "text": "review this", "requestId": "req-2", "skillName": null },
+      "expected": { "kind": "rejected", "class": "invalid-action" }
     }
   ]
 }
