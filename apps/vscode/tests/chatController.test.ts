@@ -13,11 +13,11 @@ import { join } from "node:path"
 import { it } from "node:test"
 import type { AppServerHostEvent, AppServerInteractionResponse } from "@codem/app-server"
 import { parseAppServerItem } from "@codem/app-server"
-import { ChatController, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
+import { ChatController, type ChatControllerOptions, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
 import { UserVisibleError } from "../src/shared/userVisibleError.ts"
 import type { ChatSnapshot } from "../src/shared/messages.ts"
 
-function setup() {
+function setup(options: Pick<ChatControllerOptions, "requestApproval"> = {}) {
   let listener: (event: AppServerHostEvent) => void = () => undefined
   let submissionId = ""
   let connections = 0
@@ -48,7 +48,7 @@ function setup() {
     async close() { closed++ },
   }
   const session: ChatSession = { authorize: async () => {}, pluginCommands: fixturePluginCommands(), searchHistory: async () => ({ hits: [], truncated: false }), readHistory: async () => ({ todoSnapshot: null, turns: [], nextCursor: null }), host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model-from-core", models: [{ id: "model-from-core", source: "fixture", contextWindowTokens: 10000, supportsVision: true }, { id: "other-model", source: "fixture", contextWindowTokens: 20000, supportsVision: false }], mcpServers: [] }
-  const controller = new ChatController({ connect: async () => { connections++; return session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
+  const controller = new ChatController({ ...options, connect: async () => { connections++; return session }, assertTrusted() {}, publish() {}, interact: async () => null, report() {} })
   return { controller, host, session, answers, emit: (event: AppServerHostEvent) => listener(event), counts: () => ({ connections, starts, turns, closed }), submission: () => submissionId }
 }
 
@@ -1427,25 +1427,81 @@ it("does not replay a stale offline choice after a failed promotion and a newer 
   await reopened.dispose(); await f.controller.dispose()
 })
 
+/** A Host approval panel that stays open until the test answers it or the signal withdraws it. */
+function approvalPanel() {
+  const questions: { title: string; withdrawn: () => boolean }[] = []
+  let answer: (value: boolean | null) => void = () => undefined
+  const requestApproval: ChatControllerOptions["requestApproval"] = (question, signal) => new Promise(resolve => {
+    questions.push({ title: question.title, withdrawn: () => signal.aborted })
+    answer = value => resolve(value === null ? null : { values: [value] })
+    signal.addEventListener("abort", () => resolve(null), { once: true })
+  })
+  return { requestApproval, questions, answer: (value: boolean | null) => answer(value) }
+}
+
 it("preselects work mode and permission offline, confirms full access, and applies them on first send", async () => {
-  const f = setup()
+  const panel = approvalPanel()
+  const f = setup({ requestApproval: panel.requestApproval })
   let submitted: { permissionMode: string; workMode: string } | undefined
   f.host.startThread = async (_cwd, settings) => { submitted = settings; return "thread-1" }
   await f.controller.setComposerSetting({ type: "setWorkMode", workMode: "plan" })
   await f.controller.setComposerSetting({ type: "setPermission", permission: "auto" })
-  await f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" }, async () => false)
+  const declined = f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" })
+  panel.answer(false); await declined
   assert.equal(f.controller.snapshot().permission, "auto")
-  let confirm!: (value: boolean) => void
-  const pending = f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" }, () => new Promise<boolean>(resolve => { confirm = resolve }))
+  const pending = f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" })
   assert.equal(f.controller.snapshot().phase, "configuring")
   assert.equal(await f.controller.send("cannot race confirmation"), false)
-  confirm(true); await pending
+  panel.answer(true); await pending
+  assert.deepEqual(panel.questions.map(question => question.title), ["启用完全访问？", "启用完全访问？"])
   assert.equal(f.counts().connections, 0)
   assert.equal(f.controller.snapshot().permission, "yolo")
+  await f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" })
+  assert.equal(panel.questions.length, 2, "staying in full access asks nothing")
   await f.controller.send("use local choices")
   assert.equal(submitted?.workMode, "plan")
   assert.equal(submitted?.permissionMode, "yolo")
   await f.controller.dispose()
+})
+
+it("withdraws a full-access question when the chat leaves configuring or the account resets, and never grants it without a Host panel", async () => {
+  const panel = approvalPanel()
+  const f = setup({ requestApproval: panel.requestApproval })
+  await f.controller.send("first")
+  f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+  let modeWrites = 0
+  f.host.setModes = async input => { modeWrites++; return { revision: 2, permissionEpoch: 2, permissionMode: input.permissionMode ?? "default", workMode: input.workMode ?? "normal" } }
+  const interrupted = f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" })
+  assert.equal(f.controller.snapshot().phase, "configuring")
+  f.emit({ type: "turn-started", threadId: "thread-1", turnId: "turn-core", submissionId: null })
+  await interrupted
+  assert.equal(panel.questions[0]!.withdrawn(), true, "a turn Core starts moves the chat out of configuring and withdraws the question")
+  panel.answer(true)
+  assert.equal(f.controller.snapshot().phase, "running")
+  assert.equal(f.controller.snapshot().permission, "default")
+  f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-core", outcome: "completed", stopReason: "end", error: null })
+  const online = f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" })
+  assert.equal(f.controller.snapshot().phase, "configuring")
+  f.emit({ type: "connection-closed", cwd: "/workspace", exit: { code: 1, signal: null, expected: false } })
+  await online
+  assert.equal(panel.questions[1]!.withdrawn(), true, "a closed connection withdraws the question")
+  panel.answer(true)
+  assert.equal(f.controller.snapshot().phase, "disconnected")
+  assert.equal(f.controller.snapshot().permission, "default")
+  assert.equal(modeWrites, 0)
+  const offline = f.controller.setComposerSetting({ type: "setPermission", permission: "yolo" })
+  assert.equal(f.controller.snapshot().phase, "configuring")
+  await f.controller.resetAccount()
+  await offline
+  assert.equal(panel.questions[2]!.withdrawn(), true, "an account reset withdraws the question")
+  assert.equal(f.controller.snapshot().permission, "default")
+  assert.equal(f.controller.snapshot().phase, "disconnected")
+  await f.controller.dispose()
+  const headless = setup()
+  await headless.controller.setComposerSetting({ type: "setPermission", permission: "yolo" })
+  assert.equal(headless.controller.snapshot().permission, "default", "no Host panel, no full access")
+  assert.equal(headless.controller.snapshot().phase, "disconnected")
+  await headless.controller.dispose()
 })
 
 it("shares all pending fixed choices across reload and consumes them into one scoped preference", async () => {

@@ -7,7 +7,7 @@ import type { ActiveConversation, ConversationScope } from "../sessionHistory/ac
 import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from "../sessionHistory/conversationHistory.ts"
 import { BackgroundTasks, type BackgroundContext } from "./backgroundTasks.ts"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
-import { ChatSettings, type RestoredSettings } from "./chatSettings.ts"
+import { ChatSettings, type ApprovalRequest, type RestoredSettings } from "./chatSettings.ts"
 import { settingPatch, type ComposerSettingAction } from "../shared/composerSettings.ts"
 import type { FileDiffContent } from "../resources/filePresentation.ts"
 import { realpath, stat } from "node:fs/promises"
@@ -91,6 +91,8 @@ export interface ChatControllerOptions {
   assertTrusted: () => void
   publish: (state: ChatSnapshot) => void
   interact: (request: AppServerInteraction, signal: AbortSignal, cwd: string) => Promise<AppServerInteractionResponse | null>
+  /** The Host panel that asks before full access is enabled; without it full access is declined. */
+  requestApproval?: ApprovalRequest
   report: (operation: string, error: unknown) => void
 }
 
@@ -135,7 +137,7 @@ export class ChatController {
     this.liveSnapshot = new LiveSnapshotCatalog(view => this.updateTools({ catalog: view, ...(view.loading || this.state.sessionTools.busy === "catalog:live" ? { busy: view.loading ? "catalog:live" : null } : {}) }), options.assertTrusted, options.report)
     this.conversationHistory = new ConversationHistory(options.report)
     this.background = new BackgroundTasks((snapshot, notice) => this.update({ ...snapshot, ...(notice ? { notice } : {}) }), options.assertTrusted, options.report)
-    this.settings = new ChatSettings({ preferences: options.preferences, report: options.report })
+    this.settings = new ChatSettings({ preferences: options.preferences, requestApproval: options.requestApproval, report: options.report })
     this.state = { ...this.state, ...this.settings.choices() }
     this.historyList = new HistoryListController(() => this.publish(), options.report)
   }
@@ -1271,15 +1273,15 @@ export class ChatController {
   }
 
   /** Fixed composer choices are local until a connection exists. */
-  async setComposerSetting(action: ComposerSettingAction, confirmFullAccess: (signal: AbortSignal) => Promise<boolean> = async () => false): Promise<void> {
+  async setComposerSetting(action: ComposerSettingAction): Promise<void> {
     const patch = settingPatch(action)
     if (this.disposed || !["disconnected", "ready"].includes(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return
     const session = this.session
-    if (patch.permissionMode === "yolo" && this.settings.current().permissionMode !== "yolo") {
+    if (this.settings.needsConfirmation(patch)) {
       this.options.assertTrusted()
       this.update({ phase: "configuring", notice: null })
       let confirmed = false
-      try { confirmed = await confirmFullAccess(this.lifetime.signal) }
+      try { confirmed = await this.settings.confirmFullAccess(this.lifetime.signal) }
       finally { if (!this.disposed && this.session === session && this.state.phase === "configuring") this.update({ phase: session ? "ready" : "disconnected" }) }
       if (!confirmed || this.disposed || this.session !== session) return
     }
@@ -1567,6 +1569,8 @@ export class ChatController {
   private update(patch: Partial<ChatSnapshot>): void {
     if (this.disposed) return
     this.state = { ...this.state, ...patch }
+    // A full-access question belongs to the configuring phase that asked it; leaving that phase withdraws it.
+    if (patch.phase !== undefined && patch.phase !== "configuring") this.settings.cancelConfirmation()
     this.resources.retainImages(this.state.attachments, this.state.messages)
     this.publish()
   }

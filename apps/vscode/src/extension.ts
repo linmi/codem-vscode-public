@@ -32,7 +32,6 @@ export function activate(context: vscode.ExtensionContext): void {
   const features = new NativeFeatures(context.secrets)
   context.subscriptions.push(features)
   const panels = new PanelBroker()
-  let settingsAbort: AbortController | null = null
   let surfaces: ChatSurfaces | undefined
   const account = new AccountController(accountOperations(context.extensionPath, (stage, ms) => output.appendLine(`Account ${stage}: ${ms}ms`)), state => {
     void vscode.commands.executeCommand("setContext", "codem.accountStatus", state.status)
@@ -74,8 +73,8 @@ export function activate(context: vscode.ExtensionContext): void {
       await surfaces?.focus()
       return showInteraction(request, signal, panels, cwd)
     },
+    requestApproval: (question, signal) => panels.request(question, signal),
     publish: (state) => {
-      if (state.phase !== "configuring") settingsAbort?.abort()
       if (state.phase === "disconnected") panels.cancel()
       if (state.phase !== previousPhase) {
         if (state.phase === "connecting") connectingAt = performance.now()
@@ -116,7 +115,7 @@ export function activate(context: vscode.ExtensionContext): void {
       case "panelReply": break
       case "connect": await account.initialize(); if (account.signedIn) await chat.connect(); else account.publish(); break
       case "signOut": await account.logout(async () => {
-        panels.cancel(); settingsAbort?.abort(); selection!.state.clear(); surfaces?.resetDraft()
+        panels.cancel(); selection!.state.clear(); surfaces?.resetDraft()
         autoConnectAttempted = false
         const started = performance.now()
         try { await chat.resetAccount() }
@@ -177,18 +176,7 @@ export function activate(context: vscode.ExtensionContext): void {
       case "chooseModel": await chat.chooseModel(action.id); break
       case "chooseSpace": await chat.chooseSpace(action.id, (session, key, signal) => openSession(signal, { cwd: session.cwd, workspace: session.workspace, key }, session.spaceDirectory)); break
       case "refreshSpaces": await chat.refreshSpaces(); break
-      case "setEffort": case "setWorkMode": case "setPermission": {
-        await chat.setComposerSetting(action, async signal => {
-          const abort = new AbortController(); settingsAbort = abort
-          const cancel = () => abort.abort()
-          signal.addEventListener("abort", cancel, { once: true })
-          if (signal.aborted) cancel()
-          try {
-            const answer = await panels.request({ kind: "approval", title: "启用完全访问？", description: "任务将跳过工具权限审批执行操作。仅对你信任的任务启用。", choices: [{ value: false, label: "保持当前权限" }, { value: true, label: "启用完全访问" }] }, abort.signal)
-            return answer?.values[0] === true
-          } finally { signal.removeEventListener("abort", cancel); if (settingsAbort === abort) settingsAbort = null }
-        }); break
-      }
+      case "setEffort": case "setWorkMode": case "setPermission": await chat.setComposerSetting(action); break
       case "manageMcp": await chat.configure(settings => features.selectMcp(settings)); break
       case "searchFiles": {
         try { reply({ type: "fileSearchResult", requestId: action.requestId, files: await chat.searchFiles(action.query, (cwd, query) => features.findFiles(cwd, query)), error: null }) }

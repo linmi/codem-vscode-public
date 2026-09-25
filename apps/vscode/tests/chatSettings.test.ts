@@ -137,3 +137,64 @@ it("context switch: each scope reads its own settings, consumed offline choices 
   assert.deepEqual(settings.reset(), { model: "codem-router/auto", effort: "medium", permission: "yolo", workMode: "default", mcpNames: [] }, "an account reset keeps only offline choices")
   assert.deepEqual(settings.catalog(), { models: [], spaces: [] })
 })
+
+/** A Host panel stand-in: records questions and answers the latest one; `obeys: false` ignores withdrawal. */
+function panel(obeys = true) {
+  const questions: { title: string; values: readonly boolean[]; signal: AbortSignal }[] = []
+  let answer: (value: readonly boolean[] | null) => void = () => undefined
+  const requestApproval = (question: { title: string; choices: readonly { value: boolean }[] }, signal: AbortSignal) => new Promise<{ values: readonly boolean[] } | null>(resolve => {
+    questions.push({ title: question.title, values: question.choices.map(choice => choice.value), signal })
+    answer = values => resolve(values && { values })
+    if (obeys) signal.addEventListener("abort", () => resolve(null), { once: true })
+  })
+  return { requestApproval, questions, answer: (value: readonly boolean[] | null) => answer(value) }
+}
+
+it("full access: only entering it asks, explicit consent grants it, and dismissal or no Host panel declines it", async () => {
+  const host = panel()
+  const settings = new ChatSettings({ requestApproval: host.requestApproval, report() {} })
+  const lifetime = new AbortController()
+  assert.equal(settings.needsConfirmation({ permissionMode: "auto" }), false)
+  assert.equal(settings.needsConfirmation({ permissionMode: "yolo" }), true)
+  const granted = settings.confirmFullAccess(lifetime.signal)
+  assert.deepEqual(host.questions.map(({ title, values }) => ({ title, values })), [{ title: "启用完全访问？", values: [false, true] }])
+  host.answer([true])
+  assert.equal(await granted, true)
+  assert.equal(settings.current().permissionMode, "default", "consent alone changes no setting")
+  for (const reply of [[false], null]) {
+    const declined = settings.confirmFullAccess(lifetime.signal)
+    host.answer(reply)
+    assert.equal(await declined, false)
+  }
+  settings.chooseOffline({ permissionMode: "yolo" })
+  assert.equal(settings.needsConfirmation({ permissionMode: "yolo" }), false, "staying in full access asks nothing")
+  const headless = new ChatSettings({ report() {} })
+  assert.equal(await headless.confirmFullAccess(lifetime.signal), false)
+  lifetime.abort()
+  assert.equal(await settings.confirmFullAccess(lifetime.signal), false)
+  assert.equal(host.questions.length, 3, "an ended lifetime asks nothing")
+})
+
+it("full access cancel: a withdrawn question stays declined even if the Host answers yes afterwards", async () => {
+  const host = panel(false)
+  const settings = new ChatSettings({ requestApproval: host.requestApproval, report() {} })
+  const lifetime = new AbortController()
+  const cancelled = settings.confirmFullAccess(lifetime.signal)
+  settings.cancelConfirmation()
+  assert.equal(host.questions[0]!.signal.aborted, true)
+  host.answer([true])
+  assert.equal(await cancelled, false)
+  void settings.confirmFullAccess(lifetime.signal)
+  const latest = settings.confirmFullAccess(lifetime.signal)
+  assert.equal(host.questions[1]!.signal.aborted, true, "a newer question withdraws the older one")
+  host.answer([true])
+  assert.deepEqual([await latest, host.questions[2]!.signal.aborted], [true, false])
+  const retired = settings.confirmFullAccess(lifetime.signal)
+  settings.unbind()
+  host.answer([true])
+  assert.equal(await retired, false, "a retired connection withdraws the question")
+  const exiting = settings.confirmFullAccess(lifetime.signal)
+  lifetime.abort()
+  host.answer([true])
+  assert.equal(await exiting, false, "exit or account reset withdraws the question")
+})
