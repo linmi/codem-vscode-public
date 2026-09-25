@@ -135,7 +135,14 @@ describe("App Server authentication", () => {
     const rejected = assert.rejects(operation.completed, AppServerLoginCancelledError)
     try {
       await ready
-      const pid = Number(readFileSync(marker, "utf8"))
+      // Linux reports the marker's creation before the fixture writes its pid. An empty read would be pid 0,
+      // and kill(0, 0) signals our own process group, so the reap assertion would pass or fail for the wrong reason.
+      let pid = 0
+      for (let attempt = 0; attempt < 200 && !(pid > 0); attempt += 1) {
+        pid = Number(readFileSync(marker, "utf8"))
+        if (!(pid > 0)) await new Promise(resolve => setTimeout(resolve, 5))
+      }
+      assert.ok(Number.isInteger(pid) && pid > 0, `status fixture pid must be written, got ${pid}`)
       await operation.cancel(); await rejected
       assert.throws(() => process.kill(pid, 0), { code: "ESRCH" })
     } finally { watcher.close(); await operation.cancel() }
