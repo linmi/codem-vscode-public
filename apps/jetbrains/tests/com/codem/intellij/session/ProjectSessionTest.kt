@@ -1393,6 +1393,49 @@ class ProjectSessionTest {
         }
     }
 
+    /**
+     * 与 modes.ts parseAppServerModes 一致：回包必须带 threadId 与 state 对象，revision/permissionEpoch 是非负整数。
+     * 旧实现接受缺 threadId 或不带 state 的扁平回包，并把 1.5 截断成 1、接受负数。
+     */
+    @Test
+    fun modeResponsesRequireThreadStateAndNonNegativeCounters() {
+        val response = java.util.concurrent.atomic.AtomicReference<JsonValue>()
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, _ -> if (method == "thread/mode/read") response.get() else null })
+            process
+        }
+        fun state(revision: JsonValue = JsonValue.NumberValue(3.0, "3"), epoch: JsonValue = JsonValue.NumberValue(0.0, "0")) = JsonValue.obj(
+            "revision" to revision,
+            "permissionEpoch" to epoch,
+            "permissionMode" to JsonValue.Text("auto"),
+            "workMode" to JsonValue.Text("normal"),
+        )
+        try {
+            session.connect()
+            session.resumeThread("thread-1")
+            response.set(JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "state" to state()))
+            assertEquals(3, session.readModes().revision)
+
+            val invalid = listOf(
+                JsonValue.obj("state" to state()),
+                JsonValue.obj("threadId" to JsonValue.Text("thread-other"), "state" to state()),
+                JsonValue.ObjectValue(state().fields + ("threadId" to JsonValue.Text("thread-1"))),
+                JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "state" to JsonValue.Text("auto")),
+                JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "state" to state(revision = JsonValue.NumberValue(4.5, "4.5"))),
+                JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "state" to state(revision = JsonValue.NumberValue(-1.0, "-1"))),
+                JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "state" to state(epoch = JsonValue.NumberValue(-1.0, "-1"))),
+                JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "state" to state(epoch = JsonValue.Text("0"))),
+            )
+            for (result in invalid) {
+                response.set(result)
+                val error = org.junit.jupiter.api.Assertions.assertThrows(CodemError.Protocol::class.java, { session.readModes() }, result.toString())
+                assertEquals(CodemError.Class.InvalidFrame, error.errorClass, result.toString())
+                assertEquals(3, session.snapshot().modeRevision, "a rejected response keeps the accepted state")
+            }
+        } finally { session.close().join() }
+    }
+
     /** 历史列表读取失败：loading 必须结束并推给界面，面板给出可读错误；刷新成功后恢复条目并清掉错误。 */
     @Test
     fun failedHistoryLoadClearsLoadingAndRefreshRecovers() {

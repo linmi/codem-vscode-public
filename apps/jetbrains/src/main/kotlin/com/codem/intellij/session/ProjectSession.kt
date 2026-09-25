@@ -1641,14 +1641,14 @@ class ProjectSession(
     /** Caller holds the lock: a public call wraps it in [mutate], a notification is already inside one. */
     private fun acceptModesLocked(result: JsonValue.ObjectValue, expectedThread: String, currentGeneration: Long): ModeState {
         assertGeneration(currentGeneration)
-        val reported = result.stringOrNull("threadId")
-        if (reported != null && reported != expectedThread) {
+        // As parseAppServerModes: the response names its thread, wraps the state, and counts with non-negative integers.
+        if (result.requiredString("threadId", MODE_RESPONSE) != expectedThread) {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM mode response thread mismatch")
         }
-        val stateObj = result.objectOrNull("state") ?: result
-        val revision = stateObj.numberOrNull("revision")?.toInt()
+        val stateObj = result.requiredObject("state", MODE_RESPONSE)
+        val revision = stateObj.requiredInt("revision", "$MODE_RESPONSE.state").takeIf { it >= 0 }
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM mode revision")
-        val epoch = stateObj.numberOrNull("permissionEpoch")?.toInt()
+        val epoch = stateObj.requiredInt("permissionEpoch", "$MODE_RESPONSE.state").takeIf { it >= 0 }
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM permission epoch")
         val permission = stateObj.stringOrNull("permissionMode")
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM permission mode")
@@ -1876,6 +1876,7 @@ class ProjectSession(
     companion object {
         private const val AUTH_INVALIDATED = "CodeM authentication is no longer valid"
         private const val HISTORY_LOAD_FAILED = "无法加载会话列表，请刷新重试。"
+        private const val MODE_RESPONSE = "mode response"
         private val CATALOG_COLLECTIONS = setOf(
             "skills", "hooks", "plugins", "profiles", "spaces", "items", "turns", "tools", "permissionProfiles",
         )
