@@ -1,4 +1,4 @@
-/* 共享消息列表正文排版。参考 apps/vscode/webview/styles/markdown.css，不含高亮主题。 */
+/* 共享消息列表正文排版，不含高亮主题。 */
 .chatMarkdown {
   min-width: 0;
   overflow-wrap: anywhere;

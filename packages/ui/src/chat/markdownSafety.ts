@@ -1,6 +1,6 @@
 /**
  * 共享消息列表的安全 Markdown：只渲染 Host 下发的正文，不接收原始协议帧。
- * 手法参考 VS Code webview/transcript/markdownView.ts（Marked + DOMPurify 白名单），
+ * 手法沿用旧 VS Code Webview 的 Markdown 渲染（Marked + DOMPurify 白名单），
  * 整理进 @codem/ui；此处不是 transcript 数据模型，也不做语法高亮或复制按钮。
  */
 import { marked, Renderer } from "marked"

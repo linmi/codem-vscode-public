@@ -48,18 +48,17 @@ it("architecture gate: accepts Node services, local protocol code and public pac
   await checkWorkspaceArchitecture(root)
 })
 
-it("application boundaries: accepts shared contracts and UI composition", async t => {
+it("application boundaries: accepts shared contracts and Host bridge composition", async t => {
   const root = await fixture(t)
   await put(root, "apps/vscode/src/shared/messages.ts", 'export { value } from "@codem/protocol"')
-  await put(root, "apps/vscode/webview/components/ui/button.ts", "export const button = 1")
-  await put(root, "apps/vscode/webview/composer/view.ts", 'export { value } from "../../src/shared/messages.ts"; export { button } from "../components/ui/button.ts"')
+  await put(root, "apps/vscode/webview/host/bridge.ts", 'export { value } from "../../src/shared/messages.ts"')
+  await put(root, "apps/vscode/webview/main.ts", 'export { value } from "./host/bridge.ts"')
   await checkWorkspaceArchitecture(root)
 })
 
 for (const [importer, target, message] of [
-  ["webview/composer/view.ts", "src/chat/controller.ts", "Webview cannot import Host implementation"],
+  ["webview/host/bridge.ts", "src/chat/controller.ts", "Webview cannot import Host implementation"],
   ["src/shared/messages.ts", "src/chat/controller.ts", "application contracts cannot depend on features"],
-  ["webview/components/ui/button.ts", "webview/composer/view.ts", "base UI cannot depend on application features"],
 ] as const) {
   it(`application boundaries: rejects ${importer} depending on ${target}, including aliases`, async t => {
     const root = await fixture(t)
@@ -74,9 +73,8 @@ it("application boundaries: lint rejects erased Host and feature type dependenci
   const root = await fixture(t)
   await put(root, ".oxlintrc.json", await readFile(join(workspace, ".oxlintrc.json"), "utf8"))
   for (const [path, source] of [
-    ["webview/panels/panel.ts", 'export type { ChatController } from "../../src/chat/chatController.ts"'],
+    ["webview/host/bridge.ts", 'export type { ChatController } from "../../src/chat/chatController.ts"'],
     ["src/shared/messages.ts", 'export type { ChatController } from "../chat/chatController.ts"'],
-    ["webview/components/ui/button.ts", 'export type { ComposerState } from "../../composer/composerState.ts"'],
   ]) {
     const file = `apps/vscode/${path}`
     await put(root, file, source!)
@@ -180,32 +178,6 @@ it("architecture gate: lint rejects even erased editor type imports", async t =>
     assert.match(failure.stdout, /no-restricted-imports/)
     return true
   })
-})
-
-it("structure gate: composer state accepts its contracts and rejects UI, Host, entrypoint and arbitrary helper imports", async t => {
-  const root = await fixture(t)
-  await put(root, ".oxlintrc.json", await readFile(join(workspace, ".oxlintrc.json"), "utf8"))
-  const path = "apps/vscode/webview/composer/composerState.ts"
-  const lint = () => execFileSync(join(workspace, "node_modules/.bin/oxlint"), ["--deny-warnings", path], { cwd: root, encoding: "utf8", stdio: "pipe" })
-  await put(root, path, 'export type { ComposerDraft } from "../../src/shared/messages.ts"; export { ComposerSubmission } from "./composerSubmission.ts"')
-  lint()
-  for (const source of [
-    'export { createComposerView } from "./composerView.ts"',
-    'export type { ChatController } from "../../src/chat/chatController.ts"',
-    'import "../main.ts"',
-    'export type { ReactNode } from "react"',
-    'export { readFile } from "node:fs/promises"',
-    'export { draft } from "./helpers.ts"',
-    'export const load = () => import("./composerView.ts")',
-  ]) {
-    await put(root, path, source)
-    assert.throws(lint, error => {
-      const failure = error as Error & { status: number; stdout: string }
-      assert.equal(failure.status, 1)
-      assert.match(failure.stdout, /no-restricted-imports/)
-      return true
-    }, source)
-  }
 })
 
 for (const owner of ["src/resources/conversationResources.ts", "src/chat/backgroundTasks.ts", "src/sessionHistory/conversationHistory.ts"]) {

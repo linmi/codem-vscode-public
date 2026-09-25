@@ -1,4 +1,4 @@
-/* 对照 apps/vscode/webview/status/welcome.css：七分块 Logo 与连接动效。 */
+/* 七分块 Logo 与连接动效。 */
 .welcomeMark { position: relative; width: 40px; height: 40px; }
 .welcome h1 { visibility: hidden; }
 .app[data-phase="ready"] .welcome h1 { visibility: visible; }

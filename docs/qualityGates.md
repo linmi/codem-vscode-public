@@ -31,15 +31,17 @@ Actions 的选型和参数依据 [checkout 官方文档](https://github.com/acti
 
 ## 目录组织门禁
 
-VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.test.ts` 检查入口目录只保留组装文件、功能目录有明确归属、基础组件目录不混入业务实现；反例覆盖旧平铺路径、业务组件误放及无归属目录。架构解析检查 Webview → 共享契约、共享契约 → 纯代码、基础组件 → 基础组件的依赖方向，含别名解析与类型导入反例。全部进入 `pnpm check`。
+VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.test.ts` 检查入口目录只保留组装文件、功能目录有明确归属，`webview/` 只有入口、样式入口和 `host/`；反例覆盖旧平铺路径、无归属目录及重建组件/输入区/样式副本。`webviewStyles.test.ts` 要求 VS Code 样式等于共享 `@codem/ui` 样式加 `body.vscode-*` 限定的主题桥接。架构解析检查 Webview → 共享契约、共享契约 → 纯代码的依赖方向，含别名解析与类型导入反例；基础组件边界由 `@codem/ui` 的 UI 规则负责。全部进入 `pnpm check`。
 
 ## 结构整理门禁
 
 评审要求：按变化原因组织职责；状态只有一个所有者；接口只暴露必要能力；入口仅组装和协调。禁止用整个 Controller、万能 context 或共享可变对象连接拆出的模块。每轮写清不变量，原子迁移调用方并删除旧实现，不预建通用框架，不以行数阈值判定设计质量。
 
-可执行部分已接入 `pnpm check`：Oxlint 限制输入状态模块的静态导入（含类型）和字符串字面量动态导入只能指向现有输入契约、上下文文本规则及回执规则；独立 `tsconfig.composer.json` 不提供 DOM 或 Node 全局类型；状态测试覆盖草稿和回执生命周期。架构测试通过临时工作区证明允许的依赖能通过，视图、Host、主入口、第三方运行时、任意 helper 及 DOM/Node 全局使用会被拒绝。该导入规则不宣称覆盖动态拼接、eval 或任意传递依赖，也不能代替职责评审。匹配使用 Oxlint 1.83.0 实际验证可用的 `group` 与排除项；[官方规则说明](https://oxc.rs/docs/guide/usage/linter/rules/eslint/no-restricted-imports) 明确其正则引擎不支持前瞻，最初的前瞻配置已被反例测试发现并替换。
+2026-09-20 为旧 VS Code 输入状态模块加入的 Oxlint 导入限制、独立 `tsconfig.composer.json` 和状态测试，已于 2026-09-25 随该模块一并撤销：它从未进入生产 bundle，生产输入区是 `@codem/ui` 的 `ChatApp`，回执规则由 `packages/ui/src/chat/draftRetention.ts` 及其测试负责。Oxlint 的 `no-restricted-imports` 正则不支持前瞻（见[官方规则说明](https://oxc.rs/docs/guide/usage/linter/rules/eslint/no-restricted-imports)），新增同类规则时仍用 `group` 与排除项并配反例测试。
 
 ### 输入区整理：目标与行为约束
+
+> 以下两节是 2026-09-20 旧 VS Code 输入区的历史记录，所述 `composerState.ts`、`composerView.ts` 与 `ComposerSubmission` 已删除。
 
 当前问题：`main.ts` 同时拥有草稿、输入模式、提交修订、Host 同步状态；`saveDraft()` 混合持久化、输入控件更新和会话工作状态展示。
 

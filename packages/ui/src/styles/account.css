@@ -1,4 +1,4 @@
-/* 对照 apps/vscode/webview/account/account.css：登录与资料页。 */
+/* 登录与资料页。 */
 #accountRoot:empty { display: none; }
 #accountRoot { min-height: 0; }
 .accountPage { height: 100dvh; box-sizing: border-box; overflow: auto; background: var(--surface); color: var(--ink); }

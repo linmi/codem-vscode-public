@@ -1,18 +1,18 @@
 # shadcn/ui 接入
 
-本次迁移边界是组件运行环境、构建和模拟预览的场景目录与主题选择器。聊天正文、模型/权限面板和审批仍为原有实现，不能称为全量迁移。
+当前 shadcn 组件、主题适配和全部界面样式都在 `@codem/ui`，VS Code 与 JetBrains 共用；下方按日期的小节记录各轮迁移，其中 `apps/vscode/webview/...` 路径指当时的 VS Code 副本，已于 2026-09-25 删除。
 
 ## 来源和适配
 
 - 官方源码：https://ui.shadcn.com/r/styles/new-york-v4/select.json
 - 官方安装说明：https://ui.shadcn.com/docs/installation/manual
-- 组件源码：apps/vscode/webview/components/ui/select.tsx；MIT 许可证随源码保留在 shadcnLicense.md。
-- 保留官方 Radix 结构、键盘和焦点行为；cn 改用本地 clsx/tailwind-merge，添加 Webview CSP nonce，字号和颜色由 CodeM 主题适配。
+- 组件源码：`packages/ui/src/components/ui/`；MIT 许可证随源码保留在 `packages/ui/src/components/shadcnLicense.md`，VS Code 构建从该文件写入第三方声明。
+- 保留官方 Radix 结构、键盘和焦点行为；cn 改用本地 clsx/tailwind-merge，字号和颜色由 CodeM 主题适配。
 - React / ReactDOM 19.3.0、radix-ui 1.6.7、Tailwind 4.3.3；精确版本及完整依赖以 package.json / pnpm-lock.yaml 为准。
-- components.json 与 TypeScript 路径已配置。后续组件沿用这个入口，不新增另一套组件库。
-- Tailwind 仅引入 theme/utilities，不注入全局 Preflight，避免接入时重置既有聊天页面。源码扫描显式限定组件与预览入口；迁移新入口时同步更新扫描范围。
-- Select 的 viewport 和滚动锁样式携带文档 nonce；没有放开 unsafe-inline 或外部脚本。
-- 预览导航使用独立 React root 和独立 bundle，卸载页面时清理；正式 Host 不加载预览脚本。
+- `packages/ui/components.json` 与 `packages/ui/tsconfig.json` 的 `@/*` 路径已配置。后续组件沿用这个入口，不新增另一套组件库。
+- Tailwind 仅引入 theme/utilities，不注入全局 Preflight；`packages/ui/src/styles/shadcnStyles.css` 用 `@source "../"` 扫描整个 `packages/ui/src`。两个宿主编译同一入口：VS Code 的 `webview/styles.css` 引入 `@codem/ui/styles.css`，经同一 Tailwind 流程编译后只追加 `body.vscode-*` 限定的主题桥接。
+- CSP：Select 视口样式从页面脚本读取 nonce；Dialog/Select 滚动锁样式经 get-nonce 取 nonce，由 `webview/main.ts` 与预览导航入口各自设置。没有放开 unsafe-inline 或外部脚本。
+- 预览导航使用独立 React root 和独立 bundle，直接复用 `@codem/ui` 的 Button、Collapsible、Select；卸载页面时清理；正式 Host 不加载预览脚本。
 
 ## 验收
 
@@ -143,3 +143,11 @@
 放大后，380×500 的旁路提问失败场景暴露底部区域最小内容高度超过可用空间的问题。footer 允许收缩并在内容确实超高时滚动，避免控件落到视口之外；正常高度的对话不增加滚动条，菜单和浮层仍使用原有 Portal。
 
 验证：`pnpm check`（lint、类型检查、单元/集成测试）和构建通过。复用已有浏览器运行 `composerMenuChecks`、`taskProgressPreviewChecks`、`runtimePopoverChecks`、`workGroupChecks`、`uiDensityChecks` 均通过，覆盖菜单实际展开、键盘焦点、深浅主题、窄栏及短窗口、任务入口与滚动按钮的位置和滚动行为。900×850 浅色和 380×800 深色 Markdown 截图已检查，浏览器实测正文/输入框 14px/500、强调 600、代码 12px/400，均无水平溢出。真实 Core 与真实 VS Code 本轮未执行；本次仅调整界面排版。
+
+## 共享样式与组件归属（2026-09-25）
+
+VS Code 改为发布共享 `@codem/ui` 样式，删除 `webview/styles/` 与各功能目录中的样式副本以及未进入生产 bundle 的 `webview/components/` 组件副本。此前 `dist/webview.css` 缺少 `.pluginManagementDialog`、`.pluginManagementScroll`、`.activityAction` 及共享组件用到的 `bg-primary` 等工具类，JetBrains 与 VS Code 呈现已不一致；现在两端编译同一份样式。VS Code 只保留主题桥接：VS Code 注入的 `--vscode-*` 在浅色 `.codem-light` 内继续生效；高对比主题映射到 VS Code 高对比色。`webviewStyles.test.ts` 防止再次分叉。
+
+共享 Select 视口此前不带 nonce，正式 Webview 每次打开输入栏 Select 都触发一次 CSP 拒绝；现在沿用页面 nonce。预览场景主题选择器同时改用共享组件，`previewNavigationChecks.mjs` 的控制台错误断言因此也覆盖共享 Select 的 nonce。
+
+已知未改：共享 `product.css` 的无层 `button { background: transparent; color: inherit }` 比 Tailwind `@layer utilities` 优先，shadcn 默认按钮的 `bg-primary` 虽已进入产物但不会着色，两端相同，需另行处理层级。

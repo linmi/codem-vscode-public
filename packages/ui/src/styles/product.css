@@ -1,4 +1,4 @@
-/* 对照 apps/vscode/webview/styles.css HEAD：现网聊天壳布局，不是调试台。 */
+/* 聊天壳布局：会话头、消息列、输入框与底栏，VS Code 与 JetBrains 共用。 */
 * { box-sizing: border-box; }
 html { font-size: 16px; }
 html, body, #codem-root {

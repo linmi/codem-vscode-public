@@ -20,7 +20,7 @@
   --color-destructive: var(--vscode-errorForeground, #e02e2a);
 }
 
-/* 对照 apps/vscode/webview/styles/shadcnStyles.css：菜单是 shadcn，不是原生 select。 */
+/* 菜单是 shadcn，不是原生 select。 */
 [data-slot="select-trigger"] { font: 500 var(--uiFontSize)/18px var(--uiFont); border-style: solid; height: 30px; background: var(--surface); }
 [data-slot="select-content"] { font: 500 var(--uiFontSize)/18px var(--uiFont); border: 1px solid var(--line); max-width: calc(100vw - 16px); z-index: 100; }
 [data-slot="select-item"] { font-size: var(--uiFontSize); min-height: 28px; }

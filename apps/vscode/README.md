@@ -4,7 +4,7 @@
 
 ## 代码组织
 
-Host 按 `chat`、`connection`、`sessionHistory`、`resources`、`integrations`、`panels`、`nativeChat` 分组，Host/Webview 共用代码位于 `src/shared/`。Webview 按功能组织，shadcn 基础组件独立位于 `webview/components/ui/`。目录职责、依赖门禁和迁移验证见[源码组织](../../docs/sourceOrganization.md)。
+Host 按 `chat`、`connection`、`sessionHistory`、`resources`、`integrations`、`panels`、`nativeChat` 分组，Host/Webview 共用代码位于 `src/shared/`。Webview 只保留入口、Host 桥（`webview/host/`）和样式入口；聊天界面、shadcn 基础组件与样式来自共享的 `@codem/ui`，`webview/styles.css` 只追加 VS Code 主题桥接。目录职责、依赖门禁和迁移验证见[源码组织](../../docs/sourceOrganization.md)。
 
 ## 当前功能
 

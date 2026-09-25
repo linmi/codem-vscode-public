@@ -1,4 +1,4 @@
-/* 对照 apps/vscode/webview/styles/loadingState.css：3×3 像素与文字流光。 */
+/* 3×3 像素与文字流光，来源见 UPSTREAM.md。 */
 .beautifulLoading { display: inline-flex; align-items: center; gap: 10px; min-height: 20px; min-width: 0; font: 500 var(--uiFontSize)/20px var(--uiFont); color: var(--muted); }
 .beautifulLoadingGrid { display: grid; flex-shrink: 0; grid-template-columns: repeat(3, 3px); gap: 1.5px; }
 .beautifulLoadingGrid > span { width: 3px; height: 3px; border-radius: 1px; background: currentColor; opacity: .15; }

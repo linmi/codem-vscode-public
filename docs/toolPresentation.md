@@ -7,7 +7,7 @@
 依据本机 Core 0.8.44 的 `discovery list builtin`（31 项）、对应二进制内嵌的工具输入说明、App Server item 类型及本项目 schema 13 历史记录实现。条件工具 `describe_image`、`exit_plan_mode` 和 `contextCompaction → compact` 单独覆盖；`final_answer` 继续走最终回复投影。
 
 - Host 的 `src/chat/toolDetails.ts` 是实时调用与历史记录共用的白名单投影；任务清单由 `taskDetails.ts` 投影为专用 DTO。
-- Webview 的 `webview/transcript/toolPresentation.ts` 只消费工具身份、状态和显示字段，输出不被猜测性解析成参数或摘要。
+- 共享界面的 `packages/ui/src/chat/toolPresentation.ts` 只消费工具身份、状态和显示字段，输出不被猜测性解析成参数或摘要。
 - 折叠行只列关键对象，详细选项在现有展开区显示。保留原有图标、字号、间距和“已处理”分组。
 - 不引入缓存、RPC 或子进程；消息状态仍归会话控制器所有，工具组件只持有本节点的展开状态。首次运行展示加载状态；重复快照和终态更新保留用户展开选择；失败仍按已有规则自动展开。新会话和上下文切换释放旧节点，历史未终结调用显示“未完成”，不重启为运行中。
 

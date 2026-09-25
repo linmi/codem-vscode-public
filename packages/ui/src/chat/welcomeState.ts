@@ -3,7 +3,6 @@ import type { ChatPhase } from "../contract.ts"
 export type WelcomeMotion = "idle" | "initializing" | "settled"
 
 /**
- * 与 VS Code `webview/status/welcomeState.ts` 同一规则：
  * 有消息或发送反馈时隐藏欢迎；connecting 播 Logo 动效；ready 后亮起标题。
  * 不读定时器，不在这里请求连接。
  */

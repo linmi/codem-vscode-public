@@ -6,11 +6,11 @@
 
 | 表面 | 上游依据 | CodeM 实现 |
 | --- | --- | --- |
-| 明暗颜色 | `theme/theme.logic.ts` + `theme.seed.generated.ts`，执行默认主题计算得到实际颜色 | `webview/styles/synaraTokens.css`；light/dark 两组固定结果 |
-| 聊天列 | `composerPickerStyles.ts` 的 46rem 最大宽度，12px/20px 响应式边距 | `styles.css` 的 messages/footer |
-| 正文与气泡 | `chatTypography.ts`：12px、1.625 行高、80% 最大气泡宽度、16px 四角圆角、14px/10px 内边距 | `messageView.ts`、`styles.css` |
-| 输入框 | `index.css` 的 1.2rem 圆角、55% 材质透明度、40px blur、150% saturate、55% 边框强度；默认两行输入 | `html.ts`、`styles.css` |
-| 输入框工具栏 | `ChatComposerFooter.tsx`、`ComposerModelMenuTrigger.tsx`；附件/权限在左，模型/强度/发送在右，发送按钮 28px | `html.ts`；CodeM 工作模式入口保留 |
+| 明暗颜色 | `theme/theme.logic.ts` + `theme.seed.generated.ts`，执行默认主题计算得到实际颜色 | `packages/ui/src/styles/synaraTokens.css`；light/dark 两组固定结果 |
+| 聊天列 | `composerPickerStyles.ts` 的 46rem 最大宽度，12px/20px 响应式边距 | `packages/ui/src/styles/product.css` 的 messages/footer |
+| 正文与气泡 | `chatTypography.ts`：12px、1.625 行高、80% 最大气泡宽度、16px 四角圆角、14px/10px 内边距 | `packages/ui/src/chat/MessageList.tsx`、`product.css` |
+| 输入框 | `index.css` 的 1.2rem 圆角、55% 材质透明度、40px blur、150% saturate、55% 边框强度；默认两行输入 | `packages/ui/src/chat/ChatApp.tsx`、`product.css` |
+| 输入框工具栏 | `ChatComposerFooter.tsx`、`ComposerModelMenuTrigger.tsx`；附件/权限在左，模型/强度/发送在右，发送按钮 28px | `packages/ui/src/chat/ChatApp.tsx`；CodeM 工作模式入口保留 |
 | 空白页 | `ChatView.tsx` 居中 40px 标志、16px 间距、26px/30px 标题 | CodeM 标志和中文标题 |
 | 工具与思考行 | `TimelineWorkEntryRow.tsx` 的紧凑图标行、次级文字色及展开内容 | `messageView.ts`；保留 Core 的状态与完成语义 |
 | Markdown | `index.css` `.chat-markdown` 排版 | `markdown.css`；使用 Marked + DOMPurify，表格及代码长行横向滚动限制在内容内 |

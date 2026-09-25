@@ -1,4 +1,4 @@
-/* 对照 apps/vscode/webview/styles/synaraTokens.css：Synara 33333439 舒适密度。 */
+/* Synara 33333439 舒适密度，来源见 UPSTREAM.md。 */
 :root, .codem-light {
   color-scheme: light;
   --surface: #ffffff;

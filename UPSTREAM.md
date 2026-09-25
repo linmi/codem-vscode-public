@@ -103,3 +103,7 @@
 ## 2026-09-21：通用工具图标
 
 `apps/vscode/src/shared/uiIcons.ts` 的 `tool` 路径替换为已安装 `lucide-react@1.47.0` 的 `dist/esm/icons/wrench.mjs` 标准 Wrench 路径，保留 24×24 viewBox 和现有 14×14 显示尺寸。仅复用静态路径，不引入 React 到共享模块。ISC 版权及许可保留在 `apps/vscode/packaging/uiNotices.txt`，随现有构建写入第三方声明。
+
+## 2026-09-25：来源代码位置变更
+
+VS Code 改为发布共享 `@codem/ui` 界面与样式，删除了未进入生产 bundle 的 `apps/vscode/webview/` 界面、组件与样式副本及 `apps/vscode/src/shared/uiIcons.ts`。上述来源的现行位置：Synara 主题令牌在 `packages/ui/src/styles/synaraTokens.css`，其余 Synara 聊天样式在 `packages/ui/src/styles/`；Beautiful UI 加载态在 `packages/ui/src/chat/LoadingState.tsx` 与 `packages/ui/src/styles/loadingState.css`；Lucide Wrench 路径在内容相同的 `packages/ui/src/chat/uiIcons.ts`；shadcn/ui 组件在 `packages/ui/src/components/ui/`，MIT 许可证见 `packages/ui/src/components/shadcnLicense.md`。版权与许可声明仍由 `apps/vscode/packaging/uiNotices.txt` 随构建写入第三方声明，未删除任何声明。

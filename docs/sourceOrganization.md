@@ -1,6 +1,6 @@
 # VS Code 应用目录组织
 
-## 本轮边界与不变量
+## 首次目录迁移：边界与不变量
 
 现状：Host 功能文件平铺在 `src/`，Webview 状态与视图平铺在 `webview/`，业务组件和 shadcn 基础组件混在 `components/`。本轮按现有职责迁移 VS Code 应用内部路径，不修改业务规则、消息协议、状态所有权、保存范围或清理时机，不移动公共包或历史快照。
 
@@ -8,7 +8,7 @@
 
 JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是无 IDE 依赖的领域层，`ide`/`webview` 提供端口，`src/plugin/kotlin` 才引用 IntelliJ/JCEF。测试在应用根 `tests/`。
 
-## 目标目录
+## 目录职责
 
 | 目录 | 职责 |
 | --- | --- |
@@ -22,28 +22,21 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 | `src/integrations/nextEdit/` | 当前文件的下一处修改预测、严格原文锚点、原生展示与接受生命周期；不持有聊天状态 |
 | `src/panels/` | Host 交互面板、审批转发和设置选择 |
 | `src/nativeChat/` | 原生 Chat 实验入口及适配；不混入正式扩展入口 |
-| `src/shared/` | Host/Webview 共用的消息契约、展示规则、输入规则和图标；无平台运行时 |
-| `webview/main.ts` | Webview 入口与组装 |
+| `src/shared/` | Host/Webview 共用的消息契约、编辑器上下文和账户类型；无平台运行时 |
+| `webview/main.ts` | Webview 入口：设置 CSP nonce，经 Host 桥挂载 `@codem/ui` |
 | `webview/host/` | 把 VS Code 分条消息收成共享快照；不放界面 |
-| `webview/account/` | 独立登录页、头像入口和个人账户详情；与聊天状态分离 |
-| `webview/composer/` | 输入状态、回执、输入视图、文件引用与会话命令组件 |
-| `webview/transcript/` | 消息、工具、Markdown、工作分组和轮次变更展示 |
-| `webview/sessionHistory/` | 历史界面 |
-| `webview/panels/` | 选择/审批及回退面板 |
-| `webview/resources/` | 附件、产物卡片及资源工具界面 |
-| `webview/status/` | 加载反馈、工作状态、耗时和运行详情 |
-| `webview/components/ui/` | shadcn 基础组件，只依赖自身及基础样式辅助 |
-| `webview/components/` | 基础组件样式辅助和许可证；不放业务组件 |
-| `webview/styles/` | 现有全局样式、主题与 Tailwind 扫描入口；构建入口仍为 `webview/styles.css` |
+| `webview/styles.css` | 样式入口：引入 `@codem/ui/styles.css`，只追加 VS Code 主题桥接 |
 | `tests/`、`scripts/` | 包根目录的测试、fixture 与构建/验收脚本 |
+
+聊天界面、shadcn 基础组件（`packages/ui/src/components/ui/`）和全部界面样式（`packages/ui/src/styles/`）归 `@codem/ui`，VS Code 与 JetBrains 共用；`apps/vscode/webview/` 不再保存界面或样式副本。
 
 ## 依赖与门禁
 
-入口组合功能目录；Webview 只能通过 `src/shared/` 使用 Host/Webview 共用代码，不能引用 Host 功能实现。共享契约可以引用无运行时依赖的 `@codem/protocol`，不能反向引用 Host、Webview 或平台运行时。shadcn 基础组件不能依赖业务目录。功能目录可显式依赖相关功能，不以目录移动冒充已消除 Controller 的所有耦合。
+入口组合功能目录；Webview 只能通过 `src/shared/` 使用 Host/Webview 共用代码，不能引用 Host 功能实现。共享契约可以引用无运行时依赖的 `@codem/protocol`，不能反向引用 Host、Webview 或平台运行时。shadcn 基础组件及其业务边界由 `@codem/ui` 的架构规则约束。功能目录可显式依赖相关功能，不以目录移动冒充已消除 Controller 的所有耦合。
 
-目录门禁检查入口目录不再平铺实现、功能目录有明确归属、基础组件不混入业务文件；依赖检查覆盖运行时解析与静态类型导入，规则自身有正反向测试。已有输入状态门禁继续生效。新增职责目录需同步说明职责并调整门禁，而不是不断增加根目录例外。
+目录门禁检查入口目录不再平铺实现、功能目录有明确归属，并拒绝在 `webview/` 下重建组件、输入区或样式副本目录；样式门禁要求 `dist/webview.css` 等于共享样式编译结果加 `body.vscode-*` 限定的桥接规则；依赖检查覆盖运行时解析与静态类型导入，规则自身有正反向测试。新增职责目录需同步说明职责并调整门禁，而不是不断增加根目录例外。
 
-## 验收记录
+## 首次目录迁移验收记录
 
 - 本轮迁移 84 个现有文件，没有旧路径转发文件，也没有新增 barrel 导出或生产依赖。逐文件对照迁移前内容：除相对导入外，唯一额外的生产内容变化为 Tailwind 的 `@source` 扫描范围；现在扫描整个 Webview 功能目录，并继续扫描预览导航。
 - 已同步正式扩展、原生 Chat 实验入口、测试 import 和嵌入 esbuild 的测试入口字符串、类型检查、Oxlint、shadcn 配置、样式入口及来源记录。测试继续留在包根 `tests/`。
@@ -54,3 +47,13 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 - 旧路径搜索：生产实现及构建配置已迁移；旧平铺路径仅保留于 `sourceLayout.test.ts` 的负向测试。公共包与 `history/` 未修改。
 
 插件管理新增边界及验证见 [pluginManagementAcceptance.md](pluginManagementAcceptance.md)：Node 管理命令位于 `packages/app-server/src/plugins/`，Host 生命周期位于 `src/plugins/`，共享 UI 仅消费安全显示契约。目录门禁包含该目录正例和入口平铺反例。
+
+## Webview 只挂载共享 UI（2026-09-25）
+
+问题：生产 `webview/main.ts` 已只挂载 `@codem/ui`，但 `webview/` 仍保留旧输入区、消息、状态、账户、面板、资源、历史与 shadcn 组件副本，`src/shared/` 还留有只被它们使用的展示规则；样式入口是共享样式的分叉副本，插件管理等共享样式和共享组件用到的 Tailwind 工具类到不了 `dist/webview.css`，与 JetBrains 已经不一致。
+
+边界与归属：界面、组件和样式只在 `@codem/ui`；VS Code 保留入口、Host 桥和主题桥接。桥接只做两件 VS Code 独有的事：让 VS Code 注入的 `--vscode-*` 主题色不被共享 `.codem-light` 兜底色遮住；把高对比主题映射到 VS Code 注入的高对比色。共享界面仍在渲染、原先只在 VS Code 副本里的样式（消息操作、产物卡片、图片预览、历史加载、轮次状态、Dialog 默认值）移入共享样式，JetBrains 同步获得；无对应 DOM 的旧规则删除。没有新增状态、缓存、RPC、子进程或生产依赖；首屏、重载与上下文切换仍由共享界面和 Host 桥原有逻辑负责。
+
+仍在生效的规则测试随实现迁入 `packages/ui/tests/`（时间线分组、轮次变更、欢迎与工作状态、斜杠命令可用性、耗时格式）；历史重载耗时和真实回复分组保留 Host 侧，改用共享 UI 投影与规则。只覆盖已删除 `ComposerState` 回执模型的测试随实现删除，现行回执规则由 `draftRetention` 测试覆盖。
+
+门禁：`sourceLayout.test.ts` 只允许 `webview/` 下的 `main.ts`、`styles.css` 与 `host/`，并对重建 `components/`、`composer/`、`styles/` 给出反例；`webviewStyles.test.ts` 编译真实入口，校验共享样式原样包含且额外规则只限 `body.vscode-*`，反例覆盖未限定规则、分叉/缺失副本和桥接外的 at-rule。

@@ -158,6 +158,6 @@
 [toolDetails]: ../apps/vscode/src/chat/toolDetails.ts
 [session]: ../apps/vscode/src/connection/runtimeSession.ts
 [native]: ../apps/vscode/src/integrations/nativeFeatures.ts
-[settings]: ../apps/vscode/webview/composer/composerMenus.tsx
+[settings]: ../packages/ui/src/chat/composerMenus.tsx
 [governance]: connectionGovernance.md
 [acceptance]: interactionAcceptance.md

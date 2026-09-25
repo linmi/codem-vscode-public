@@ -1,7 +1,6 @@
 import type { ChatSnapshot } from "../contract.ts"
 
 /**
- * 与 VS Code webview/status/workingStatus.ts 相同：
  * 从提交到出现思考、工具或正文之前，底部只有一条加载。
  * 审批、问答、计划和回退各自有一句等待，不另造文案。
  */

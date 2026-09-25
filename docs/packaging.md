@@ -36,7 +36,7 @@ GitHub Actions 中手动运行 **Package VSIX**，四个原生 runner 分别产�
 构建根据正式 esbuild metafile 和 PostCSS dependency 信息定位实际嵌入的 npm 包，将许可证汇总到 `dist/THIRD_PARTY_NOTICES.txt`。跳过仅用于指定 ESM/CJS 的嵌套 package.json；相同依赖去重。缺失声明时失败，不静默忽略。React、Radix、Highlight.js、Tailwind、tw-animate-css 等均纳入；Core 和 CLI 的独立许可仍由 runtime staging 复制。
 
 - Synara、T3 的版权声明从本仓库提交 `6cd751f` 的 `apps/vscode/licenses/synara.txt`、`t3Code.txt` 保留到 `packaging/uiNotices.txt`，完整代码来源仍见根目录 `UPSTREAM.md`。本轮没有撤销原许可证文件已暂存的删除。
-- shadcn/ui 使用现存的 `webview/components/shadcnLicense.md`。
+- shadcn/ui 使用 `@codem/ui` 随组件源码提供的 `packages/ui/src/components/shadcnLicense.md`。
 - `react-remove-scroll-bar@2.3.8` 的 npm 包标记 MIT、作者 Anton Korzunov，但未携带 LICENSE，registry 的 gitHead 在官方仓库不可读取。保留官方仓库可读取提交 [`8ca9ba5`](https://github.com/theKashey/react-remove-scroll-bar/blob/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE) 的完整 MIT 声明到 `packaging/reactRemoveScrollBarLicense.txt`；该仓库提交 manifest 为 2.3.7，不把它声称为 2.3.8 源码验证。补充映射仅适用于当前锁定的 2.3.8，升级后需重新核查。
 
 ## 本轮验收（2026-09-20）

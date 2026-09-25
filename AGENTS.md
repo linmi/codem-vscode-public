@@ -14,7 +14,7 @@
 ## UI 组件约定
 
 - 用户已确定以 shadcn/ui 为统一 UI 组件基础，正式 Webview 和模拟预览均遵守；不得把手写 DOM/CSS 仿样式描述成已经使用 shadcn/ui。
-- shadcn 基础组件源码位于 `apps/vscode/webview/components/ui/`，主题适配与 Tailwind 入口为 `webview/styles/shadcnStyles.css`，源码来源与迁移范围见 `docs/shadcnIntegration.md`。
+- shadcn 基础组件源码位于 `packages/ui/src/components/ui/`，主题适配与 Tailwind 入口为 `packages/ui/src/styles/shadcnStyles.css`；VS Code 的 `apps/vscode/webview/styles.css` 只引入共享样式并追加 VS Code 主题桥接。源码来源与迁移范围见 `docs/shadcnIntegration.md`。
 - 当前手写实现是待迁移现状，不是继续新增同类实现的依据。接入时同步处理组件运行环境、构建、主题和受影响调用方；每次迁移一个可独立验证的组件边界，并删除该边界被替代的手写实现。
 - 场景选择、主题选择、模型与模式选择等菜单统一使用适合其交互的 shadcn/ui 组件，不再以原生 select 系统弹出菜单或另写一套菜单替代。预览工具栏不得例外。
 - Codex、Synara 等截图用于视觉与交互参考；业务文案、选项和状态以 CodeM 的真实协议及产品语义为准，不照抄参考图中的模型名、思考强度或权限语义。
