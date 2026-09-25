@@ -164,6 +164,10 @@ VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<he
 
 门禁见 [qualityGates.md](qualityGates.md#样式层级门禁)。
 
+同类遗留一并处理：
+
+- 顶栏“文件与工具”和底栏“运行详情”入口此前按 shadcn `size-9` 渲染成 36×36。它们的尺寸规则写成 `.toolPanelTrigger[data-slot="button"]` / `.runtimeDetailsTrigger[data-slot="button"]`，但 `DialogTrigger`/`PopoverTrigger` 以 asChild 包住 Button 时会把 `data-slot` 换成 `dialog-trigger`/`popover-trigger`，规则从未命中。改为只按类名选中，恢复 28×28 与 24×24、静默色和悬停变深，与相邻图标按钮一致。
+
 ## 图标来源（2026-09-25）
 
 输入栏菜单删除了复制自 `chat/uiIcons.ts` 的图标路径和 `permissionIcons`，改为直接使用共享定义，外观不变；`chatApp.test.ts` 检查权限、附件和空间触发按钮用的是共享图标。

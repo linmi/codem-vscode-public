@@ -1,5 +1,7 @@
 #runtimeDetailsHost { display: flex; margin-left: auto; flex-shrink: 0; }
-.runtimeDetailsTrigger[data-slot="button"] { width: 24px; height: 24px; padding: 4px; border-radius: 6px; color: var(--muted); }
+/* PopoverTrigger asChild 把 data-slot 改成 popover-trigger，只能按类名选中。 */
+.runtimeDetailsTrigger { width: 24px; height: 24px; padding: 4px; border-radius: 6px; color: var(--muted); }
+.runtimeDetailsTrigger:hover:not(:disabled) { color: var(--ink); }
 .runtimeDetailsTrigger[data-state="open"] { background: var(--soft); color: var(--ink); }
 .runtimeDetailsPopover[data-slot="popover-content"] { box-sizing: border-box; z-index: 30; width: min(320px, calc(100vw - 24px), var(--radix-popover-content-available-width)); max-height: min(420px, var(--radix-popover-content-available-height)); display: flex; flex-direction: column; gap: 0; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--popover) 92%, transparent); color: var(--ink); font: 500 var(--uiFontSize)/1.6 var(--uiFont); backdrop-filter: blur(40px) saturate(150%); box-shadow: var(--composerShadow); }
 .runtimeDetailsHeading { padding: 10px 14px; flex-shrink: 0; border-bottom: 1px solid var(--line); }

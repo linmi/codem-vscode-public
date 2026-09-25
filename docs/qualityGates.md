@@ -66,6 +66,8 @@ Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。�
 
 `packages/ui/tests/stylesheetCascade.test.ts` 编译真实的 `@codem/ui/styles.css`，在 PostCSS 语法树上检查三件事：`@layer base` 排在 Tailwind `utilities` 之前；只按元素类型（或 `*`）匹配的规则不能无层，否则会压过全部工具类（伪类参数里的类名不算限定，只定义自定义属性的令牌规则除外）；`!important` 只允许出现在 base 层（`[hidden]` 与减少动态效果）。另断言按钮重置、悬停、`html`/`body`、`[hidden]` 确实编译进 base 层。反例覆盖无层的元素重置、`*` 重置、`@media` 内的元素悬停、类名只出现在 `:has()` 里的元素规则、产品规则与其他层里的 `!important`、base 排到 utilities 之后；正例覆盖 base 层规则、限定作用域的组件规则、`:root` 令牌与 keyframes。修复前的 main 编译结果在该检查下有 25 处违规。检查不判断组件规则是否合理覆盖了 shadcn 样式，这部分仍靠评审和界面实测。进入 `pnpm check`。
 
+同一文件还把 `ChatApp` 首帧渲染成静态标记，检查 `.类名[data-slot="…"]` 形式的选择器：该类名出现在标记里时，`data-slot` 必须至少命中其中一个元素，拦截 asChild Trigger 换掉 Button `data-slot` 后永远不生效的尺寸规则。它要求顶栏“文件与工具”和“运行详情”入口出现在首帧，避免检查落空；只出现在弹层或后续状态里的类名不在覆盖范围内。旧的两条 `[data-slot="button"]` 规则在该检查下失败；反例覆盖被替换的 slot，正例覆盖仅类名、匹配的 slot 与未渲染的弹层类名。
+
 ## 结构整理门禁
 
 评审要求：按变化原因组织职责；状态只有一个所有者；接口只暴露必要能力；入口仅组装和协调。禁止用整个 Controller、万能 context 或共享可变对象连接拆出的模块。每轮写清不变量，原子迁移调用方并删除旧实现，不预建通用框架，不以行数阈值判定设计质量。

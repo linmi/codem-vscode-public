@@ -1,9 +1,14 @@
 import assert from "node:assert/strict"
-import { readFile } from "node:fs/promises"
-import { fileURLToPath } from "node:url"
-import { describe, it } from "node:test"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { fileURLToPath, pathToFileURL } from "node:url"
+import { after, before, describe, it } from "node:test"
+import { build } from "esbuild"
 import postcss, { type ChildNode, type Container } from "postcss"
 import tailwindcss from "@tailwindcss/postcss"
+import { initialSnapshot, type ChatSnapshot } from "../src/contract.ts"
+import type { CodemUiHost } from "../src/host.ts"
 
 /**
  * 共享样式的层级门禁。Tailwind 工具类在 @layer utilities 里，任何无层规则都比它优先：
@@ -119,4 +124,75 @@ describe("@codem/ui stylesheet cascade", () => {
       assert.match(violations[0]!, message)
     })
   }
+})
+
+/** Each stylesheet styles.css imports, keyed by its file name. */
+async function sourceStylesheets(): Promise<Map<string, string>> {
+  const files = new Map<string, string>()
+  for (const [, name] of (await readFile(entry, "utf8")).matchAll(/@import "\.\/styles\/([\w.]+\.css)"/gu)) {
+    files.set(name!, await readFile(fileURLToPath(new URL(`../src/styles/${name}`, import.meta.url)), "utf8"))
+  }
+  return files
+}
+
+/**
+ * shadcn 的 Trigger/Close 以 asChild 包住 Button 时，会把 Button 的 data-slot 换成自己的（dialog-trigger、popover-trigger…），
+ * .x[data-slot="button"] 这类规则就永远不命中。类名出现在渲染结果里时，限定它的 data-slot 必须至少命中其中一个元素。
+ */
+function deadSlotSelectors(css: string, markup: string): string[] {
+  const elements = [...markup.matchAll(/<[a-z][\w-]*\s([^>]*)>/gu)].map(([, attributes]) => ({
+    classes: /(?:^|\s)class="([^"]*)"/u.exec(attributes!)?.[1]!.split(/\s+/u) ?? [],
+    slot: /(?:^|\s)data-slot="([^"]*)"/u.exec(attributes!)?.[1] ?? "none",
+  }))
+  const dead: string[] = []
+  postcss.parse(css).walkRules((rule) => {
+    for (const selector of rule.selectors) {
+      for (const [, name, slot] of selector.matchAll(/\.([A-Za-z][\w-]*)(?:\.[\w-]+|\[[^\]]*\])*?\[data-slot="([\w-]+)"\]/gu)) {
+        const owners = elements.filter((element) => element.classes.includes(name!))
+        if (owners.length && !owners.some((element) => element.slot === slot)) {
+          dead.push(`${selector} never matches: rendered .${name} has data-slot ${[...new Set(owners.map((element) => element.slot))].join(", ")}`)
+        }
+      }
+    }
+  })
+  return dead
+}
+
+describe("@codem/ui stylesheet selectors against the rendered chat", () => {
+  let directory = ""
+  let firstFrame = ""
+
+  before(async () => {
+    directory = await mkdtemp(join(tmpdir(), "codem-stylesheet-"))
+    const outfile = join(directory, "views.cjs")
+    await build({ outfile, bundle: true, platform: "node", format: "cjs", jsx: "automatic", logLevel: "silent", stdin: {
+      resolveDir: fileURLToPath(new URL("..", import.meta.url)),
+      contents: "export { ChatApp } from './src/chat/ChatApp.tsx'\nexport { createElement } from 'react'\nexport { renderToStaticMarkup } from 'react-dom/server'",
+    } })
+    const views = (await import(pathToFileURL(outfile).href)).default as {
+      ChatApp: (props: { host: CodemUiHost; initial: ChatSnapshot }) => unknown
+      createElement: (type: unknown, props: Record<string, unknown>) => unknown
+      renderToStaticMarkup: (element: unknown) => string
+    }
+    const host: CodemUiHost = { postAction() {}, subscribe: () => () => {}, getState: () => null, setState() {} }
+    firstFrame = views.renderToStaticMarkup(views.createElement(views.ChatApp, { host, initial: { ...initialSnapshot(), phase: "ready", threadId: "thread-1" } }))
+  })
+
+  after(() => rm(directory, { recursive: true, force: true }))
+
+  it("qualifies rendered classes only with data-slot values they actually carry", async () => {
+    for (const id of ["toggleResources", "runtimeDetails"]) assert.match(firstFrame, new RegExp(`id="${id}"`, "u"), `${id} must render in the first frame for this check to cover it`)
+    const dead = [...(await sourceStylesheets())].flatMap(([name, css]) => deadSlotSelectors(css, firstFrame).map((entry) => `${name}: ${entry}`))
+    assert.deepEqual(dead, [])
+  })
+
+  it("rejects a data-slot qualifier that an asChild trigger replaced, and accepts class-only or matching ones", () => {
+    const markup = '<div class="app"><button class="toolPanelTrigger other" data-slot="dialog-trigger" id="x"></button></div>'
+    assert.deepEqual(deadSlotSelectors('.toolPanelTrigger[data-slot="button"] { width: 28px; }', markup), [
+      '.toolPanelTrigger[data-slot="button"] never matches: rendered .toolPanelTrigger has data-slot dialog-trigger',
+    ])
+    assert.deepEqual(deadSlotSelectors(`.toolPanelTrigger { width: 28px; }
+.toolPanelTrigger[data-slot="dialog-trigger"][data-state="open"] { color: red; }
+.portalOnly[data-slot="dialog-content"] { width: 1px; }`, markup), [])
+  })
 })
