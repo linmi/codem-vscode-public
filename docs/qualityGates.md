@@ -47,7 +47,7 @@ JetBrains 发行包不带 Node，Kotlin 端保留自己的协议实现；漂移�
 
 ### JetBrains JSON 字段读取
 
-Kotlin 解码统一经 `JsonValue.ObjectValue` 的类型化读取：`requiredX(key, path)` 缺失、null 或类型不符以 InvalidFrame 失败并带字段路径；`optionalX` 视缺失与 null 为缺省、其它类型失败；`xOrNull` 为宽松读取，只用于 Node Host 同样宽松或调用方自带错误类（History、Validation、Capability）的字段。`JsonCastGuardTest` 扫描 `src/main` 与 `src/plugin`（经 `codem.kotlinSources` 注入并声明为测试输入），除允许清单中的 `JsonValue.kt` 外，出现 `as? JsonValue.X`（含包名限定与从 `JsonValue` 导入的嵌套类型）即失败；`is JsonValue.X` 模式匹配不受限。正反例覆盖直接、带空白、导入与包名限定四种写法，以及注释、其它类型的 `as?` 与 `is` 分支。
+Kotlin 解码统一经 `JsonValue.ObjectValue` 的类型化读取：`requiredX(key, path)` 缺失、null 或类型不符以 InvalidFrame 失败并带字段路径；`optionalX` 视缺失与 null 为缺省、其它类型失败；`xOrNull` 为宽松读取，只用于宽松是既定行为（Node Host 同样宽松或现有测试固定）、或调用方随即以自己的错误类与消息失败的字段（身份比对、History/Validation/Capability 错误）。`JsonCastGuardTest` 扫描 `src/main` 与 `src/plugin`（经 `codem.kotlinSources` 注入并声明为测试输入），除允许清单中的 `JsonValue.kt` 外，出现 `as? JsonValue.X`（含包名限定与从 `JsonValue` 导入的嵌套类型）即失败；`is JsonValue.X` 模式匹配不受限。正反例覆盖直接、带空白、导入与包名限定四种写法，以及注释、其它类型的 `as?` 与 `is` 分支。
 
 2026-09-25 反向验证：只在 `src/plugin` 插入两处转换，测试照常重跑并逐行报出；移除后通过。迁移前活跃源码共 127 处（120 行）此类转换，迁移后为 0。
 

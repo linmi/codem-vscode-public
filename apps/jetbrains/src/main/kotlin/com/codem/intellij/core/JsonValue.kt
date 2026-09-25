@@ -14,10 +14,11 @@ sealed class JsonValue {
      * 字段读取分三类，调用方按协议语义选择，不在各处自己转型：
      * - `requiredX(key, path)`：缺失、`null` 或类型不符都以 InvalidFrame 失败，错误带 `path.key`；
      * - `optionalX(key, path)`：缺失或 `null` 返回 null，出现但类型不符同样以 InvalidFrame 失败；
-     * - `xOrNull(key)`：宽松读取，缺失、`null` 与类型不符都返回 null。只用于 Node Host 同样宽松、
-     *   或调用方自己以其它错误类（History、Validation、Capability）失败的字段。
+     * - `xOrNull(key)`：宽松读取，缺失、`null` 与类型不符都返回 null。只用于宽松是既定行为的字段
+     *   （Node Host 同样宽松，或现有测试固定了这种容忍），以及调用方拿到 null 后立即以自己的错误类或消息
+     *   失败的字段（身份比对、History/Validation/Capability 错误）。不要用它把新字段的错误悄悄变成缺省值。
      *
-     * `path` 是这个对象在消息里的位置，如 `thread/list threads[0]`。错误只带路径，不回显字段值。
+     * `path` 是这个对象在消息里的位置，如 `thread/list result.threads[0]`。错误只带路径，不回显字段值。
      */
     data class ObjectValue(val fields: Map<String, JsonValue>) : JsonValue() {
         fun optional(key: String): JsonValue? = fields[key]
