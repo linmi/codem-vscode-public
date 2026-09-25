@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { isAbsolute } from "node:path"
+import { requirePositiveTimeout } from "./processLifecycle.ts"
 import { resolveAppServerRuntime, type AppServerRuntime } from "./runtime.ts"
 
 export const APP_SERVER_PROTOCOL_VERSION = 1
@@ -134,9 +135,7 @@ export function preflightAppServer(options: PreflightAppServerOptions): AppServe
   if (!isAbsolute(options.workingDirectory)) {
     throw new Error(`CodeM App Server workingDirectory must be absolute: ${options.workingDirectory}`)
   }
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    throw new Error(`CodeM App Server preflight timeout must be positive: ${String(timeoutMs)}`)
-  }
+  requirePositiveTimeout(timeoutMs, "App Server preflight")
 
   const request = {
     jsonrpc: "2.0",
