@@ -2,6 +2,10 @@ package com.codem.intellij.core
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ScheduledThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -50,12 +54,12 @@ class RpcPeer(
     private val abandonedLimit: Int = 32,
     private val abandonedTtlMs: Long = 30_000,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
+    sweeper: ScheduledExecutorService = sharedSweeper,
 ) {
     private val nextId = AtomicInteger(1)
     private val pending = ConcurrentHashMap<String, Pending>()
-    private val abandoned = ConcurrentHashMap<String, Long>()
+    private val abandoned = AbandonedRequests(abandonedLimit, abandonedTtlMs, nowMs, sweeper, ::failProtocol)
     private val closed = AtomicBoolean(false)
-    private val protocolFailed = AtomicBoolean(false)
     var responseJsonrpc: ResponseJsonrpc? = null
         private set
 
@@ -74,13 +78,7 @@ class RpcPeer(
             throw error
         }
         return AbandonableRequest(future) {
-            if (pending.remove(key) != null) {
-                if (abandoned.size >= abandonedLimit) {
-                    failProtocol(CodemError.Protocol(CodemError.Class.Protocol, "CodeM App Server exceeded $abandonedLimit unacknowledged requests while abandoning $method"))
-                    return@AbandonableRequest
-                }
-                abandoned[key] = nowMs() + abandonedTtlMs
-            }
+            if (pending.remove(key) != null) abandoned.add(key, method)
         }
     }
 
@@ -100,7 +98,6 @@ class RpcPeer(
 
     fun consume(line: String) {
         if (closed.get()) return
-        expireAbandoned()
         val value = try {
             JsonValue.parse(line)
         } catch (error: CodemError) {
@@ -158,7 +155,7 @@ class RpcPeer(
         val key = rpcId.toString()
         val current = pending.remove(key)
         if (current == null) {
-            if (closed.get() || abandoned.remove(key) != null) return
+            if (closed.get() || abandoned.consume(key)) return
             failProtocol(CodemError.Protocol(CodemError.Class.UnknownRequestId, "CodeM App Server responded to unknown request $key"))
             return
         }
@@ -186,12 +183,13 @@ class RpcPeer(
 
     fun close() {
         if (!closed.compareAndSet(false, true)) return
-        abandoned.clear()
+        abandoned.close()
         rejectPending(CodemError.Protocol(CodemError.Class.ConnectionClosed, "CodeM App Server connection closed"))
     }
 
     fun failUnexpectedStdoutClose() {
         if (!closed.compareAndSet(false, true)) return
+        abandoned.close()
         rejectPending(CodemError.Protocol(CodemError.Class.ConnectionClosed, "CodeM App Server closed stdout unexpectedly"))
     }
 
@@ -215,19 +213,82 @@ class RpcPeer(
         values.forEach { it.future.completeExceptionally(error) }
     }
 
+    /** 清扫线程可能与 close 并发；已关闭的连接不再报告协议失败。 */
     private fun failProtocol(error: CodemError) {
-        if (!protocolFailed.compareAndSet(false, true)) return
-        closed.set(true)
-        abandoned.clear()
+        if (!closed.compareAndSet(false, true)) return
+        abandoned.close()
         rejectPending(error)
         onProtocolError(error)
     }
 
-    private fun expireAbandoned() {
-        val now = nowMs()
-        val expired = abandoned.entries.firstOrNull { it.value <= now } ?: return
-        failProtocol(CodemError.Protocol(CodemError.Class.Protocol, "CodeM App Server did not acknowledge abandoned request ${expired.key} within ${abandonedTtlMs}ms"))
+    private data class Pending(val method: String, val future: CompletableFuture<JsonValue>)
+
+    private companion object {
+        /** 所有连接共用一个守护线程；队列清空后线程超时退出，不常驻插件线程。 */
+        val sharedSweeper: ScheduledExecutorService = ScheduledThreadPoolExecutor(1) { task ->
+            Thread(task, "codem-rpc-abandoned-sweep").apply { isDaemon = true }
+        }.apply {
+            removeOnCancelPolicy = true
+            setKeepAliveTime(1, TimeUnit.SECONDS)
+            allowCoreThreadTimeOut(true)
+        }
+    }
+}
+
+/**
+ * 对照 Node rpc-abandoned：按最早到期时间排一个清扫定时器，Core 不再发帧也会到期。
+ * 只由 RpcPeer 持有；close 取消定时器，之后不再接收新条目。
+ */
+private class AbandonedRequests(
+    private val limit: Int,
+    private val ttlMs: Long,
+    private val nowMs: () -> Long,
+    private val sweeper: ScheduledExecutorService,
+    private val failProtocol: (CodemError) -> Unit,
+) {
+    private val expiries = HashMap<String, Long>()
+    private var timer: ScheduledFuture<*>? = null
+    private var closed = false
+
+    fun add(key: String, method: String) {
+        val full = synchronized(this) {
+            if (closed) return
+            if (expiries.size >= limit) return@synchronized true
+            expiries[key] = nowMs() + ttlMs
+            scheduleLocked()
+            false
+        }
+        if (full) failProtocol(CodemError.Protocol(CodemError.Class.Protocol, "CodeM App Server exceeded $limit unacknowledged requests while abandoning $method"))
     }
 
-    private data class Pending(val method: String, val future: CompletableFuture<JsonValue>)
+    fun consume(key: String): Boolean = synchronized(this) {
+        if (expiries.remove(key) == null) return false
+        scheduleLocked()
+        true
+    }
+
+    fun close() = synchronized(this) {
+        closed = true
+        timer?.cancel(false)
+        timer = null
+        expiries.clear()
+    }
+
+    private fun scheduleLocked() {
+        timer?.cancel(false)
+        timer = null
+        val next = expiries.values.minOrNull() ?: return
+        timer = sweeper.schedule(Runnable { sweep() }, maxOf(0L, next - nowMs()), TimeUnit.MILLISECONDS)
+    }
+
+    private fun sweep() {
+        val expired = synchronized(this) {
+            if (closed) return
+            val now = nowMs()
+            val key = expiries.entries.firstOrNull { it.value <= now }?.key
+            if (key == null) scheduleLocked()
+            key
+        } ?: return
+        failProtocol(CodemError.Protocol(CodemError.Class.Protocol, "CodeM App Server did not acknowledge abandoned request $expired within ${ttlMs}ms"))
+    }
 }

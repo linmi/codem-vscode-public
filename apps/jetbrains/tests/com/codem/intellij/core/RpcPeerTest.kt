@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 class RpcPeerTest {
@@ -92,6 +94,42 @@ class RpcPeerTest {
         val failure = assertThrows(ExecutionException::class.java) { pending.get(1, TimeUnit.SECONDS) }.cause
         assertTrue(failure is CodemError.Protocol && failure.cause is IllegalStateException, failure.toString())
         assertSame(failure, errors.single())
+    }
+
+    @Test
+    fun abandonedRequestExpiresWhileCoreStaysSilent() {
+        val errors = LinkedBlockingQueue<CodemError>()
+        val peer = RpcPeer(writeLine = {}, onNotification = {}, onRequest = {}, onProtocolError = { errors += it }, abandonedTtlMs = 100)
+        val live = peer.request("thread/read")
+        peer.requestAbandonable("turn/interrupt").abandon()
+        val expired = errors.poll(2, TimeUnit.SECONDS)
+        assertEquals("CodeM App Server did not acknowledge abandoned request 2 within 100ms", expired?.message)
+        assertSame(expired, assertThrows(ExecutionException::class.java) { live.get(1, TimeUnit.SECONDS) }.cause)
+    }
+
+    @Test
+    fun acknowledgementAndCloseCancelTheAbandonedSweep() {
+        val sweeper = ScheduledThreadPoolExecutor(1).apply { removeOnCancelPolicy = true }
+        try {
+            val errors = CopyOnWriteArrayList<CodemError>()
+            fun peer() = RpcPeer(writeLine = {}, onNotification = {}, onRequest = {}, onProtocolError = { errors += it }, abandonedTtlMs = 150, sweeper = sweeper)
+            val acknowledged = peer()
+            acknowledged.requestAbandonable("turn/interrupt").abandon()
+            assertEquals(1, sweeper.queue.size)
+            acknowledged.consume("""{"jsonrpc":"2.0","id":1,"result":{}}""")
+            assertEquals(0, sweeper.queue.size)
+            acknowledged.requestAbandonable("turn/interrupt").abandon()
+            acknowledged.close()
+            assertEquals(0, sweeper.queue.size)
+            val disconnected = peer()
+            disconnected.requestAbandonable("turn/interrupt").abandon()
+            disconnected.failUnexpectedStdoutClose()
+            assertEquals(0, sweeper.queue.size)
+            Thread.sleep(400)
+            assertEquals(emptyList<CodemError>(), errors)
+        } finally {
+            sweeper.shutdownNow()
+        }
     }
 
     @Test
