@@ -1,8 +1,14 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
+import type { ChildProcessWithoutNullStreams } from "node:child_process"
 import { createInterface } from "node:readline"
 import { isAbsolute } from "node:path"
 import { validateAppServerInitializeResult, type AppServerInitialization } from "./preflight.ts"
-import { CORE_APP_SERVER_TERMINATION, requirePositiveTimeout, terminateChildProcess } from "./processLifecycle.ts"
+import {
+  CORE_APP_SERVER_TERMINATION,
+  NODE_PROCESS_CONTROL,
+  requirePositiveTimeout,
+  terminateChildProcess,
+  type ProcessControl,
+} from "./processLifecycle.ts"
 import { AppServerRpcPeer, type AppServerNotification, type AppServerRequest, type JsonObject } from "./rpc.ts"
 import type { AppServerRuntime } from "./runtime.ts"
 
@@ -93,11 +99,15 @@ export class AppServerConnection {
   }
 }
 
-export async function startAppServerConnection(options: StartAppServerConnectionOptions): Promise<AppServerConnection> {
+/** `control` starts Core; tests inject one to hold a Core that no signal stops. */
+export async function startAppServerConnection(
+  options: StartAppServerConnectionOptions,
+  control: ProcessControl = NODE_PROCESS_CONTROL,
+): Promise<AppServerConnection> {
   validateOptions(options)
   let expectedClose = false
   let connection: AppServerConnection | null = null
-  const child = spawn(options.runtime.executablePath, [...(options.arguments ?? []), "app-server"], {
+  const child = control.spawn(options.runtime.executablePath, [...(options.arguments ?? []), "app-server"], {
     cwd: options.workingDirectory,
     env: options.environment ?? process.env,
     stdio: ["pipe", "pipe", "pipe"],

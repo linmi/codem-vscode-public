@@ -74,7 +74,7 @@ export interface ProcessControl {
   readonly kill: (pid: number, signal: NodeJS.Signals) => void
 }
 
-const NODE_PROCESS_CONTROL: ProcessControl = {
+export const NODE_PROCESS_CONTROL: ProcessControl = {
   platform: process.platform,
   spawn,
   kill: (pid, signal) => { process.kill(pid, signal) },

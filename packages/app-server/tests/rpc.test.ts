@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { EventEmitter } from "node:events"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -15,9 +16,12 @@ import {
   startAppServerConnection,
   type AppServerNotification,
 } from "../src/index.ts"
+import type { ProcessControl } from "../src/processLifecycle.ts"
 
 const STARTUP_CLEANUP_FAILURE =
   "CodeM App Server startup cleanup failed: CodeM App Server did not exit after stdin close, SIGTERM, and SIGKILL"
+// windows-latest reported Core's close while the helper still ran, so only POSIX can hold Core open this way.
+const PIPE_HOLDER_SKIP = process.platform === "win32" ? "Windows reports Core's close while a helper still holds its pipes" : false
 const temporaryDirectories: string[] = []
 const strayProcessIds: number[] = []
 
@@ -239,7 +243,49 @@ process.stdin.resume()
     assert.equal(exits[0]?.expected, true)
   })
 
-  it("keeps the startup failure when Core outlives its cleanup, and reports the cleanup failure", async () => {
+  it("keeps the startup failure when Core outlives its cleanup, and reports the cleanup failure", { timeout: 10_000 }, async () => {
+    // An injected Core that ignores every signal, so the ordering rule is checked on every platform.
+    const root = createTemporaryDirectory()
+    const core = unstoppableCore()
+    const exits: Array<{ readonly code: number | null; readonly signal: NodeJS.Signals | null; readonly expected: boolean }> = []
+    const protocolErrors: Error[] = []
+
+    await assert.rejects(
+      startAppServerConnection(
+        {
+          runtime: {
+            target: "darwin-arm64",
+            packageName: "fixture",
+            coreVersion: APP_SERVER_CORE_VERSION,
+            // Never spawned: the injected control stands in for Core.
+            executablePath: join(root, "never-started"),
+            licensePath: join(root, "LICENSE"),
+            authPackageName: "fixture-auth",
+            cliVersion: "0.1.208",
+            authExecutablePath: join(root, "never-started"),
+            authLicensePath: join(root, "LICENSE.auth"),
+          },
+          workingDirectory: root,
+          clientInfo: { name: "codem-vscode", version: "0.1.0" },
+          closeTimeoutMs: 25,
+          onProtocolError: (error) => protocolErrors.push(error),
+          onExit: (exit) => exits.push(exit),
+        },
+        core.control,
+      ),
+      (error: unknown) => error instanceof AppServerRpcError && error.code === -32001,
+    )
+    assert.deepEqual(core.signals, ["SIGTERM", "SIGKILL"], "cleanup escalates through every step before giving up")
+    // Core has not closed, so the rejection came from the cleanup budget; waiting for the close would time out.
+    assert.equal(exits.length, 0)
+    assert.deepEqual(protocolErrors.map((error) => error.message), [STARTUP_CLEANUP_FAILURE])
+    assert.match(String((protocolErrors[0]?.cause as Error | undefined)?.message), /^CodeM App Server did not exit/u)
+
+    core.close()
+    assert.deepEqual(exits, [{ code: null, signal: "SIGKILL", expected: true }])
+  })
+
+  it("keeps the startup failure while a helper holds Core's pipes open", { skip: PIPE_HOLDER_SKIP }, async () => {
     const root = createTemporaryDirectory()
     const executablePath = join(root, "pipe-holding-codem-core")
     writeFileSync(executablePath, pipeHoldingCoreSource())
@@ -355,6 +401,50 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
   } }) + "\\n")
 })
 `
+}
+
+/** A Core that refuses initialize and ignores every signal until the test closes it. */
+function unstoppableCore() {
+  const stdin = new PassThrough()
+  const stdout = new PassThrough()
+  const signals: NodeJS.Signals[] = []
+  const child = Object.assign(new EventEmitter(), {
+    pid: 4242,
+    stdin,
+    stdout,
+    stderr: new PassThrough(),
+    exitCode: null as number | null,
+    signalCode: null as NodeJS.Signals | null,
+    kill(signal: NodeJS.Signals): boolean {
+      signals.push(signal)
+      return true
+    },
+  })
+  createInterface({ input: stdin }).on("line", (line) => {
+    const frame = JSON.parse(line) as { readonly id?: number; readonly method?: string }
+    if (frame.method !== "initialize") return
+    stdout.write(`${JSON.stringify({ id: frame.id, error: { code: -32001, message: "fixture refuses initialize" } })}\n`)
+  })
+  const control: ProcessControl = {
+    platform: process.platform,
+    spawn: (() => {
+      setImmediate(() => child.emit("spawn"))
+      return child
+    }) as unknown as ProcessControl["spawn"],
+    kill: () => {
+      throw new Error("Core is never signalled as a process group")
+    },
+  }
+  return {
+    control,
+    signals,
+    close: () => {
+      child.signalCode = "SIGKILL"
+      stdout.end()
+      child.stderr.end()
+      child.emit("close", null, "SIGKILL")
+    },
+  }
 }
 
 /** Refuses initialize once a holder process shares its stdout and stderr, so its close outlasts any kill. */
