@@ -1,5 +1,6 @@
-import { asSnapshot, type ChatSnapshot, type ChatTheme, type SelectionView } from "@codem/ui/contract"
+import { asSnapshot, normalizeMessages, type ChatMessage, type ChatSnapshot, type ChatTheme, type SelectionView } from "@codem/ui/contract"
 import { appendContext } from "../../src/shared/editorContext.ts"
+import { freezeSnapshot } from "../../src/shared/frozenSnapshot.ts"
 import { attachmentScope } from "../../src/shared/pastedImages.ts"
 
 interface DraftCommand {
@@ -19,6 +20,12 @@ export interface BridgeUpdate {
   draft?: DraftCommand
   /** 草稿握手回执，不经过共享动作校验。 */
   reply?: Record<string, unknown>
+}
+
+/** 一条 Host 消息及其规范化结果；无效消息规范化为 null。 */
+interface ProjectedMessage {
+  raw: unknown
+  view: ChatMessage | null
 }
 
 interface CodeChip {
@@ -43,7 +50,12 @@ export class VscodeHostBridge {
   private draftText = ""
   private draftRevision = 0
   private version = 0
-  private signature = ""
+  /**
+   * 上一次投影，用来跳过没变的部分：流式增量只改一条消息，不必重新序列化或规范化整段会话。
+   * 范围：本实例（一个 Webview 页面），只保存最近一次投影；每次投影整体替换，离开 state 的消息随之丢弃。
+   * 失效：同一位置的 Host 消息与上次逐字段相同才复用其冻结的规范化结果，否则重新规范化；其余部分逐字段比较，变了才递增 version。
+   */
+  private projected: { record: Record<string, unknown>; messages: readonly ProjectedMessage[] } | null = null
   private unpinnedSelectionId: string | null = null
   private brandMark: string | null = null
   private theme: ChatTheme = "light"
@@ -215,8 +227,9 @@ export class VscodeHostBridge {
           return preview ? { ...item, preview } : item
         })
       : this.state.attachments
-    const projected = {
-      ...this.state,
+    const { messages: hostMessages, ...state } = this.state
+    const record: Record<string, unknown> = {
+      ...state,
       type: "state",
       attachments,
       brandMark: this.brandMark,
@@ -234,13 +247,40 @@ export class VscodeHostBridge {
       canRetry: this.state.phase === "disconnected" && Boolean(notice),
       canLoadOlder: typeof this.state.threadId === "string" && this.state.hasOlderMessages === true,
     }
-    const signature = JSON.stringify({ ...projected, version: 0 })
-    if (signature !== this.signature) {
-      this.signature = signature
-      this.version += 1
-    }
-    return asSnapshot({ ...projected, version: this.version }) ?? asSnapshot({ type: "state", version: this.version })!
+    const previous = this.projected
+    let changed = !previous || !sameData(previous.record, record)
+    const raw = Array.isArray(hostMessages) ? hostMessages : []
+    if (previous && previous.messages.length !== raw.length) changed = true
+    const messages = raw.map((item, index): ProjectedMessage => {
+      const before = previous?.messages[index]
+      if (before && sameData(before.raw, item)) return before
+      changed = true
+      return { raw: item, view: freezeSnapshot(normalizeMessages([item])[0] ?? null) }
+    })
+    if (changed) this.version += 1
+    this.projected = { record, messages }
+    const snapshot = asSnapshot({ ...record, version: this.version }) ?? asSnapshot({ type: "state", version: this.version })!
+    return { ...snapshot, messages: messages.flatMap(item => item.view ? [item.view] : []) }
   }
+}
+
+/** postMessage 送来的 JSON 数据是否相同；与 JSON 一致，值为 undefined 的键视同不存在。 */
+function sameData(left: unknown, right: unknown): boolean {
+  if (left === right) return true
+  if (!left || !right || typeof left !== "object" || typeof right !== "object" || Array.isArray(left) !== Array.isArray(right)) return false
+  if (Array.isArray(left)) {
+    const items = right as unknown[]
+    return left.length === items.length && left.every((item, index) => sameData(item, items[index]))
+  }
+  const a = left as Record<string, unknown>, b = right as Record<string, unknown>
+  let keys = 0
+  for (const key in a) {
+    if (a[key] === undefined) continue
+    if (!sameData(a[key], b[key])) return false
+    keys += 1
+  }
+  for (const key in b) if (b[key] !== undefined) keys -= 1
+  return keys === 0
 }
 
 /** Host 下发的会话范围；粘贴校验与文件搜索失效共用 Host 的同一算法。 */
