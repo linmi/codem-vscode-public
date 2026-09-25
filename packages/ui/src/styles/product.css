@@ -185,8 +185,6 @@
 #selectModel { min-width: 0; color: var(--ink); }
 #selectModel img { flex-shrink: 0; object-fit: contain; }
 #model { max-width: 155px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
-#selectEffort { flex-shrink: 0; border-radius: 50%; }
-#addAttachment, .permission { border-radius: 999px; }
 #selectPermission[data-mode="yolo"] { color: var(--vscode-editorWarning-foreground, #e47140); }
 .sendButton, .stopButton {
   display: grid;

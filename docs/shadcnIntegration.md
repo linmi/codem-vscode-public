@@ -215,3 +215,7 @@ VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<he
 门禁见 [qualityGates.md](qualityGates.md#工具栏图标按钮门禁)。
 
 验证：`pnpm check`、`pnpm build:vscode`、`pnpm --filter @codem/ui build` 通过。使用独立端口的 VS Code 模拟预览（4340，会话场景和账户页）和共享 UI 预览（4339，JetBrains 宿主的搜索与插件场景），分别在浅色和深色下检查以下项目：计算尺寸、内边距、圆角、颜色，悬停变为正文色并加浅底，Tab 键焦点环，打开历史与“文件与工具”时的按钮状态，Esc 后焦点回到按钮，以及可访问名称。共享 UI 预览没有深色开关，深色是在页面里临时切换 `.app` 的主题类后检查的。真实 Core、真实 VS Code 和 JetBrains 宿主未运行。
+
+输入栏的图标触发器同样只保留一条规则。附件和权限一直共用 `.composerMenuTrigger.composerIconTrigger`（28×28、4px 内边距、静默色，悬停时加 `--soft` 浅底并变为正文色）。思考强度则单独写了一套 `#selectEffort.effortTrigger`：尺寸相同，但颜色取 `--vscode-descriptionForeground`，悬停底色取 `--vscode-toolbar-hoverBackground`，悬停时也不变为正文色。在真实 VS Code 里，这两个变量取宿主主题的值，与相邻按钮的 `--muted`、`--soft` 不同。现在思考强度也使用这两个共享类，删除它的自有规则；圆角并入共享规则，删除按 id 分别设置的 `border-radius`，以及只剩这一个用途的 `.permission` 类。完全访问模式下权限按钮的警告色、思考强度信号图标的 20px 尺寸和菜单本身都不变。
+
+实测（VS Code 模拟预览，深色）：修改前，思考强度悬停后仍是静默色 `rgba(252,252,252,.58)`，底色为 `--hover`（`rgba(252,252,252,.04)`），而附件按钮悬停后变为 `#fcfcfc`，底色为 `--soft`（`rgba(252,252,252,.027)`）。修改后，三个触发器在静止、悬停和键盘焦点（1px 描边）下一致。菜单能正常展开，按 Esc 后焦点回到触发器；320px 宽时输入栏和顶栏都没有横向溢出。真实 VS Code 未运行，宿主主题变量下的实际颜色未经实测。

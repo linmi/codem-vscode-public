@@ -134,16 +134,45 @@ function toolbarIconViolations(markup: string, css: string, variantClasses: (siz
     const missing = variantClasses(size).filter((className) => !element.classes.includes(className))
     if (missing.length) violations.push(`${name} lost ${missing.join(" ")} from the shared ${size} variant`)
   }
+  for (const { selector, properties } of sizeAndInkRules(css)) {
+    for (const { element, name } of buttons) {
+      if (selectorMayMatch(selector, element)) violations.push(`${selector} { ${properties} } overrides the shared variant on ${name}`)
+    }
+  }
+  return violations
+}
+
+/** 无层且设置宽高或文字颜色的规则，逐个选择器列出；它们压过全部 Tailwind 工具类。 */
+function sizeAndInkRules(css: string): { selector: string; properties: string }[] {
+  const rules: { selector: string; properties: string }[] = []
   postcss.parse(css).walkRules((rule) => {
     if (inLayer(rule)) return
     const properties = rule.nodes.flatMap((node) => node.type === "decl" && sizeAndInk.test(node.prop) ? [node.prop] : [])
-    if (!properties.length) return
-    for (const selector of rule.selectors) {
-      for (const { element, name } of buttons) {
-        if (selectorMayMatch(selector, element)) violations.push(`${selector} { ${properties.join("; ")} } overrides the shared variant on ${name}`)
-      }
-    }
+    if (properties.length) for (const selector of rule.selectors) rules.push({ selector, properties: properties.join("; ") })
   })
+  return rules
+}
+
+/**
+ * 输入栏的附件、权限、思考强度是 Select 触发器，不是 Button，共用 .composerMenuTrigger.composerIconTrigger 这条类名规则。
+ * 三个都要带这两个类；无层的宽高或文字颜色规则要么命中全部，要么一个都不命中。
+ * 属性按当前帧的取值判断：完全访问时权限按钮的警告色取决于 data-mode，首帧是默认权限，不在此列。
+ */
+const composerIconTriggers = ["addAttachment", "selectPermission", "selectEffort"]
+
+function composerIconTriggerViolations(markup: string, css: string): string[] {
+  const elements = markupElements(markup)
+  const violations: string[] = []
+  const triggers = composerIconTriggers.flatMap((id) => {
+    const element = elements.find((candidate) => candidate.attributes.get("id") === id)
+    if (!element) violations.push(`#${id} did not render`)
+    else if (!element.classes.includes("composerMenuTrigger") || !element.classes.includes("composerIconTrigger")) violations.push(`#${id} does not carry .composerMenuTrigger.composerIconTrigger`)
+    return element ? [{ id, element }] : []
+  })
+  for (const { selector, properties } of sizeAndInkRules(css)) {
+    const matched = triggers.filter(({ element }) => selectorMayMatch(selector, element))
+    if (matched.length && matched.length < triggers.length) violations.push(`${selector} { ${properties} } styles only ${matched.map(({ id }) => `#${id}`).join(", ")}`)
+  }
   return violations
 }
 
@@ -241,6 +270,34 @@ describe("@codem/ui toolbar icon buttons", () => {
   ] as const) {
     it(`rejects ${label}`, () => {
       assert.deepEqual(toolbarIconViolations(header(buttons), css, classes), expected)
+    })
+  }
+
+  it("gives the composer's attachment, permission and effort triggers one class rule", () => {
+    assert.deepEqual(composerIconTriggerViolations(markup, shared), [])
+  })
+
+  const composer = (effortClass: string) => `<form class="composer"><div class="composerToolbar"><div class="composerLeading"><span id="attachmentMenu"><button id="addAttachment" data-slot="select-trigger" class="composerMenuTrigger composerIconTrigger"></button></span></div><div class="composerTrailing"><span id="permissionMenu"><button id="selectPermission" data-slot="select-trigger" data-mode="default" class="composerMenuTrigger composerIconTrigger"></button></span><span id="effortSelector"><button id="selectEffort" data-slot="select-trigger" class="${effortClass}"><span><svg class="effortSignal"></svg></span></button></span><span id="modelMenu"><button id="selectModel" data-slot="popover-trigger" class="composerMenuTrigger optionButton">Auto</button></span></div></div></form>`
+
+  it("accepts rules shared by all three triggers, their wrappers, the effort signal and state or neighbour rules", () => {
+    assert.deepEqual(composerIconTriggerViolations(composer("composerMenuTrigger composerIconTrigger"), `.composerMenuTrigger[data-slot] { height: 28px; color: gray; }
+.composerMenuTrigger[data-slot]:hover:not(:disabled) { color: black; }
+.composerMenuTrigger.composerIconTrigger { width: 28px; }
+[data-slot="select-trigger"] { height: 30px; }
+#attachmentMenu, #permissionMenu, #effortSelector { width: 28px; height: 28px; }
+#selectEffort .effortSignal { width: 20px; height: 20px; }
+#selectPermission[data-mode="yolo"] { color: orange; }
+#selectModel { color: black; }
+@layer utilities { #selectEffort { width: 1px; } }`), [])
+  })
+
+  for (const [label, effortClass, css, expected] of [
+    ["an effort trigger with its own rule instead of the shared class", "effortTrigger", "#selectEffort.effortTrigger { width: 28px; height: 28px; color: gray; }", ["#selectEffort does not carry .composerMenuTrigger.composerIconTrigger", "#selectEffort.effortTrigger { width; height; color } styles only #selectEffort"]],
+    ["a colour for some of the triggers", "composerMenuTrigger composerIconTrigger", "#addAttachment, .composerTrailing .composerIconTrigger { color: red; }", ["#addAttachment { color } styles only #addAttachment", ".composerTrailing .composerIconTrigger { color } styles only #selectPermission, #selectEffort"]],
+    ["a narrow-width size for the leading trigger", "composerMenuTrigger composerIconTrigger", "@media (max-width: 340px) { .composerLeading .composerIconTrigger { width: 24px; } }", [".composerLeading .composerIconTrigger { width } styles only #addAttachment"]],
+  ] as const) {
+    it(`rejects ${label}`, () => {
+      assert.deepEqual(composerIconTriggerViolations(composer(effortClass), css), expected)
     })
   }
 })

@@ -318,7 +318,7 @@ export function ComposerMenus({
           value={snapshot.permission}
           mode={snapshot.permission}
           choices={permissionChoices}
-          className="composerIconTrigger permission"
+          className="composerIconTrigger"
           select={(permission) => send({ type: "setPermission", permission })}
         >
           <MenuIcon name={permissionIcons[snapshot.permission]} />
@@ -332,7 +332,7 @@ export function ComposerMenus({
           disabled={!enabled}
           onValueChange={(value) => send({ type: "setEffort", effort: value })}
         >
-          <SelectTrigger id="selectEffort" className="effortTrigger" aria-label={`思考强度：${snapshot.effort}`} title={`思考强度：${snapshot.effort}`}>
+          <SelectTrigger id="selectEffort" className="composerMenuTrigger composerIconTrigger" aria-label={`思考强度：${snapshot.effort}`} title={`思考强度：${snapshot.effort}`}>
             <span>
               <svg className="effortSignal" data-effort={snapshot.effort} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
                 {CODEM_BUILTIN_INTELLIGENCE_TIERS.map((tier, index) => (
