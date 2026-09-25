@@ -106,7 +106,9 @@
 .turnChangeActions > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .turnChangeActions [data-slot="button"] { flex-shrink: 0; height: 28px; padding: 4px 8px; font-size: var(--detailFontSize); }
 
-.slashMenu { position: fixed; z-index: 30; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--composerShadow); overflow: hidden; background: var(--popover); font: 500 var(--uiFontSize)/1.6 var(--uiFont); }
+/* 斜杠菜单是锚在输入框上沿的 Popover：宽度跟随输入框（最多 480px），高度受上方可用空间约束，列表内部滚动。 */
+.slashMenu { z-index: 30; display: flex; flex-direction: column; box-sizing: border-box; width: min(480px, var(--radix-popover-trigger-width)); max-width: calc(100vw - 24px); max-height: var(--radix-popover-content-available-height); padding: 0; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--composerShadow); overflow: hidden; background: var(--popover); color: var(--ink); font: 500 var(--uiFontSize)/1.6 var(--uiFont); }
+.slashMenu [data-slot="command"] { min-height: 0; }
 .slashMenu [data-slot="command-list"] { max-height: min(340px, 40dvh); overflow-y: auto; }
 .slashMenu [data-slot="command-group"] { padding: 4px 6px; }
 .slashMenu [cmdk-group-heading] { color: var(--muted); font-size: var(--captionFontSize); padding: 6px 8px; }
@@ -116,7 +118,7 @@
 .slashName { min-width: 90px; font: 400 var(--codeFontSize)/18px var(--codeFont); }
 .slashLabel { min-width: 0; overflow-wrap: anywhere; font-size: var(--uiFontSize); }
 .slashLabel small { display: block; color: var(--muted); font-size: var(--captionFontSize); }
-.slashFooter { border-top: 1px solid var(--line); padding: 6px 12px; color: var(--muted); font-size: var(--captionFontSize); }
+.slashFooter { flex-shrink: 0; border-top: 1px solid var(--line); padding: 6px 12px; color: var(--muted); font-size: var(--captionFontSize); }
 .sessionCommandDialog.toolDialog { height: auto; max-height: calc(100dvh - 32px); }
 .sessionCommandConfirm.toolDialog { width: min(420px, calc(100vw - 24px)); border-radius: 12px; }
 .sessionCommandConfirm .toolDialogHeading { padding: 20px 48px 12px 20px; }

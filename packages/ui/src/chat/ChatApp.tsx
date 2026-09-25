@@ -447,11 +447,6 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
                 else setMentionIndex((index) => (index + (event.key === "ArrowDown" ? 1 : activeMention!.files.length - 1)) % activeMention!.files.length)
                 return
               }
-              if (event.key === "Escape" && slashOpen) {
-                event.preventDefault()
-                setSlashOpen(false)
-                return
-              }
               if (
                 event.key === "Enter" &&
                 !slashOpen &&
@@ -466,7 +461,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             <FileMentions search={activeMention} active={mentionIndex} onActive={setMentionIndex} onChoose={chooseMention} />
           ) : null}
           {slashOpen && slash !== null ? (
-            <SlashMenu snapshot={snapshot} query={slash} onClose={(focus) => {
+            <SlashMenu snapshot={snapshot} query={slash} anchor={prompt} onClose={(focus) => {
               setSlashOpen(false)
               if (focus) prompt.current?.focus()
             }} onChoose={chooseSlash} />

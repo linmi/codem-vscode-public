@@ -175,3 +175,9 @@ VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<he
 输入栏菜单删除了复制自 `chat/uiIcons.ts` 的图标路径和 `permissionIcons`，改为直接使用共享定义，外观不变；`chatApp.test.ts` 检查权限、附件和空间触发按钮用的是共享图标。
 
 目前两套图标并存：shadcn/ui 基础组件和后来写成 React 组件的控件使用 lucide-react；`uiIcons.ts` 保留迁入前 Webview 的线条图标，粗细与尺寸由所在容器的 CSS 决定。多数路径（check、chevron、search、copy 等）与 Lucide 同名图标形状不同，整体换成 lucide-react 会改变外观，所以本轮没有合并。
+
+## 输入栏斜杠菜单与 @ 提及（2026-09-25）
+
+斜杠菜单原本按 `getElementById("prompt")` 量输入框、自己监听窗口尺寸算 `position: fixed` 的底边和宽度，再在 document 上挂 pointerdown 判断点外收起，等于手写了一遍 Popover，且左边距固定 16px，编辑器宽栏里与居中的输入框对不齐。现在改用 shadcn Popover：`PopoverAnchor` 取自官方 new-york-v4 popover（MIT），以 `virtualRef` 锚定输入框，浮层贴在输入框上沿 8px、左对齐，宽度取输入框宽度与 480px 的较小值，高度受上方可用空间约束，列表内部滚动。点外收起由 Radix DismissableLayer 负责，不抢焦点；Esc 收起并把焦点还给输入框，草稿保留；选中命令后焦点交给它打开的界面（例如模型菜单的搜索框），关闭时不再把焦点拉回。输入框里原先重复处理的 Esc 分支删除。浮层带 `aria-label="会话命令"`，`data-testid="slashMenu"` 与 cmdk 结构不变，预览钩子沿用。
+
+斜杠菜单验证：`pnpm check`、`pnpm build:vscode` 通过；在独立端口的 VS Code 模拟预览中实际展开，900×700 浅色与深色、380×480 深色检查位置（间距 8px、左缘对齐、宽度 480px 或随输入框收窄、无横向溢出）、搜索过滤、方向键与 `aria-activedescendant`、Esc 焦点返回与草稿保留、点外收起、`/model` 转交模型菜单焦点，以及旁路提问进行中输入 `/` 展开并可选 `/ask`。控制台无 error。真实 Core 与真实 VS Code / JetBrains 未运行。
