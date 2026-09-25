@@ -62,8 +62,8 @@ object ProtocolCapabilities {
     fun validateInitialize(result: JsonValue, expectedCoreVersion: String): Initialization {
         val obj = result.asObject()
         val protocol = obj.optional("protocolVersion")
-        val protocolNumber = obj.numberOrNull("protocolVersion")?.toInt()
-        if (protocolNumber != PROTOCOL_VERSION) {
+        // Exactly the number 1, as preflight.ts compares it; 1.5 must not truncate to a supported version.
+        if (obj.numberOrNull("protocolVersion") != PROTOCOL_VERSION.toDouble()) {
             throw CodemError.Protocol(CodemError.Class.Capability, "CodeM App Server protocol ${protocol} is not supported; expected $PROTOCOL_VERSION")
         }
         val capabilities = obj.required("capabilities").asObject()

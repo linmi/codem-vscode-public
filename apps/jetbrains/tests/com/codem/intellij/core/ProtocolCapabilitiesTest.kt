@@ -18,6 +18,15 @@ class ProtocolCapabilitiesTest {
         assertEquals(ProtocolCapabilities.PROTOCOL_VERSION, initialized.protocolVersion)
     }
 
+    /** preflight.ts 用 `!== 1` 比较；此前 Kotlin 先 toInt，1.5 会被当成协议 1 接受。 */
+    @Test
+    fun requiresProtocolVersionToBeExactlyOne() {
+        ProtocolCapabilities.validateInitialize(withField("protocolVersion", JsonValue.NumberValue(1.0, "1.0")), RuntimeLocator.CORE_VERSION)
+        for (value in listOf(JsonValue.NumberValue(1.5, "1.5"), JsonValue.NumberValue(1.9, "1.9"), JsonValue.Text("1"), JsonValue.Null, null)) {
+            assertRejected("protocolVersion=$value", withField("protocolVersion", value))
+        }
+    }
+
     @Test
     fun requiresEveryBooleanCapabilityToBeTrue() {
         for (replacement in listOf(null, JsonValue.Bool(false), JsonValue.Text("true"), JsonValue.Null)) {
@@ -43,6 +52,9 @@ class ProtocolCapabilitiesTest {
         val error = assertThrows(CodemError.Protocol::class.java, { ProtocolCapabilities.validateInitialize(result, RuntimeLocator.CORE_VERSION) }, name)
         assertEquals(CodemError.Class.Capability, error.errorClass, name)
     }
+
+    private fun withField(key: String, value: JsonValue?): JsonValue.ObjectValue =
+        JsonValue.ObjectValue(if (value == null) handshake.fields - key else handshake.fields + (key to value))
 
     private fun withCapability(group: String, key: String, value: JsonValue?): JsonValue.ObjectValue = withCapabilities { capabilities ->
         val fields = LinkedHashMap(capabilities.getValue(group).asObject().fields)
