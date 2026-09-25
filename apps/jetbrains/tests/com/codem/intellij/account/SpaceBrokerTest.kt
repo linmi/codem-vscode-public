@@ -95,9 +95,10 @@ class SpaceBrokerTest {
     @Test
     @DisabledOnOs(OS.WINDOWS)
     fun unexpectedNotificationFailsThePendingRequestWithoutKillingTheReader() {
-        val uncaught = CopyOnWriteArrayList<Throwable>()
+        // 默认处理器是全局的：同一 JVM 里其他测试遗留的线程也可能在这段时间抛出，只认 broker 读线程自己的异常。
+        val uncaught = CopyOnWriteArrayList<Pair<String, Throwable>>()
         val previous = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { _, error -> uncaught += error }
+        Thread.setDefaultUncaughtExceptionHandler { thread, error -> uncaught += thread.name to error }
         try {
             // 脚本 broker 收到 initialize 后只回一条通知，然后一直等 stdin 关闭。
             val script = """read line; printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/message","params":{}}'; exec cat >/dev/null"""
@@ -114,7 +115,8 @@ class SpaceBrokerTest {
             assertTrue(elapsed < 3_000, "broker request took ${elapsed}ms to fail")
             val deadline = System.currentTimeMillis() + 3_000
             while (Thread.getAllStackTraces().keys.any { it.name == "codem-space-broker" } && System.currentTimeMillis() < deadline) Thread.sleep(10)
-            assertEquals(emptyList<Throwable>(), uncaught)
+            val readerFailures = uncaught.filter { (name, _) -> name == "codem-space-broker" }
+            assertEquals(emptyList<Pair<String, Throwable>>(), readerFailures, "broker reader died: ${readerFailures.map { it.second.stackTraceToString() }}")
         } finally {
             Thread.setDefaultUncaughtExceptionHandler(previous)
         }
