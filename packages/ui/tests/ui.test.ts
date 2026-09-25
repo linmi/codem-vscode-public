@@ -10,7 +10,7 @@ import { activityTitle } from "../src/chat/toolPresentation.ts"
 import { workingStatus } from "../src/chat/workingStatus.ts"
 import { commandUnavailable, slashQuery } from "../src/chat/slashCommands.ts"
 import { draftRetention } from "../src/chat/draftRetention.ts"
-import { composerMessageAction, composerTypingLocked, mentionQuery, sendOnEnter } from "../src/chat/composerInput.ts"
+import { composerMessageAction, mentionQuery, sendOnEnter } from "../src/chat/composerInput.ts"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -49,13 +49,6 @@ describe("@codem/ui host contract", () => {
       }),
       null,
     )
-  })
-
-  it("keeps typing available while the turn is running", () => {
-    assert.equal(composerTypingLocked("running"), false)
-    assert.equal(composerTypingLocked("ready"), false)
-    assert.equal(composerTypingLocked("sending"), true)
-    assert.equal(composerTypingLocked("stopping"), true)
   })
 
   it("sends a follow-up while a turn is running and does not consult background processes", () => {

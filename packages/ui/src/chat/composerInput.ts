@@ -18,15 +18,6 @@ export function sendOnEnter(sendKey: SendKey, shift: boolean, modified: boolean,
 }
 
 /**
- * 任务运行中仍可继续输入（草稿保留、回车作为补充指令）；
- * 仅在发送已提交或正在停止这两个瞬态锁定，避免与受理回执竞争。
- * 后台进程不参与这里的判断。
- */
-export function composerTypingLocked(phase: ChatSnapshot["phase"]): boolean {
-  return phase === "sending" || phase === "stopping"
-}
-
-/**
  * 普通输入在当前阶段交给谁。
  * 轮次生成中，新文字是补充指令，不要求先停下后台进程。
  * 轮次空闲时才是一条新消息。发送中和停止中先不投递。

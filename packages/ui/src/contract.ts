@@ -337,18 +337,6 @@ export const permissions: readonly { value: CodemPermissionMode; label: string; 
   { value: "yolo", label: "完全访问", description: "跳过工具权限审批" },
 ]
 
-export const efforts: readonly { value: CodemBuiltinIntelligence; label: string }[] = [
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
-  { value: "xhigh", label: "最高" },
-]
-
-export const themes: readonly { value: ChatTheme; label: string }[] = [
-  { value: "light", label: "浅色" },
-  { value: "dark", label: "深色" },
-]
-
 /**
  * A08：重试、恢复上次会话、加载更早消息三个条件入口只看这里。
  * 首屏与 Host 未响应时三项都为 false；Host 残留的旗标也不会让入口出现在不该出现的状态里。
@@ -419,7 +407,7 @@ const chatPhases: readonly ChatPhase[] = [
 ]
 
 /** 保留 VS Code 现网 phase。配置、读历史和旁路提问各自有界面，不并进连接中或就绪。 */
-export function normalizePhase(value: unknown): ChatPhase {
+function normalizePhase(value: unknown): ChatPhase {
   if (typeof value === "string" && chatPhases.some((phase) => phase === value)) return value as ChatPhase
   return "disconnected"
 }
