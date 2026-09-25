@@ -34,7 +34,14 @@ export type ChatPhase =
 
 export type ChatTheme = "light" | "dark"
 export type WorkMode = "default" | "plan"
-export type ThreadOperation = "rename" | "fork" | "archive" | "unarchive" | "delete"
+/** 会话管理操作的唯一清单：动作校验、斜杠命令路由和确认面板都从这里判断。 */
+const threadOperations = ["rename", "fork", "archive", "unarchive", "delete"] as const
+export type ThreadOperation = (typeof threadOperations)[number]
+
+export function isThreadOperation(value: unknown): value is ThreadOperation {
+  return threadOperations.some((operation) => operation === value)
+}
+
 export type PanelKind = "approval" | "question" | "plan" | "rewind"
 
 export interface ComposerChoice {
@@ -572,7 +579,7 @@ export function parseUiAction(value: unknown): Record<string, unknown> {
   }
   if (record.type === "manageThread" && keys.length === 5) {
     const operation = record.operation
-    if (!["rename", "fork", "archive", "unarchive", "delete"].includes(String(operation))) throw new Error("Invalid CodeM action")
+    if (!isThreadOperation(operation)) throw new Error("Invalid CodeM action")
     if (typeof record.name !== "string" || record.name.length > 160) throw new Error("Invalid CodeM action")
     if (operation === "rename" ? !record.name.trim() : record.name !== "") throw new Error("Invalid CodeM action")
     return {

@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, it } from "node:test"
-import { asSnapshot, initialSnapshot, isSignedIn, parseUiAction, visibleControls } from "../src/contract.ts"
+import { asSnapshot, initialSnapshot, isSignedIn, isThreadOperation, parseUiAction, visibleControls } from "../src/contract.ts"
 import { welcomeState } from "../src/chat/welcomeState.ts"
 import { lastActivityId, timelineGroups, workGroupState } from "../src/chat/timelineGroups.ts"
 import { activityTitle } from "../src/chat/toolPresentation.ts"
 import { workingStatus } from "../src/chat/workingStatus.ts"
-import { commandUnavailable, slashQuery } from "../src/chat/slashCommands.ts"
+import { builtinSlashCommands, commandUnavailable, slashQuery } from "../src/chat/slashCommands.ts"
 import { draftRetention } from "../src/chat/draftRetention.ts"
 import { composerMessageAction, mentionQuery, sendOnEnter } from "../src/chat/composerInput.ts"
 
@@ -115,6 +115,18 @@ describe("@codem/ui host contract", () => {
     assert.throws(() => parseUiAction({ type: "send", text: "hello", requestId: "req-1", skillName: "review", attachmentIds: ["file-1"] }))
     assert.throws(() => parseUiAction({ type: "setWorkMode", workMode: "normal" }))
     assert.throws(() => parseUiAction({ type: "addDirectory", path: "/etc" }))
+  })
+
+  it("uses one thread operation list for validation, slash routing and the confirm panel", () => {
+    for (const operation of ["rename", "fork", "archive", "unarchive", "delete"]) {
+      assert.equal(isThreadOperation(operation), true, operation)
+      assert.ok(builtinSlashCommands.some((command) => command.id === operation), operation)
+      parseUiAction({ type: "manageThread", operation, threadId: "thread-1", name: operation === "rename" ? "新名字" : "", requestId: "req-1" })
+    }
+    for (const value of ["clear", "compact", "Rename", "", null, ["rename"]]) {
+      assert.equal(isThreadOperation(value), false, String(value))
+      assert.throws(() => parseUiAction({ type: "manageThread", operation: value, threadId: "thread-1", name: "", requestId: "req-1" }), /Invalid CodeM action/u, String(value))
+    }
   })
 
   it("does not import Node, app-server, history or editor hosts", async () => {

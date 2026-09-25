@@ -7,6 +7,7 @@ import {
   asSnapshot,
   isBusy,
   isSignedIn,
+  isThreadOperation,
   parseUiAction,
   visibleControls,
   type ChatSnapshot,
@@ -34,6 +35,9 @@ import { WelcomeView } from "./WelcomeView.tsx"
 import { workingStatus } from "./workingStatus.ts"
 import { commandUnavailable, inputModes, inputUnavailable, slashQuery } from "./slashCommands.ts"
 import { uiIcon } from "./uiIcons.ts"
+
+/** 在确认/目录面板里完成的斜杠命令；会话管理操作另由 isThreadOperation 判断。 */
+const sessionPanelCommands: readonly string[] = ["skills", "catalog", "directories", "compact", "rewind", "clear"]
 
 /**
  * 产品聊天壳：对照 VS Code 现网 html.ts + composerView，不是调试台。
@@ -217,7 +221,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     else if (id === "mode") setOpenMenu("workMode")
     else if (id === "history") post({ type: snapshot.history.open ? "closeHistory" : "showHistory" })
     else if (id === "sendKey") post({ type: "setSendKey", sendKey: snapshot.sendKey === "enter" ? "modEnter" : "enter" })
-    else if (["skills", "catalog", "directories", "compact", "rewind", "clear", "rename", "fork", "archive", "unarchive", "delete"].includes(id)) {
+    else if (sessionPanelCommands.includes(id) || isThreadOperation(id)) {
       setSessionRequest({ kind: "command", command: id })
     }
   }
