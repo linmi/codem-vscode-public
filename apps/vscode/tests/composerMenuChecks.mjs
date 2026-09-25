@@ -120,6 +120,12 @@ async function fixedMenuStyleChecks(page) {
       })
       if (geometry.width !== width || geometry.radius !== '14px' || geometry.padding !== '8px' || geometry.itemRadius !== '10px') throw new Error(`${id}: original picker dimensions lost ${JSON.stringify(geometry)}`)
       if (id === 'selectPermission' && await menu.locator('.composerMenuIcon').count() !== 3) throw new Error('Permission row icons missing')
+      // Icon and label share one row: the icon sits left of the text and overlaps it vertically.
+      const stacked = await menu.evaluate(el => [...el.querySelectorAll('[data-slot="select-item"]')].filter(item => {
+        const icon = item.querySelector('.composerMenuIcon')?.getBoundingClientRect(), text = item.querySelector('.composerChoiceText')?.getBoundingClientRect()
+        return icon && text && (icon.right > text.left || icon.bottom <= text.top || icon.top >= text.bottom)
+      }).length)
+      if (stacked) throw new Error(`${id}: ${stacked} row icons sit outside their text row`)
       await menu.getByRole('button', { name: '关闭菜单', exact: true }).click()
       await menu.waitFor({ state: 'hidden' })
       await page.waitForFunction(id => document.activeElement?.id === id, id)

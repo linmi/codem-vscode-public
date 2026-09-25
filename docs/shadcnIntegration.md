@@ -190,3 +190,5 @@ VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<he
 - 结果：每敲一个字换一次请求，新结果到达前继续显示上一批，菜单不闪；只认本次提及发出的请求，Host 清空结果（切换工作区、空间、会话）即收起；搜索中和出错显示状态行，没有文件时不显示菜单。
 
 提及列表验证：`pnpm check`、`pnpm build:vscode`、`pnpm --filter @codem/ui build` 通过；独立端口的 VS Code 模拟预览中，900×700 浅色与深色、380×480 深色实际展开，检查位置、10 项时内部滚动与高亮滚动到可见、↑/↓ 循环、`aria-activedescendant` 与选中项一致、Enter / Tab 选中（发出 `selectFile`、去掉 `@query`、不发送消息、焦点留在输入框）、Esc 收起且不再发搜索、再输入重新展开、悬停与点选、点外收起、错误状态与空结果。多项结果由页面注入同一请求 id 的模拟回执。控制台无 error。真实 Core 与真实 VS Code / JetBrains 未运行，读屏软件未实测。
+
+权限菜单每行的图标原本单独占一行、文字落到下一行：图标与 `.composerChoiceText` 都在 Radix `ItemText` 这个行内 span 里，而 `.composerChoiceText` 是块级 flex，被挤到图标下方；迁入 `@codem/ui` 前的 VS Code 副本就是如此。现在 `.composerChoiceMenu` 选项的 `ItemText` 排成一行（居中对齐、间距 8px），图标不收缩，与迁移前原生权限选择器一致；无图标的附件、工作模式菜单外观不变。`composerMenuChecks.mjs` 增加“图标在文字左侧且同一行”的检查。验证：独立端口的 VS Code 模拟预览中 380×700 浅色与深色实际展开权限、附件、工作模式菜单，三行图标均在文字左侧同一行、垂直居中，宽度与 Esc 焦点返回不变；`stylesheetCascade.test.ts` 通过。

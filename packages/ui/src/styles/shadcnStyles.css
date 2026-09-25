@@ -59,7 +59,7 @@
 .composerMenuTrigger[data-slot]:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
 .composerMenuTrigger[data-slot] > svg { display: none; }
 .composerMenuTrigger.composerIconTrigger { width: 28px; padding: 4px; }
-.composerMenuIcon { display: inline-flex; }
+.composerMenuIcon { display: inline-flex; flex-shrink: 0; }
 .composerMenuIcon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .composerPickerMenu { width: 280px; max-width: calc(100vw - 24px); padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--popover) 70%, transparent); backdrop-filter: blur(40px) saturate(150%); box-shadow: var(--composerShadow); color: var(--ink); font: 500 var(--uiFontSize)/1.5 var(--uiFont); scrollbar-width: thin; }
 .composerWorkModeMenu, .effortMenu { width: 180px; }
@@ -73,7 +73,8 @@
 .composerChoiceText small { font-size: var(--captionFontSize); color: var(--muted); white-space: normal; }
 .composerChoiceMenu [data-slot="select-item"] { padding: 7px 26px 7px 8px; border-radius: 10px; font-weight: 500; }
 .composerChoiceMenu [data-slot="select-item"] + [data-slot="select-item"], .effortMenu [data-slot="select-item"] + [data-slot="select-item"] { margin-top: 2px; }
-.composerChoiceMenu [data-slot="select-item"] > span:last-child { flex: 1; min-width: 0; }
+/* 选项文字在 Radix 的 ItemText 里；排成一行，权限图标与文字并排，不被纵向的 .composerChoiceText 挤到上一行。 */
+.composerChoiceMenu [data-slot="select-item"] > span:last-child { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .composerChoiceMenu [data-slot="select-item"][data-state="checked"] { background: var(--soft); }
 .composerPickerMenu [data-slot="select-item-indicator"] svg, .composerCatalogMenu [cmdk-item] > svg { width: 12px; height: 12px; color: var(--ink); }
 .composerCatalogMenu { display: flex; flex-direction: column; max-height: min(420px, var(--radix-popover-content-available-height)); }
