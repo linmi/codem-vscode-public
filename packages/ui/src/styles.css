@@ -1,5 +1,8 @@
+/* 层序：元素默认样式（base）排在 Tailwind utilities 之前；无层的产品规则仍高于所有层。 */
+@layer theme, base, utilities;
 @import "./styles/synaraTokens.css";
 @import "./styles/shadcnStyles.css";
+@import "./styles/base.css" layer(base);
 @import "./styles/account.css";
 @import "./styles/markdown.css";
 @import "./styles/welcome.css";

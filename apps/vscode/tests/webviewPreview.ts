@@ -28,7 +28,7 @@ createServer((request, response) => {
     const theme = search.theme === "dark" ? "vscode-dark" : "vscode-light"
     let html = chatHtml({ surface: "editor", script: "/webview.js", style: "/webview.css", logo: "/logo.svg", cspSource: `http://127.0.0.1:${port}` })
     const nonce = html.match(/nonce="([^"]+)"/)![1]
-    html = html.replace("</head>", '<link rel="stylesheet" href="/preview.css"></head>').replace("<body>", `<body class="${theme}"><aside id="previewNavigation" class="previewNavigation" aria-label="模拟预览导航"></aside><script nonce="${nonce}" src="/previewNavigation.js"></script>`)
+    html = html.replace('<link rel="stylesheet" href="/webview.css">', '<link rel="stylesheet" href="/preview.css"><link rel="stylesheet" href="/webview.css">').replace("<body>", `<body class="${theme}"><aside id="previewNavigation" class="previewNavigation" aria-label="模拟预览导航"></aside><script nonce="${nonce}" src="/previewNavigation.js"></script>`)
     response.setHeader("Content-Type", "text/html; charset=utf-8"); response.end(html); return
   }
   const route = routes[url.pathname]

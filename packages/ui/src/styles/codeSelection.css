@@ -8,5 +8,6 @@
 .codeSelectionName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .codeSelectionRange { flex-shrink: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
 .codeSelectionPin[data-slot="button"], .codeSelectionRemove[data-slot="button"] { flex-shrink: 0; width: 26px; padding: 6px; color: var(--muted); }
+.codeSelectionPin[data-slot="button"]:hover:not(:disabled), .codeSelectionRemove[data-slot="button"]:hover:not(:disabled) { color: var(--ink); }
 .codeSelectionPin svg, .codeSelectionRemove svg { width: 13px; height: 13px; }
 .codeSelectionError { display: block; margin-top: 4px; font-size: var(--detailFontSize); color: var(--vscode-errorForeground, #d54040); }

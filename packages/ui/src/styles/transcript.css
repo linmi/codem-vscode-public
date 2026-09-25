@@ -5,7 +5,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .message[data-role="user"]:hover .messageActions, .message[data-role="user"]:focus-within .messageActions { opacity: 1; }
 .copyMessage { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border-radius: 0; color: var(--muted); }
 .copyMessage svg { width: 11.25px; height: 11.25px; }
-.copyMessage:hover:not(:disabled) { background: transparent; }
+.copyMessage:hover:not(:disabled) { background: transparent; color: var(--ink); }
 .copyFeedback { font-size: var(--captionFontSize); color: var(--muted); }
 .workGroupContent .messageActions { display: none; }
 .workGroupContent .activityStatus { margin-left: 4px; }
@@ -21,6 +21,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .turnStatus p { margin: 0; }
 .app[data-phase="configuring"] .composerToolbar .optionButton:disabled, .app[data-phase="configuring"] .composerToolbar .iconButton:disabled { opacity: 1; }
 .jumpLatest { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: var(--popover); box-shadow: var(--composerShadow); color: var(--muted); }
+.jumpLatest:hover:not(:disabled) { color: var(--ink); }
 .jumpLatest svg { transform: rotate(180deg); }
 
 .transcriptLoading { width: 100%; max-width: var(--chatWidth); margin: auto; padding: 40px 16px; color: var(--muted); font-size: var(--uiFontSize); text-align: center; }
@@ -50,6 +51,7 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 
 .messageArtifacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 8px; margin: 8px 0 12px; }
 .artifactCard { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; text-align: left; background: var(--surface); min-width: 0; }
+.artifactCard:hover:not(:disabled) { background: var(--hover); }
 .artifactIcon { display: flex; color: var(--muted); }
 .artifactCard > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .artifactCard strong { font-size: var(--uiFontSize); font-weight: 500; }

@@ -1,0 +1,30 @@
+/*
+ * 元素级默认样式。styles.css 以 layer(base) 引入，层序为 theme → base → utilities，
+ * 所以 shadcn 组件的变体类（边框、底色、悬停、禁用透明度）能覆盖这里的重置。
+ * 无层的产品类规则仍高于所有层：给按钮设了静止颜色或底色的组件规则，要自己写出悬停状态。
+ * 不要把元素选择器写回无层样式，它会压过全部 Tailwind 工具类；stylesheetCascade.test.ts 会拒绝。
+ */
+* { box-sizing: border-box; }
+html { font-size: 16px; }
+html, body, #codem-root {
+  margin: 0;
+  min-height: 100%;
+  height: 100%;
+  background: var(--surface);
+  color: var(--ink);
+}
+body {
+  padding: 0;
+  font: 500 var(--uiFontSize)/1.5 var(--uiFont);
+  -webkit-font-smoothing: antialiased;
+}
+button, textarea { font: inherit; color: inherit; }
+/* 宽度清零，保留实线与 --line：shadcn 的 border 类只给宽度，颜色对应 shadcn 基础层的 border-border。 */
+button { border: 0 solid var(--line); cursor: pointer; background: transparent; transition: background-color 150ms, color 150ms; }
+button:disabled { opacity: .4; cursor: default; }
+button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 2px; }
+button:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}

@@ -4,6 +4,7 @@
 .userCodeCard:first-child { margin-top: 0; }
 .userCodeHeader { display: flex; align-items: center; padding: 3px 4px; gap: 2px; }
 .userCodeHeader button { height: 28px; font: 500 var(--uiFontSize)/20px var(--uiFont); color: var(--muted); border-radius: 5px; }
+.userCodeHeader button:hover:not(:disabled) { color: var(--ink); }
 .userCodeHeader .userCodeToggle { flex: 1; min-width: 0; padding: 4px 6px; gap: 7px; justify-content: flex-start; }
 .userCodeHeader svg { width: 14px; height: 14px; }
 .userCodeFilename { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink); }

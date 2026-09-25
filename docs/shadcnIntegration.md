@@ -10,7 +10,7 @@
 - 保留官方 Radix 结构、键盘和焦点行为；cn 改用本地 clsx/tailwind-merge，字号和颜色由 CodeM 主题适配。
 - React / ReactDOM 19.3.0、radix-ui 1.6.7、Tailwind 4.3.3；精确版本及完整依赖以 package.json / pnpm-lock.yaml 为准。
 - `packages/ui/components.json` 与 `packages/ui/tsconfig.json` 的 `@/*` 路径已配置。后续组件沿用这个入口，不新增另一套组件库。
-- Tailwind 仅引入 theme/utilities，不注入全局 Preflight；`packages/ui/src/styles/shadcnStyles.css` 用 `@source "../"` 扫描整个 `packages/ui/src`。两个宿主编译同一入口：VS Code 的 `webview/styles.css` 引入 `@codem/ui/styles.css`，经同一 Tailwind 流程编译后只追加 `body.vscode-*` 限定的主题桥接。
+- Tailwind 仅引入 theme/utilities，不注入全局 Preflight；元素默认样式在 `styles/base.css`，层序为 theme → base → utilities，无层的产品规则仍高于所有层；`packages/ui/src/styles/shadcnStyles.css` 用 `@source "../"` 扫描整个 `packages/ui/src`。两个宿主编译同一入口：VS Code 的 `webview/styles.css` 引入 `@codem/ui/styles.css`，经同一 Tailwind 流程编译后只追加 `body.vscode-*` 限定的主题桥接。
 - CSP：Select 视口样式从页面脚本读取 nonce；Dialog/Select 滚动锁样式经 get-nonce 取 nonce，由 `webview/main.ts` 与预览导航入口各自设置。没有放开 unsafe-inline 或外部脚本。
 - 预览导航使用独立 React root 和独立 bundle，直接复用 `@codem/ui` 的 Button、Collapsible、Select；卸载页面时清理；正式 Host 不加载预览脚本。
 
@@ -150,7 +150,19 @@ VS Code 改为发布共享 `@codem/ui` 样式，删除 `webview/styles/` 与各�
 
 共享 Select 视口此前不带 nonce，正式 Webview 每次打开输入栏 Select 都触发一次 CSP 拒绝；现在沿用页面 nonce。预览场景主题选择器同时改用共享组件，`previewNavigationChecks.mjs` 的控制台错误断言因此也覆盖共享 Select 的 nonce。
 
-已知未改：共享 `product.css` 的无层 `button { background: transparent; color: inherit }` 比 Tailwind `@layer utilities` 优先，shadcn 默认按钮的 `bg-primary` 虽已进入产物但不会着色，两端相同，需另行处理层级。
+当时未改：共享 `product.css` 的无层 `button { background: transparent; color: inherit }` 比 Tailwind `@layer utilities` 优先，shadcn 默认按钮的 `bg-primary` 虽已进入产物但不会着色，两端相同。已由下节处理。
+
+## 样式层级（2026-09-25）
+
+问题：元素默认样式（`*`、`html`/`body`、`button` 重置与悬停、焦点、`[hidden]`、减少动态效果）写在无层的 `product.css`，无层规则总是压过 `@layer utilities`，shadcn Button 的 outline 边框、`bg-primary`、`bg-destructive` 与 `hover:bg-accent` 全部失效；`toolPanels.css` 只在 `.toolDialog` 内补回，`account.css` 用 `!important`。发送/停止按钮的 `!important` 让紧随其后的悬停规则永远不生效。`product.css` 里还有九组同选择器规则被后文静默覆盖，以及原生 `<details>` 替换 Radix Collapsible 后遗留的 `[data-slot="collapsible-trigger"]` 死规则。
+
+处理：元素默认样式移入 `styles/base.css`，`styles.css` 先声明 `@layer theme, base, utilities` 再以 `layer(base)` 引入；按钮重置保留 `0 solid var(--line)`，shadcn 的 `border` 类只给宽度，颜色即 shadcn 基础层的 `border-border`。`main`/`footer` 改为 `#scrollArea` 与 `.app > footer`，不再以元素类型匹配。删除 `.toolDialog` 内补回的 outline、destructive、悬停及字号规则和 `account.css` 的 `!important`；Button 的 `text-sm` 由 `[data-slot="button"]` 统一为 `--uiFontSize`，与 Select、Command 的适配方式一致。原先依靠无层全局悬停（特异性高于组件类）变深的静默色按钮，改在各自规则里写出悬停：`.iconButton`、`.textButton`、`.composerModeBar > button`、`.composerMenuTrigger`、`.composerMenuClose`、`.toolTabs` 标签、`.codeSelectionPin/Remove`、`.userCodeHeader button`、`.copyMessage`、`.jumpLatest`、`.artifactCard`；`.decisionChoice` 去掉多余的透明底色，`.primaryButton` 与发送/停止按钮共用悬停。重复规则合并为最终生效的一条，删除 collapsible 死规则和被 base 覆盖的 `welcome.css` 减少动态效果 `!important`。
+
+VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<head>` 最前，排在 base 之前，宿主的 `body { padding: 0 20px }` 不会盖过共享 base。VS Code 模拟预览的 `preview.css` 原本追加在 `webview.css` 之后，其 `vscodeHost` 层会排到 base 之后；`webviewPreview.ts` 改为在 `webview.css` 之前引入，与真实宿主顺序一致。JetBrains 注入的是无层 `!important` 背景色和前景色，不受影响。
+
+可见差异：outline 按钮有 1px `--line` 边框和表面底色（插件管理、登录中取消、工具对话框外的次要按钮）；default 按钮为 primary 底色（插件安装、会话搜索）；destructive 为实心错误色白字，工具对话框内原来的描边样式随补丁一起删除，所有对话框一致；shadcn 按钮禁用透明度按设计为 0.5（原生按钮仍为 0.4）；键盘焦点为 shadcn 的 3px 焦点环，工具对话框和输入栏触发器保留原有描边；退出登录悬停时保持错误色，不再变成正文色；停止按钮悬停变浅生效；深色下 ghost 悬停底色改为 `--soft`（与 `--hover` 相差约 1% 透明度）。菜单、账户登录按钮、活动行布局与此前一致。
+
+门禁见 [qualityGates.md](qualityGates.md#样式层级门禁)。
 
 ## 图标来源（2026-09-25）
 

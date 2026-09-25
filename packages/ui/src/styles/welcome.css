@@ -20,6 +20,3 @@
 .welcome[data-motion="settled"] .welcomeMark { animation: welcomeReady 650ms ease-out both; }
 @keyframes welcomePixelPulse { 0%, 100% { opacity: 1; } 45% { opacity: .32; } }
 @keyframes welcomeReady { 0% { opacity: .65; filter: brightness(1); } 45% { opacity: 1; filter: brightness(1.22); } 100% { opacity: 1; filter: brightness(1); } }
-@media (prefers-reduced-motion: reduce) {
-  .welcome .welcomePixel, .welcome .welcomeMark { animation: none !important; }
-}

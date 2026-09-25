@@ -1,5 +1,7 @@
 /* Model the VS Code webview host defaults below application styles.
-   This exposes body-padding shifts caused by modal scroll locking in previews. */
+   This exposes body-padding shifts caused by modal scroll locking in previews.
+   VS Code prepends its defaults as the first cascade layer, so webviewPreview.ts links this file before webview.css;
+   linked after it, this layer would outrank the shared base layer. */
 @layer vscodeHost { body { margin: 0; padding: 0 20px; } }
 /* VS Code also injects theme colors as --vscode-* on <html>. The shared tokens only carry light fallbacks for the two
    theme-derived ones, so the fixture supplies them per theme the way the host would. */

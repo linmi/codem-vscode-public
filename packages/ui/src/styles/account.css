@@ -8,8 +8,8 @@
 .accountLoginContent h1 { margin: 0 0 10px; font-size: 22px; line-height: 1.4; font-weight: 600; }
 .accountLoginContent p { font-size: var(--chatFont); line-height: 1.6; color: var(--muted); }
 .accountLoginActions { margin-top: 28px; }
-.accountLoginActions .accountLoginButton { width: 100%; min-height: 38px; border-radius: 8px; background: var(--vscode-button-background, #6554ee) !important; color: var(--vscode-button-foreground, #fff) !important; gap: 8px; }
-.accountLoginActions .accountLoginButton:hover { background: var(--vscode-button-hoverBackground, #5546d3) !important; }
+.accountLoginActions .accountLoginButton { width: 100%; min-height: 38px; border-radius: 8px; background: var(--vscode-button-background, #6554ee); color: var(--vscode-button-foreground, #fff); gap: 8px; }
+.accountLoginActions .accountLoginButton:hover { background: var(--vscode-button-hoverBackground, #5546d3); }
 .accountFootnote, .accountLoginContent .accountFootnote { font-size: var(--detailFontSize); color: var(--muted); }
 .accountNotice { margin-top: 20px; font-size: var(--uiFontSize); overflow-wrap: anywhere; }
 .accountHeader { min-height: 44px; padding: 6px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }

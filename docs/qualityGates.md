@@ -62,6 +62,10 @@ Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。�
 
 边界：服务端渲染不包含 portal 与交互后才出现的内容（cmdk 菜单项、对话框内部、Select 选项），这些步骤只能在浏览器中逐场景打开验证；运行时在浏览器中等待超过 3 秒仍会抛出 `Preview surface did not mount`。门禁不启动浏览器，不新增依赖。
 
+## 样式层级门禁
+
+`packages/ui/tests/stylesheetCascade.test.ts` 编译真实的 `@codem/ui/styles.css`，在 PostCSS 语法树上检查三件事：`@layer base` 排在 Tailwind `utilities` 之前；只按元素类型（或 `*`）匹配的规则不能无层，否则会压过全部工具类（伪类参数里的类名不算限定，只定义自定义属性的令牌规则除外）；`!important` 只允许出现在 base 层（`[hidden]` 与减少动态效果）。另断言按钮重置、悬停、`html`/`body`、`[hidden]` 确实编译进 base 层。反例覆盖无层的元素重置、`*` 重置、`@media` 内的元素悬停、类名只出现在 `:has()` 里的元素规则、产品规则与其他层里的 `!important`、base 排到 utilities 之后；正例覆盖 base 层规则、限定作用域的组件规则、`:root` 令牌与 keyframes。修复前的 main 编译结果在该检查下有 25 处违规。检查不判断组件规则是否合理覆盖了 shadcn 样式，这部分仍靠评审和界面实测。进入 `pnpm check`。
+
 ## 结构整理门禁
 
 评审要求：按变化原因组织职责；状态只有一个所有者；接口只暴露必要能力；入口仅组装和协调。禁止用整个 Controller、万能 context 或共享可变对象连接拆出的模块。每轮写清不变量，原子迁移调用方并删除旧实现，不预建通用框架，不以行数阈值判定设计质量。

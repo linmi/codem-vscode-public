@@ -13,6 +13,7 @@
 .toolPanelNotice { margin: 0 24px 12px; color: var(--muted); overflow-wrap: anywhere; max-height: 80px; flex-shrink: 0; overflow: auto; }
 .toolTabs > [data-slot="tabs-list"] { display: flex; flex-shrink: 0; width: auto; height: 38px; margin: 0 24px 16px; padding: 3px; gap: 3px; background: var(--soft); border: 1px solid var(--line); border-radius: 9px; }
 .toolTabs [data-slot="tabs-trigger"] { height: 30px; padding: 4px 8px; font: 500 var(--uiFontSize)/20px var(--uiFont); color: var(--muted); border-radius: 6px; }
+.toolTabs [data-slot="tabs-trigger"]:hover:not(:disabled) { color: var(--ink); }
 .toolTabs [data-slot="tabs-trigger"][data-state="active"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px #00000012; }
 .toolCount { font-size: var(--captionFontSize); min-width: 16px; line-height: 16px; border-radius: 4px; background: var(--soft); color: var(--muted); }
 .toolTabs > .toolTabBody { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 4px 24px 24px; scrollbar-gutter: stable; }
@@ -27,7 +28,6 @@
 .sessionToolSection [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sessionToolActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .sessionToolActions > [data-slot="select-trigger"] { width: auto; flex: 1; }
-.toolDialog [data-slot="button"] { font-size: var(--uiFontSize); }
 .toolDialog [data-slot="input"], .toolDialog [data-slot="textarea"] { box-sizing: border-box; color: var(--ink); font: inherit; border: 1px solid var(--line); min-width: 0; background: var(--surface); }
 .toolDialog [data-slot="textarea"] { min-height: 144px; resize: vertical; padding: 12px; border-radius: 9px; }
 .catalogRows { container-type: inline-size; margin: 0; overflow-wrap: anywhere; }
@@ -86,9 +86,6 @@
   .toolTabs [data-slot="tabs-trigger"] { gap: 4px; padding: 4px; }
 }
 
-.toolDialog [data-slot="button"][data-variant="outline"] { border: 1px solid var(--line); background: var(--surface); }
-.toolDialog [data-slot="button"][data-variant="destructive"] { color: var(--vscode-errorForeground, #d54040); background: var(--surface); border: 1px solid color-mix(in srgb, var(--vscode-errorForeground, #d54040) 32%, var(--line)); }
-.toolDialog [data-slot="button"]:hover:not(:disabled) { background: var(--soft); }
 .toolDialog [data-slot="button"]:focus-visible, .toolTabs [data-slot="tabs-trigger"]:focus-visible { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 2px; }
 
 .turnChanges { container-type: inline-size; margin: 12px 0 24px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; font: 500 var(--uiFontSize)/1.6 var(--uiFont); }
