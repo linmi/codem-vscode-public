@@ -61,6 +61,7 @@ describe("@codem/contracts package integrity", () => {
       "core/approvalRequest.json",
       "core/interactionReplies.json",
       "core/knownNotifications.json",
+      "core/jsonText.json",
       "webview/sendAction.json",
       "webview/panelReply.json",
       "webview/initialSnapshot.json",
@@ -151,6 +152,21 @@ describe("core transport samples", () => {
   it("keeps the known notification set identical to the Node host", async () => {
     const sample = await readJson(join(root, "core/knownNotifications.json"))
     assert.deepEqual(sample.methods, [...APP_SERVER_KNOWN_NOTIFICATIONS])
+  })
+
+  it("agrees with JSON.parse on every RFC 8259 text sample", async () => {
+    const sample = await readJson(join(root, "core/jsonText.json"))
+    const cases = sample.cases as readonly { readonly name: string; readonly text: string; readonly expected: { readonly kind: string; readonly value?: unknown } }[]
+    assert.ok(cases.length > 0)
+    for (const testCase of cases) {
+      if (testCase.expected.kind === "accepted") {
+        // Serialized comparison keeps object key order in the contract.
+        assert.equal(JSON.stringify(JSON.parse(testCase.text)), JSON.stringify(testCase.expected.value), testCase.name)
+      } else {
+        assert.equal(testCase.expected.kind, "protocol-error", testCase.name)
+        assert.throws(() => JSON.parse(testCase.text), SyntaxError, testCase.name)
+      }
+    }
   })
 
   it("concatenates streaming text including blank and tab deltas", async () => {
