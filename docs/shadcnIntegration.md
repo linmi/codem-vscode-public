@@ -151,3 +151,9 @@ VS Code 改为发布共享 `@codem/ui` 样式，删除 `webview/styles/` 与各�
 共享 Select 视口此前不带 nonce，正式 Webview 每次打开输入栏 Select 都触发一次 CSP 拒绝；现在沿用页面 nonce。预览场景主题选择器同时改用共享组件，`previewNavigationChecks.mjs` 的控制台错误断言因此也覆盖共享 Select 的 nonce。
 
 已知未改：共享 `product.css` 的无层 `button { background: transparent; color: inherit }` 比 Tailwind `@layer utilities` 优先，shadcn 默认按钮的 `bg-primary` 虽已进入产物但不会着色，两端相同，需另行处理层级。
+
+## 图标来源（2026-09-25）
+
+输入栏菜单删除了复制自 `chat/uiIcons.ts` 的图标路径和 `permissionIcons`，改为直接使用共享定义，外观不变；`chatApp.test.ts` 检查权限、附件和空间触发按钮用的是共享图标。
+
+目前两套图标并存：shadcn/ui 基础组件和后来写成 React 组件的控件使用 lucide-react；`uiIcons.ts` 保留迁入前 Webview 的线条图标，粗细与尺寸由所在容器的 CSS 决定。多数路径（check、chevron、search、copy 等）与 Lucide 同名图标形状不同，整体换成 lucide-react 会改变外观，所以本轮没有合并。

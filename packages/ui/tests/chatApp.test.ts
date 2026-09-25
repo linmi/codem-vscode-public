@@ -7,6 +7,7 @@ import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { asSnapshot, initialSnapshot, type ChatSnapshot, type PendingPanel } from "../src/contract.ts"
 import type { CodemUiHost } from "../src/host.ts"
+import { permissionIcons, uiIcon } from "../src/chat/uiIcons.ts"
 
 /** 只渲染挂载时的第一帧：不跑 effect，也不等 Host 回复，正好对应首屏与 Host 未响应。 */
 interface Views {
@@ -81,6 +82,23 @@ describe("chat panels", () => {
     assert.equal(answer(views.renderToStaticMarkup(views.createElement(views.DecisionPanel, { panel: question, post: () => {} }))), "上一题填过的回答")
     const html = renderApp({ ...initialSnapshot(), phase: "running", threadId: "thread-1", account: signedIn, pendingPanel: question })
     assert.equal(answer(html), "上一题填过的回答", "ChatApp must not hold a separate, initially empty copy of the answer")
+  })
+})
+
+describe("composer menu icons", () => {
+  /** 触发按钮从开标签到第一个 </button>，图标就在里面。 */
+  const trigger = (html: string, id: string) => new RegExp(`<button[^>]*id="${id}"[^>]*>.*?</button>`, "u").exec(html)?.[0] ?? ""
+
+  it("draws the permission, attachment and space icons from the shared icon set", () => {
+    const ready = { ...initialSnapshot(), account: signedIn, phase: "ready" as const, workspace: "demo", space: "研发空间" }
+    for (const permission of ["default", "auto", "yolo"] as const) {
+      const html = renderApp({ ...ready, permission })
+      assert.ok(trigger(html, "selectPermission").includes(`<span class="composerMenuIcon" aria-hidden="true">${uiIcon(permissionIcons[permission])}</span>`), permission)
+    }
+    const html = renderApp(ready)
+    assert.ok(trigger(html, "addAttachment").includes(uiIcon("plus")))
+    const space = trigger(html, "selectSpace")
+    assert.ok(space.includes(uiIcon("space")) && space.includes(uiIcon("chevronDown")))
   })
 })
 

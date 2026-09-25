@@ -7,22 +7,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popove
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger } from "../components/ui/select.tsx"
 import { permissions, workModes, type ChatSnapshot, type ComposerChoice } from "../contract.ts"
 import { ComposerMenuHeading } from "./composerMenuHeading.tsx"
+import { permissionIcons, uiIcon, type UiIconName } from "./uiIcons.ts"
 
 type MenuName = "permission" | "workMode" | "model" | "space" | "attachment" | "effort"
 
-const iconPaths = {
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  space: '<path d="m12 3 9 5v8l-9 5-9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
-  chevronDown: '<path d="m6 9 6 6 6-6"/>',
-  hand: '<path d="M8 13V5a1.5 1.5 0 0 1 3 0v6-7a1.5 1.5 0 0 1 3 0v7-6a1.5 1.5 0 0 1 3 0v7-4a1.5 1.5 0 0 1 3 0v7c0 4-3 7-7 7-3 0-5-2-7-5l-3-4a1.7 1.7 0 0 1 2.5-2z"/>',
-  shieldCheck: '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/>',
-  shieldAlert: '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="M12 8v5m0 3h.01"/>',
-} as const
-
-const permissionIcons = { default: "hand", auto: "shieldCheck", yolo: "shieldAlert" } as const
-
-function MenuIcon({ name }: { name: keyof typeof iconPaths }) {
-  return <span className="composerMenuIcon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 24 24">${iconPaths[name]}</svg>` }} />
+function MenuIcon({ name }: { name: UiIconName }) {
+  return <span className="composerMenuIcon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: uiIcon(name) }} />
 }
 
 function FixedMenu({

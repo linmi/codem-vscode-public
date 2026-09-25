@@ -1,4 +1,11 @@
-/** Static, shared Webview icons. Never interpolate model or workspace content here. */
+/**
+ * Static, shared Webview icons. Never interpolate model or workspace content here.
+ *
+ * 界面里有两套图标：shadcn/ui 基础组件和后来写成 React 组件的控件用 lucide-react；
+ * 这里保留迁入前 Webview 的线条图标，粗细与尺寸由所在容器的 CSS（如 `.activityIcon svg`、`.composerMenuIcon svg`）决定。
+ * 多数路径与 Lucide 同名图标形状不同（check、chevron、search、copy 等），整体换成 lucide-react 会改变外观，所以两套并存。
+ * 需要这些图标的地方都从这里取，不要把路径复制到别的文件。
+ */
 const paths = {
   chart: '<path stroke-width="3" d="M4 19v-1m4 1v-4m4 4v-7m4 7V9m4 10V5"/>',
   space: '<path d="m12 3 9 5v8l-9 5-9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
@@ -29,7 +36,9 @@ const paths = {
   stop: '<rect x="7" y="7" width="10" height="10" rx="1" fill="currentColor" stroke="none"/>',
 } as const
 
-export function uiIcon(name: keyof typeof paths): string {
+export type UiIconName = keyof typeof paths
+
+export function uiIcon(name: UiIconName): string {
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`
 }
 
