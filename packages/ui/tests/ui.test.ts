@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, it } from "node:test"
-import { asSnapshot, hiddenUntilReady, initialSnapshot, isSignedIn, parseUiAction, visibleControls } from "../src/contract.ts"
+import { asSnapshot, initialSnapshot, isSignedIn, parseUiAction, visibleControls } from "../src/contract.ts"
 import { welcomeState } from "../src/chat/welcomeState.ts"
 import { lastActivityId, timelineGroups, workGroupState } from "../src/chat/timelineGroups.ts"
 import { activityTitle } from "../src/chat/toolPresentation.ts"
@@ -151,29 +151,22 @@ describe("@codem/ui host contract", () => {
     assert.doesNotMatch(source, /<p>\{(?:message\.text|snapshot\.assistantText)\}<\/p>/u)
   })
 
-  it("hides retry until failed+canRetry and shows resume/older only when the snapshot allows", () => {
-    assert.deepEqual(visibleControls(initialSnapshot()), { retry: false, resume: false, older: false })
-    assert.deepEqual(hiddenUntilReady(), ["olderMessages", "retryConnect", "resumeThread"])
-    assert.deepEqual(visibleControls({ phase: "disconnected", canRetry: false, canResume: false, canLoadOlder: false }), {
-      retry: false,
-      resume: false,
-      older: false,
-    })
-    assert.deepEqual(visibleControls({ phase: "failed", canRetry: true, canResume: false, canLoadOlder: false }), {
-      retry: true,
-      resume: false,
-      older: false,
-    })
-    assert.deepEqual(visibleControls({ phase: "ready", canRetry: false, canResume: true, canLoadOlder: true }), {
-      retry: false,
-      resume: true,
-      older: true,
-    })
-    assert.deepEqual(visibleControls({ phase: "closing", canRetry: true, canResume: true, canLoadOlder: true }), {
-      retry: false,
-      resume: true,
-      older: true,
-    })
+  it("shows retry, resume and older entries only when the Host flags and state agree", () => {
+    const hidden = { retry: false, resume: false, older: false }
+    const base = { phase: "ready" as const, threadId: null, resumeThreadId: null, canRetry: false, canResume: false, canLoadOlder: false }
+    assert.deepEqual(visibleControls(initialSnapshot()), hidden)
+    // JetBrains 用 failed，VS Code 用带提示的 disconnected；连接中或已就绪时残留的 canRetry 不出重试。
+    assert.equal(visibleControls({ ...base, phase: "failed", canRetry: true }).retry, true)
+    assert.equal(visibleControls({ ...base, phase: "disconnected", canRetry: true }).retry, true)
+    for (const phase of ["connecting", "ready", "closing"] as const) assert.equal(visibleControls({ ...base, phase, canRetry: true }).retry, false, phase)
+    assert.equal(visibleControls({ ...base, phase: "failed" }).retry, false)
+    // 恢复必须有可恢复的会话，且当前没有打开的会话；更早消息必须属于当前会话。
+    assert.equal(visibleControls({ ...base, canResume: true, resumeThreadId: "thread-old" }).resume, true)
+    assert.equal(visibleControls({ ...base, canResume: true }).resume, false)
+    assert.equal(visibleControls({ ...base, canResume: true, resumeThreadId: "thread-old", threadId: "thread-1" }).resume, false)
+    assert.equal(visibleControls({ ...base, canLoadOlder: true, threadId: "thread-1" }).older, true)
+    assert.equal(visibleControls({ ...base, canLoadOlder: true }).older, false)
+    assert.deepEqual(visibleControls({ ...base, threadId: "thread-1", resumeThreadId: "thread-old" }), hidden)
   })
 
   it("groups thinking and tools into work disclosures and keeps the final reply outside", () => {

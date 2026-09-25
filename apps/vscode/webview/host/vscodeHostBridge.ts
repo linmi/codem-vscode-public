@@ -230,6 +230,9 @@ export class VscodeHostBridge {
       sendKey: this.sendKey,
       background,
       notice: notice ?? this.pasteNotice,
+      // VS Code Host 把连接失败和被迫断开表示为 disconnected 加提示；首屏与正常未连接都没有提示。
+      canRetry: this.state.phase === "disconnected" && Boolean(notice),
+      canLoadOlder: typeof this.state.threadId === "string" && this.state.hasOlderMessages === true,
     }
     const signature = JSON.stringify({ ...projected, version: 0 })
     if (signature !== this.signature) {

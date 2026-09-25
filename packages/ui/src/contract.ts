@@ -10,7 +10,7 @@ import { catalogKinds, type CatalogKind } from "@codem/protocol"
  * 状态所有者：Host 拥有快照、账户、目录；UI 只持有草稿、菜单开合、账户页/斜杠展开、分组折叠。
  * Host 要打开账户页只递增 accountRequest，不持有账户页开合。
  * 清理：卸载随 React root；忙碌或 workspace/space/thread 切换关闭菜单与斜杠；账户退出关闭资料页。
- * 必须保持：首屏 hiddenUntilReady；空态无分页/重试/恢复；不把原始帧/路径/密钥画进 DOM。
+ * 必须保持：重试/恢复/更早消息只由 visibleControls 决定，首屏按 initialSnapshot 隐藏；不把原始帧/路径/密钥画进 DOM。
  */
 import {
   parseCodemIntelligence,
@@ -349,20 +349,17 @@ export const themes: readonly { value: ChatTheme; label: string }[] = [
   { value: "dark", label: "深色" },
 ]
 
-export function hiddenUntilReady(): readonly ["olderMessages", "retryConnect", "resumeThread"] {
-  return ["olderMessages", "retryConnect", "resumeThread"]
-}
-
-/** A08：条件成立才显示，不再写死 resume/older = false。Host 未响应不出重试。 */
-export function visibleControls(snapshot: Pick<ChatSnapshot, "phase" | "canRetry" | "canResume" | "canLoadOlder">): {
-  retry: boolean
-  resume: boolean
-  older: boolean
-} {
+/**
+ * A08：重试、恢复上次会话、加载更早消息三个条件入口只看这里。
+ * 首屏与 Host 未响应时三项都为 false；Host 残留的旗标也不会让入口出现在不该出现的状态里。
+ */
+export function visibleControls(
+  snapshot: Pick<ChatSnapshot, "phase" | "threadId" | "resumeThreadId" | "canRetry" | "canResume" | "canLoadOlder">,
+): { retry: boolean; resume: boolean; older: boolean } {
   return {
-    retry: snapshot.phase === "failed" && snapshot.canRetry === true,
-    resume: snapshot.canResume === true,
-    older: snapshot.canLoadOlder === true,
+    retry: snapshot.canRetry && (snapshot.phase === "failed" || snapshot.phase === "disconnected"),
+    resume: snapshot.canResume && snapshot.resumeThreadId !== null && snapshot.threadId === null,
+    older: snapshot.canLoadOlder && snapshot.threadId !== null,
   }
 }
 

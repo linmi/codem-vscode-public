@@ -1,17 +1,19 @@
 import assert from "node:assert/strict"
 import { after, before, describe, it } from "node:test"
 import { build } from "esbuild"
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { initialSnapshot, type ChatSnapshot, type PendingPanel } from "../src/contract.ts"
+import { asSnapshot, initialSnapshot, type ChatSnapshot, type PendingPanel } from "../src/contract.ts"
 import type { CodemUiHost } from "../src/host.ts"
 
 /** 只渲染挂载时的第一帧：不跑 effect，也不等 Host 回复，正好对应首屏与 Host 未响应。 */
 interface Views {
   ChatApp: (props: { host: CodemUiHost; initial: ChatSnapshot }) => unknown
   DecisionPanel: (props: { panel: PendingPanel | null; post: (action: Record<string, unknown>) => void }) => unknown
+  HistoryPaging: (props: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) => unknown
+  HistoryResume: (props: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) => unknown
   createElement: (type: unknown, props: Record<string, unknown>) => unknown
   renderToStaticMarkup: (element: unknown) => string
 }
@@ -27,6 +29,7 @@ before(async () => {
     contents: [
       "export { ChatApp } from './src/chat/ChatApp.tsx'",
       "export { DecisionPanel } from './src/chat/decisionPanel.tsx'",
+      "export { HistoryPaging, HistoryResume } from './src/chat/HistoryPanel.tsx'",
       "export { createElement } from 'react'",
       "export { renderToStaticMarkup } from 'react-dom/server'",
     ].join("\n"),
@@ -78,5 +81,82 @@ describe("chat panels", () => {
     assert.equal(answer(views.renderToStaticMarkup(views.createElement(views.DecisionPanel, { panel: question, post: () => {} }))), "上一题填过的回答")
     const html = renderApp({ ...initialSnapshot(), phase: "running", threadId: "thread-1", account: signedIn, pendingPanel: question })
     assert.equal(answer(html), "上一题填过的回答", "ChatApp must not hold a separate, initially empty copy of the answer")
+  })
+})
+
+/** 控件自身带 hidden 或根本没渲染都算隐藏；不依赖外层容器是否隐藏。 */
+function shown(html: string, opening: RegExp): boolean {
+  const tag = opening.exec(html)?.[0]
+  return tag !== undefined && !/\shidden=""/u.test(tag)
+}
+
+const entries: Record<string, (html: string) => boolean> = {
+  retryConnect: (html) => shown(html, /<div id="connection"[^>]*>/u),
+  olderMessages: (html) => shown(html, /<button[^>]*>(?=加载更早消息<)/u),
+  resumeThread: (html) => shown(html, /<button[^>]*>(?=恢复上次会话<)/u),
+}
+
+/** 在同一棵元素树上找到按钮并调用它的 onClick，不合成 DOM。 */
+function click(node: unknown, label: string): boolean {
+  if (Array.isArray(node)) return node.some((child) => click(child, label))
+  const props = (node as { props?: { children?: unknown; onClick?: () => void } } | null)?.props
+  if (!props) return false
+  if (props.onClick && props.children === label) {
+    props.onClick()
+    return true
+  }
+  return click(props.children, label)
+}
+
+describe("conditional entries on first paint", () => {
+  it("keeps every entry named by the shared first-screen contract hidden while the Host is silent", async () => {
+    const fixture = JSON.parse(await readFile(fileURLToPath(new URL("../../contracts/webview/initialSnapshot.json", import.meta.url)), "utf8")) as {
+      input: { hostReady: boolean }
+      expected: Record<string, unknown> & { hiddenUntilReady: string[] }
+    }
+    assert.equal(fixture.input.hostReady, false)
+    assert.deepEqual(fixture.expected.hiddenUntilReady.filter((name) => !entries[name]), [], "Every contract entry needs a rendered check")
+    const { hiddenUntilReady, ...expected } = fixture.expected
+    // 挂载时 Host 还没回复：mount 用 initialSnapshot；按合同样例解析出的首屏也一样。
+    for (const initial of [initialSnapshot(), asSnapshot(expected)!, { ...initialSnapshot(), account: signedIn }]) {
+      const html = renderApp(initial)
+      for (const name of hiddenUntilReady) assert.equal(entries[name]!(html), false, name)
+    }
+  })
+
+  it("does not infer entries from raw fields before the Host sends the flags", () => {
+    const html = renderApp({
+      ...initialSnapshot(),
+      account: signedIn,
+      phase: "failed",
+      notice: "连接失败",
+      threadId: "thread-1",
+      resumeThreadId: "thread-old",
+      hasOlderMessages: true,
+    })
+    for (const [name, visible] of Object.entries(entries)) assert.equal(visible(html), false, name)
+  })
+
+  it("shows each entry once the Host reports its condition", () => {
+    const ready = { ...initialSnapshot(), account: signedIn, phase: "ready" as const, workspace: "demo", space: "研发空间" }
+    assert.equal(entries.retryConnect!(renderApp({ ...ready, phase: "failed", canRetry: true, notice: "连接失败，可重试" })), true)
+    assert.equal(entries.retryConnect!(renderApp({ ...ready, phase: "disconnected", canRetry: true, notice: "连接已中断" })), true)
+    const resume = renderApp({ ...ready, canResume: true, resumeThreadId: "thread-old" })
+    assert.equal(entries.resumeThread!(resume), true)
+    assert.equal(entries.olderMessages!(resume), false)
+    const older = renderApp({ ...ready, threadId: "thread-1", canLoadOlder: true, messages: [{ id: "m1", role: "user", text: "你好" }] })
+    assert.equal(entries.olderMessages!(older), true)
+    assert.equal(entries.resumeThread!(older), false)
+  })
+
+  it("posts the Host-provided thread for resume and a plain request for older messages", () => {
+    const actions: Record<string, unknown>[] = []
+    const post = (action: Record<string, unknown>) => actions.push(action)
+    const ready = { ...initialSnapshot(), account: signedIn, phase: "ready" as const }
+    assert.ok(click(views.HistoryResume({ snapshot: { ...ready, canResume: true, resumeThreadId: "thread-old" }, post }), "恢复上次会话"))
+    assert.ok(click(views.HistoryPaging({ snapshot: { ...ready, threadId: "thread-1", canLoadOlder: true }, post }), "加载更早消息"))
+    assert.deepEqual(actions, [{ type: "resumeThread", threadId: "thread-old" }, { type: "olderMessages" }])
+    assert.equal(views.HistoryResume({ snapshot: ready, post }), null)
+    assert.equal(views.HistoryPaging({ snapshot: { ...ready, threadId: "thread-1" }, post }), null)
   })
 })

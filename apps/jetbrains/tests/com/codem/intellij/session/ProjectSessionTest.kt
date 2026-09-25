@@ -25,7 +25,6 @@ import com.codem.intellij.ide.SelectionSnapshot
 import com.codem.intellij.webview.ViewAction
 import com.codem.intellij.webview.initialSnapshot
 import com.codem.intellij.webview.parseViewAction
-import com.codem.intellij.webview.visibleControls
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -96,8 +95,7 @@ class ProjectSessionTest {
         assertEquals(null, after.threadId)
         assertEquals("thread-1", after.resumeThreadId)
         assertEquals(true, after.canResume)
-        assertEquals(true, visibleControls(after).resume)
-        assertEquals(false, visibleControls(after).older)
+        assertEquals(false, after.canLoadOlder)
         session.close().join()
     }
 
@@ -569,7 +567,6 @@ class ProjectSessionTest {
         session.connect()
         session.applyViewAction(parseViewAction(JsonValue.obj("type" to JsonValue.Text("resumeThread"), "threadId" to JsonValue.Text("thread-1"))))
         assertEquals(true, session.snapshot().canLoadOlder)
-        assertEquals(true, visibleControls(session.snapshot()).older)
         assertEquals("earlier user", session.snapshot().messages.first().text)
         session.applyViewAction(ViewAction.OlderMessages)
         assertEquals(false, session.snapshot().canLoadOlder)

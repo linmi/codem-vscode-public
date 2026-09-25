@@ -40,15 +40,12 @@ class ViewContractTest {
         val expected = sample.required("expected").asObject()
         val snapshot = initialSnapshot()
         val encoded = encodeChatSnapshot(snapshot)
+        // hiddenUntilReady 描述界面据 canRetry/canResume/canLoadOlder 隐藏的入口；可见性规则只在共享界面，
+        // Host 这边只需保证这三个旗标在首屏为 false（由下面逐字段比对覆盖）。
         for ((key, value) in expected.fields) {
             if (key == "hiddenUntilReady") continue
             assertEquals(value, encoded.fields[key], "initial snapshot field $key")
         }
-        assertEquals(expected.required("hiddenUntilReady").asArray().items.map { it.asText() }, hiddenUntilReady())
-        val controls = visibleControls(snapshot)
-        assertFalse(controls.retry)
-        assertFalse(controls.resume)
-        assertFalse(controls.older)
         // 账户页开合归界面；Host 只下发请求序号，首屏没有请求，也不再下发 accountOpen。
         assertFalse(encoded.fields.containsKey("accountOpen"))
     }

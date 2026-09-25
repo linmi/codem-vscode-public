@@ -1,6 +1,6 @@
 import { pluginManagementPreview } from "./preview/pluginManagementPreview.ts"
 import { conversationSearchPreview } from "./preview/conversationSearchPreview.ts"
-import { initialSnapshot } from "./contract.ts"
+import { initialSnapshot, type ChatSnapshot } from "./contract.ts"
 import { createPreviewSnapshot, markdownPreviewMessages, markdownPreviewText, mountPreview, workPreviewMessages, type PreviewHostKind } from "./previewHost.ts"
 
 const params = new URLSearchParams(window.location.search)
@@ -10,7 +10,7 @@ const snapshot = createPreviewSnapshot(
   scene === "failed"
     ? { phase: "failed", canRetry: true, notice: "连接失败，可重试", threadId: null }
     : scene === "resume"
-      ? { canResume: true, canLoadOlder: true, resumeThreadId: "thread-old", hasOlderMessages: true }
+      ? { threadId: null, canResume: true, resumeThreadId: "thread-old" }
       : scene === "approval"
         ? {
             pendingInteraction: "interaction-42",
@@ -45,7 +45,9 @@ const snapshot = createPreviewSnapshot(
                     ? { account: { status: "error", message: "登录状态检查失败" }, phase: "disconnected", threadId: null }
                     : scene === "checking"
                       ? { ...initialSnapshot(), account: { status: "checking" } }
-                      : {},
+                      : scene === "older"
+                        ? { canLoadOlder: true, hasOlderMessages: true, messages: markdownPreviewMessages() }
+                        : {},
 )
 
 const bar = document.querySelector("[data-testid='hostBar']")
@@ -60,6 +62,23 @@ if (root) {
   let mounted: ReturnType<typeof mountPreview> | undefined
   if (scene === "search") onAction = conversationSearchPreview(next => { starting = next; mounted?.host.publish(next) }, snapshot)
   if (scene === "plugins") onAction = pluginManagementPreview(next => { starting = next; mounted?.host.publish(next) }, snapshot)
+  // 条件入口的模拟 Host：点击后先离开条件态，再给出结果；不连 Core。
+  if (scene === "failed" || scene === "resume" || scene === "older") {
+    const publish = (patch: Partial<ChatSnapshot>) => {
+      starting = { ...starting, ...patch, version: starting.version + 1 }
+      mounted?.host.publish(starting)
+    }
+    onAction = action => {
+      if (action.type === "connect") {
+        publish({ phase: "connecting", canRetry: false, notice: null })
+        window.setTimeout(() => publish({ phase: "ready" }), 800)
+      } else if (action.type === "resumeThread" && typeof action.threadId === "string") {
+        publish({ threadId: action.threadId, canResume: false, resumeThreadId: null, messages: markdownPreviewMessages() })
+      } else if (action.type === "olderMessages") {
+        publish({ canLoadOlder: false, hasOlderMessages: false, messages: [{ id: "user-earlier", role: "user", text: "更早的一条消息" }, ...starting.messages] })
+      }
+    }
+  }
   mounted = mountPreview(root, hostKind, starting, action => onAction?.(action))
   // 与 Host 一样在挂载后请求打开账户页，而不是在首屏快照里预置开合。
   if (scene === "accountProfile") mounted.host.publish({ ...starting, accountRequest: starting.accountRequest + 1 })

@@ -87,6 +87,23 @@ describe("VS Code host bridge", () => {
     assert.equal(vscodeTheme(classes()), "light")
   })
 
+  it("projects retry and older-message entries only from the VS Code states that allow them", () => {
+    const bridge = new VscodeHostBridge()
+    const flags = (snapshot: { canRetry: boolean; canResume: boolean; canLoadOlder: boolean }) => [snapshot.canRetry, snapshot.canResume, snapshot.canLoadOlder]
+    // 挂载时与 Host 迟迟不回：都来自 bridge 的空状态。
+    assert.deepEqual(flags(bridge.snapshot()), [false, false, false])
+    assert.deepEqual(flags(bridge.receive({ type: "state", phase: "disconnected", notice: null })!.snapshot), [false, false, false])
+    assert.deepEqual(flags(bridge.receive({ type: "state", phase: "connecting", notice: null })!.snapshot), [false, false, false])
+    assert.equal(bridge.receive({ type: "state", phase: "disconnected", notice: "连接失败，请查看 CodeM 日志后重试。" })!.snapshot.canRetry, true)
+    assert.equal(bridge.receive({ type: "state", phase: "ready", notice: "本轮任务失败，可以继续发送消息。" })!.snapshot.canRetry, false)
+    bridge.receive({ type: "state", phase: "disconnected", notice: null })
+    assert.equal(bridge.receive({ type: "pasteImagesResult", error: "图片过大" })!.snapshot.canRetry, false, "A paste notice is not a connection failure")
+    assert.equal(bridge.receive({ type: "state", phase: "ready", threadId: null, hasOlderMessages: true })!.snapshot.canLoadOlder, false)
+    assert.equal(bridge.receive({ type: "state", phase: "ready", threadId: "thread-1", hasOlderMessages: false })!.snapshot.canLoadOlder, false)
+    const older = bridge.receive({ type: "state", phase: "loadingHistory", threadId: "thread-1", hasOlderMessages: true })!.snapshot
+    assert.deepEqual(flags(older), [false, false, true])
+  })
+
   it("ignores notices and restores only explicitly rejected requests", () => {
     const bridge = new VscodeHostBridge()
     const ready = bridge.receive({ type: "state", phase: "ready", threadId: "thread-1", notice: null })!

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { isBusy, type ChatSnapshot } from "../contract.ts"
+import { isBusy, visibleControls, type ChatSnapshot } from "../contract.ts"
 import { uiIcon } from "./uiIcons.ts"
 
 /**
@@ -92,12 +92,28 @@ export function HistoryPanel({
 
 export function HistoryPaging({ snapshot, post }: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) {
   const disabled = isBusy(snapshot.phase) || snapshot.backgroundBusy
-  const visible = Boolean(snapshot.threadId) && (snapshot.hasOlderMessages || snapshot.historyNeedsRefresh)
+  const { older } = visibleControls(snapshot)
+  const visible = older || (Boolean(snapshot.threadId) && snapshot.historyNeedsRefresh)
   if (!visible) return null
   return (
     <div className="historyPaging">
-      <button type="button" className="textButton" hidden={!snapshot.hasOlderMessages} disabled={disabled} onClick={() => post({ type: "olderMessages" })}>加载更早消息</button>
+      <button type="button" className="textButton" hidden={!older} disabled={disabled} onClick={() => post({ type: "olderMessages" })}>加载更早消息</button>
       <span>{snapshot.historyNeedsRefresh ? "记录已变化，重新加载后可继续翻页。" : ""}</span>
+    </div>
+  )
+}
+
+/**
+ * Host 保留了上一个会话、当前又没有会话时才出现；首屏和 Host 未响应时不渲染。
+ * 与重试连接同用底部卡片，空态欢迎页仍居中。
+ */
+export function HistoryResume({ snapshot, post }: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) {
+  const threadId = snapshot.resumeThreadId
+  if (!visibleControls(snapshot).resume || !threadId) return null
+  return (
+    <div className="connection">
+      <p>上一个会话仍可继续。</p>
+      <div><button type="button" className="primaryButton" disabled={isBusy(snapshot.phase) || snapshot.backgroundBusy} onClick={() => post({ type: "resumeThread", threadId })}>恢复上次会话</button></div>
     </div>
   )
 }

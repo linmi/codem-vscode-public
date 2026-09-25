@@ -8,6 +8,7 @@ import {
   isBusy,
   isSignedIn,
   parseUiAction,
+  visibleControls,
   type ChatSnapshot,
   type ComposerInputMode,
 } from "../contract.ts"
@@ -19,7 +20,7 @@ import { ComposerMenus } from "./composerMenus.tsx"
 import { DecisionPanel } from "./decisionPanel.tsx"
 import { draftRetention, type PendingSend } from "./draftRetention.ts"
 import { FileMentions } from "./FileMentions.tsx"
-import { HistoryButton, HistoryPaging, HistoryPanel } from "./HistoryPanel.tsx"
+import { HistoryButton, HistoryPaging, HistoryPanel, HistoryResume } from "./HistoryPanel.tsx"
 import { composerMessageAction, mentionQuery, sendOnEnter } from "./composerInput.ts"
 import { LoadingState } from "./LoadingState.tsx"
 import { MessageList } from "./MessageList.tsx"
@@ -200,6 +201,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const generating = snapshot.phase === "running" || snapshot.phase === "stopping"
   const modeHint = inputUnavailable(inputMode, snapshot) ?? (inputMode === "steer" ? "补充当前任务的执行方向。" : inputMode === "askSideQuestion" ? "单独提问，回答显示在这里。" : "发送前会展示命令并请求确认。")
   const side = snapshot.sessionTools.sideQuestion
+  const controls = visibleControls(snapshot)
 
   const chooseSlash = (id: string) => {
     if (commandUnavailable(id, snapshot)) return
@@ -371,10 +373,11 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
         <div id="taskProgressHost"><TaskProgress snapshot={snapshot} /></div>
       </div>
       <footer>
-        <div id="connection" className="connection" hidden={snapshot.phase !== "disconnected" || !snapshot.notice}>
+        <div id="connection" className="connection" hidden={!controls.retry}>
           <p>连接工作区，开始与 CodeM 协作。</p>
-          <div><button id="connect" type="button" className="primaryButton" disabled={snapshot.phase === "connecting"} onClick={() => post({ type: "connect" })}>连接工作区</button></div>
+          <div><button id="connect" type="button" className="primaryButton" onClick={() => post({ type: "connect" })}>连接工作区</button></div>
         </div>
+        <HistoryResume snapshot={snapshot} post={post} />
         <p id="notice" className="notice" role="status" hidden={!snapshot.notice}>{snapshot.notice ?? ""}</p>
         <DecisionPanel panel={snapshot.pendingPanel} post={post} />
         <RewindPanel panel={snapshot.pendingPanel} post={post} />

@@ -216,9 +216,7 @@ data class ChatSnapshot(
     val submission: SubmissionReceiptView? = null,
 )
 
-data class VisibleControls(val retry: Boolean, val resume: Boolean, val older: Boolean)
-
-/** 挂载前的首屏：条件入口默认隐藏，不依赖首个 Host 响应。 */
+/** 挂载前的首屏：canRetry/canResume/canLoadOlder 全为 false，界面的 visibleControls 据此隐藏条件入口。 */
 fun initialSnapshot(): ChatSnapshot = ChatSnapshot(
     phase = "disconnected",
     workspace = null,
@@ -240,15 +238,6 @@ fun initialSnapshot(): ChatSnapshot = ChatSnapshot(
     canRetry = false,
     canResume = false,
     canLoadOlder = false,
-)
-
-fun hiddenUntilReady(): List<String> = listOf("olderMessages", "retryConnect", "resumeThread")
-
-/** A08：条件成立才显示，不再写死 resume/older = false。 */
-fun visibleControls(snapshot: ChatSnapshot): VisibleControls = VisibleControls(
-    retry = snapshot.phase == "failed" && snapshot.canRetry,
-    resume = snapshot.canResume,
-    older = snapshot.canLoadOlder,
 )
 
 fun parseViewAction(value: JsonValue): ViewAction {

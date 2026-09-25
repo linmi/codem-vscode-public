@@ -3,7 +3,6 @@ export { mountCodemUi } from "./mount.tsx"
 export {
   asSnapshot,
   elapsedTime,
-  hiddenUntilReady,
   initialSnapshot,
   isSignedIn,
   normalizeMessages,
