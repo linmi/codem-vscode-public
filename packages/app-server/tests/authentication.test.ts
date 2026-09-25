@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { chmodSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
@@ -33,14 +33,15 @@ describe("App Server authentication", () => {
   it("kills a status subprocess at its deadline, even one that ignores SIGTERM, and reaps it", async () => {
     const fixture = createAuthFixture({ status: "wait" })
     const marker = join(fixture.root, "status-started")
+    // The deadline starts at spawn, so it is the fixture's usual 5 s budget: under a parallel pnpm check
+    // a node fixture has taken over 1 s just to start and write its pid.
     await assert.rejects(
-      readAppServerAuthStatus({ ...fixture.options({ CODEM_FIXTURE_STATUS_MARKER: marker }), statusTimeoutMs: 1_000 }),
-      /authentication status timed out after 1000ms/u,
+      readAppServerAuthStatus(fixture.options({ CODEM_FIXTURE_STATUS_MARKER: marker })),
+      /authentication status timed out after 5000ms/u,
     )
-    // The fixture writes its pid on start, well before the deadline. A missing pid would read as 0,
-    // and kill(0, 0) signals our own process group, so require a real pid before the reap check.
-    const pid = Number(readFileSync(marker, "utf8"))
-    assert.ok(Number.isInteger(pid) && pid > 0, `status fixture pid must be written, got ${pid}`)
+    // A missing pid would read as 0, and kill(0, 0) signals our own process group, so require a real pid.
+    const pid = existsSync(marker) ? Number(readFileSync(marker, "utf8")) : 0
+    assert.ok(Number.isInteger(pid) && pid > 0, `status fixture must start and write its pid before the deadline, got ${pid}`)
     assert.throws(() => process.kill(pid, 0), { code: "ESRCH" })
   })
 
