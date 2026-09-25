@@ -168,7 +168,8 @@ fun javaBrokerSession(command: List<String>, cwd: Path, environment: Map<String,
         },
         onNotification = { throw CodemError.Authentication("CodeM space broker sent an unexpected notification") },
         onRequest = { throw CodemError.Authentication("CodeM space broker sent an unexpected request") },
-        onProtocolError = { throw it },
+        // pending 已带着该错误失败，withBroker 的 finally 负责关闭；这里再抛只会杀掉读取线程。
+        onProtocolError = {},
     )
     Thread {
         process.inputStream.bufferedReader().use { reader ->

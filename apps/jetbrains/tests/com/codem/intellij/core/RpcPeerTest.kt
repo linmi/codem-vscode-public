@@ -1,10 +1,13 @@
 package com.codem.intellij.core
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
 
 class RpcPeerTest {
     @Test
@@ -65,6 +68,30 @@ class RpcPeerTest {
             peer(mutableListOf(), errors).consume(line)
             assertTrue(errors.isNotEmpty(), line)
         }
+    }
+
+    @Test
+    fun throwingNotificationCallbackFailsPendingRequestsInsteadOfEscaping() {
+        val errors = CopyOnWriteArrayList<CodemError>()
+        val failure = CodemError.Authentication("unexpected notification")
+        val peer = RpcPeer(writeLine = {}, onNotification = { throw failure }, onRequest = {}, onProtocolError = { errors += it })
+        val pending = peer.request("tools/call")
+        peer.consume("""{"jsonrpc":"2.0","method":"notifications/message","params":{}}""")
+        assertSame(failure, assertThrows(ExecutionException::class.java) { pending.get(1, TimeUnit.SECONDS) }.cause)
+        assertSame(failure, errors.single())
+        peer.consume("""{"jsonrpc":"2.0","method":"notifications/message","params":{}}""")
+        assertEquals(1, errors.size)
+    }
+
+    @Test
+    fun nonProtocolRequestCallbackFailureBecomesAProtocolError() {
+        val errors = CopyOnWriteArrayList<CodemError>()
+        val peer = RpcPeer(writeLine = {}, onNotification = {}, onRequest = { error("handler bug") }, onProtocolError = { errors += it })
+        val pending = peer.request("turn/start")
+        peer.consume("""{"jsonrpc":"2.0","id":"server-1","method":"item/tool/requestUserInput","params":{}}""")
+        val failure = assertThrows(ExecutionException::class.java) { pending.get(1, TimeUnit.SECONDS) }.cause
+        assertTrue(failure is CodemError.Protocol && failure.cause is IllegalStateException, failure.toString())
+        assertSame(failure, errors.single())
     }
 
     @Test

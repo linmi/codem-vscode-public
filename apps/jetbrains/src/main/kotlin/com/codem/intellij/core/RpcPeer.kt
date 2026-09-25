@@ -39,7 +39,8 @@ data class AbandonableRequest(
 
 /**
  * 唯一写入所有者。请求、响应、通知和废弃请求分别处理。
- * 关闭后拒绝 pending；未知 id / 重复响应 / 非法结构走协议失败。
+ * 关闭后拒绝 pending；未知 id / 重复响应 / 非法结构 / 回调异常走协议失败。
+ * onProtocolError 在 pending 已被拒绝后调用，自身不得抛出。
  */
 class RpcPeer(
     private val writeLine: (String) -> Unit,
@@ -130,14 +131,16 @@ class RpcPeer(
                 return
             }
             val id = obj.fields["id"]
-            if (id != null) {
-                try {
+            // 与 Node 读循环一致：回调异常转为协议失败并拒绝 pending，不能带走读取线程。
+            try {
+                if (id != null) {
                     onRequest(RpcRequest(RpcId.parse(id), method.value, params))
-                } catch (error: CodemError) {
-                    failProtocol(error)
+                } else {
+                    onNotification(RpcNotification(method.value, params))
                 }
-            } else {
-                onNotification(RpcNotification(method.value, params))
+            } catch (error: Exception) {
+                val kind = if (id != null) "request" else "notification"
+                failProtocol(error as? CodemError ?: CodemError.Protocol(CodemError.Class.Protocol, "CodeM App Server $kind callback failed", error))
             }
             return
         }
