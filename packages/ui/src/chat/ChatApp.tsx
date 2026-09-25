@@ -34,6 +34,7 @@ import { TaskProgress } from "./taskProgress.tsx"
 import { WelcomeView } from "./WelcomeView.tsx"
 import { workingStatus } from "./workingStatus.ts"
 import { commandUnavailable, inputModes, inputUnavailable, slashQuery } from "./slashCommands.ts"
+import { nextRequestId } from "./requestIds.ts"
 import { uiIcon } from "./uiIcons.ts"
 
 /** 在确认/目录面板里完成的斜杠命令；会话管理操作另由 isThreadOperation 判断。 */
@@ -153,7 +154,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
       mentionRequest.current = null
       return
     }
-    const requestId = `mention-${Date.now().toString(36)}`
+    const requestId = nextRequestId("mention")
     mentionRequest.current = requestId
     const timer = window.setTimeout(() => post({ type: "searchFiles", query: mention.query, requestId }), 150)
     return () => window.clearTimeout(timer)
@@ -194,7 +195,6 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     host.setState({ draft: text })
   }
 
-  const requestId = () => `req-${Date.now().toString(36)}`
   const themeClass = snapshot.theme === "dark" ? "codem-dark vscode-dark" : "codem-light"
   const showAccount = !signedIn || accountOpen
   const threadTitle = (snapshot.history.entries.find((entry) => entry.id === snapshot.threadId)?.title ?? snapshot.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) || "新会话"
@@ -234,7 +234,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     }
     const text = draft.trim()
     if (!text) return
-    const id = requestId()
+    const id = nextRequestId("req")
     if (inputMode !== "message" && snapshot.threadId) {
       // Shell 先确认，确认前不发、不清草稿。
       if (inputMode === "shellCommand") {
@@ -267,7 +267,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
 
   const confirmShell = (text: string) => {
     if (!snapshot.threadId || pendingSend) return
-    const id = requestId()
+    const id = nextRequestId("req")
     if (!tryPost({ type: "shellCommand", threadId: snapshot.threadId, text, requestId: id })) {
       setSessionRequest({ kind: "shell", text })
       return
@@ -283,7 +283,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
 
   const chooseMention = (id: string | undefined) => {
     if (!id) return
-    const requestId = `pick-${Date.now().toString(36)}`
+    const requestId = nextRequestId("pick")
     mentionRequest.current = null
     const node = prompt.current
     const caret = node?.selectionStart ?? draft.length
@@ -315,7 +315,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             reader.readAsDataURL(file)
           }),
       ),
-    ).then((images) => post({ type: "pasteImages", requestId: requestId(), images }))
+    ).then((images) => post({ type: "pasteImages", requestId: nextRequestId("req"), images }))
   }
 
   return (

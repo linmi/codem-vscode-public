@@ -1,4 +1,5 @@
 import { LiveSnapshotView } from "./liveSnapshotView.tsx"
+import { nextRequestId } from "./requestIds.ts"
 import { catalogKinds, type CatalogKind } from "@codem/protocol"
 import { useRef, useState } from "react"
 import { SlidersHorizontalIcon } from "lucide-react"
@@ -48,7 +49,7 @@ export function SessionCommandPanel({
     if (!ready || submitted.current) return
     if (manage && (!targetId || (manage === "rename" && !name.trim()))) return
     submitted.current = true
-    const requestId = `req-${Date.now().toString(36)}`
+    const requestId = nextRequestId("req")
     close()
     if (manage && targetId) post({ type: "manageThread", operation: manage, threadId: targetId, name: manage === "rename" ? name.trim() : "", requestId })
     else if (snapshot.threadId && (command === "compact" || command === "clear" || command === "rewind")) {
