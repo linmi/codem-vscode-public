@@ -5,7 +5,6 @@ import { MessageSquarePlusIcon, TerminalIcon, XIcon } from "lucide-react"
 import { Button } from "../components/ui/button.tsx"
 import {
   asSnapshot,
-  isBusy,
   isSignedIn,
   isThreadOperation,
   parseUiAction,
@@ -22,7 +21,8 @@ import { DecisionPanel } from "./decisionPanel.tsx"
 import { draftRetention, type PendingSend } from "./draftRetention.ts"
 import { FileMentions } from "./FileMentions.tsx"
 import { HistoryButton, HistoryPaging, HistoryPanel, HistoryResume } from "./HistoryPanel.tsx"
-import { composerMessageAction, mentionQuery, sendOnEnter } from "./composerInput.ts"
+import { composerMessageAction, inputModeText, mentionQuery, sendOnEnter } from "./composerInput.ts"
+import { phaseFlags, sessionIdle } from "./chatPhase.ts"
 import { LoadingState } from "./LoadingState.tsx"
 import { MessageList } from "./MessageList.tsx"
 import { ResourceTools } from "./resourceTools.tsx"
@@ -63,8 +63,9 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const accountStatus = useRef(initial.account.status)
   const accountRequest = useRef(initial.accountRequest)
   const [showJump, setShowJump] = useState(false)
-  const busy = isBusy(snapshot.phase)
-  const running = snapshot.phase === "running" || snapshot.phase === "sending" || snapshot.phase === "stopping"
+  const { busy, turnActive, generating, connected } = phaseFlags(snapshot.phase)
+  const idle = sessionIdle(snapshot)
+  const modeText = inputModeText(inputMode)
   const messageAction = inputMode === "message" ? composerMessageAction(snapshot.phase) : null
   const account = snapshot.account
   const signedIn = isSignedIn(account)
@@ -198,12 +199,10 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const themeClass = snapshot.theme === "dark" ? "codem-dark vscode-dark" : "codem-light"
   const showAccount = !signedIn || accountOpen
   const threadTitle = (snapshot.history.entries.find((entry) => entry.id === snapshot.threadId)?.title ?? snapshot.messages.find((message) => message.role === "user")?.text)?.slice(0, 30) || "新会话"
-  const connected = snapshot.phase !== "disconnected" && snapshot.phase !== "connecting" && snapshot.phase !== "failed" && snapshot.phase !== "closing"
   const editorSurface = host.surface !== "sidebar"
   const activity = workingStatus(snapshot)
   const showWorking = activity !== null && !(snapshot.messages.length === 0 && snapshot.phase === "connecting")
-  const generating = snapshot.phase === "running" || snapshot.phase === "stopping"
-  const modeHint = inputUnavailable(inputMode, snapshot) ?? (inputMode === "steer" ? "补充当前任务的执行方向。" : inputMode === "askSideQuestion" ? "单独提问，回答显示在这里。" : "发送前会展示命令并请求确认。")
+  const modeHint = inputUnavailable(inputMode, snapshot) ?? modeText.hint
   const side = snapshot.sessionTools.sideQuestion
   const controls = visibleControls(snapshot)
 
@@ -298,7 +297,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const pasteImages = (clipboard: DataTransfer | null) => {
     const files = Array.from(clipboard?.files ?? []).filter((file) => file.type.startsWith("image/"))
     if (files.length === 0) return
-    if (inputMode !== "message" || running) return
+    if (inputMode !== "message" || turnActive) return
     const allowed = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"])
     if (files.some((file) => !allowed.has(file.type) || file.size === 0)) return
     if (files.reduce((size, file) => size + file.size, 0) > 20 * 1024 * 1024) return
@@ -347,7 +346,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
           {editorSurface ? (
             <div className="headerActions" id="standaloneActions">
               <HistoryButton snapshot={snapshot} post={post} />
-              <button type="button" className="iconButton" id="newChat" title="新建会话" aria-label="新建会话" disabled={isBusy(snapshot.phase) || snapshot.backgroundBusy || Boolean(snapshot.sessionTools.busy)} onClick={() => post({ type: "newChat" })} dangerouslySetInnerHTML={{ __html: uiIcon("plus") }} />
+              <button type="button" className="iconButton" id="newChat" title="新建会话" aria-label="新建会话" disabled={!idle} onClick={() => post({ type: "newChat" })} dangerouslySetInnerHTML={{ __html: uiIcon("plus") }} />
               <button type="button" className="iconButton" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志" onClick={() => post({ type: "showOutput" })} dangerouslySetInnerHTML={{ __html: uiIcon("terminal") }} />
             </div>
           ) : null}
@@ -403,7 +402,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             <div className="composerModeBar" data-testid="inputMode">
               <span>
                 {inputMode === "shellCommand" ? <TerminalIcon aria-hidden="true" /> : <MessageSquarePlusIcon aria-hidden="true" />}
-                {inputMode === "askSideQuestion" ? "旁路提问" : inputMode === "steer" ? "补充指令" : "Shell 命令"}
+                {modeText.label}
               </span>
               <Button type="button" variant="ghost" size="sm" aria-label="返回普通对话" onClick={() => setInputMode("message")}>
                 <XIcon aria-hidden="true" />
@@ -425,7 +424,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             </section>
           ) : null}
           <label className="visuallyHidden" htmlFor="prompt">
-            {inputMode === "message" ? "发送给 CodeM 的消息" : "会话命令输入"}
+            {modeText.field}
           </label>
           <textarea
             ref={prompt}
@@ -434,7 +433,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             rows={2}
             maxLength={32000}
             spellCheck={false}
-            placeholder={inputMode === "message" ? "提出问题，或输入 / 选择会话操作…" : inputMode === "shellCommand" ? "输入要执行的命令…" : `输入${inputMode === "askSideQuestion" ? "旁路提问" : "补充指令"}…`}
+            placeholder={modeText.placeholder}
             value={draft}
             disabled={snapshot.pendingPanel !== null}
             onChange={(event) => saveDraft(event.target.value)}
@@ -474,18 +473,18 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
           ) : null}
           <div className="composerToolbar">
             <div className="composerLeading">
-              <ComposerMenus snapshot={snapshot} enabled={!busy && !snapshot.backgroundBusy && !snapshot.sessionTools.busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="leading" />
+              <ComposerMenus snapshot={snapshot} enabled={idle} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="leading" />
             </div>
             <div className="composerTrailing">
-              <ComposerMenus snapshot={snapshot} enabled={!busy && !snapshot.backgroundBusy && !snapshot.sessionTools.busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="trailing" />
-              <button type="submit" className="sendButton" id="send" data-testid="send" hidden={generating && inputMode !== "steer"} aria-label={inputMode === "message" ? "发送消息" : inputMode === "shellCommand" ? "检查命令" : "发送补充指令"} title={snapshot.sendKey === "modEnter" ? "发送消息 · Ctrl / Cmd + Enter" : "发送消息 · Enter"} disabled={Boolean(pendingSend) || (slash === null && (Boolean(inputUnavailable(inputMode, snapshot)) || !draft.trim() || snapshot.selections.some((item) => item.error)))} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
+              <ComposerMenus snapshot={snapshot} enabled={idle} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="trailing" />
+              <button type="submit" className="sendButton" id="send" data-testid="send" hidden={generating && inputMode !== "steer"} aria-label={modeText.submit} title={snapshot.sendKey === "modEnter" ? "发送消息 · Ctrl / Cmd + Enter" : "发送消息 · Enter"} disabled={Boolean(pendingSend) || (slash === null && (Boolean(inputUnavailable(inputMode, snapshot)) || !draft.trim() || snapshot.selections.some((item) => item.error)))} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
               <button type="button" className="stopButton" id="stop" data-testid="stop" hidden={!generating} disabled={snapshot.phase === "stopping"} aria-label="停止生成" title="停止生成" onClick={() => post({ type: "stop" })} dangerouslySetInnerHTML={{ __html: uiIcon("stop") }} />
             </div>
           </div>
         </form>
         <div className="footerMeta">
           <span className="environment" dangerouslySetInnerHTML={{ __html: `${uiIcon("monitor")}<span>本地</span>` }} />
-          <ComposerMenus snapshot={snapshot} enabled={!busy && !snapshot.backgroundBusy && !snapshot.sessionTools.busy} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="space" />
+          <ComposerMenus snapshot={snapshot} enabled={idle} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="space" />
           <span className="workspaceLabel">
             <span dangerouslySetInnerHTML={{ __html: uiIcon("folder") }} />
             <span id="workspace">{snapshot.workspace ?? "未连接工作区"}</span>

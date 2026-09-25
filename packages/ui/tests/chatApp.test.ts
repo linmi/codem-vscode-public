@@ -102,6 +102,30 @@ describe("composer menu icons", () => {
   })
 })
 
+describe("composer controls", () => {
+  const editorHost: CodemUiHost = { ...silentHost, surface: "editor" }
+  const render = (initial: ChatSnapshot) => views.renderToStaticMarkup(views.createElement(views.ChatApp, { host: editorHost, initial }))
+  const disabled = (html: string, id: string) => /\sdisabled=""/u.test(new RegExp(`<button[^>]*id="${id}"[^>]*>`, "u").exec(html)?.[0] ?? "")
+  const controls = ["newChat", "addAttachment", "selectWorkMode", "selectPermission", "selectEffort", "selectModel", "selectSpace"]
+
+  it("enables menus and new chat together, and disables them together while anything is working", () => {
+    const ready = { ...initialSnapshot(), account: signedIn, phase: "ready" as const, workspace: "demo", space: "研发空间" }
+    const idle = render(ready)
+    for (const id of controls) assert.equal(disabled(idle, id), false, `${id} while idle`)
+    for (const busy of [{ phase: "running" as const }, { backgroundBusy: true }, { sessionTools: { ...ready.sessionTools, busy: "compact" } }]) {
+      const html = render({ ...ready, ...busy })
+      for (const id of controls) assert.equal(disabled(html, id), true, `${id} with ${JSON.stringify(busy)}`)
+    }
+  })
+
+  it("labels the message field and send button from the input mode text", () => {
+    const html = render({ ...initialSnapshot(), account: signedIn, phase: "ready" })
+    assert.match(html, /<label class="visuallyHidden" for="prompt">发送给 CodeM 的消息<\/label>/u)
+    assert.match(html, /placeholder="提出问题，或输入 \/ 选择会话操作…"/u)
+    assert.match(html, /<button[^>]*id="send"[^>]*aria-label="发送消息"/u)
+  })
+})
+
 /** 控件自身带 hidden 或根本没渲染都算隐藏；不依赖外层容器是否隐藏。 */
 function shown(html: string, opening: RegExp): boolean {
   const tag = opening.exec(html)?.[0]

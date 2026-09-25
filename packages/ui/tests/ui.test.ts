@@ -10,7 +10,7 @@ import { activityTitle } from "../src/chat/toolPresentation.ts"
 import { workingStatus } from "../src/chat/workingStatus.ts"
 import { builtinSlashCommands, commandUnavailable, slashQuery } from "../src/chat/slashCommands.ts"
 import { draftRetention } from "../src/chat/draftRetention.ts"
-import { composerMessageAction, mentionQuery, sendOnEnter } from "../src/chat/composerInput.ts"
+import { composerMessageAction, inputModeText, mentionQuery, sendOnEnter } from "../src/chat/composerInput.ts"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -57,6 +57,13 @@ describe("@codem/ui host contract", () => {
     assert.equal(composerMessageAction("disconnected"), "send")
     assert.equal(composerMessageAction("sending"), "none")
     assert.equal(composerMessageAction("stopping"), "none")
+  })
+
+  it("names the mode bar, field, placeholder and send button from one table per input mode", () => {
+    assert.deepEqual(inputModeText("message"), { label: "", hint: "", placeholder: "提出问题，或输入 / 选择会话操作…", field: "发送给 CodeM 的消息", submit: "发送消息" })
+    assert.deepEqual(inputModeText("steer"), { label: "补充指令", hint: "补充当前任务的执行方向。", placeholder: "输入补充指令…", field: "会话命令输入", submit: "发送补充指令" })
+    assert.deepEqual(inputModeText("askSideQuestion"), { label: "旁路提问", hint: "单独提问，回答显示在这里。", placeholder: "输入旁路提问…", field: "会话命令输入", submit: "发送补充指令" })
+    assert.deepEqual(inputModeText("shellCommand"), { label: "Shell 命令", hint: "发送前会展示命令并请求确认。", placeholder: "输入要执行的命令…", field: "会话命令输入", submit: "检查命令" })
   })
 
   it("mentions files at the caret and sends on the configured enter key", () => {
