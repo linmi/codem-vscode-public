@@ -55,6 +55,14 @@ Kotlin 解码统一经 `JsonValue.ObjectValue` 的类型化读取：`requiredX(k
 
 VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.test.ts` 检查入口目录只保留组装文件、功能目录有明确归属，`webview/` 只有入口、样式入口和 `host/`；反例覆盖旧平铺路径、无归属目录及重建组件/输入区/样式副本。`webviewStyles.test.ts` 要求 VS Code 样式等于共享 `@codem/ui` 样式加 `body.vscode-*` 限定的主题桥接。`productionReachability.test.ts` 要求 `src/` 与 `webview/` 下每个 TypeScript 文件都能从 `scripts/support/productionEntries.ts` 列出的正式入口（扩展、Webview、原生 Chat 实验，两个构建脚本共用这份清单）到达：运行时依赖取 esbuild 解析，仅类型引用取 `tsc --listFilesOnly`，只被测试或其他死文件引用的文件同样报错；反例覆盖孤立文件、仅被孤立文件或测试引用的文件、孤立类型与移除入口，正例覆盖值、类型、再导出、动态导入、`require` 与声明文件。架构解析检查 Webview → 共享契约、共享契约 → 纯代码的依赖方向，含别名解析与类型导入反例；基础组件边界由 `@codem/ui` 的 UI 规则负责。全部进入 `pnpm check`。
 
+## 文件命名门禁
+
+`apps/vscode/tests/fileNaming.test.ts` 检查 `apps/` 与 `packages/` 下代码文件（`.ts`、`.tsx`、`.mts`、`.cts`、`.js`、`.jsx`、`.mjs`、`.cjs`、`.kt`、`.kts`）的文件名第一个点之前不含 `-`，即不使用 `xx-xx` 命名。文件清单取 `git ls-files --cached --others --exclude-standard`：已跟踪文件加未被 `.gitignore` 排除的新文件，依赖和构建产物不进入检查，尚未暂存的新文件同样会被拦截；调用 git 前去掉 `GIT_*` 环境变量，避免在 git hook 中读到其他仓库。归档 `history/` 不在范围内。
+
+唯一例外是 `packages/history/src/shared/`：它是 CodeM Desktop reducer 的选择性复制（来源见 `UPSTREAM.md`），保留上游文件名便于逐文件对照后续导入，不改名。例外写在 `fileNamingChecks.ts` 的 `UPSTREAM_NAMING_EXCEPTIONS`，新增例外须写明来源。
+
+正例覆盖 camelCase/PascalCase、`.test.ts` 与 `.d.ts` 后缀、Gradle 脚本、非代码文件、被忽略的构建与依赖目录、归档、上游复制目录，以及已从磁盘删除但仍在索引中的文件；反例覆盖每种扩展名、测试与声明文件、JetBrains Kotlin、例外目录的同级目录与前缀相近目录，以及未暂存的新文件。2026-09-25 在改名前的 main 上运行，该检查列出 `packages/app-server` 的 `control-plane.ts`、`rpc-abandoned.ts`、`control-plane.test.ts`、`protocol-alias.test.ts` 并失败。进入 `pnpm check` 与 `pnpm test:architecture`。
+
 ## 预览场景挂载门禁
 
 Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。预览运行时依赖的界面元素集中在 `tests/previewHooks.ts`。`previewHooks.test.ts` 用 esbuild 打包真实 `ChatApp`，对每个预览场景先经生产 `VscodeHostBridge` 投影 fixture，再以 `react-dom/server` 渲染，用 `markupQuery.ts` 查询：
