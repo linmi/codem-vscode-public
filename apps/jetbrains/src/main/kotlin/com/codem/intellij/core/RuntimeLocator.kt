@@ -64,8 +64,7 @@ object RuntimeLocator {
         val manifestPath = requireFile(bundleRoot.resolve("runtime.json"), "bundle manifest")
         val manifest = JsonValue.parse(Files.readString(manifestPath)).asObject()
         val target = targets.getValue(currentTargetId())
-        val schema = manifest.required("schemaVersion") as? JsonValue.NumberValue
-        if (schema?.value != 2.0) throw CodemError.Validation("CodeM runtime bundle requires schemaVersion 2")
+        if (manifest.numberOrNull("schemaVersion") != 2.0) throw CodemError.Validation("CodeM runtime bundle requires schemaVersion 2")
         fun expect(field: String, expected: String): String {
             val actual = manifest.required(field).asText()
             if (actual != expected) throw CodemError.Validation("CodeM runtime $field is $actual; expected $expected")

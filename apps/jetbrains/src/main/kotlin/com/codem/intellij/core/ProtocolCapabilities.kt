@@ -61,14 +61,14 @@ object ProtocolCapabilities {
 
     fun validateInitialize(result: JsonValue, expectedCoreVersion: String): Initialization {
         val obj = result.asObject()
-        val protocol = obj.fields["protocolVersion"]
-        val protocolNumber = (protocol as? JsonValue.NumberValue)?.value?.toInt()
+        val protocol = obj.optional("protocolVersion")
+        val protocolNumber = obj.numberOrNull("protocolVersion")?.toInt()
         if (protocolNumber != PROTOCOL_VERSION) {
             throw CodemError.Protocol(CodemError.Class.Capability, "CodeM App Server protocol ${protocol} is not supported; expected $PROTOCOL_VERSION")
         }
         val capabilities = obj.required("capabilities").asObject()
         for (path in requiredBooleans) {
-            if (nested(capabilities, path) != JsonValue.Bool(true)) {
+            if (parent(capabilities, path)?.booleanOrNull(leaf(path)) != true) {
                 throw CodemError.Protocol(CodemError.Class.Capability, "CodeM App Server is missing required capability $path=true")
             }
         }
@@ -85,19 +85,16 @@ object ProtocolCapabilities {
     }
 
     private fun requireMembers(capabilities: JsonValue.ObjectValue, path: String, required: List<String>) {
-        val value = nested(capabilities, path) as? JsonValue.ArrayValue
+        val items = parent(capabilities, path)?.arrayOrNull(leaf(path))
             ?: throw CodemError.Protocol(CodemError.Class.Capability, "CodeM App Server capability $path must be an array")
-        val items = value.items.mapNotNull { (it as? JsonValue.Text)?.value }
         for (member in required) {
-            if (member !in items) throw CodemError.Protocol(CodemError.Class.Capability, "CodeM App Server capability $path is missing $member")
+            if (JsonValue.Text(member) !in items) throw CodemError.Protocol(CodemError.Class.Capability, "CodeM App Server capability $path is missing $member")
         }
     }
 
-    private fun nested(value: JsonValue, path: String): JsonValue? {
-        var current: JsonValue? = value
-        for (segment in path.split('.')) {
-            current = (current as? JsonValue.ObjectValue)?.fields?.get(segment) ?: return null
-        }
-        return current
-    }
+    /** The object holding the last segment of a dotted capability path, or null when a segment on the way is not an object. */
+    private fun parent(capabilities: JsonValue.ObjectValue, path: String): JsonValue.ObjectValue? =
+        path.split('.').dropLast(1).fold<String, JsonValue.ObjectValue?>(capabilities) { current, segment -> current?.objectOrNull(segment) }
+
+    private fun leaf(path: String): String = path.substringAfterLast('.')
 }
