@@ -29,6 +29,22 @@ Actions 的选型和参数依据 [checkout 官方文档](https://github.com/acti
 
 边界：检查生产 `src/` 和 Webview；不审计第三方依赖内部实现，也不能静态判定运行时拼接路径、eval 或全部类型别名。类型导入检查与运行时依赖解析互补，不把字符串正则扫描当作完整依赖图。
 
+## 跨语言契约门禁
+
+JetBrains 发行包不带 Node，Kotlin 端保留自己的协议实现；漂移由测试发现。Gradle `test` 通过 `codem.contracts`、`codem.sessionRecordContract` 读取共用样本，并把 `packages/contracts/{manifest.json,core,webview,history}` 与 `session-record-contract-v13.json` 声明为测试输入，样本单独改动也会重跑，不会 UP-TO-DATE 跳过。
+
+| 样本 | TypeScript 侧 | Kotlin 侧 |
+| --- | --- | --- |
+| `core/knownNotifications.json` | 等于 `APP_SERVER_KNOWN_NOTIFICATIONS` | 等于 `KnownNotifications.methods` |
+| `core/jsonText.json` | 每例与 `JSON.parse` 一致 | `JsonValue` 同样接受（含键顺序）或以 InvalidJson 拒绝 |
+| `core/itemProjection.json` | 与 `parseAppServerItem` 的 toolName、callId、input、finalAnswer 一致 | `CoreItemProjection` 推导相同字段或以 InvalidFrame 拒绝 |
+| `webview/*.json` | `parseUiAction` | `parseViewAction`、`encodeChatSnapshot(initialSnapshot())` |
+| `session-record-contract-v13.json` | 读取器按类型分派 | 每个类型须明确投影或隐藏，契约外类型报告在 `HistoryPage.unknownRecordTypes` |
+
+2026-09-25 反向验证：在已知通知样本增加方法、改动 webview 样本、在记录契约增加类型，对应 Kotlin 测试均失败；去掉 Gradle 输入声明后同样的样本改动被 UP-TO-DATE 跳过。新测试在修复前的 `JsonValue` 上失败，同等行为探针在修复前的 `TurnAccumulator` 上失败（`\uZZZZ` 抛出 NumberFormatException 越过 RpcPeer、深嵌套栈溢出、子任务/上下文整理标签、final_answer 被丢弃、原始 activity 文本透传）。
+
+边界：活动文案只存在于 VS Code `chatController.ts`，不在共享包中，Kotlin 测试按其现值断言，不能随 TypeScript 改动自动失败；`toolPresentation` 键与 `parseAppServerItem` 工具名的一致性由 TypeScript 侧自身保证。
+
 ## 目录组织门禁
 
 VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.test.ts` 检查入口目录只保留组装文件、功能目录有明确归属，`webview/` 只有入口、样式入口和 `host/`；反例覆盖旧平铺路径、无归属目录及重建组件/输入区/样式副本。`webviewStyles.test.ts` 要求 VS Code 样式等于共享 `@codem/ui` 样式加 `body.vscode-*` 限定的主题桥接。`productionReachability.test.ts` 要求 `src/` 与 `webview/` 下每个 TypeScript 文件都能从 `scripts/support/productionEntries.ts` 列出的正式入口（扩展、Webview、原生 Chat 实验，两个构建脚本共用这份清单）到达：运行时依赖取 esbuild 解析，仅类型引用取 `tsc --listFilesOnly`，只被测试或其他死文件引用的文件同样报错；反例覆盖孤立文件、仅被孤立文件或测试引用的文件、孤立类型与移除入口，正例覆盖值、类型、再导出、动态导入、`require` 与声明文件。架构解析检查 Webview → 共享契约、共享契约 → 纯代码的依赖方向，含别名解析与类型导入反例；基础组件边界由 `@codem/ui` 的 UI 规则负责。全部进入 `pnpm check`。
