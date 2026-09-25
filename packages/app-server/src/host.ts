@@ -431,8 +431,7 @@ interface PendingInteraction {
   readonly rpcId: string | number
   readonly threadId: string
   readonly turnId: string
-  readonly method: string
-  /** Exactly what the UI was shown; every reply is checked against it before reaching Core. */
+  /** Exactly what the UI was shown, including its kind; every reply is checked against it before reaching Core. */
   readonly offer: AppServerInteraction
 }
 
@@ -662,8 +661,6 @@ export class AppServerHost {
     if (!thread?.activeTurn || thread.activeTurn.turnId !== pending.turnId) {
       throw new Error(`CodeM interaction ${id} belongs to a stale turn`)
     }
-    const expectedKind = interactionKind(pending.method)
-    if (response.kind !== expectedKind) throw new Error(`CodeM interaction ${id} requires a ${expectedKind} response`)
     const result = interactionResult(pending.offer, response)
     this.pendingInteractions.delete(id)
     thread.connection.connection.peer.respond(pending.rpcId, result)
@@ -1543,7 +1540,6 @@ export class AppServerHost {
         rpcId: request.id,
         threadId,
         turnId: requestTurnId,
-        method: request.method,
         offer: interaction,
       })
       this.emit({ type: "interaction", interaction })
@@ -2015,14 +2011,6 @@ function settingsKey(settings: AppServerThreadSettings): string {
     additionalDirectories: settings.additionalDirectories,
     mcpServers: settings.mcpServers,
   })
-}
-
-function interactionKind(method: string): AppServerInteraction["kind"] {
-  if (method === "item/tool/requestUserInput") return "question"
-  if (method === "item/rewind/requestSelection") return "rewind"
-  if (method === "item/plan/requestApproval") return "plan"
-  if (method === "item/planMode/requestApproval") return "plan-mode"
-  return "permission"
 }
 
 function objectValue(value: unknown, label: string): JsonObject {

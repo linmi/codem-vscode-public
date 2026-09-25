@@ -887,6 +887,29 @@ describe("AppServerHost interactions", () => {
     })
   }
 
+  const replies = [
+    { request: PERMISSION_REQUEST, response: { kind: "permission", optionId: "allow_once" } },
+    { request: QUESTION_REQUEST, response: ANSWERED_QUESTIONS },
+    { request: REWIND_REQUEST, response: { kind: "rewind", cancelled: false, checkpointId: "cp-1", mode: "code" } },
+    { request: PLAN_REQUEST, response: { kind: "plan", approved: true } },
+    { request: PLAN_MODE_REQUEST, response: { kind: "plan-mode", approved: true } },
+  ] as const satisfies readonly { request: HitlRequest; response: AppServerInteractionResponse }[]
+  for (const { request, response } of replies) {
+    it(`routes ${response.kind} replies by the parsed interaction kind, never by method name`, { timeout: 5000 }, async () => {
+      const harness = await openInteraction(request)
+      try {
+        assert.equal(harness.interaction.kind, response.kind)
+        for (const other of replies.filter(reply => reply.response.kind !== response.kind)) {
+          await assert.rejects(harness.host.respondToInteraction("interaction-1", other.response), new RegExp(`requires a ${response.kind} response`))
+        }
+        assert.deepEqual(harness.responses(), [])
+        await harness.host.respondToInteraction("interaction-1", response)
+        await harness.completed
+        assert.equal(harness.responses().length, 1)
+      } finally { await harness.host.close() }
+    })
+  }
+
   for (const scenario of [
     { resolved: { status: "answered" }, status: "answered", error: null },
     { resolved: { status: "cancelled" }, status: "cancelled", error: null },
