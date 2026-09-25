@@ -1140,6 +1140,94 @@ class ProjectSessionTest {
         }
     }
 
+    /**
+     * 版本只由 mutate 递增：每个会改变会话状态的公开调用都必须升版本并推出它改出的快照。
+     * 曾漏掉的 showHistory、loadCatalog、setTheme 等都在其中；只读或只转发给 Core 的调用不在此列。
+     */
+    @Test
+    fun everyPublicMutationBumpsTheVersionAndPublishesIt() {
+        val published = java.util.concurrent.CopyOnWriteArrayList<com.codem.intellij.webview.ChatSnapshot>()
+        val processes = java.util.concurrent.CopyOnWriteArrayList<ScriptedProcess>()
+        val extra = Files.createTempDirectory("codem-version-dir")
+        val file = Files.writeString(Files.createTempFile("codem-version", ".txt"), "note")
+        val session = session(
+            onSnapshot = { published += it },
+            historySource = HistorySource { _, _, cursor ->
+                HistoryPage(listOf(HistoryTurn("sub-old", listOf("earlier user"), listOf("earlier assistant"), emptyList())), if (cursor == null) "cursor-2" else null)
+            },
+            selectionReader = object : SelectionReader {
+                override fun current() = SelectionSnapshot("src/Main.kt", 3, 5, "val x = 1", 1, true)
+            },
+            attachmentStore = object : AttachmentStore {
+                override fun validate(path: Path, kind: AttachmentStore.Kind): Path = path
+            },
+        ) { process -> processes += process; startResponder(process, handshakeCapabilities()); process }
+        fun bumps(name: String, action: () -> Unit) {
+            val before = session.snapshot().version
+            action()
+            val after = session.snapshot()
+            assertTrue(after.version > before, "$name must bump the snapshot version")
+            assertEquals(after.version, published.last().version, "$name must publish the state it changed")
+        }
+        try {
+            bumps("connect") { session.connect() }
+            bumps("saveDraft") { session.saveDraft("draft") }
+            bumps("setTheme") { session.setTheme("dark") }
+            bumps("setEffort") { session.setEffort("high") }
+            bumps("chooseModel") { session.chooseModel("model-2") }
+            bumps("setWorkMode") { session.setWorkMode("plan") }
+            bumps("setPermission") { session.setPermission("auto") }
+            bumps("rememberSendKey") { session.rememberSendKey("modEnter") }
+            bumps("publishFileSearch") { session.publishFileSearch(com.codem.intellij.webview.FileSearchView("search-1", "loading")) }
+            bumps("showHistory") { session.showHistory() }
+            bumps("refreshHistory") { session.refreshHistory() }
+            bumps("closeHistory") { session.closeHistory() }
+            bumps("loadCatalog") { session.loadCatalog("skills") }
+            bumps("selectSkill") { session.selectSkill("review") }
+            bumps("setLiveSelection") { session.setLiveSelection("src/Main.kt", 3, 5, "val x = 1") }
+            var selection = ""
+            bumps("pinSelection") { selection = session.pinSelection()!! }
+            bumps("removeSelection") { session.removeSelection(selection) }
+            var attachment = ""
+            bumps("attach") { attachment = session.attach(file, AttachmentStore.Kind.File) }
+            bumps("removeAttachment") { session.removeAttachment(attachment) }
+            bumps("attachPastedImages") { session.attachPastedImages(listOf(ImageAttachment("image/png", byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10)))) }
+            bumps("addDirectory") { session.addDirectory(extra) }
+            bumps("removeDirectory") { session.removeDirectory(session.snapshot().sessionTools.directories.single().id) }
+            bumps("resumeThread") { session.resumeThread("thread-1") }
+            bumps("loadOlderMessages") { session.loadOlderMessages() }
+            bumps("readModes") { session.readModes() }
+            bumps("setModes") { session.setModes(session.snapshot().modeRevision ?: 0, workMode = "normal") }
+            bumps("listLiveTurns") { session.listLiveTurns() }
+            bumps("listBackgroundTerminals") { session.listBackgroundTerminals() }
+            bumps("terminateBackground") { session.terminateBackground("12") }
+            bumps("cleanBackground") { session.cleanBackground() }
+            bumps("clearThread") { session.clearThread("op-1") }
+            bumps("compactThread") { session.compactThread() }
+            completeTurn(processes.last(), "thread-new", "turn-control")
+            awaitSnapshot(session) { it.phase == "ready" }
+            bumps("send") { session.send("hello", "req-version") }
+            bumps("stop") { session.stop() }
+            completeTurn(processes.last(), "thread-new", "turn-1")
+            awaitSnapshot(session) { it.phase == "ready" }
+            processes.last().enqueue(encodeJson(JsonValue.obj(
+                "jsonrpc" to JsonValue.Text("2.0"), "id" to JsonValue.Text("approval-rpc"),
+                "method" to JsonValue.Text("item/tool/requestApproval"),
+                "params" to JsonValue.obj("threadId" to JsonValue.Text("thread-new"),
+                    "options" to JsonValue.ArrayValue(listOf(JsonValue.obj("id" to JsonValue.Text("allow_once"))))),
+            )))
+            val panel = awaitSnapshot(session) { it.pendingPanel != null }.pendingPanel!!
+            bumps("replyToInteraction") { session.replyToInteraction(panel.id, listOf("choice-0"), "", false) }
+            bumps("archiveThread") { session.archiveThread(true) }
+            session.resumeThread("thread-1")
+            bumps("deleteThread") { session.deleteThread() }
+            session.resumeThread("thread-1")
+            bumps("newChat") { session.newChat() }
+            bumps("chooseSpace") { session.chooseSpace("other") }
+            bumps("close") { session.close().join() }
+        } finally { session.close().join() }
+    }
+
     /** 一条完整的 item/fileChange/delta：分两片送达，complete 后才产出内容。 */
     private fun enqueueFileDiff(process: ScriptedProcess, path: String) {
         val payload = encodeJson(

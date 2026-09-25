@@ -93,6 +93,7 @@ data class DirectoryRef(val id: String, val label: String, val path: Path)
 /**
  * 每个规范化 cwd 一个当前 Core。会话状态只有一个串行所有者。
  * 耗时 I/O 在锁外执行，返回时检查连接代次。
+ * 快照可见状态只经 [mutate] 修改：锁内改状态并递增版本，释放锁后推送快照，不再逐处手工递增。
  *
  * 更改要点：发送把 user 写入 messages；通知经 onSnapshot 推界面；
  * 思考/工具进 messages；activity 只作中间进度；turn/completed 才落正文。
@@ -257,7 +258,7 @@ class ProjectSession(
     fun callBudget(): Map<String, Int> = lock.withLock { budget.snapshot() }
 
     fun saveDraft(text: String) {
-        lock.withLock { draft.text = text }
+        mutate { draft.text = text }
     }
 
     fun currentDraft(): String = lock.withLock { draft.text }
@@ -275,7 +276,7 @@ class ProjectSession(
             val status = authClient.status()
             bump { auth += 1 }
             authClient.assertAuthenticated(status)
-            lock.withLock {
+            mutate {
                 assertGeneration(preflightGeneration)
                 phase = ConnectionPhase.PreparingSpace
             }
@@ -286,14 +287,13 @@ class ProjectSession(
                 is SpacePreparation.SelectionRequired -> {
                     bump { prepare += 0 }
                     // 还没选空间就不该动现有连接：仍在跑的 Core 保持 ready。
-                    lock.withLock {
+                    mutate {
                         assertGeneration(preflightGeneration)
                         auth = status
                         spaces = prepared.catalog
                         phase = if (core != null) ConnectionPhase.Ready else ConnectionPhase.Disconnected
                         notice = SessionNotice("Select a space to continue", true)
                     }
-                    emitSnapshot()
                     return snapshot()
                 }
                 is SpacePreparation.Prepared -> {
@@ -307,7 +307,6 @@ class ProjectSession(
         } finally {
             finishPreflight()
         }
-        emitSnapshot()
         return snapshot()
     }
 
@@ -334,7 +333,6 @@ class ProjectSession(
         } finally {
             finishPreflight()
         }
-        emitSnapshot()
         return snapshot()
     }
 
@@ -352,7 +350,7 @@ class ProjectSession(
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.SEND_TURN)
         val trimmed = text.trim()
         if (trimmed.isEmpty()) throw CodemError.Validation("CodeM send text must be non-empty")
-        val (coreProcess, currentThread, currentGeneration) = lock.withLock {
+        val (coreProcess, currentThread, currentGeneration) = mutate {
             if (phase != ConnectionPhase.Ready || core == null) throw CodemError.Conflict("CodeM is not ready")
             if (threadChangeGeneration != null) throw CodemError.Conflict("CodeM is switching conversations")
             val turnPhase = turns.current?.phase
@@ -362,13 +360,11 @@ class ProjectSession(
             turns.beginSubmit(requestId)
             notice = null
             historyMessages += ChatMessageView(requestId, "user", trimmed, turnId = requestId)
-            snapshotVersion += 1
             Triple(core!!, threadId, generation.get())
         }
-        emitSnapshot()
         return try {
             val activeThread = currentThread ?: startThread(coreProcess)
-            lock.withLock {
+            mutate {
                 assertGeneration(currentGeneration)
                 bindThreadLocked(activeThread)
             }
@@ -380,17 +376,15 @@ class ProjectSession(
             bump { rpc += 1 }
             val turnId = ((result.fields["turn"] as? JsonValue.ObjectValue)?.fields?.get("id") as? JsonValue.Text)?.value
                 ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "turn/start omitted turn.id")
-            lock.withLock {
+            mutate {
                 assertGeneration(currentGeneration)
                 turns.acceptStarted(turnId)
                 attachments.consume(attachmentIds)
                 recordTurnTimingLocked("turn/started")
-                snapshotVersion += 1
             }
-            emitSnapshot()
             turnId
         } catch (error: Throwable) {
-            lock.withLock {
+            mutate {
                 if (generation.get() == currentGeneration) {
                     val failure = generateSequence(error) { it.cause }.last()
                     if (failure is CodemError.RequestRejected && failure.method == "turn/start") attachments.release(currentGeneration)
@@ -398,10 +392,8 @@ class ProjectSession(
                     if (turns.current?.phase == TurnPhase.Submitting) turns.resetActive()
                     historyMessages.removeAll { it.id == requestId }
                     notice = SessionNotice(SafeNotice.from(error, "CodeM send failed"), true)
-                    snapshotVersion += 1
                 }
             }
-            emitSnapshot()
             throw error
         }
     }
@@ -410,34 +402,28 @@ class ProjectSession(
     private fun <T> submit(requestId: String, operation: () -> T): T {
         return try {
             val result = operation()
-            recordSubmission(requestId, true)
+            mutate { submission = SubmissionReceiptView(requestId, true) }
             result
         } catch (error: Throwable) {
-            // 连接已失败时保留失败原因，不让随之而来的发送失败盖掉它。
-            lock.withLock { if (phase != ConnectionPhase.Failed) notice = SessionNotice(SafeNotice.from(error, "CodeM send failed"), true) }
-            recordSubmission(requestId, false)
+            mutate {
+                // 连接已失败时保留失败原因，不让随之而来的发送失败盖掉它。
+                if (phase != ConnectionPhase.Failed) notice = SessionNotice(SafeNotice.from(error, "CodeM send failed"), true)
+                submission = SubmissionReceiptView(requestId, false)
+            }
             throw error
         }
-    }
-
-    private fun recordSubmission(requestId: String, accepted: Boolean) {
-        lock.withLock {
-            submission = SubmissionReceiptView(requestId, accepted)
-            snapshotVersion += 1
-        }
-        emitSnapshot()
     }
 
     fun stop() = interruptTurn(requireActive = true)
 
     private fun interruptTurn(requireActive: Boolean) {
-        val (coreProcess, activeThread, turnId, currentGeneration) = lock.withLock {
+        val (coreProcess, activeThread, turnId, currentGeneration) = mutate {
             if (phase != ConnectionPhase.Ready || core == null) throw CodemError.Conflict("CodeM is not ready")
-            if (!requireActive && turns.current?.phase != TurnPhase.Running) return
+            if (!requireActive && turns.current?.phase != TurnPhase.Running) return@mutate null
             val turn = turns.current ?: throw CodemError.Conflict("CodeM turn/interrupt has no active turn")
             turns.markInterrupting()
             Quadruple(core!!, threadId ?: throw CodemError.Conflict("no thread"), turn.turnId, generation.get())
-        }
+        } ?: return
         try {
             val result = coreProcess.request("turn/interrupt", JsonValue.obj("threadId" to JsonValue.Text(activeThread), "turnId" to JsonValue.Text(turnId)))
                 .get(timeouts.rpcMs, TimeUnit.MILLISECONDS)
@@ -447,7 +433,7 @@ class ProjectSession(
             }
             lock.withLock { assertGeneration(currentGeneration) }
         } catch (error: Throwable) {
-            lock.withLock {
+            mutate {
                 if (generation.get() == currentGeneration) {
                     turns.restoreRunningIfInterrupting()
                     notice = SessionNotice(SafeNotice.from(error, "CodeM stop failed"), true)
@@ -459,14 +445,14 @@ class ProjectSession(
 
     fun replyToInteraction(requestId: String, choiceIds: List<String>, text: String, cancelled: Boolean) {
         try {
-            val stopTurn = lock.withLock {
-                interactions.reply(requestId, generation.get(), threadId, choiceIds, text, cancelled).also { snapshotVersion += 1 }
+            val stopTurn = mutate {
+                interactions.reply(requestId, generation.get(), threadId, choiceIds, text, cancelled)
             }
             if (stopTurn) stop()
         } catch (error: Throwable) {
-            lock.withLock { interactions.renewPanel(); snapshotVersion += 1 }
+            mutate { interactions.renewPanel() }
             throw error
-        } finally { emitSnapshot() }
+        }
     }
 
     /** Only turn/completed permits releasing a running thread; an interrupt receipt is not terminal. */
@@ -483,7 +469,7 @@ class ProjectSession(
             assertGeneration(currentGeneration)
         }
         unsubscribeCurrent(coreProcess, currentGeneration)
-        lock.withLock {
+        mutate {
             assertGeneration(currentGeneration)
             turns.resetActive()
             historyMessages.clear()
@@ -507,7 +493,7 @@ class ProjectSession(
             val result = requestResult(coreProcess, method, params, currentGeneration)
             val actual = result.required("thread").asObject().required("id").asText()
             if (actual != id) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM resumed $actual, expected $id")
-            lock.withLock {
+            mutate {
                 assertGeneration(currentGeneration)
                 turns.resetActive()
                 historyMessages.clear()
@@ -522,7 +508,7 @@ class ProjectSession(
                 try {
                     loadOlderMessages()
                 } catch (error: Throwable) {
-                    lock.withLock { notice = SessionNotice(SafeNotice.from(error, "CodeM history could not be restored"), true) }
+                    mutate { notice = SessionNotice(SafeNotice.from(error, "CodeM history could not be restored"), true) }
                 }
             }
             actual
@@ -537,7 +523,7 @@ class ProjectSession(
         if (result.fields.size != 1 || status !in setOf("unsubscribed", "notSubscribed")) {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM thread/unsubscribe status")
         }
-        lock.withLock {
+        mutate {
             assertGeneration(currentGeneration)
             lastThreadId = id
             threadId = null
@@ -547,38 +533,36 @@ class ProjectSession(
 
     private fun <T> changeThread(allowRunning: Boolean, operation: (CoreProcess, Long) -> T): T {
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.CONTROL_THREAD)
-        val (coreProcess, currentGeneration) = lock.withLock {
+        val (coreProcess, currentGeneration) = mutate {
             requireReadyLocked()
             if (threadChangeGeneration != null || turns.current?.phase == TurnPhase.Submitting || (!allowRunning && !idleTurnLocked())) {
                 throw CodemError.Conflict("CodeM cannot switch conversations during another operation")
             }
             val current = generation.get()
             threadChangeGeneration = current
-            snapshotVersion += 1
             core!! to current
         }
-        emitSnapshot()
         try {
             return operation(coreProcess, currentGeneration)
         } finally {
-            lock.withLock {
+            mutate {
                 if (threadChangeGeneration == currentGeneration) threadChangeGeneration = null
-                snapshotVersion += 1
             }
-            emitSnapshot()
         }
     }
 
     /** 打开历史只列当前工作区的会话标题，不把 cwd 画进界面。 */
     fun showHistory() {
-        if (lock.withLock { phase != ConnectionPhase.Ready }) {
-            lock.withLock { historyList = historyList.copy(open = true, loading = false, error = "请先连接 CodeM") }
-            return
+        val connected = mutate {
+            val ready = phase == ConnectionPhase.Ready
+            historyList = if (ready) historyList.copy(open = true, loading = true, error = null)
+            else historyList.copy(open = true, loading = false, error = "请先连接 CodeM")
+            ready
         }
-        lock.withLock { historyList = historyList.copy(open = true, loading = true, error = null) }
+        if (!connected) return
         val page = listThreads(null)
         val entries = historyEntries(page)
-        lock.withLock {
+        mutate {
             threadListCursor = page.nextCursor
             historyList = com.codem.intellij.webview.HistoryListView(
                 open = true,
@@ -592,11 +576,11 @@ class ProjectSession(
 
     fun moreThreads() {
         val cursor = lock.withLock { if (historyList.open) threadListCursor else null } ?: return
-        lock.withLock { historyList = historyList.copy(loading = true, error = null) }
+        mutate { historyList = historyList.copy(loading = true, error = null) }
         try {
             val page = listThreads(cursor)
             val entries = historyEntries(page)
-            lock.withLock {
+            mutate {
                 threadListCursor = page.nextCursor
                 historyList = historyList.copy(
                     loading = false,
@@ -606,7 +590,7 @@ class ProjectSession(
                 )
             }
         } catch (error: Throwable) {
-            lock.withLock {
+            mutate {
                 historyList = historyList.copy(loading = false, error = SafeNotice.from(error, "无法加载更多会话"))
             }
         }
@@ -625,24 +609,18 @@ class ProjectSession(
     }
 
     fun closeHistory() {
-        lock.withLock { historyList = historyList.copy(open = false, loading = false) }
+        mutate { historyList = historyList.copy(open = false, loading = false) }
     }
 
     fun refreshHistory() = showHistory()
 
     fun publishFileSearch(search: com.codem.intellij.webview.FileSearchView?) {
-        lock.withLock {
-            fileSearch = search
-            snapshotVersion += 1
-        }
+        mutate { fileSearch = search }
     }
 
     fun rememberSendKey(next: String) {
         if (next != "enter" && next != "modEnter") throw CodemError.Validation("Invalid CodeM send key")
-        lock.withLock {
-            sendKey = next
-            snapshotVersion += 1
-        }
+        mutate { sendKey = next }
     }
 
     private fun modelChoicesLocked(): List<ComposerChoiceView> {
@@ -721,7 +699,7 @@ class ProjectSession(
         if (targetId == currentThread || (target.fields["status"] as? JsonValue.Text)?.value != "loaded") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM clear target")
         }
-        lock.withLock {
+        mutate {
             assertGeneration(currentGeneration)
             threadId = targetId
             turns.resetActive()
@@ -767,7 +745,7 @@ class ProjectSession(
         val (method, params) = ThreadCommands.archive(currentThread, archived, workingDirectory.toString())
         requestResult(coreProcess, method, params, currentGeneration)
         if (archived) {
-            lock.withLock {
+            mutate {
                 assertGeneration(currentGeneration)
                 threadId = null
             }
@@ -779,7 +757,7 @@ class ProjectSession(
         val (coreProcess, currentThread, currentGeneration) = readyThread()
         val (method, params) = ThreadCommands.delete(currentThread, workingDirectory.toString())
         requestResult(coreProcess, method, params, currentGeneration)
-        lock.withLock {
+        mutate {
             assertGeneration(currentGeneration)
             threadId = null
         }
@@ -846,7 +824,7 @@ class ProjectSession(
         val (coreProcess, currentThread, currentGeneration) = readyThread()
         val (method, params) = ThreadCommands.liveTurns(currentThread, cursor)
         val result = requestResult(coreProcess, method, params, currentGeneration)
-        lock.withLock {
+        mutate {
             catalogKind = "live"
             catalogRows = listOf(CatalogRowView("live turns", "diagnostic snapshot, not JSONL history"))
         }
@@ -859,7 +837,7 @@ class ProjectSession(
         val (coreProcess, currentGeneration) = readyCore()
         val (method, params) = ThreadCommands.readModes(currentThread)
         val result = requestResult(coreProcess, method, params, currentGeneration)
-        return acceptModes(result, currentThread, currentGeneration)
+        return mutate { acceptModesLocked(result, currentThread, currentGeneration) }
     }
 
     fun setModes(expectedRevision: Int, permissionMode: String? = null, workMode: String? = null): ModeState {
@@ -869,9 +847,9 @@ class ProjectSession(
         val (method, params) = ThreadCommands.setModes(currentThread, expectedRevision, permissionMode, coreWork)
         return try {
             val result = requestResult(coreProcess, method, params, currentGeneration)
-            acceptModes(result, currentThread, currentGeneration)
+            mutate { acceptModesLocked(result, currentThread, currentGeneration) }
         } catch (error: Throwable) {
-            lock.withLock {
+            mutate {
                 notice = SessionNotice(SafeNotice.from(error, "CodeM mode change failed"), true)
             }
             throw error
@@ -879,7 +857,7 @@ class ProjectSession(
     }
 
     fun setEffort(effort: String) {
-        lock.withLock { settings = settings.copy(intelligence = effort) }
+        mutate { settings = settings.copy(intelligence = effort) }
         resumeIfThread("setEffort")
     }
 
@@ -888,37 +866,37 @@ class ProjectSession(
      * 不能把句柄或文件路径发回去。
      */
     fun chooseModel(id: String) {
-        val modelId = lock.withLock {
-            listedModels.find { it.handle == id }?.modelId
+        mutate {
+            val modelId = listedModels.find { it.handle == id }?.modelId
                 ?: if (listedModels.isEmpty() && id == "model-active") settings.model
                 else throw CodemError.Validation("CodeM model is not in the current catalog")
+            settings = settings.copy(model = modelId)
         }
-        lock.withLock { settings = settings.copy(model = modelId) }
         resumeIfThread("chooseModel")
     }
 
     fun setWorkMode(workMode: String) {
         val current = lock.withLock { threadId to modes.revision }
         if (current.first == null) {
-            lock.withLock { settings = settings.copy(workMode = workMode) }
+            mutate { settings = settings.copy(workMode = workMode) }
             return
         }
         setModes(current.second, workMode = workMode)
-        lock.withLock { settings = settings.copy(workMode = workMode) }
+        mutate { settings = settings.copy(workMode = workMode) }
     }
 
     fun setPermission(permission: String) {
         val current = lock.withLock { threadId to modes.revision }
         if (current.first == null) {
-            lock.withLock { settings = settings.copy(permissionMode = permission) }
+            mutate { settings = settings.copy(permissionMode = permission) }
             return
         }
         setModes(current.second, permissionMode = permission)
-        lock.withLock { settings = settings.copy(permissionMode = permission) }
+        mutate { settings = settings.copy(permissionMode = permission) }
     }
 
     fun setTheme(next: String) {
-        lock.withLock { theme = next }
+        mutate { theme = next }
     }
 
     /** A08：条件入口由 snapshot.canLoadOlder 控制。 */
@@ -927,7 +905,7 @@ class ProjectSession(
         val id = currentThread ?: throw CodemError.Conflict("no thread")
         val source = historySource ?: throw CodemError.Conflict("CodeM history source is not configured")
         val page = source.read(workingDirectory.toString(), id, cursor)
-        lock.withLock {
+        mutate {
             historyCursor = page.nextCursor
             hasOlder = page.nextCursor != null
             historyMessages += page.turns.flatMap { turn ->
@@ -950,62 +928,59 @@ class ProjectSession(
 
     /** 当前划选只展示，不进发送列表，直到用户钉住。切换选区会换掉这一条。 */
     fun setLiveSelection(path: String?, startLine: Int, endLine: Int, text: String) {
-        lock.withLock {
+        mutate {
             if (path == null || text.isEmpty()) {
                 liveSelection = null
-                return@withLock
+                return@mutate
             }
             val file = path.substringAfterLast('/').substringAfterLast('\\')
             val label = "$file:$startLine-$endLine"
-            if (dismissedLiveLabel == label) return@withLock
+            if (dismissedLiveLabel == label) return@mutate
             dismissedLiveLabel = null
             liveSelection = SelectionHandle("sel-current", label, text, startLine, endLine, pinned = false)
-            snapshotVersion += 1
         }
     }
 
     /** A09：把当前划选钉成不透明句柄。标签只有文件名和行号。 */
     fun pinSelection(): String? {
         val snap = selectionReader?.current()
-        return lock.withLock {
+        return mutate {
             val source = snap?.let {
                 val file = it.path.substringAfterLast('/').substringAfterLast('\\')
                 SelectionHandle("sel-current", "$file:${it.startLine}-${it.endLine}", it.text, it.startLine, it.endLine, pinned = false)
             } ?: liveSelection
-            if (source == null || source.text.isEmpty()) return@withLock null
-            selections.firstOrNull { it.text == source.text && it.label == source.label }?.let { return@withLock it.id }
+            if (source == null || source.text.isEmpty()) return@mutate null
+            selections.firstOrNull { it.text == source.text && it.label == source.label }?.let { return@mutate it.id }
             val id = "sel-${++selectionSequence}"
             selections += source.copy(id = id, pinned = true)
-            snapshotVersion += 1
             id
         }
     }
 
     fun removeSelection(id: String) {
-        lock.withLock {
+        mutate {
             if (id == "sel-current") {
                 dismissedLiveLabel = liveSelection?.label
                 liveSelection = null
             } else {
                 selections.removeAll { it.id == id }
             }
-            snapshotVersion += 1
         }
     }
 
-    fun attachPastedImages(images: List<ImageAttachment>): List<String> = lock.withLock {
+    fun attachPastedImages(images: List<ImageAttachment>): List<String> = mutate {
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.MUTATE_FILES)
         requireReadyLocked()
-        attachments.addImages(images).also { snapshotVersion += 1 }
+        attachments.addImages(images)
     }
 
-    fun attach(path: Path, kind: AttachmentStore.Kind): String = lock.withLock {
+    fun attach(path: Path, kind: AttachmentStore.Kind): String = mutate {
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.MUTATE_FILES)
-        attachments.add(path, kind).also { snapshotVersion += 1 }
+        attachments.add(path, kind)
     }
 
     fun removeAttachment(id: String) {
-        lock.withLock { attachments.remove(id); snapshotVersion += 1 }
+        mutate { attachments.remove(id) }
     }
 
     /** Resolves only a current opaque diff handle; the Webview cannot supply a filesystem path. */
@@ -1051,7 +1026,7 @@ class ProjectSession(
     }
 
     fun selectSkill(id: String?) {
-        lock.withLock {
+        mutate {
             if (id != null && skills.none { it.id == id }) throw CodemError.Validation("CodeM skill is not in the current catalog")
             selectedSkill = id
         }
@@ -1060,7 +1035,7 @@ class ProjectSession(
     fun addDirectory(path: Path) {
         val real = PathGuard.realPathOrNormalized(path)
         if (!Files.isDirectory(real)) throw CodemError.Validation("CodeM extra directory must be a directory")
-        lock.withLock {
+        mutate {
             directories += DirectoryRef("dir-${++directorySequence}", real.fileName.toString(), real)
         }
         val current = lock.withLock { threadId }
@@ -1068,7 +1043,7 @@ class ProjectSession(
     }
 
     fun removeDirectory(id: String) {
-        lock.withLock { directories.removeAll { it.id == id } }
+        mutate { directories.removeAll { it.id == id } }
         val current = lock.withLock { threadId }
         if (current != null) resumeThread(current)
     }
@@ -1082,7 +1057,7 @@ class ProjectSession(
             val pid = ((terminal.fields["processId"] as? JsonValue.NumberValue)?.literal ?: "${index + 1}")
             BackgroundView(pid, "terminal $pid", (terminal.fields["inProgress"] as? JsonValue.Bool)?.value == true)
         }
-        lock.withLock { background = listed }
+        mutate { background = listed }
         return listed
     }
 
@@ -1100,7 +1075,7 @@ class ProjectSession(
         val (coreProcess, currentThread, currentGeneration) = readyThread()
         val (method, params) = ThreadCommands.cleanBackground(currentThread)
         requestResult(coreProcess, method, params, currentGeneration)
-        lock.withLock { background = emptyList() }
+        mutate { background = emptyList() }
     }
 
     fun loadCatalog(kind: String): List<CatalogRowView> {
@@ -1122,7 +1097,7 @@ class ProjectSession(
         }
         val result = requestResult(coreProcess, method, params, currentGeneration)
         val rows = desensitizeCatalog(kind, result)
-        lock.withLock {
+        mutate {
             catalogKind = kind
             catalogRows = rows
             if (kind == "skills") {
@@ -1189,7 +1164,8 @@ class ProjectSession(
             }
             is ViewAction.Steer -> submit(action.requestId) { steerTurn(action.text, action.requestId) }
             is ViewAction.AskSideQuestion -> submit(action.requestId) {
-                sideQuestionId = startSideQuestion(action.text)
+                val id = startSideQuestion(action.text)
+                mutate { sideQuestionId = id }
             }
             is ViewAction.ShellCommand -> submit(action.requestId) { runShellCommand(action.text) }
             is ViewAction.CompactThread -> compactThread()
@@ -1199,7 +1175,7 @@ class ProjectSession(
     }
 
     fun close(): CompletableFuture<Void> {
-        val (current, pending) = lock.withLock {
+        val (current, pending) = mutate {
             phase = ConnectionPhase.Closing
             generation.set(connectionIds.incrementAndGet())
             interactions.revoke(generation.get())
@@ -1208,7 +1184,7 @@ class ProjectSession(
         }
         val futures = current.map { it.close() } + listOfNotNull(pending)
         return CompletableFuture.allOf(*futures.toTypedArray()).whenComplete { _, _ ->
-            lock.withLock { attachments.close(); phase = ConnectionPhase.Disconnected }
+            mutate { attachments.close(); phase = ConnectionPhase.Disconnected }
         }
     }
 
@@ -1217,22 +1193,20 @@ class ProjectSession(
         var startupError: CodemError? = null
         // 提交前丢失只记为启动失败，提交时拒绝；提交后丢失才让当前会话转 failed。二者在同一把锁内判定，没有空窗。
         fun lose(error: CodemError, message: String) {
-            val lost = lock.withLock {
+            val lost = mutate {
                 attachments.release(currentGeneration)
                 if (generation.get() != currentGeneration) {
                     if (startupError == null) startupError = error
-                    return@withLock null
+                    return@mutate null
                 }
                 loseConnectionLocked(message)
             } ?: return
             lost.forEach { it.close() }
-            emitSnapshot()
         }
-        lock.withLock {
+        mutate {
             assertGeneration(preflightGeneration)
             phase = ConnectionPhase.Starting
         }
-        emitSnapshot()
         val launch = broker.launchArguments(prepared)
         val created = CoreProcess(
             runtime = runtime,
@@ -1249,28 +1223,22 @@ class ProjectSession(
                 if (notification.method == "auth/invalidated") {
                     lose(CodemError.Authentication(AUTH_INVALIDATED), AUTH_INVALIDATED)
                 } else {
-                    val changed = lock.withLock {
-                        if (generation.get() != currentGeneration) return@withLock false
+                    mutate {
+                        if (generation.get() != currentGeneration) return@mutate
                         applyNotificationLocked(notification)
                         turnChanged.signalAll()
-                        snapshotVersion += 1
-                        true
                     }
-                    if (changed) emitSnapshot()
                 }
             },
             onRequest = { request: RpcRequest, peer: RpcPeer ->
-                // 入队本身不是界面事实：受理后必须升版本并推快照，否则审批卡片永远不出现。
-                val accepted = lock.withLock {
+                // 入队是界面事实：经 mutate 升版本并推快照，否则审批卡片永远不出现。
+                mutate {
                     if (generation.get() != currentGeneration) {
                         peer.respondError(request.id, -32000, "CodeM interaction belongs to a retired connection")
-                        return@withLock false
+                        return@mutate
                     }
-                    val queued = interactions.handle(request, peer, currentGeneration, threadId)
-                    if (queued) snapshotVersion += 1
-                    queued
+                    interactions.handle(request, peer, currentGeneration, threadId)
                 }
-                if (accepted) emitSnapshot()
             },
             onProtocolError = { error -> lose(error, SafeNotice.from(error, "CodeM connection failed")) },
             onExit = { exit -> lose(CodemError.Process("CodeM App Server exited during startup", stage = "exit"), exitNotice(exit)) },
@@ -1279,7 +1247,7 @@ class ProjectSession(
         bump { core += 1 }
         try {
             val (models, activeModel) = readModels(created)
-            val outgoing = lock.withLock {
+            val outgoing = mutate {
                 assertGeneration(preflightGeneration)
                 startupError?.let { throw it }
                 val old = retireCoresLocked()
@@ -1294,10 +1262,8 @@ class ProjectSession(
                 settings = settings.copy(model = activeModel)
                 phase = ConnectionPhase.Ready
                 notice = null
-                snapshotVersion += 1
                 old
             }
-            emitSnapshot()
             closeQuietly(outgoing)
         } catch (error: Throwable) {
             created.close().join()
@@ -1364,7 +1330,7 @@ class ProjectSession(
 
     /** Keep the old connection alive until initialize and model/list both succeed. */
     private fun beginPreflight(next: ConnectionPhase): Long {
-        val previous = lock.withLock {
+        return mutate {
             if (pendingConnection != null || phase == ConnectionPhase.Closing) {
                 throw CodemError.Conflict("CodeM connection is already in progress")
             }
@@ -1372,11 +1338,8 @@ class ProjectSession(
             pendingConnection = CompletableFuture()
             phase = next
             notice = null
-            snapshotVersion += 1
             generation.get()
         }
-        emitSnapshot()
-        return previous
     }
 
     private fun finishPreflight() {
@@ -1388,13 +1351,11 @@ class ProjectSession(
 
     /** 连接失败：旧 Core 仍在服务就回到 ready，已经退役才是 failed。 */
     private fun failConnection(activeGeneration: Long, error: Throwable, fallback: String) {
-        lock.withLock {
-            if (generation.get() != activeGeneration) return@withLock
+        mutate {
+            if (generation.get() != activeGeneration) return@mutate
             phase = if (core != null) ConnectionPhase.Ready else ConnectionPhase.Failed
             notice = SessionNotice(SafeNotice.from(error, fallback), true)
-            snapshotVersion += 1
         }
-        emitSnapshot()
     }
 
     /**
@@ -1415,7 +1376,6 @@ class ProjectSession(
         modesValid = false
         phase = ConnectionPhase.Failed
         notice = SessionNotice(message, true)
-        snapshotVersion += 1
         turnChanged.signalAll()
         return lost
     }
@@ -1490,7 +1450,7 @@ class ProjectSession(
         val turnId = ((result.fields["turn"] as? JsonValue.ObjectValue)?.fields?.get("id") as? JsonValue.Text)?.value
             ?: (result.fields["turnId"] as? JsonValue.Text)?.value
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "$methodName omitted turn id")
-        lock.withLock {
+        mutate {
             assertGeneration(currentGeneration)
             turns.beginSubmit(methodName)
             turns.acceptStarted(turnId)
@@ -1638,7 +1598,8 @@ class ProjectSession(
         return JsonValue.ObjectValue(fields)
     }
 
-    private fun acceptModes(result: JsonValue.ObjectValue, expectedThread: String, currentGeneration: Long): ModeState = lock.withLock {
+    /** Caller holds the lock: a public call wraps it in [mutate], a notification is already inside one. */
+    private fun acceptModesLocked(result: JsonValue.ObjectValue, expectedThread: String, currentGeneration: Long): ModeState {
         assertGeneration(currentGeneration)
         val reported = (result.fields["threadId"] as? JsonValue.Text)?.value
         if (reported != null && reported != expectedThread) {
@@ -1671,7 +1632,7 @@ class ProjectSession(
             permissionMode = permission,
             workMode = if (work == "plan") "plan" else "default",
         )
-        next
+        return next
     }
 
     /** B14：通知进入快照 notice/运行信息；warning 不得转成功。 */
@@ -1694,7 +1655,7 @@ class ProjectSession(
             }
             "thread/mode/changed" -> {
                 val current = threadId ?: return
-                acceptModes(notification.params, current, generation.get())
+                acceptModesLocked(notification.params, current, generation.get())
             }
             "thread/closed", "thread/archived", "thread/deleted" -> {
                 if (threadChangeGeneration != null) return
@@ -1748,8 +1709,24 @@ class ProjectSession(
         }
     }
 
-    private fun emitSnapshot() {
-        onSnapshot?.invoke(snapshot())
+    /**
+     * The only way snapshot state changes. [change] runs under the lock and moves the version with it; the snapshot is
+     * emitted once the lock is released, also when [change] throws after touching state. Never called with the lock
+     * held, so the subscriber and anything it does stay outside the lock.
+     */
+    private fun <T> mutate(change: () -> T): T {
+        check(!lock.isHeldByCurrentThread) { "CodeM session state must be published outside its lock" }
+        try {
+            return lock.withLock {
+                try {
+                    change()
+                } finally {
+                    snapshotVersion += 1
+                }
+            }
+        } finally {
+            onSnapshot?.invoke(snapshot())
+        }
     }
 
     /**
