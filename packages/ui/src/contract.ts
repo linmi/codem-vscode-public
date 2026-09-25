@@ -483,6 +483,12 @@ const handleActions = [
 const requestIdPattern = /^[a-zA-Z0-9-]{1,100}$/u
 const threadIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u
 const handlePattern = /^[a-zA-Z0-9-]{1,100}$/u
+const pluginSpecPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}@[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u
+
+/** 插件市场安装标识 `插件名@市场名`。安装按钮是否可用与动作校验共用这一条规则。 */
+export function isPluginSpec(value: unknown): value is string {
+  return typeof value === "string" && pluginSpecPattern.test(value)
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid CodeM action")
@@ -566,7 +572,7 @@ export function parseUiAction(value: unknown): Record<string, unknown> {
   if (record.type === "selectSkill" && keys.length === 2 && (record.id === null || (typeof record.id === "string" && threadIdPattern.test(record.id)))) {
     return { type: "selectSkill", id: record.id }
   }
-  if (record.type === "installMarketplacePlugin" && keys.length === 2 && typeof record.spec === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}@[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(record.spec)) return { type: "installMarketplacePlugin", spec: record.spec }
+  if (record.type === "installMarketplacePlugin" && keys.length === 2 && isPluginSpec(record.spec)) return { type: "installMarketplacePlugin", spec: record.spec }
   if (record.type === "changePlugin" && keys.length === 3 && ["enable", "disable", "uninstall"].includes(String(record.action))) return { type: "changePlugin", action: record.action, id: handleId(record.id) }
   if (record.type === "loadCatalog" && keys.length === 2 && catalogKinds.some((kind) => kind === record.kind)) {
     return { type: "loadCatalog", kind: record.kind }

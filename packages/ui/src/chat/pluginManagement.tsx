@@ -3,7 +3,7 @@ import { PackageIcon } from "lucide-react"
 import { Button } from "../components/ui/button.tsx"
 import { Input } from "../components/ui/input.tsx"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog.tsx"
-import type { ChatSnapshot } from "../contract.ts"
+import { isPluginSpec, type ChatSnapshot } from "../contract.ts"
 
 export function PluginManagement({ snapshot, post }: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) {
   const [spec, setSpec] = useState("")
@@ -13,7 +13,7 @@ export function PluginManagement({ snapshot, post }: { snapshot: ChatSnapshot; p
   const working = ["loading", "mutating", "reconciling"].includes(view.status)
   const disabled = snapshot.phase !== "ready" || snapshot.backgroundBusy || Boolean(snapshot.sessionTools.busy) || working
   const candidate = view.entries.find(entry => entry.id === removing)
-  const validSpec = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}@[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(spec.trim())
+  const validSpec = isPluginSpec(spec.trim())
   return <Dialog open={view.open} onOpenChange={open => { setRemoving(null); post({ type: open ? "showPluginManagement" : "closePluginManagement" }) }}>
     <DialogTrigger asChild><Button variant="ghost" size="icon" aria-label="管理插件与技能" title="管理插件与技能" disabled={disabled}><PackageIcon /></Button></DialogTrigger>
     <DialogContent className="pluginManagementDialog">

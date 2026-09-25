@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, it } from "node:test"
-import { asSnapshot, initialSnapshot, isSignedIn, isThreadOperation, parseUiAction, visibleControls } from "../src/contract.ts"
+import { asSnapshot, initialSnapshot, isPluginSpec, isSignedIn, isThreadOperation, parseUiAction, visibleControls } from "../src/contract.ts"
 import { welcomeState } from "../src/chat/welcomeState.ts"
 import { lastActivityId, timelineGroups, workGroupState } from "../src/chat/timelineGroups.ts"
 import { activityTitle } from "../src/chat/toolPresentation.ts"
@@ -270,6 +270,16 @@ it("validates plugin management intents and strips Host-only installation metada
   assert.equal(initialSnapshot().pluginManagement, null)
   assert.deepEqual(parseUiAction({ type: "installMarketplacePlugin", spec: "sample@local" }), { type: "installMarketplacePlugin", spec: "sample@local" })
   assert.throws(() => parseUiAction({ type: "installMarketplacePlugin", spec: "./private/path" }))
+  // 安装按钮和动作校验共用 isPluginSpec：两边对同一输入给出同一结论。
+  const name = `a${"b".repeat(127)}`
+  for (const spec of ["sample@local", "my.plugin_1-x@team-market", `${name}@${name}`]) {
+    assert.equal(isPluginSpec(spec), true, spec)
+    assert.deepEqual(parseUiAction({ type: "installMarketplacePlugin", spec }), { type: "installMarketplacePlugin", spec })
+  }
+  for (const spec of ["sample", "@local", "sample@", "-sample@local", "sample@local@x", "sample @local", ` sample@local`, `${name}b@local`, "插件@local", 42, null]) {
+    assert.equal(isPluginSpec(spec), false, String(spec))
+    assert.throws(() => parseUiAction({ type: "installMarketplacePlugin", spec }), /Invalid CodeM action|Unsupported/u, String(spec))
+  }
   assert.throws(() => parseUiAction({ type: "installLocalPlugin", path: "/private" }))
   assert.throws(() => parseUiAction({ type: "changePlugin", action: "delete-source", id: "sample" }))
   assert.throws(() => parseUiAction({ type: "changePlugin", action: "uninstall", id: "sample@local" }))
