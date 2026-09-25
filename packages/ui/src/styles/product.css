@@ -234,8 +234,8 @@ footer {
   height: 28px;
   border-radius: 50%;
   padding: 4px;
-  background: var(--primary) !important;
-  color: var(--onPrimary) !important;
+  background: var(--primary);
+  color: var(--onPrimary);
 }
 .sendButton svg { width: 20px; height: 20px; transform: translateY(1px); }
 .sendButton:disabled { opacity: .2; }
