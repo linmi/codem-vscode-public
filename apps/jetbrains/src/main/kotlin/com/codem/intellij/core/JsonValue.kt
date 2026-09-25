@@ -10,24 +10,68 @@ sealed class JsonValue {
     data class NumberValue(val value: Double, val literal: String) : JsonValue()
     data class Text(val value: String) : JsonValue()
     data class ArrayValue(val items: List<JsonValue>) : JsonValue()
+    /**
+     * 字段读取分三类，调用方按协议语义选择，不在各处自己转型：
+     * - `requiredX(key, path)`：缺失、`null` 或类型不符都以 InvalidFrame 失败，错误带 `path.key`；
+     * - `optionalX(key, path)`：缺失或 `null` 返回 null，出现但类型不符同样以 InvalidFrame 失败；
+     * - `xOrNull(key)`：宽松读取，缺失、`null` 与类型不符都返回 null。只用于 Node Host 同样宽松、
+     *   或调用方自己以其它错误类（History、Validation、Capability）失败的字段。
+     *
+     * `path` 是这个对象在消息里的位置，如 `thread/list threads[0]`。错误只带路径，不回显字段值。
+     */
     data class ObjectValue(val fields: Map<String, JsonValue>) : JsonValue() {
         fun optional(key: String): JsonValue? = fields[key]
 
         fun required(key: String): JsonValue =
             fields[key] ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "missing JSON field $key")
+
+        fun requiredString(key: String, path: String): String = field(key, path).asText("$path.$key")
+
+        fun optionalString(key: String, path: String): String? = present(key)?.asText("$path.$key")
+
+        fun stringOrNull(key: String): String? = (fields[key] as? Text)?.value
+
+        fun requiredObject(key: String, path: String): ObjectValue = field(key, path).asObject("$path.$key")
+
+        fun optionalObject(key: String, path: String): ObjectValue? = present(key)?.asObject("$path.$key")
+
+        fun objectOrNull(key: String): ObjectValue? = fields[key] as? ObjectValue
+
+        fun requiredArray(key: String, path: String): List<JsonValue> = field(key, path).asArray("$path.$key").items
+
+        fun arrayOrNull(key: String): List<JsonValue>? = (fields[key] as? ArrayValue)?.items
+
+        fun requiredBoolean(key: String, path: String): Boolean = field(key, path).asBoolean("$path.$key")
+
+        fun booleanOrNull(key: String): Boolean? = (fields[key] as? Bool)?.value
+
+        /** 整数语义：JSON 数值必须是 Int 范围内的整数，1.5 或 1e10 都不会被截断成别的值。 */
+        fun requiredInt(key: String, path: String): Int {
+            val label = "$path.$key"
+            val number = (field(key, path) as? NumberValue)?.value ?: throw invalidFrame("$label is not an integer")
+            if (number.toInt().toDouble() != number) throw invalidFrame("$label is not an integer")
+            return number.toInt()
+        }
+
+        fun numberOrNull(key: String): Double? = (fields[key] as? NumberValue)?.value
+
+        private fun field(key: String, path: String): JsonValue =
+            fields[key] ?: throw invalidFrame("missing JSON field $path.$key")
+
+        private fun present(key: String): JsonValue? = fields[key]?.takeUnless { it == Null }
     }
 
-    fun asObject(): ObjectValue =
-        this as? ObjectValue ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "JSON value is not an object")
+    fun asObject(path: String = "JSON value"): ObjectValue =
+        this as? ObjectValue ?: throw invalidFrame("$path is not an object")
 
-    fun asArray(): ArrayValue =
-        this as? ArrayValue ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "JSON value is not an array")
+    fun asArray(path: String = "JSON value"): ArrayValue =
+        this as? ArrayValue ?: throw invalidFrame("$path is not an array")
 
-    fun asText(): String =
-        (this as? Text)?.value ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "JSON value is not a string")
+    fun asText(path: String = "JSON value"): String =
+        (this as? Text)?.value ?: throw invalidFrame("$path is not a string")
 
-    fun asBoolean(): Boolean =
-        (this as? Bool)?.value ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "JSON value is not a boolean")
+    fun asBoolean(path: String = "JSON value"): Boolean =
+        (this as? Bool)?.value ?: throw invalidFrame("$path is not a boolean")
 
     companion object {
         fun obj(vararg pairs: Pair<String, JsonValue>): ObjectValue = ObjectValue(linkedMapOf(*pairs))
@@ -44,6 +88,8 @@ sealed class JsonValue {
 fun JsonValue.optional(key: String): JsonValue? = (this as? JsonValue.ObjectValue)?.optional(key)
 
 fun JsonValue.required(key: String): JsonValue = asObject().required(key)
+
+private fun invalidFrame(message: String) = CodemError.Protocol(CodemError.Class.InvalidFrame, message)
 
 fun encodeJson(value: JsonValue): String = buildString { appendJson(value) }
 
