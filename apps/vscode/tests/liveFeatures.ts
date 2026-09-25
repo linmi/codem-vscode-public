@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { createBundledAppServerRuntimeResolver } from "@codem/app-server"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { ChatController, type ChatSession } from "../src/chat/chatController.ts"
@@ -9,9 +10,10 @@ import type { ChatSnapshot } from "../src/shared/messages.ts"
 export async function runLiveFeatures(extensionRoot: string): Promise<void> {
   let session: ChatSession | null = null
   let resolveTurn: ((snapshot: ChatSnapshot) => void) | null = null
+  const runtime = createBundledAppServerRuntimeResolver({ extensionRoot })
   const controller = new ChatController({
     connect: async (signal) => {
-      session = await connectRuntime(extensionRoot, "0.2.0", signal)
+      session = await connectRuntime(runtime, "0.2.0", signal)
       return session
     },
     assertTrusted,

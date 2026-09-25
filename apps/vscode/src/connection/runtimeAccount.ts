@@ -1,13 +1,13 @@
 import { accountProfilePath, readAccountAvatar } from "./accountAvatar.ts"
 import { homedir } from "node:os"
 import * as vscode from "vscode"
-import { type AppServerAuthStatus, readAppServerAuthStatus, signOutAppServer, resolveBundledAppServerRuntime, startAppServerLogin } from "@codem/app-server"
+import { type AppServerAuthStatus, type BundledAppServerRuntimeResolver, readAppServerAuthStatus, signOutAppServer, startAppServerLogin } from "@codem/app-server"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
 import type { AccountIdentity, AccountOperations } from "./accountController.ts"
 
 /** Auth runs in the user's home, independent of workspace trust, selection and Core. */
-export function accountOperations(extensionRoot: string, timing?: (stage: "status" | "login" | "logout", durationMs: number) => void): AccountOperations {
-  const options = async () => ({ runtime: await resolveBundledAppServerRuntime({ extensionRoot }), workingDirectory: homedir() })
+export function accountOperations(resolveRuntime: BundledAppServerRuntimeResolver, timing?: (stage: "status" | "login" | "logout", durationMs: number) => void): AccountOperations {
+  const options = async () => ({ runtime: await resolveRuntime(), workingDirectory: homedir() })
   const identity = async (status: AppServerAuthStatus, signal: AbortSignal): Promise<AccountIdentity> => ({ ...status, avatar: await readAccountAvatar(status, accountProfilePath(process.env, homedir()), signal) })
   const read = async (authentication: Awaited<ReturnType<typeof options>>, signal: AbortSignal) => {
     const started = performance.now()

@@ -1,13 +1,16 @@
 import assert from "node:assert/strict"
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, describe, it } from "node:test"
+import { setTimeout as sleep } from "node:timers/promises"
 import {
   APP_SERVER_CLI_VERSION,
   APP_SERVER_CORE_VERSION,
+  createBundledAppServerRuntimeResolver,
   resolveBundledAppServerRuntime,
   resolveAppServerRuntime,
+  type BundledAppServerRuntimeVerification,
 } from "../src/index.ts"
 import { stageAppServerRuntime } from "../src/bundle.ts"
 
@@ -143,6 +146,46 @@ describe("bundled App Server runtime", () => {
     tampered[tampered.length - 1] = 8
     writeFileSync(runtime.executablePath, tampered)
     await assert.rejects(resolveBundledAppServerRuntime(options), /bundle SHA-256 mismatch/u)
+  })
+
+  it("reuses digests only while an executable keeps its identity, and still rejects a same-size rewrite", async () => {
+    const fixture = createRuntimeFixture()
+    const extensionRoot = createTemporaryDirectory("codem-extension-")
+    const options = { extensionRoot, platform: "darwin" as const, arch: "arm64" }
+    const runtime = await stageAppServerRuntime({ ...options, packageRoot: fixture.root })
+    // Whole seconds are restored exactly by utimes, so after the rewrite below only ctime differs.
+    const mtime = 1_700_000_000
+    for (const path of [runtime.executablePath, runtime.authExecutablePath]) utimesSync(path, mtime, mtime)
+    await sleep(2_100) // Let the last change leave the 2 s timestamp window.
+
+    const verifications: BundledAppServerRuntimeVerification[] = []
+    const resolve = createBundledAppServerRuntimeResolver({ ...options, observe: verification => verifications.push(verification) })
+    assert.deepEqual(await resolve(), runtime)
+    assert.deepEqual(await resolve(), runtime)
+    assert.deepEqual(verifications.map(({ hashed, reused }) => ({ hashed, reused })), [{ hashed: 2, reused: 0 }, { hashed: 0, reused: 2 }])
+    await createBundledAppServerRuntimeResolver({ ...options, observe: verification => verifications.push(verification) })()
+    assert.deepEqual(verifications.slice(2).map(({ hashed }) => hashed), [2], "another resolver does not share digests")
+
+    const tampered = readFileSync(runtime.executablePath)
+    tampered[0] = tampered[0]! ^ 1
+    writeFileSync(runtime.executablePath, tampered)
+    utimesSync(runtime.executablePath, mtime, mtime)
+    await assert.rejects(resolve(), /bundle SHA-256 mismatch/u)
+    await assert.rejects(resolve(), /bundle SHA-256 mismatch/u)
+    assert.equal(verifications.length, 3, "failed verifications are not reported as verified")
+  })
+
+  it("does not reuse the digest of an executable changed within the timestamp window", async () => {
+    const fixture = createRuntimeFixture()
+    const extensionRoot = createTemporaryDirectory("codem-extension-")
+    const options = { extensionRoot, platform: "darwin" as const, arch: "arm64" }
+    await stageAppServerRuntime({ ...options, packageRoot: fixture.root })
+
+    const verifications: BundledAppServerRuntimeVerification[] = []
+    const resolve = createBundledAppServerRuntimeResolver({ ...options, observe: verification => verifications.push(verification) })
+    await resolve()
+    await resolve()
+    assert.deepEqual(verifications.map(({ hashed }) => hashed), [2, 2])
   })
 })
 

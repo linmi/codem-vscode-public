@@ -5,7 +5,10 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { it, type TestContext } from "node:test"
+import type { BundledAppServerRuntime } from "@codem/app-server"
 import type { accountOperations as Operations } from "../src/connection/runtimeAccount.ts"
+
+const runtime = async () => ({}) as BundledAppServerRuntime
 
 async function setup(t: TestContext): Promise<{ accountOperations: typeof Operations; control: { loggedIn: boolean; browser: boolean; url: string; calls: string[]; cwd: string; finish: () => void } }> {
   const root = fileURLToPath(new URL("..", import.meta.url))
@@ -24,7 +27,6 @@ async function setup(t: TestContext): Promise<{ accountOperations: typeof Operat
       import {control} from 'accountFixture';
       const status=()=>({loggedIn:control.loggedIn,routerCredential:control.loggedIn,displayName:null,userId:'u',tenantId:'t',authMethod:'browser',serverUrl:null});
       export const signOutAppServer=async options=>{control.calls.push('logout');control.cwd=options.workingDirectory;options.signal.throwIfAborted();control.loggedIn=false;return status()};
-      export const resolveBundledAppServerRuntime=async()=>({});
       export const readAppServerAuthStatus=async options=>{control.calls.push('status');control.cwd=options.workingDirectory;options.signal.throwIfAborted();return status()};
       export function startAppServerLogin(options){
         control.calls.push('login');control.cwd=options.workingDirectory;
@@ -39,7 +41,7 @@ async function setup(t: TestContext): Promise<{ accountOperations: typeof Operat
 }
 
 it("login reads auth and opens browser without workspace APIs or Core; authenticated accounts skip browser", async t => {
-  const f = await setup(t); const operations = f.accountOperations("/extension"); const stages: string[] = []
+  const f = await setup(t); const operations = f.accountOperations(runtime); const stages: string[] = []
   const login = operations.login(new AbortController().signal, stage => stages.push(stage))
   await new Promise(resolve => setImmediate(resolve)); assert.deepEqual(f.control.calls, ["status", "login", "browser"])
   assert.equal(f.control.cwd, homedir()); f.control.finish(); const identity = await login; assert.equal(identity.loggedIn, true); assert.equal(identity.avatar.kind, "image")
@@ -50,7 +52,7 @@ it("login reads auth and opens browser without workspace APIs or Core; authentic
 })
 
 it("browser failure and unsafe URLs reject; cancellation reaps login and a retry can succeed", async t => {
-  const f = await setup(t); const operations = f.accountOperations("/extension")
+  const f = await setup(t); const operations = f.accountOperations(runtime)
   f.control.url = "http://login.invalid"; await assert.rejects(operations.login(new AbortController().signal, () => {}), /不安全/)
   assert.equal(f.control.calls.includes("browser"), false)
   f.control.url = "https://login.invalid"; f.control.browser = false
@@ -68,7 +70,7 @@ it("logout uses the credential broker independently of workspace/Core and respec
   const f = await setup(t)
   f.control.loggedIn = true
   const timings: string[] = []
-  const operations = f.accountOperations("/extension", stage => timings.push(stage))
+  const operations = f.accountOperations(runtime, stage => timings.push(stage))
   const status = await operations.logout(new AbortController().signal)
   assert.equal(status.loggedIn, false)
   assert.deepEqual(f.control.calls, ["logout"])
@@ -76,4 +78,13 @@ it("logout uses the credential broker independently of workspace/Core and respec
   assert.equal(f.control.cwd, homedir())
   const abort = new AbortController(); abort.abort()
   await assert.rejects(operations.logout(abort.signal))
+})
+
+it("each account operation verifies the runtime once through the caller's resolver before running the CLI", async t => {
+  const f = await setup(t); f.control.loggedIn = true
+  const operations = f.accountOperations(async () => { f.control.calls.push("runtime"); return {} as BundledAppServerRuntime })
+  await operations.read(new AbortController().signal)
+  await operations.login(new AbortController().signal, () => assert.fail("unexpected progress"))
+  await operations.logout(new AbortController().signal)
+  assert.deepEqual(f.control.calls, ["runtime", "status", "runtime", "status", "runtime", "logout"])
 })

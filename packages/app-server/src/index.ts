@@ -36,9 +36,13 @@ export {
   APP_SERVER_BUNDLE_DIRECTORY,
   APP_SERVER_BUNDLE_MANIFEST,
   APP_SERVER_BUNDLE_SCHEMA_VERSION,
+  createBundledAppServerRuntimeResolver,
   resolveBundledAppServerRuntime,
   type AppServerBundleManifest,
   type BundledAppServerRuntime,
+  type BundledAppServerRuntimeResolver,
+  type BundledAppServerRuntimeResolverOptions,
+  type BundledAppServerRuntimeVerification,
   type ResolveBundledAppServerRuntimeOptions,
 } from "./bundle.ts"
 export {

@@ -2,6 +2,8 @@
  * Wall time and event-loop blocking of bundled runtime verification. No Core process, no VS Code.
  * Uses the real bundle staged by `pnpm build:vscode` when present; otherwise a generated bundle
  * of the same sizes (Core ~13 MB, authentication CLI ~77 MB). Page cache is warm after the first sample.
+ * First chat use verifies twice (account read, then auto-connect); the activation's resolver
+ * hashes on the first call and reuses the digests of the unchanged bundle on the second.
  *
  *   node --experimental-strip-types apps/vscode/scripts/benchmarkRuntimeIntegrity.ts [--samples 7]
  */
@@ -10,10 +12,12 @@ import { existsSync, readFileSync } from "node:fs"
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { setTimeout as sleep } from "node:timers/promises"
 import { fileURLToPath } from "node:url"
 import {
   APP_SERVER_BUNDLE_DIRECTORY, APP_SERVER_BUNDLE_MANIFEST, APP_SERVER_BUNDLE_SCHEMA_VERSION, APP_SERVER_CLI_VERSION, APP_SERVER_CORE_VERSION,
-  appServerAuthPackageName, appServerRuntimePackageName, appServerRuntimeTarget, resolveBundledAppServerRuntime, type BundledAppServerRuntime,
+  appServerAuthPackageName, appServerRuntimePackageName, appServerRuntimeTarget, createBundledAppServerRuntimeResolver, resolveBundledAppServerRuntime,
+  type BundledAppServerRuntime,
 } from "@codem/app-server"
 
 const samplesIndex = process.argv.indexOf("--samples")
@@ -52,6 +56,16 @@ try {
   // What the synchronous implementation did per verification: read each file whole, then hash it.
   await measure("synchronous read and hash (previous)", () => syncDigests(runtime))
   await measure("resolveBundledAppServerRuntime", () => resolveBundledAppServerRuntime({ extensionRoot }))
+  await measure("first chat use: two one-shot verifications (account read, connection)", async () => {
+    await resolveBundledAppServerRuntime({ extensionRoot }); await resolveBundledAppServerRuntime({ extensionRoot })
+  })
+  await measure("first chat use: one resolver per activation", async () => {
+    const resolve = createBundledAppServerRuntimeResolver({ extensionRoot })
+    await resolve(); await resolve()
+  })
+  const warm = createBundledAppServerRuntimeResolver({ extensionRoot })
+  await warm()
+  await measure("later verification in the same activation (unchanged bundle)", warm)
   // Manifest read, stat and access checks still run synchronously before the first await.
   const prologue: number[] = []
   for (let index = 0; index < samples; index++) {
@@ -90,5 +104,7 @@ async function generatedBundle(): Promise<string> {
     executableName: files.core, sha256: digests.core, authPackageName: appServerAuthPackageName(target), cliVersion: APP_SERVER_CLI_VERSION,
     authExecutableName: files.auth, authSha256: digests.auth,
   }))
+  // Digests of files changed within the last 2 s are never reused; an installed bundle is older.
+  await sleep(2_100)
   return root
 }

@@ -1,7 +1,7 @@
 import { SpaceDirectory } from "./spaceDirectory.ts"
 import * as vscode from "vscode"
 import { realpath } from "node:fs/promises"
-import { AppServerHost, createPluginCommands, assertAppServerAuthenticated, listAppServerSpaces, prepareAppServerSpace, prepareInitialAppServerSpace, readAppServerAuthStatus, resolveBundledAppServerRuntime, type AppServerAuthStatus } from "@codem/app-server"
+import { AppServerHost, createPluginCommands, assertAppServerAuthenticated, listAppServerSpaces, prepareAppServerSpace, prepareInitialAppServerSpace, readAppServerAuthStatus, type AppServerAuthStatus, type BundledAppServerRuntimeResolver } from "@codem/app-server"
 import { resolveSessionsRoot } from "@codem/history"
 import { createSessionHistoryReader, createSessionHistorySearcher } from "../sessionHistory/sessionHistory.ts"
 import { type ChatSession } from "../chat/chatController.ts"
@@ -11,7 +11,7 @@ export function assertTrusted(): void {
   if (!vscode.workspace.isTrusted) throw new UserVisibleError("请先通过 VS Code 管理工作区信任，再连接 CodeM。")
 }
 
-export async function connectRuntime(extensionRoot: string, version: string, signal: AbortSignal, target?: { cwd: string; workspace: string; key: string }, knownSpaces?: SpaceDirectory, onAuth?: (status: AppServerAuthStatus) => void): Promise<ChatSession> {
+export async function connectRuntime(resolveRuntime: BundledAppServerRuntimeResolver, version: string, signal: AbortSignal, target?: { cwd: string; workspace: string; key: string }, knownSpaces?: SpaceDirectory, onAuth?: (status: AppServerAuthStatus) => void): Promise<ChatSession> {
   assertTrusted()
   const folders = vscode.workspace.workspaceFolders ?? []
   if (folders.length === 0) throw new UserVisibleError("请先打开一个项目文件夹。")
@@ -23,7 +23,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   assertTrusted()
   signal.throwIfAborted()
   const cwd = await realpath(folder.uri.fsPath)
-  const runtime = await resolveBundledAppServerRuntime({ extensionRoot })
+  const runtime = await resolveRuntime()
   const options = { runtime, workingDirectory: cwd, signal }
   const readStatus = async (signal: AbortSignal) => {
     const status = await readAppServerAuthStatus({ ...options, signal })

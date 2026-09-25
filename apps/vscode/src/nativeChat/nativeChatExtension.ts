@@ -1,5 +1,6 @@
 import { accountOperations } from "../connection/runtimeAccount.ts"
 import * as vscode from "vscode"
+import { createBundledAppServerRuntimeResolver } from "@codem/app-server"
 import { NativeChatService } from "./nativeChatService.ts"
 import { nativeSessionType, nativeThreadId, type NativeChatApi, type NativeHistoryApi, type NativeSessionController } from "./nativeChatApi.ts"
 import { NativeChatPanels } from "./nativeChatPanels.ts"
@@ -44,6 +45,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const historyApi = vscode as unknown as NativeHistoryApi
   if (typeof api.createChatSessionItemController !== "function" || typeof api.registerChatSessionContentProvider !== "function" || typeof historyApi.ChatResponseTurn2 !== "function") throw new Error("请启用 chatSessionsProvider 提案后启动 CodeM 原生实验。")
   const output = vscode.window.createOutputChannel("CodeM Native Experiment")
+  const runtime = createBundledAppServerRuntimeResolver({ extensionRoot: context.extensionPath })
   const panels = new NativeChatPanels()
   let items: NativeSessionController | undefined
   const report = (operation: string, error: unknown) => output.appendLine(`${operation}: ${error instanceof UserVisibleError ? error.message : "操作失败，请核对连接和 Core 运行时。"}`)
@@ -51,7 +53,7 @@ export function activate(context: vscode.ExtensionContext): void {
     assertTrusted,
     connect: async (signal) => {
       const started = performance.now()
-      const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signal)
+      const session = await connectRuntime(runtime, context.extension.packageJSON.version as string, signal)
       output.appendLine(`Connection: ${Math.round(performance.now() - started)}ms; one Core connection`)
       return session
     },
@@ -114,7 +116,7 @@ export function activate(context: vscode.ExtensionContext): void {
   }, participant, { supportsInterruptions: false })
   const connect = (signIn: boolean) => vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "CodeM 原生实验", cancellable: true }, async (_progress, token) => {
     await withCancellation(token, async signal => {
-      if (signIn) await accountOperations(context.extensionPath).login(signal, () => {})
+      if (signIn) await accountOperations(runtime).login(signal, () => {})
       else await agent.connect(signal)
     })
     if (!signIn) await refresh(token)

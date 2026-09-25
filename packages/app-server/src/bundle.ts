@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { basename, dirname, isAbsolute, join } from "node:path"
-import { sha256File } from "./fileDigest.ts"
+import { sha256File, type FileDigestMemo } from "./fileDigest.ts"
 import {
   APP_SERVER_CLI_VERSION,
   APP_SERVER_CORE_VERSION,
@@ -57,6 +57,21 @@ export interface ResolveBundledAppServerRuntimeOptions {
   readonly arch?: string
 }
 
+export interface BundledAppServerRuntimeVerification {
+  readonly elapsedMs: number
+  /** Executables read and hashed by this call. */
+  readonly hashed: number
+  /** Executables unchanged since this resolver hashed them, so not read again. */
+  readonly reused: number
+}
+
+export interface BundledAppServerRuntimeResolverOptions extends ResolveBundledAppServerRuntimeOptions {
+  /** Called after each successful verification. */
+  readonly observe?: (verification: BundledAppServerRuntimeVerification) => void
+}
+
+export type BundledAppServerRuntimeResolver = () => Promise<BundledAppServerRuntime>
+
 export async function stageAppServerRuntime(options: StageAppServerRuntimeOptions): Promise<BundledAppServerRuntime> {
   requireAbsoluteExtensionRoot(options.extensionRoot)
   const platform = options.platform ?? process.platform
@@ -87,11 +102,11 @@ export async function stageAppServerRuntime(options: StageAppServerRuntimeOption
     packageName: runtime.packageName,
     coreVersion: runtime.coreVersion,
     executableName,
-    sha256: await sha256File(executablePath),
+    sha256: (await sha256File(executablePath)).sha256,
     authPackageName: runtime.authPackageName,
     cliVersion: runtime.cliVersion,
     authExecutableName,
-    authSha256: await sha256File(authExecutablePath),
+    authSha256: (await sha256File(authExecutablePath)).sha256,
   }
   writeFileSync(join(bundleDirectory, APP_SERVER_BUNDLE_MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`)
 
@@ -102,9 +117,35 @@ export async function stageAppServerRuntime(options: StageAppServerRuntimeOption
   })
 }
 
+/** Verifies the bundle once, reading and hashing both executables. */
 export async function resolveBundledAppServerRuntime(
   options: ResolveBundledAppServerRuntimeOptions,
 ): Promise<BundledAppServerRuntime> {
+  return (await verifyBundledAppServerRuntime(options)).runtime
+}
+
+/**
+ * Creates the bundle verifier for one extension-host lifetime. Every call re-reads and
+ * validates the manifest and files and compares both digests with the manifest before
+ * returning. A digest is reused only for an executable whose device, inode, size, mtime
+ * and ctime are unchanged since this resolver hashed it; any change hashes it again.
+ */
+export function createBundledAppServerRuntimeResolver(
+  options: BundledAppServerRuntimeResolverOptions,
+): BundledAppServerRuntimeResolver {
+  const memo: FileDigestMemo = new Map()
+  return async () => {
+    const started = performance.now()
+    const verified = await verifyBundledAppServerRuntime(options, memo)
+    options.observe?.({ elapsedMs: Math.round(performance.now() - started), hashed: verified.hashed, reused: verified.reused })
+    return verified.runtime
+  }
+}
+
+async function verifyBundledAppServerRuntime(
+  options: ResolveBundledAppServerRuntimeOptions,
+  memo?: FileDigestMemo,
+): Promise<{ readonly runtime: BundledAppServerRuntime; readonly hashed: number; readonly reused: number }> {
   requireAbsoluteExtensionRoot(options.extensionRoot)
   const platform = options.platform ?? process.platform
   const expectedTarget = appServerRuntimeTarget(platform, options.arch ?? process.arch)
@@ -170,20 +211,23 @@ export async function resolveBundledAppServerRuntime(
   const authLicensePath = join(bundleDirectory, "LICENSE.auth")
   assertRegularFile(authLicensePath, "authentication license")
 
-  const actualSha256 = await sha256File(executablePath)
+  const core = await sha256File(executablePath, memo)
+  const actualSha256 = core.sha256
   if (actualSha256 !== manifest.sha256) {
     throw new Error(
       `CodeM App Server bundle SHA-256 mismatch for ${executablePath}; expected ${manifest.sha256}, received ${actualSha256}`,
     )
   }
-  const actualAuthSha256 = await sha256File(authExecutablePath)
+  const auth = await sha256File(authExecutablePath, memo)
+  const actualAuthSha256 = auth.sha256
   if (actualAuthSha256 !== manifest.authSha256) {
     throw new Error(
       `CodeM App Server auth bundle SHA-256 mismatch for ${authExecutablePath}; expected ${manifest.authSha256}, received ${actualAuthSha256}`,
     )
   }
 
-  return {
+  const reused = [core, auth].filter(digest => digest.reused).length
+  const runtime: BundledAppServerRuntime = {
     target: manifest.target,
     packageName: manifest.packageName,
     coreVersion: manifest.coreVersion,
@@ -196,6 +240,7 @@ export async function resolveBundledAppServerRuntime(
     authLicensePath,
     authSha256: actualAuthSha256,
   }
+  return { runtime, hashed: 2 - reused, reused }
 }
 
 function readManifest(path: string): AppServerBundleManifest {

@@ -2,6 +2,7 @@ import { waitForTabs } from "./nativeTestWait.ts"
 import { assertTrusted, connectRuntime } from "../src/connection/runtimeSession.ts"
 import { runLiveInteractions } from "./liveInteractions.ts"
 import assert from "node:assert/strict"
+import { createBundledAppServerRuntimeResolver } from "@codem/app-server"
 import { writeFileSync } from "node:fs"
 import * as vscode from "vscode"
 import { runNativeFeatureSmoke } from "./nativeFeatureSmoke.ts"
@@ -27,7 +28,8 @@ export async function run(): Promise<void> {
   assert.equal(chatTabs().length, 0)
   await runNativeFeatureSmoke()
   if (process.env.CODEM_LIVE_SMOKE === "1") {
-    if (process.env.CODEM_INTERACTIONS_LIVE === "1") await runLiveInteractions({ connect: signal => connectRuntime(extension.extensionPath, "0.2.0", signal), assertTrusted })
+    const runtime = createBundledAppServerRuntimeResolver({ extensionRoot: extension.extensionPath })
+    if (process.env.CODEM_INTERACTIONS_LIVE === "1") await runLiveInteractions({ connect: signal => connectRuntime(runtime, "0.2.0", signal), assertTrusted })
     else if (process.env.CODEM_FEATURE_LIVE === "1") await runLiveFeatures(extension.extensionPath)
     else await runLiveChat(extension.extensionPath)
   }

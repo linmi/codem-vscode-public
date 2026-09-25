@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { createBundledAppServerRuntimeResolver } from "@codem/app-server"
 import { ChatController } from "../src/chat/chatController.ts"
 import { assertTrusted, connectRuntime } from "../src/connection/runtimeSession.ts"
 import type { ChatSnapshot } from "../src/shared/messages.ts"
@@ -9,9 +10,10 @@ export async function runLiveChat(extensionRoot: string): Promise<void> {
   let terminalOutcome: string | null = null
   let finish: (state: ChatSnapshot) => void = () => undefined
   const completed = new Promise<ChatSnapshot>((resolve) => { finish = resolve })
+  const runtime = createBundledAppServerRuntimeResolver({ extensionRoot })
   const controller = new ChatController({
     connect: async (signal) => {
-      const session = await connectRuntime(extensionRoot, "0.2.0", signal)
+      const session = await connectRuntime(runtime, "0.2.0", signal)
       session.host.onEvent((event) => {
         if (event.type === "text-delta") deltaCount++
         if (event.type === "turn-completed") terminalOutcome = event.outcome

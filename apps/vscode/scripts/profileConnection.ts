@@ -29,7 +29,6 @@ await build({
       export const counts = { auth: 0, list: 0, prepare: 0, brokers: 0 };
       export const timings = [];
       const measure = async (stage, run) => { const start = performance.now(); try { return await run() } finally { timings.push({stage, ms: Math.round(performance.now() - start)}) } };
-      export const resolveBundledAppServerRuntime = options => measure('runtimeIntegrity', () => api.resolveBundledAppServerRuntime(options));
       export class AppServerHost extends api.AppServerHost {
         prepareConnection(cwd) { return measure('prepareConnectionIncludingSpace', () => super.prepareConnection(cwd)) }
         listModels(cwd) { return measure('modelList', () => super.listModels(cwd)) }

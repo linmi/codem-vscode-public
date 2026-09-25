@@ -12,6 +12,7 @@ import { NextEdit } from "./integrations/nextEdit/nextEdit.ts"
 import { ConnectionPreferences } from "./connection/connectionPreferences.ts"
 import { ActiveConversation } from "./sessionHistory/activeConversation.ts"
 import * as vscode from "vscode"
+import { createBundledAppServerRuntimeResolver } from "@codem/app-server"
 import type { SpaceDirectory } from "./connection/spaceDirectory.ts"
 import { ChatController } from "./chat/chatController.ts"
 import { UserVisibleError } from "./shared/userVisibleError.ts"
@@ -28,12 +29,18 @@ let accountController: AccountController | undefined
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("CodeM")
+  // One verifier per extension host: account reads and connections reuse a digest only
+  // while the bundled executable is unchanged; the manifest check runs on every call.
+  const runtime = createBundledAppServerRuntimeResolver({
+    extensionRoot: context.extensionPath,
+    observe: ({ elapsedMs, hashed, reused }) => output.appendLine(`Runtime integrity: ${elapsedMs}ms; hashed ${hashed}, reused ${reused}`),
+  })
   const preferences = new ConnectionPreferences(context.workspaceState)
   const features = new NativeFeatures(context.secrets)
   context.subscriptions.push(features)
   const panels = new PanelBroker()
   let surfaces: ChatSurfaces | undefined
-  const account = new AccountController(accountOperations(context.extensionPath, (stage, ms) => output.appendLine(`Account ${stage}: ${ms}ms`)), state => {
+  const account = new AccountController(accountOperations(runtime, (stage, ms) => output.appendLine(`Account ${stage}: ${ms}ms`)), state => {
     void vscode.commands.executeCommand("setContext", "codem.accountStatus", state.status)
     surfaces?.post({ type: "account", state })
   })
@@ -46,7 +53,7 @@ export function activate(context: vscode.ExtensionContext): void {
   let previousPhase: string | null = null
   const openSession = async (signal: AbortSignal, target = preferences.lastConnection(), directory?: SpaceDirectory) => {
     const runtimeStarted = performance.now()
-    const session = await connectRuntime(context.extensionPath, context.extension.packageJSON.version as string, signal, target, directory, status => { if (!signal.aborted) account.observe(status) })
+    const session = await connectRuntime(runtime, context.extension.packageJSON.version as string, signal, target, directory, status => { if (!signal.aborted) account.observe(status) })
     output.appendLine(`Connection runtime: ${Math.round(performance.now() - runtimeStarted)}ms`)
     try {
       const mcpStarted = performance.now()

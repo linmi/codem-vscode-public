@@ -5,9 +5,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { it, type TestContext } from "node:test"
+import type { BundledAppServerRuntime } from "@codem/app-server"
 import type { connectRuntime as ConnectRuntime } from "../src/connection/runtimeSession.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
+const runtime = async () => ({}) as BundledAppServerRuntime
 interface Control {
   calls: string[]
   selection: boolean
@@ -44,7 +46,6 @@ async function setup(t: TestContext): Promise<{ connectRuntime: typeof ConnectRu
         export { createPluginCommands } from '../../packages/app-server/src/plugins/pluginCommands.ts';
         const space = {projectKey:'proj_test', displayName:'Test', managedDirectory:null};
         const catalog = {current:'proj_test',spaces:[{projectKey:'proj_test',displayName:'Test'}]};
-        export const resolveBundledAppServerRuntime=async()=>({});
         export const readAppServerAuthStatus=async()=>{control.calls.push('auth'); return {loggedIn:control.loggedIn,routerCredential:control.loggedIn,userId:'user',tenantId:'tenant',serverUrl:'https://fixture.invalid'}};
         export const startAppServerLogin=()=>{throw Error('unexpected login')};
         export const listAppServerSpaces=async()=>{control.calls.push('list'); return catalog};
@@ -65,17 +66,26 @@ async function setup(t: TestContext): Promise<{ connectRuntime: typeof ConnectRu
 it("startup gate: consumes prepared launch material without a second broker and revalidates on repeat connection", async t => {
   const f = await setup(t)
   const abort = new AbortController()
-  const first = await f.connectRuntime(root, "test", abort.signal)
+  const first = await f.connectRuntime(runtime, "test", abort.signal)
   assert.deepEqual(f.control.calls, ["auth", "initial", "core", "models"])
   f.control.calls.length = 0
-  const second = await f.connectRuntime(root, "test", abort.signal)
+  const second = await f.connectRuntime(runtime, "test", abort.signal)
   assert.deepEqual(f.control.calls, ["auth", "initial", "core", "models"])
+  await Promise.all([first.host.close(), second.host.close()])
+})
+
+it("verifies the bundled runtime through the caller's resolver before authentication on every connection", async t => {
+  const f = await setup(t)
+  const verified = async () => { f.control.calls.push("runtime"); return {} as BundledAppServerRuntime }
+  const first = await f.connectRuntime(verified, "test", new AbortController().signal)
+  const second = await f.connectRuntime(verified, "test", new AbortController().signal)
+  assert.deepEqual(f.control.calls, ["runtime", "auth", "initial", "core", "models", "runtime", "auth", "initial", "core", "models"])
   await Promise.all([first.host.close(), second.host.close()])
 })
 
 it("identifies VS Code to Core through the shared host's caller-supplied options", async t => {
   const f = await setup(t)
-  const session = await f.connectRuntime(root, "0.2.0", new AbortController().signal)
+  const session = await f.connectRuntime(runtime, "0.2.0", new AbortController().signal)
   const options = (session.host as unknown as { options: { clientInfo: unknown; sessionSource: unknown } }).options
   assert.deepEqual(options.clientInfo, { name: "codem-vscode", version: "0.2.0" })
   assert.equal(options.sessionSource, "vscode")
@@ -85,9 +95,9 @@ it("identifies VS Code to Core through the shared host's caller-supplied options
 it("startup gate: cached directory keeps selection fast but cannot reuse previous launch authorization", async t => {
   const f = await setup(t)
   const abort = new AbortController()
-  const first = await f.connectRuntime(root, "test", abort.signal)
+  const first = await f.connectRuntime(runtime, "test", abort.signal)
   f.control.calls.length = 0
-  const next = await f.connectRuntime(root, "test", abort.signal, {cwd: first.cwd,workspace:first.workspace,key:first.space.key}, first.spaceDirectory)
+  const next = await f.connectRuntime(runtime, "test", abort.signal, {cwd: first.cwd,workspace:first.workspace,key:first.space.key}, first.spaceDirectory)
   assert.deepEqual(f.control.calls, ["auth", "prepare", "core", "models"])
   await Promise.all([first.host.close(), next.host.close()])
 })
@@ -95,12 +105,12 @@ it("startup gate: cached directory keeps selection fast but cannot reuse previou
 it("startup gate: user selection renews authentication before fresh preparation; cancellation never starts Core", async t => {
   const f = await setup(t)
   f.control.selection = true
-  const session = await f.connectRuntime(root, "test", new AbortController().signal)
+  const session = await f.connectRuntime(runtime, "test", new AbortController().signal)
   assert.deepEqual(f.control.calls, ["auth", "initial", "pick", "auth", "prepare", "core", "models"])
   await session.host.close()
   f.control.calls.length = 0
   f.control.cancelPick = true
-  await assert.rejects(f.connectRuntime(root, "test", new AbortController().signal), /未选择/)
+  await assert.rejects(f.connectRuntime(runtime, "test", new AbortController().signal), /未选择/)
   assert.deepEqual(f.control.calls, ["auth", "initial", "pick"])
 })
 
@@ -108,18 +118,18 @@ it("startup gate: cancellation after preparation cannot start Core", async t => 
   const f = await setup(t)
   const abort = new AbortController()
   f.control.afterInitial = () => abort.abort()
-  await assert.rejects(f.connectRuntime(root, "test", abort.signal), {name:"AbortError"})
+  await assert.rejects(f.connectRuntime(runtime, "test", abort.signal), {name:"AbortError"})
   assert.deepEqual(f.control.calls, ["auth", "initial"])
 })
 
 it("startup gate: model failure closes Core and retry performs a fresh startup transaction", async t => {
   const f = await setup(t)
   f.control.failModels = true
-  await assert.rejects(f.connectRuntime(root, "test", new AbortController().signal), /models unavailable/)
+  await assert.rejects(f.connectRuntime(runtime, "test", new AbortController().signal), /models unavailable/)
   assert.deepEqual(f.control.calls, ["auth", "initial", "core", "models", "close"])
   f.control.calls.length = 0
   f.control.failModels = false
-  const session = await f.connectRuntime(root, "test", new AbortController().signal)
+  const session = await f.connectRuntime(runtime, "test", new AbortController().signal)
   assert.deepEqual(f.control.calls, ["auth", "initial", "core", "models"])
   await session.host.close()
 })
@@ -127,7 +137,7 @@ it("startup gate: model failure closes Core and retry performs a fresh startup t
 it("connection reports signed-out state without launching a login or Core", async t => {
   const f = await setup(t); f.control.loggedIn = false
   const observed: boolean[] = []
-  await assert.rejects(f.connectRuntime(root, "test", new AbortController().signal, undefined, undefined, status => observed.push(status.loggedIn)), /尚未登录/)
+  await assert.rejects(f.connectRuntime(runtime, "test", new AbortController().signal, undefined, undefined, status => observed.push(status.loggedIn)), /尚未登录/)
   assert.deepEqual(f.control.calls, ["auth"]); assert.deepEqual(observed, [false])
 })
 
@@ -135,7 +145,7 @@ it("logout cancellation closes an open space picker before starting Core", async
   const f = await setup(t); f.control.selection = true; f.control.waitPick = true
   const picked = new Promise<void>(resolve => { f.control.picked = resolve })
   const abort = new AbortController()
-  const connection = f.connectRuntime(root, "test", abort.signal)
+  const connection = f.connectRuntime(runtime, "test", abort.signal)
   const rejected = assert.rejects(connection, /未选择/)
   await picked; abort.abort(); await rejected
   assert.equal(f.control.calls.includes("core"), false)
