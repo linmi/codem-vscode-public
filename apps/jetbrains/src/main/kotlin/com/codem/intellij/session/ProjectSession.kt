@@ -94,6 +94,7 @@ data class DirectoryRef(val id: String, val label: String, val path: Path)
  * 每个规范化 cwd 一个当前 Core。会话状态只有一个串行所有者。
  * 耗时 I/O 在锁外执行，返回时检查连接代次。
  * 快照可见状态只经 [mutate] 修改：锁内改状态并递增版本，释放锁后推送快照，不再逐处手工递增。
+ * 对 Core 请求的回包同样锁内判定、锁外写 stdin：交互路由只返回 [CoreReply]，由判定它的调用方在释放锁后发送。
  *
  * 更改要点：发送把 user 写入 messages；通知经 onSnapshot 推界面；
  * 思考/工具进 messages；activity 只作中间进度；turn/completed 才落正文。
@@ -443,12 +444,17 @@ class ProjectSession(
         }
     }
 
+    /**
+     * The reply is decided under the lock (current panel, generation and thread still match, and the interaction leaves
+     * the pending set so it is answered once) and written to its own connection after the lock is released.
+     */
     fun replyToInteraction(requestId: String, choiceIds: List<String>, text: String, cancelled: Boolean) {
         try {
-            val stopTurn = mutate {
+            val decision = mutate {
                 interactions.reply(requestId, generation.get(), threadId, choiceIds, text, cancelled)
             }
-            if (stopTurn) stop()
+            decision.reply?.send()
+            if (decision.interruptTurn) stop()
         } catch (error: Throwable) {
             mutate { interactions.renewPanel() }
             throw error
@@ -1184,13 +1190,14 @@ class ProjectSession(
     }
 
     fun close(): CompletableFuture<Void> {
-        val (current, pending) = mutate {
+        val (current, pending, revoked) = mutate {
             phase = ConnectionPhase.Closing
             generation.set(connectionIds.incrementAndGet())
-            interactions.revoke(generation.get())
+            val revoked = interactions.revoke(generation.get())
             turnChanged.signalAll()
-            retireCoresLocked() to pendingConnection
+            Triple(retireCoresLocked(), pendingConnection, revoked)
         }
+        sendRevocations(revoked)
         val futures = current.map { it.close() } + listOfNotNull(pending)
         return CompletableFuture.allOf(*futures.toTypedArray()).whenComplete { _, _ ->
             mutate { attachments.close(); phase = ConnectionPhase.Disconnected }
@@ -1210,7 +1217,8 @@ class ProjectSession(
                 }
                 loseConnectionLocked(message)
             } ?: return
-            lost.forEach { it.close() }
+            sendRevocations(lost.revoked)
+            lost.processes.forEach { it.close() }
         }
         mutate {
             assertGeneration(preflightGeneration)
@@ -1232,22 +1240,22 @@ class ProjectSession(
                 if (notification.method == "auth/invalidated") {
                     lose(CodemError.Authentication(AUTH_INVALIDATED), AUTH_INVALIDATED)
                 } else {
-                    mutate {
-                        if (generation.get() != currentGeneration) return@mutate
-                        applyNotificationLocked(notification)
-                        turnChanged.signalAll()
+                    val revoked = mutate {
+                        if (generation.get() != currentGeneration) return@mutate emptyList()
+                        applyNotificationLocked(notification).also { turnChanged.signalAll() }
                     }
+                    sendRevocations(revoked)
                 }
             },
             onRequest = { request: RpcRequest, peer: RpcPeer ->
-                // 入队是界面事实：经 mutate 升版本并推快照，否则审批卡片永远不出现。
-                mutate {
+                // 入队是界面事实：经 mutate 升版本并推快照，否则审批卡片永远不出现。拒绝回包在锁外发送。
+                val rejection = mutate {
                     if (generation.get() != currentGeneration) {
-                        peer.respondError(request.id, -32000, "CodeM interaction belongs to a retired connection")
-                        return@mutate
+                        return@mutate CoreReply.error(peer, request.id, -32000, "CodeM interaction belongs to a retired connection")
                     }
                     interactions.handle(request, peer, currentGeneration, threadId)
                 }
+                rejection?.send()
             },
             onProtocolError = { error -> lose(error, SafeNotice.from(error, "CodeM connection failed")) },
             onExit = { exit -> lose(CodemError.Process("CodeM App Server exited during startup", stage = "exit"), exitNotice(exit)) },
@@ -1256,12 +1264,12 @@ class ProjectSession(
         bump { core += 1 }
         try {
             val (models, activeModel) = readModels(created)
-            val outgoing = mutate {
+            val (outgoing, revoked) = mutate {
                 assertGeneration(preflightGeneration)
                 startupError?.let { throw it }
                 val old = retireCoresLocked()
                 generation.set(currentGeneration)
-                interactions.revoke(currentGeneration)
+                val revoked = interactions.revoke(currentGeneration)
                 resetConnectionStateLocked()
                 core = created
                 auth = status
@@ -1271,8 +1279,10 @@ class ProjectSession(
                 settings = settings.copy(model = activeModel)
                 phase = ConnectionPhase.Ready
                 notice = null
-                old
+                old to revoked
             }
+            // 旧连接的交互先收到撤销回包，再关闭它们的 Core。
+            sendRevocations(revoked)
             closeQuietly(outgoing)
         } catch (error: Throwable) {
             created.close().join()
@@ -1373,12 +1383,12 @@ class ProjectSession(
      * 死掉的 Core 交给 retiring，由调用方关闭、下次替换或会话关闭时等待回收。草稿与待发附件保留。
      * 之后的重试没有旧 Core 可退：认证或启动再失败仍是 failed，成功才以新 Core 回到 ready。
      */
-    private fun loseConnectionLocked(message: String): List<CoreProcess> {
+    private fun loseConnectionLocked(message: String): LostConnection {
         val lost = listOfNotNull(core)
         retiring += lost
         core = null
         generation.set(connectionIds.incrementAndGet())
-        interactions.revoke(generation.get())
+        val revoked = interactions.revoke(generation.get())
         abandonTurnLocked()
         lastThreadId = threadId ?: lastThreadId
         threadId = null
@@ -1386,7 +1396,20 @@ class ProjectSession(
         phase = ConnectionPhase.Failed
         notice = SessionNotice(message, true)
         turnChanged.signalAll()
-        return lost
+        return LostConnection(lost, revoked)
+    }
+
+    /**
+     * Revocations tell Core an interaction is over; like the router's former inline writes they are best effort,
+     * because the connection they belong to is usually closing. Always called without the lock.
+     */
+    private fun sendRevocations(replies: List<CoreReply>) {
+        for (reply in replies) {
+            try {
+                reply.send()
+            } catch (_: Exception) {
+            }
+        }
     }
 
     /** 未确认的发送撤回乐观行；已开始的轮次保留思考/工具为 incomplete，正文没有终态不落。 */
@@ -1644,10 +1667,10 @@ class ProjectSession(
         return next
     }
 
-    /** B14：通知进入快照 notice/运行信息；warning 不得转成功。 */
-    private fun applyNotificationLocked(notification: RpcNotification) {
+    /** B14：通知进入快照 notice/运行信息；warning 不得转成功。返回 turn/completed 撤销的交互回包，由调用方在锁外发送。 */
+    private fun applyNotificationLocked(notification: RpcNotification): List<CoreReply> {
         val eventThread = (notification.params.fields["threadId"] as? JsonValue.Text)?.value
-        if (eventThread != null && eventThread != threadId) return
+        if (eventThread != null && eventThread != threadId) return emptyList()
         when (notification.method) {
             "warning" -> {
                 val raw = (notification.params.fields["message"] as? JsonValue.Text)?.value ?: "CodeM reported a warning"
@@ -1663,11 +1686,11 @@ class ProjectSession(
                 threadStatus = (notification.params.fields["status"] as? JsonValue.Text)?.value
             }
             "thread/mode/changed" -> {
-                val current = threadId ?: return
+                val current = threadId ?: return emptyList()
                 acceptModesLocked(notification.params, current, generation.get())
             }
             "thread/closed", "thread/archived", "thread/deleted" -> {
-                if (threadChangeGeneration != null) return
+                if (threadChangeGeneration != null) return emptyList()
                 lastThreadId = threadId ?: lastThreadId
                 threadId = null
                 modesValid = false
@@ -1677,19 +1700,21 @@ class ProjectSession(
                 applyDiffSummaryLocked(notification.params)
             }
             "item/fileChange/delta" -> {
-                val content = fileDiffs.accept(notification.params) ?: return
+                val content = fileDiffs.accept(notification.params) ?: return emptyList()
                 applyFileDiffLocked(content)
             }
             else -> {
                 turns.apply(notification, threadId)
                 recordTurnTimingLocked(notification.method)
                 if (notification.method == "turn/completed") {
-                    interactions.revokeThread(generation.get(), threadId)
+                    val revoked = interactions.revokeThread(generation.get(), threadId)
                     commitAssistantLocked()
                     attachments.release(generation.get())
+                    return revoked
                 }
             }
         }
+        return emptyList()
     }
 
     /** 终态：先落思考/工具，再落正文。activity 不是终态。 */
@@ -1843,6 +1868,9 @@ class ProjectSession(
             .take(160)
 
     private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
+    /** A connection taken out of service: its Core to close and its interactions' revocations to send, both after the lock. */
+    private data class LostConnection(val processes: List<CoreProcess>, val revoked: List<CoreReply>)
 
     companion object {
         private const val AUTH_INVALIDATED = "CodeM authentication is no longer valid"

@@ -53,32 +53,55 @@ data class PendingInteraction(
 }
 
 /**
+ * One decided response to a Core request. The router decides it while the session holds its lock; the session writes
+ * it to the request's own connection only after releasing the lock, so a slow or blocked stdin never holds up
+ * snapshots, notifications or other callers. Each request is decided once: it leaves the pending set in the same step.
+ */
+class CoreReply private constructor(
+    private val peer: RpcPeer,
+    private val id: RpcId,
+    private val result: JsonValue?,
+    private val errorCode: Int,
+    private val errorMessage: String,
+) {
+    fun send() {
+        if (result != null) peer.respond(id, result) else peer.respondError(id, errorCode, errorMessage)
+    }
+
+    companion object {
+        fun result(peer: RpcPeer, id: RpcId, result: JsonValue): CoreReply = CoreReply(peer, id, result, 0, "")
+        fun error(peer: RpcPeer, id: RpcId, code: Int, message: String): CoreReply = CoreReply(peer, id, null, code, message)
+    }
+}
+
+/** A panel reply: what to send to Core, if anything yet, and whether a cancelled permission must interrupt the turn. */
+data class ReplyDecision(val reply: CoreReply?, val interruptTurn: Boolean = false)
+
+/**
  * 仅当前连接代次、当前会话和允许选项可回复。
  * Core 回包对齐 Node host.interactionResult：审批 outcome、问答 answers、计划 approved、rewind checkpoint。
  * 不把 Webview panelReply 的 choiceIds/text 原样发给 Core。
+ * 路由只决定回包，从不写 stdin：调用方持锁判定，释放锁后再发送返回的 [CoreReply]。
  */
 class InteractionRouter {
     private val pending = linkedMapOf<String, PendingInteraction>()
 
-    fun handle(request: RpcRequest, peer: RpcPeer, generation: Long, threadId: String?): Boolean {
+    /** Queues an interaction and returns null, or returns the rejection to send. */
+    fun handle(request: RpcRequest, peer: RpcPeer, generation: Long, threadId: String?): CoreReply? {
         val kind = kindOf(request.method)
-        if (kind == null) {
-            peer.respondError(request.id, -32601, "Unsupported client request: ${request.method}")
-            return false
-        }
+            ?: return CoreReply.error(peer, request.id, -32601, "Unsupported client request: ${request.method}")
         return try {
             val parsed = parsePending(request, kind, peer, generation, threadId)
             if (parsed.threadId != threadId || parsed.requestId in pending) throw CodemError.Validation("CodeM request belongs to another thread or repeats a pending identity")
             pending[parsed.requestId] = parsed
-            true
+            null
         } catch (_: CodemError) {
-            peer.respondError(request.id, -32602, "Invalid CodeM client request: ${request.method}")
-            false
+            CoreReply.error(peer, request.id, -32602, "Invalid CodeM client request: ${request.method}")
         }
     }
 
-    /** Returns true only when cancelling a permission requires the session to interrupt the turn. */
-    fun reply(panelId: String, generation: Long, threadId: String?, choiceIds: List<String>, text: String, cancelled: Boolean): Boolean {
+    /** Only cancelling a permission asks the session to interrupt the turn; it sends nothing itself. */
+    fun reply(panelId: String, generation: Long, threadId: String?, choiceIds: List<String>, text: String, cancelled: Boolean): ReplyDecision {
         val current = current()?.takeIf { it.panelId == panelId }
             ?: throw CodemError.Conflict("CodeM interaction is no longer current")
         if (current.generation != generation || current.threadId != threadId) {
@@ -87,15 +110,15 @@ class InteractionRouter {
         try {
             if (cancelled) {
                 if (choiceIds.isNotEmpty() || text.isNotEmpty()) throw CodemError.Validation("CodeM cancelled reply must not contain answers")
-                if (current.kind == InteractionKind.Permission) return true
-                current.peer.respond(current.id, cancelledResult(current))
+                if (current.kind == InteractionKind.Permission) return ReplyDecision(null, interruptTurn = true)
+                val reply = CoreReply.result(current.peer, current.id, cancelledResult(current))
                 pending.remove(current.requestId)
-                return false
+                return ReplyDecision(reply)
             }
             if (choiceIds == listOf("previous") && current.kind == InteractionKind.Question && current.questionIndex > 0 && text.isEmpty()) {
                 current.questionIndex--
                 current.panelId = UUID.randomUUID().toString()
-                return false
+                return ReplyDecision(null)
             }
             val choices = displayedChoices(current)
             if (choiceIds.toSet().size != choiceIds.size) throw CodemError.Validation("CodeM interaction requires distinct options")
@@ -116,13 +139,12 @@ class InteractionRouter {
                 if (current.questionIndex < current.questions.lastIndex) {
                     current.questionIndex++
                     current.panelId = UUID.randomUUID().toString()
-                    return false
+                    return ReplyDecision(null)
                 }
             }
-            val result = coreResult(current, values, text, false)
-            current.peer.respond(current.id, result)
+            val reply = CoreReply.result(current.peer, current.id, coreResult(current, values, text, false))
             pending.remove(current.requestId)
-            return false
+            return ReplyDecision(reply)
         } catch (error: Throwable) {
             // A rejected submission must not leave the shared panel permanently aria-busy.
             current.panelId = UUID.randomUUID().toString()
@@ -132,19 +154,15 @@ class InteractionRouter {
 
     fun renewPanel() { current()?.panelId = UUID.randomUUID().toString() }
 
-    fun revokeThread(generation: Long, threadId: String?) {
-        val stale = pending.values.filter { it.generation == generation && it.threadId == threadId }
-        stale.forEach { retire(it) }
-    }
+    fun revokeThread(generation: Long, threadId: String?): List<CoreReply> =
+        pending.values.filter { it.generation == generation && it.threadId == threadId }.map(::retire)
 
-    private fun retire(interaction: PendingInteraction) {
+    fun revoke(generation: Long): List<CoreReply> =
+        pending.values.filter { it.generation != generation }.map(::retire)
+
+    private fun retire(interaction: PendingInteraction): CoreReply {
         pending.remove(interaction.requestId)
-        try { interaction.peer.respondError(interaction.id, -32000, "CodeM interaction is no longer active") } catch (_: Exception) { }
-    }
-
-    fun revoke(generation: Long) {
-        val stale = pending.values.filter { it.generation != generation }
-        stale.forEach { retire(it) }
+        return CoreReply.error(interaction.peer, interaction.id, -32000, "CodeM interaction is no longer active")
     }
 
     fun current(): PendingInteraction? = pending.values.lastOrNull()

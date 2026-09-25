@@ -1259,6 +1259,78 @@ class ProjectSessionTest {
         } finally { session.close().join() }
     }
 
+    /**
+     * 回包锁内判定、锁外写：每次写入对 Core 请求的回包时，另一线程都必须能立即拿到会话锁。
+     * 覆盖用户回复、读线程拒绝未知请求、turn/completed 撤销和关闭撤销四条路径。
+     */
+    @Test
+    fun coreRepliesAreWrittenOutsideTheSessionLock() {
+        val holder = java.util.concurrent.atomic.AtomicReference<ProjectSession>()
+        val replies = java.util.concurrent.CopyOnWriteArrayList<Pair<String, Boolean>>()
+        val processes = java.util.concurrent.CopyOnWriteArrayList<ScriptedProcess>()
+        val session = session(
+            wrap = { process -> LockProbeProcess(process) { id -> replies += id to lockIsFree(holder.get()) } },
+        ) { process ->
+            processes += process
+            startResponder(process, handshakeCapabilities())
+            process
+        }
+        holder.set(session)
+        fun requestApproval(id: String) = processes.single().enqueue(encodeJson(JsonValue.obj(
+            "jsonrpc" to JsonValue.Text("2.0"), "id" to JsonValue.Text(id),
+            "method" to JsonValue.Text("item/tool/requestApproval"),
+            "params" to JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "requestId" to JsonValue.Text(id),
+                "options" to JsonValue.ArrayValue(listOf(JsonValue.obj("id" to JsonValue.Text("allow_once"))))),
+        )))
+        try {
+            session.connect()
+            session.send("hello", "req-lock")
+            requestApproval("approval-replied")
+            val panel = awaitSnapshot(session) { it.pendingPanel != null }.pendingPanel!!
+            session.replyToInteraction(panel.id, listOf("choice-0"), "", false)
+
+            processes.single().enqueue(encodeJson(JsonValue.obj(
+                "jsonrpc" to JsonValue.Text("2.0"), "id" to JsonValue.Text("unsupported"),
+                "method" to JsonValue.Text("item/unknown/request"), "params" to JsonValue.ObjectValue(emptyMap()),
+            )))
+            awaitCondition { replies.any { it.first == "unsupported" } }
+
+            requestApproval("approval-revoked")
+            awaitSnapshot(session) { it.pendingPanel != null }
+            completeTurn(processes.single(), "thread-1", "turn-1")
+            awaitCondition { replies.any { it.first == "approval-revoked" } }
+
+            requestApproval("approval-closed")
+            awaitSnapshot(session) { it.pendingPanel != null }
+            session.close().join()
+
+            assertEquals(listOf("approval-replied", "unsupported", "approval-revoked", "approval-closed"), replies.map { it.first })
+            assertEquals(emptyList<String>(), replies.filterNot { it.second }.map { it.first }, "these replies were written while the session lock was held")
+        } finally { session.close().join() }
+    }
+
+    private fun lockIsFree(session: ProjectSession): Boolean {
+        val read = java.util.concurrent.CompletableFuture.supplyAsync { session.snapshot() }
+        return try {
+            read.get(1, java.util.concurrent.TimeUnit.SECONDS)
+            true
+        } catch (_: java.util.concurrent.TimeoutException) {
+            false
+        }
+    }
+
+    /** Reports every response the session writes to Core (a frame with an id and no method) before passing it on. */
+    private class LockProbeProcess(
+        private val inner: ScriptedProcess,
+        private val onReply: (String) -> Unit,
+    ) : com.codem.intellij.core.ProcessHandleAdapter by inner {
+        override fun writeLine(line: String) {
+            val frame = JsonValue.parse(line).asObject()
+            if ("method" !in frame.fields) onReply((frame.fields["id"] as? JsonValue.Text)?.value ?: frame.fields["id"].toString())
+            inner.writeLine(line)
+        }
+    }
+
     /** 一条完整的 item/fileChange/delta：分两片送达，complete 后才产出内容。 */
     private fun enqueueFileDiff(process: ScriptedProcess, path: String) {
         val payload = encodeJson(
@@ -1377,6 +1449,7 @@ class ProjectSessionTest {
         directoryPicker: DirectoryPicker? = null,
         diffPresenter: com.codem.intellij.ide.DiffPresenter = com.codem.intellij.ide.NoopDiffPresenter,
         onSnapshot: ((com.codem.intellij.webview.ChatSnapshot) -> Unit)? = null,
+        wrap: (ScriptedProcess) -> com.codem.intellij.core.ProcessHandleAdapter = { it },
         factory: (ScriptedProcess) -> ScriptedProcess,
     ): ProjectSession {
         val cwd = workingDirectory ?: Files.createTempDirectory("codem-session-cwd")
@@ -1389,7 +1462,7 @@ class ProjectSessionTest {
             workingDirectory = cwd,
             trusted = trusted,
             timeouts = Timeouts(initializeMs = 2_000, rpcMs = 2_000, closeStageMs = 200),
-            processFactory = { _, _, _ -> factory(ScriptedProcess()) },
+            processFactory = { _, _, _ -> wrap(factory(ScriptedProcess())) },
             authOverride = auth,
             spaceOverride = spaceOverride,
             selectionReader = selectionReader,
