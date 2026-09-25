@@ -292,6 +292,34 @@ export function parseAppServerLoadedThreads(value: unknown, label: string): AppS
   return { threadIds: threadIds as readonly string[] }
 }
 
+const BACKGROUND_WAKE_PHASES = {
+  "backgroundTask/wakeQueued": "queued",
+  "backgroundTask/wakeStarted": "started",
+  "backgroundTask/wakeSkipped": "skipped",
+} as const
+
+export type AppServerBackgroundWakeMethod = keyof typeof BACKGROUND_WAKE_PHASES
+
+/** One backgroundTask/wake* notification. taskId is Core's handle for thread/backgroundTask/cancel, not a process id. */
+export interface AppServerBackgroundWake {
+  readonly turnId: string
+  readonly phase: (typeof BACKGROUND_WAKE_PHASES)[AppServerBackgroundWakeMethod]
+  readonly taskId: string
+}
+
+export function isAppServerBackgroundWake(method: string): method is AppServerBackgroundWakeMethod {
+  return Object.hasOwn(BACKGROUND_WAKE_PHASES, method)
+}
+
+/** The host routes the notification to its thread by params.threadId before parsing it. */
+export function parseAppServerBackgroundWake(method: AppServerBackgroundWakeMethod, params: JsonObject): AppServerBackgroundWake {
+  return {
+    turnId: nonBlankString(params.turnId, `${method} turnId`),
+    phase: BACKGROUND_WAKE_PHASES[method],
+    taskId: nonBlankString(params.taskId, `${method} taskId`),
+  }
+}
+
 export function parseAppServerBackgroundTerminalList(
   value: unknown,
   label: string,

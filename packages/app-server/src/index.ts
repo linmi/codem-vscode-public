@@ -113,8 +113,10 @@ export {
 export { type AppServerModeState, type AppServerPermissionMode } from "./modes.ts"
 export {
   APP_SERVER_KNOWN_NOTIFICATIONS,
+  isAppServerBackgroundWake,
   isAppServerKnownNotification,
   parseAppServerBackgroundTerminalList,
+  parseAppServerBackgroundWake,
   parseAppServerConfigSnapshot,
   parseAppServerCoreSpaceSnapshot,
   parseAppServerEnvironmentInfo,

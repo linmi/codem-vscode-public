@@ -13,7 +13,9 @@ import {
   APP_SERVER_PROTOCOL_VERSION,
   APP_SERVER_KNOWN_NOTIFICATIONS,
   AppServerRpcPeer,
+  isAppServerBackgroundWake,
   parseAppServerBackgroundTerminalList,
+  parseAppServerBackgroundWake,
   parseAppServerItem,
   validateAppServerInitializeResult,
 } from "@codem/app-server"
@@ -67,6 +69,7 @@ describe("@codem/contracts package integrity", () => {
       "core/jsonText.json",
       "core/itemProjection.json",
       "core/backgroundTerminals.json",
+      "core/backgroundTaskWake.json",
       "webview/sendAction.json",
       "webview/panelReply.json",
       "webview/initialSnapshot.json",
@@ -222,6 +225,25 @@ describe("core transport samples", () => {
         assert.deepEqual({ kind: testCase.expected.kind, class: testCase.expected.class }, { kind: "protocol-error", class: "invalid-frame" }, testCase.name)
         const field = String(testCase.expected.field)
         assert.throws(() => parseAppServerBackgroundTerminalList(testCase.result, label), (error: Error) => error.message.includes(field), testCase.name)
+      }
+    }
+  })
+
+  it("parses background task wakes like the Node host", async () => {
+    const sample = await readJson(join(root, "core/backgroundTaskWake.json"))
+    const cases = sample.cases as readonly { readonly name: string; readonly method: string; readonly params: Record<string, unknown>; readonly expected: Record<string, unknown> }[]
+    assert.ok(cases.some((testCase) => testCase.expected.kind === "accepted"))
+    assert.ok(cases.some((testCase) => testCase.expected.kind === "protocol-error"))
+    for (const testCase of cases) {
+      const method = testCase.method
+      assert.ok(isAppServerBackgroundWake(method), testCase.name)
+      if (testCase.expected.kind === "accepted") {
+        const { turnId, phase, taskId } = testCase.expected
+        assert.deepEqual(parseAppServerBackgroundWake(method, testCase.params), { turnId, phase, taskId }, testCase.name)
+      } else {
+        assert.deepEqual({ kind: testCase.expected.kind, class: testCase.expected.class }, { kind: "protocol-error", class: "invalid-frame" }, testCase.name)
+        const field = String(testCase.expected.field)
+        assert.throws(() => parseAppServerBackgroundWake(method, testCase.params), (error: Error) => error.message.includes(field), testCase.name)
       }
     }
   })

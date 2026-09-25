@@ -1,0 +1,73 @@
+{
+  "id": "core.background-task.wake.v1",
+  "capabilityId": "B10",
+  "coreVersion": "0.8.47",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": [
+      "packages/app-server/src/host.ts",
+      "packages/app-server/tests/host.test.ts",
+      "apps/vscode/src/chat/backgroundTasks.ts"
+    ],
+    "revision": "eb92cc2b73237daf697c73df91020d513086e7cb"
+  },
+  "notes": "backgroundTask/wakeQueued, wakeStarted and wakeSkipped report a background task of one thread, also while that thread is idle. The host applies a wake only to the subscribed thread named by params.threadId; a wake without threadId, or for another thread, is ignored before it is parsed. turnId and taskId must be non-blank strings, otherwise the frame is a protocol error. taskId is Core's handle for thread/backgroundTask/cancel { threadId, taskId }; it is not a process id and hosts do not show it to the view. The method decides the phase. Every rejected case breaks exactly one field, and the error must name that field.",
+  "cases": [
+    {
+      "name": "queued",
+      "method": "backgroundTask/wakeQueued",
+      "params": { "threadId": "thread-1", "turnId": "turn-1", "taskId": "task-1" },
+      "expected": { "kind": "accepted", "turnId": "turn-1", "phase": "queued", "taskId": "task-1" }
+    },
+    {
+      "name": "started",
+      "method": "backgroundTask/wakeStarted",
+      "params": { "threadId": "thread-1", "turnId": "turn-1", "taskId": "task-1" },
+      "expected": { "kind": "accepted", "turnId": "turn-1", "phase": "started", "taskId": "task-1" }
+    },
+    {
+      "name": "skipped",
+      "method": "backgroundTask/wakeSkipped",
+      "params": { "threadId": "thread-1", "turnId": "turn-1", "taskId": "task-2" },
+      "expected": { "kind": "accepted", "turnId": "turn-1", "phase": "skipped", "taskId": "task-2" }
+    },
+    {
+      "name": "task-id-missing",
+      "method": "backgroundTask/wakeQueued",
+      "params": { "threadId": "thread-1", "turnId": "turn-1" },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "taskId" }
+    },
+    {
+      "name": "task-id-blank",
+      "method": "backgroundTask/wakeStarted",
+      "params": { "threadId": "thread-1", "turnId": "turn-1", "taskId": "  " },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "taskId" }
+    },
+    {
+      "name": "task-id-number",
+      "method": "backgroundTask/wakeQueued",
+      "params": { "threadId": "thread-1", "turnId": "turn-1", "taskId": 7 },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "taskId" }
+    },
+    {
+      "name": "task-id-null",
+      "method": "backgroundTask/wakeSkipped",
+      "params": { "threadId": "thread-1", "turnId": "turn-1", "taskId": null },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "taskId" }
+    },
+    {
+      "name": "turn-id-missing",
+      "method": "backgroundTask/wakeQueued",
+      "params": { "threadId": "thread-1", "taskId": "task-1" },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "turnId" }
+    },
+    {
+      "name": "turn-id-blank",
+      "method": "backgroundTask/wakeStarted",
+      "params": { "threadId": "thread-1", "turnId": "", "taskId": "task-1" },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame", "field": "turnId" }
+    }
+  ]
+}

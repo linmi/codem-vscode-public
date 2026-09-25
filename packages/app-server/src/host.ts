@@ -14,8 +14,10 @@ import type { AppServerNotification, AppServerRequest, JsonObject } from "./rpc.
 import type { AppServerRuntime } from "./runtime.ts"
 import { appServerSpaceLaunch, type AppServerPreparedSpace } from "./spaces.ts"
 import {
+  isAppServerBackgroundWake,
   isAppServerKnownNotification,
   parseAppServerBackgroundTerminalClean,
+  parseAppServerBackgroundWake,
   parseAppServerBackgroundTerminalList,
   parseAppServerConfigSnapshot,
   parseAppServerCoreSpaceSnapshot,
@@ -1270,23 +1272,8 @@ export class AppServerHost {
       this.handleSideQuestion(thread, frame)
       return
     }
-    if (
-      frame.method === "backgroundTask/wakeQueued" ||
-      frame.method === "backgroundTask/wakeStarted" ||
-      frame.method === "backgroundTask/wakeSkipped"
-    ) {
-      this.emit({
-        type: "background-wake",
-        threadId: thread.id,
-        turnId: nonBlankString(frame.params.turnId, `${frame.method} turnId`),
-        phase:
-          frame.method === "backgroundTask/wakeQueued"
-            ? "queued"
-            : frame.method === "backgroundTask/wakeStarted"
-              ? "started"
-              : "skipped",
-        taskId: nonBlankString(frame.params.taskId, `${frame.method} taskId`),
-      })
+    if (isAppServerBackgroundWake(frame.method)) {
+      this.emit({ type: "background-wake", threadId: thread.id, ...parseAppServerBackgroundWake(frame.method, frame.params) })
       return
     }
     // Background wake notifications belong to the originating turn and can arrive
