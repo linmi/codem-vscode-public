@@ -15,6 +15,7 @@ import type { AppServerHostEvent, AppServerInteractionResponse } from "@codem/ap
 import { parseAppServerItem } from "@codem/app-server"
 import { ChatController, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
 import { UserVisibleError } from "../src/shared/userVisibleError.ts"
+import type { ChatSnapshot } from "../src/shared/messages.ts"
 
 function setup() {
   let listener: (event: AppServerHostEvent) => void = () => undefined
@@ -896,7 +897,7 @@ it("platform generation cancellation sends one cancel and does not complete on i
   await new Promise(resolve => setImmediate(resolve))
   await assert.rejects(f.controller.generateText("duplicate", new AbortController().signal, f.controller.contextKey()), /等待/)
   abort.abort(); await new Promise(resolve => setImmediate(resolve))
-  assert.equal(cancels, 1); assert.equal(f.controller.snapshot().phase, "sideQuestion")
+  assert.equal(cancels, 1); assert.equal(f.controller.snapshot().phase, "ready", "an editor request never takes the chat phase")
   acknowledge("side-1"); await new Promise(resolve => setImmediate(resolve))
   assert.equal(cancels, 1, "a late start receipt must not revive a stopping request")
   f.emit({ type: "side-question-completed", threadId: "thread-1", sideQuestionId: "side-1", status: "interrupted", error: null })
@@ -958,7 +959,7 @@ it("editor generation success, failure and cancel failure preserve the user's ch
   for (const outcome of ["completed", "failed", "interrupted"] as const) {
     const abort = new AbortController()
     const pending = f.controller.generateText("editor request", abort.signal, f.controller.contextKey())
-    const verified = outcome === "completed" ? pending.then(text => assert.equal(text, '{"insertText":"ok"}')) : assert.rejects(pending, /取消或失败/)
+    const verified = outcome === "completed" ? pending.then(text => assert.equal(text, '{"insertText":"ok"}')) : assert.rejects(pending, /取消|失败/)
     await new Promise(resolve => setImmediate(resolve)); assertChatPreserved()
     if (outcome === "interrupted") {
       f.host.cancelSideQuestion = async () => { throw new Error("cancel RPC failed") }
@@ -969,6 +970,189 @@ it("editor generation success, failure and cancel failure preserve the user's ch
     assert.equal(f.controller.snapshot().phase, "ready")
   }
   await f.controller.dispose()
+})
+
+it("an editor generation publishes no chat state and never blocks send; send reclaims its slot with one cancel", async () => {
+  const f = setup(); const published: ChatSnapshot[] = []
+  const controller = new ChatController({ connect: async () => f.session, assertTrusted() {}, publish: state => published.push(state), interact: async () => null, report() {} })
+  let cancels = 0
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => { f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "editor", question }); return "editor" }
+  f.host.cancelSideQuestion = async (_cwd, threadId, sideQuestionId) => { cancels++; f.emit({ type: "side-question-completed", threadId, sideQuestionId, status: "interrupted", error: null }) }
+  try {
+    await controller.connect(); await controller.send("first")
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+    const before = published.length
+    const pending = controller.generateText("complete", new AbortController().signal, controller.contextKey())
+    const rejected = assert.rejects(pending, /聊天开始了新操作/)
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(published.length, before, "an editor request publishes nothing to the chat")
+    assert.equal(controller.snapshot().phase, "ready")
+    assert.equal(controller.completionContext().ready, false)
+    assert.equal(await controller.send("second"), true)
+    await rejected
+    assert.equal(cancels, 1); assert.equal(f.counts().turns, 2); assert.equal(f.counts().starts, 1)
+    assert.ok(!published.some(state => state.phase === "sideQuestion" || state.sessionTools.sideQuestion))
+    assert.equal(controller.snapshot().phase, "running")
+    assert.equal(controller.snapshot().notice, null)
+  } finally { await controller.dispose() }
+})
+
+it("an editor cancel without a Core terminal answers the caller and keeps the chat connected", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] })
+  const f = setup(); let cancels = 0
+  const flush = () => new Promise(resolve => setImmediate(resolve))
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => { f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "editor", question }); return "editor" }
+  f.host.cancelSideQuestion = async () => { cancels++ }
+  try {
+    await f.controller.connect()
+    const abort = new AbortController()
+    const rejected = assert.rejects(f.controller.generateText("complete", abort.signal, f.controller.contextKey()), /Core 尚未确认结束/)
+    await flush()
+    abort.abort(); await flush()
+    assert.equal(cancels, 1)
+    t.mock.timers.tick(5000); await rejected
+    assert.equal(f.controller.snapshot().phase, "ready"); assert.equal(f.controller.snapshot().notice, null)
+    assert.deepEqual([f.counts().closed, f.counts().connections], [0, 1])
+    // Core still holds the slot: editors wait, and chat refuses with feedback instead of tearing down.
+    assert.equal(f.controller.completionContext().ready, false)
+    const sending = f.controller.send("hello")
+    await flush()
+    assert.equal(f.controller.snapshot().phase, "sending")
+    t.mock.timers.tick(5000)
+    assert.equal(await sending, false)
+    assert.match(f.controller.snapshot().notice!, /编辑器生成尚未结束/)
+    assert.equal(f.controller.snapshot().phase, "ready")
+    assert.deepEqual([cancels, f.counts().turns, f.counts().closed, f.counts().connections], [1, 0, 0, 1])
+    assert.equal(f.controller.snapshot().messages.length, 0)
+    // Core's late terminal frees the slot; the retained draft can then be sent on the same connection.
+    f.emit({ type: "side-question-completed", threadId: "thread-1", sideQuestionId: "editor", status: "interrupted", error: null })
+    assert.equal(f.controller.completionContext().ready, true)
+    assert.equal(await f.controller.send("hello"), true)
+    assert.deepEqual([f.counts().turns, f.counts().connections], [1, 1])
+  } finally { await f.controller.dispose() }
+})
+
+it("new chat leaves a thread whose cancelled editor generation never settles, without reconnecting", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] })
+  const f = setup(); let cancels = 0, unsubscribes = 0
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => { f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "editor", question }); return "editor" }
+  f.host.cancelSideQuestion = async () => { cancels++ }
+  // The App Server forgets an unsubscribed thread together with its side question.
+  f.host.unsubscribeThread = async (cwd, threadId) => { unsubscribes++; f.emit({ type: "thread-closed", cwd, threadId, reason: "unsubscribed" }) }
+  try {
+    await f.controller.connect(); await f.controller.send("first")
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+    const abort = new AbortController()
+    const rejected = assert.rejects(f.controller.generateText("complete", abort.signal, f.controller.contextKey()), /取消/)
+    await new Promise(resolve => setImmediate(resolve))
+    abort.abort()
+    const leaving = f.controller.newChat()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(unsubscribes, 0, "new chat first waits for the editor's terminal")
+    t.mock.timers.tick(5000); await leaving; await rejected
+    assert.deepEqual([cancels, unsubscribes, f.counts().closed, f.counts().connections], [1, 1, 0, 1])
+    assert.equal(f.controller.snapshot().threadId, null); assert.equal(f.controller.snapshot().phase, "ready")
+    assert.equal(f.controller.snapshot().notice, null)
+    assert.equal(f.controller.completionContext().ready, true)
+  } finally { await f.controller.dispose() }
+})
+
+it("settings changes and new chat reclaim the editor's side-question slot before touching the thread", async () => {
+  const f = setup(); const calls: string[] = []
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => { calls.push("sideQuestion"); f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "editor", question }); return "editor" }
+  f.host.cancelSideQuestion = async (_cwd, threadId, sideQuestionId) => { calls.push("cancel"); f.emit({ type: "side-question-completed", threadId, sideQuestionId, status: "interrupted", error: null }) }
+  f.host.resumeThread = async () => { calls.push("resume") }
+  f.host.unsubscribeThread = async () => { calls.push("unsubscribe") }
+  try {
+    await f.controller.connect(); await f.controller.send("first")
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+    const configured = assert.rejects(f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey()), /聊天开始了新操作/)
+    await new Promise(resolve => setImmediate(resolve))
+    await f.controller.configure(async settings => ({ ...settings, model: "other-model" }))
+    await configured
+    assert.deepEqual(calls, ["sideQuestion", "cancel", "resume"])
+    assert.equal(f.controller.snapshot().model, "other-model")
+    const replaced = assert.rejects(f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey()), /聊天开始了新操作/)
+    await new Promise(resolve => setImmediate(resolve))
+    await f.controller.newChat()
+    await replaced
+    assert.deepEqual(calls.slice(3), ["sideQuestion", "cancel", "unsubscribe"])
+    assert.equal(f.controller.snapshot().threadId, null); assert.equal(f.controller.snapshot().phase, "ready")
+    assert.equal(f.controller.snapshot().notice, null)
+  } finally { await f.controller.dispose() }
+})
+
+it("an editor request never creates a blank chat's first thread while a chat operation is in progress", async () => {
+  const f = setup(); let questions = 0, authorizations = 0
+  let authorize!: () => void, listSkills!: () => void
+  f.host.startSideQuestion = async () => { questions++; return "unexpected" }
+  f.host.listSkills = () => new Promise(resolve => { listSkills = () => resolve([{ name: "fixture", description: "skill" }]) })
+  try {
+    await f.controller.connect()
+    f.session.authorize = () => ++authorizations === 1 ? new Promise<void>(resolve => { authorize = resolve }) : Promise.resolve()
+    const generated = assert.rejects(f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey()), /聊天开始了新操作/)
+    await new Promise(resolve => setImmediate(resolve))
+    const catalog = f.controller.loadCatalog("skills")
+    await new Promise(resolve => setImmediate(resolve))
+    authorize(); await generated
+    listSkills(); await catalog
+    assert.deepEqual([f.counts().starts, questions], [0, 0])
+    assert.equal(f.controller.snapshot().threadId, null)
+    assert.equal(f.controller.snapshot().sessionTools.busy, null, "the catalog gate is released")
+    assert.equal(f.controller.snapshot().sessionTools.catalog?.kind, "skills")
+    assert.equal(f.controller.completionContext().ready, true)
+  } finally { await f.controller.dispose() }
+})
+
+it("a Core-started turn during the editor's yield is not taken for the user's submission", async () => {
+  const f = setup()
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => { f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "editor", question }); return "editor" }
+  f.host.cancelSideQuestion = async (_cwd, threadId, sideQuestionId) => {
+    f.emit({ type: "turn-started", threadId, turnId: "core-turn", submissionId: null })
+    f.emit({ type: "side-question-completed", threadId, sideQuestionId, status: "interrupted", error: null })
+  }
+  try {
+    await f.controller.connect(); await f.controller.send("first")
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+    const generated = assert.rejects(f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey()), /聊天开始了新操作/)
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(await f.controller.send("second"), false)
+    await generated
+    assert.equal(f.counts().turns, 1, "no turn/start was issued for the refused submission")
+    assert.equal(f.controller.snapshot().phase, "running")
+    assert.match(f.controller.snapshot().notice!, /Core 已开始新一轮任务/)
+    assert.ok(!f.controller.snapshot().messages.some(message => message.text === "second"))
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "core-turn", outcome: "completed", stopReason: "end", error: null })
+    assert.equal(await f.controller.send("second"), true)
+  } finally { await f.controller.dispose() }
+})
+
+it("a blank chat's first thread is created once when an editor generation and a catalog read race", async () => {
+  const f = setup(); let starts = 0
+  let createThread!: () => void
+  f.host.startThread = () => { starts++; return new Promise<string>(resolve => { createThread = () => resolve("thread-1") }) }
+  f.host.startSideQuestion = async (_cwd, threadId, operationId, question) => {
+    f.emit({ type: "side-question-started", threadId, operationId, sideQuestionId: "editor", question })
+    f.emit({ type: "side-question-delta", threadId, sideQuestionId: "editor", delta: '{"insertText":"ok"}' })
+    f.emit({ type: "side-question-completed", threadId, sideQuestionId: "editor", status: "completed", error: null })
+    return "editor"
+  }
+  try {
+    await f.controller.connect()
+    const generated = f.controller.generateText("complete", new AbortController().signal, f.controller.contextKey())
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(starts, 1)
+    const catalog = f.controller.loadCatalog("tools")
+    await new Promise(resolve => setImmediate(resolve))
+    createThread()
+    await catalog
+    assert.equal(await generated, '{"insertText":"ok"}')
+    assert.equal(starts, 1)
+    assert.equal(f.controller.snapshot().threadId, "thread-1")
+    assert.equal(f.controller.snapshot().sessionTools.busy, null, "the catalog read releases its gate after the first thread appears")
+    assert.equal(f.controller.snapshot().sessionTools.catalog?.kind, "tools")
+    assert.equal(f.controller.snapshot().phase, "ready")
+  } finally { await f.controller.dispose() }
 })
 
 it("platform generation rejects a context captured before a conversation switch without issuing a request", async () => {
