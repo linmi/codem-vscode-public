@@ -106,6 +106,56 @@ class TurnItemProjectionTest {
         assertEquals("Core 正在处理", activity("activity" to JsonValue.Text("working")))
     }
 
+    /** parseFinalAnswer 只对缺省的 status/artifacts 取默认值；显式 null 与非对象附件同样拒绝。 */
+    @Test
+    fun finalAnswerRejectsNullDefaultsAndNonObjectArtifacts() {
+        val answer = sample("final-answer-defaults")
+        val arguments = answer.requiredObject("arguments", "item")
+        for ((key, value) in listOf("status" to JsonValue.Null, "artifacts" to JsonValue.Null, "artifacts" to JsonValue.ArrayValue(listOf(JsonValue.Text("file"))))) {
+            val broken = answer.copyWith("arguments" to arguments.copyWith(key to value))
+            val error = assertThrows(CodemError.Protocol::class.java, { CoreItemProjection.project(broken) }, "$key=$value")
+            assertEquals(CodemError.Class.InvalidFrame, error.errorClass, "$key=$value")
+        }
+        // optionalString in parseAppServerItem: a non-string tool is absent, so the item is not a tool call.
+        assertEquals(null, CoreItemProjection.project(sample("tool-call-uses-protocol-tool").copyWith("tool" to JsonValue.NumberValue(1.0, "1"))).toolName)
+    }
+
+    /** 工具参数是自由格式：files 里不是对象的条目被跳过，不是错误。 */
+    @Test
+    fun toolDetailsSkipFileEntriesThatAreNotObjects() {
+        val input = JsonValue.obj(
+            "files" to JsonValue.ArrayValue(listOf(JsonValue.Text("a.kt"), JsonValue.obj("path" to JsonValue.Text("b.kt")), JsonValue.obj("path" to JsonValue.NumberValue(1.0, "1")))),
+        )
+        assertEquals(listOf("b.kt", "1"), ToolDetailsProjection.project("read_files", input)?.fields?.map { it.detail })
+        assertEquals(null, ToolDetailsProjection.project("read_files", JsonValue.obj("files" to JsonValue.Text("b.kt"))))
+    }
+
+    /** 流式通知一向宽松：无法识别的条目、增量与字段被忽略或按缺省处理，不会断开连接。 */
+    @Test
+    fun streamingNotificationsStayTolerantOfMissingAndMistypedFields() {
+        val turns = running()
+        turns.apply(notification("item/started", "item" to JsonValue.Text("item")), "thread-1")
+        item(turns, "item/started", JsonValue.obj("id" to JsonValue.Text("item-a"), "type" to JsonValue.NumberValue(1.0, "1"), "status" to JsonValue.Text("inProgress")))
+        item(turns, "item/started", JsonValue.obj("id" to JsonValue.Text(" "), "type" to JsonValue.Text("commandExecution"), "status" to JsonValue.Text("inProgress")))
+        assertEquals(emptyList<String>(), turns.liveMessages().map { it.id })
+
+        item(turns, "item/started", JsonValue.obj("id" to JsonValue.Text("cmd-1"), "type" to JsonValue.Text("commandExecution"), "isError" to JsonValue.Text("yes")))
+        assertEquals("running", turns.liveMessages().single().status)
+        item(turns, "item/completed", JsonValue.obj("id" to JsonValue.Text("cmd-1"), "type" to JsonValue.Text("commandExecution"), "output" to JsonValue.NumberValue(2.0, "2"), "text" to JsonValue.Text("done")))
+        assertEquals("completed", turns.liveMessages().single().status)
+        assertEquals("done", turns.liveMessages().single().text)
+
+        turns.apply(notification("item/agentMessage/delta", "delta" to JsonValue.NumberValue(1.0, "1")), "thread-1")
+        turns.apply(notification("item/agentMessage/delta", "delta" to JsonValue.Text(" kept ")), "thread-1")
+        turns.apply(RpcNotification("item/agentMessage/delta", JsonValue.obj("threadId" to JsonValue.Text("other"), "delta" to JsonValue.Text("foreign"))), "thread-1")
+        turns.apply(RpcNotification("item/agentMessage/delta", JsonValue.obj("threadId" to JsonValue.NumberValue(1.0, "1"), "delta" to JsonValue.Text("!"))), "thread-1")
+        assertEquals(" kept !", turns.current!!.text.toString())
+
+        // turn/completed 可以只带 turnId 和顶层 status；turn.status 不是字符串时退回顶层。
+        turns.apply(RpcNotification("turn/completed", JsonValue.obj("turnId" to JsonValue.Text("turn-1"), "turn" to JsonValue.obj("status" to JsonValue.Bool(true)), "status" to JsonValue.Text("completed"))), "thread-1")
+        assertEquals("completed", turns.current!!.terminalStatus)
+    }
+
     private fun running(): TurnAccumulator =
         TurnAccumulator().also { it.apply(notification("turn/started", "turn" to JsonValue.obj("id" to JsonValue.Text("turn-1"))), "thread-1") }
 

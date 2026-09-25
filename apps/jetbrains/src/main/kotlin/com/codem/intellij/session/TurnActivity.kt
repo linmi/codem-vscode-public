@@ -36,8 +36,8 @@ data class TurnActivity(
  * 不转发 env/headers/token，也不把工具输出当标题。
  */
 object ToolDetailsProjection {
-    fun project(name: String, input: JsonValue?): ToolDetailsView? {
-        val obj = input as? JsonValue.ObjectValue ?: return null
+    fun project(name: String, input: JsonValue.ObjectValue?): ToolDetailsView? {
+        val obj = input ?: return null
         val fields = mutableListOf<CatalogRowView>()
         fun add(label: String, key: String) {
             val value = textOf(obj.fields[key])?.take(400) ?: return
@@ -84,9 +84,9 @@ object ToolDetailsProjection {
     }
 
     private fun addFiles(obj: JsonValue.ObjectValue, fields: MutableList<CatalogRowView>) {
-        val files = obj.fields["files"] as? JsonValue.ArrayValue ?: return
-        for (entry in files.items.take(50)) {
-            val file = entry as? JsonValue.ObjectValue ?: continue
+        val files = obj.arrayOrNull("files") ?: return
+        // Tool arguments are free-form: entries that are not objects are skipped, not an error.
+        for (file in files.take(50).filterIsInstance<JsonValue.ObjectValue>()) {
             val path = textOf(file.fields["path"]) ?: continue
             if (path.isNotBlank()) fields += CatalogRowView("文件", path.take(400))
         }

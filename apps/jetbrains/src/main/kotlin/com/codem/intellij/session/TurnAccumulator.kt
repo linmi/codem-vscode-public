@@ -39,11 +39,12 @@ class TurnAccumulator {
         private set
 
     fun apply(notification: RpcNotification, expectedThreadId: String?) {
-        val threadId = (notification.params.fields["threadId"] as? JsonValue.Text)?.value
+        val params = notification.params
+        val threadId = params.stringOrNull("threadId")
         if (expectedThreadId != null && threadId != null && threadId != expectedThreadId) return
         when (notification.method) {
             "turn/started" -> {
-                val turnId = turnIdOf(notification.params)
+                val turnId = turnIdOf(params)
                 val existing = current
                 // 已完成轮次不得复活；Core 主动新轮次必须换一份干净状态。
                 if (existing?.phase == TurnPhase.Terminal) {
@@ -61,45 +62,36 @@ class TurnAccumulator {
                 val turn = current ?: return
                 if (turn.phase == TurnPhase.Terminal) return
                 // 与 VS Code chatController 相同的两种文案；Core 的原始 activity 文本不进入界面。
-                turn.activity = if (textOf(notification.params.fields["source"]) == "provider_stream") "模型正在生成" else "Core 正在处理"
+                turn.activity = if (params.stringOrNull("source") == "provider_stream") "模型正在生成" else "Core 正在处理"
             }
-            "item/agentMessage/delta" -> append(current?.text, notification.params.fields["delta"])
+            "item/agentMessage/delta" -> append(current?.text, params.stringOrNull("delta"))
             "item/reasoning/textDelta" -> {
-                append(current?.reasoning, notification.params.fields["delta"])
+                append(current?.reasoning, params.stringOrNull("delta"))
                 appendActivity(
-                    itemId = textOf(notification.params.fields["itemId"]),
+                    itemId = params.stringOrNull("itemId"),
                     callId = null,
                     role = "reasoning",
                     label = "思考过程",
                     status = "running",
-                    delta = textOf(notification.params.fields["delta"]).orEmpty(),
+                    delta = params.stringOrNull("delta").orEmpty(),
                     append = true,
                 )
             }
-            "item/started", "item/completed" -> applyItem(notification.params, started = notification.method == "item/started")
-            "item/toolCall/progress" -> appendToolOutput(
-                notification.params,
-                textOf(notification.params.fields["message"]).orEmpty(),
-            )
-            "item/commandExecution/outputDelta" -> appendToolOutput(
-                notification.params,
-                textOf(notification.params.fields["delta"]).orEmpty(),
-            )
-            "item/subagent/progress" -> appendToolOutput(
-                notification.params,
-                textOf(notification.params.fields["note"]).orEmpty(),
-            )
+            "item/started", "item/completed" -> applyItem(params, started = notification.method == "item/started")
+            "item/toolCall/progress" -> appendToolOutput(params, params.stringOrNull("message").orEmpty())
+            "item/commandExecution/outputDelta" -> appendToolOutput(params, params.stringOrNull("delta").orEmpty())
+            "item/subagent/progress" -> appendToolOutput(params, params.stringOrNull("note").orEmpty())
             "turn/tokenUsage/updated", "thread/tokenUsage/updated" -> {
-                current?.usage = notification.params
+                current?.usage = params
             }
-            "turn/plan/updated" -> current?.plan = notification.params.fields["plan"]
-            "turn/diff/updated" -> current?.diffSummary = notification.params
+            "turn/plan/updated" -> current?.plan = params.optional("plan")
+            "turn/diff/updated" -> current?.diffSummary = params
             "turn/completed" -> {
-                val turn = current ?: TurnState(turnIdOf(notification.params), null, TurnPhase.Running)
-                val completedId = turnIdOf(notification.params)
+                val turn = current ?: TurnState(turnIdOf(params), null, TurnPhase.Running)
+                val completedId = turnIdOf(params)
                 if (turn.turnId != completedId) throw CodemError.Conflict("CodeM turn/completed changed turn identity from ${turn.turnId} to $completedId")
-                val status = ((notification.params.fields["turn"] as? JsonValue.ObjectValue)?.fields?.get("status") as? JsonValue.Text)?.value
-                    ?: (notification.params.fields["status"] as? JsonValue.Text)?.value
+                val status = params.objectOrNull("turn")?.stringOrNull("status")
+                    ?: params.stringOrNull("status")
                     ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM turn/completed status is required")
                 turn.phase = TurnPhase.Terminal
                 turn.terminalStatus = status
@@ -194,10 +186,10 @@ class TurnAccumulator {
     private fun applyItem(params: JsonValue.ObjectValue, started: Boolean) {
         val turn = current ?: return
         if (turn.phase == TurnPhase.Terminal) return
-        val item = params.fields["item"] as? JsonValue.ObjectValue ?: return
-        val type = textOf(item.fields["type"]) ?: return
+        val item = params.objectOrNull("item") ?: return
+        val type = item.stringOrNull("type") ?: return
         if (type == "userMessage" || type == "agentMessage") return
-        val itemId = textOf(item.fields["id"])?.takeIf { it.isNotBlank() } ?: return
+        val itemId = item.stringOrNull("id")?.takeIf { it.isNotBlank() } ?: return
         val projected = CoreItemProjection.project(item)
         if (projected.toolName == "final_answer") {
             acceptFinalAnswer(turn, item, itemId, projected, started)
@@ -213,8 +205,8 @@ class TurnAccumulator {
             projected.toolName != null -> projected.toolName
             else -> typeLabel(type)
         }
-        val body = textOf(item.fields["output"]) ?: textOf(item.fields["text"]) ?: ""
-        val summary = textOf(item.fields["summary"]).orEmpty()
+        val body = item.stringOrNull("output") ?: item.stringOrNull("text") ?: ""
+        val summary = item.stringOrNull("summary").orEmpty()
         appendActivity(
             itemId = itemId,
             callId = projected.callId,
@@ -238,7 +230,7 @@ class TurnAccumulator {
         val previous = turn.finalAnswers[itemId]
         val answer = projected.finalAnswer
         if (answer == null) {
-            if (!started && previous == null && textOf(item.fields["status"]) == "completed") {
+            if (!started && previous == null && item.stringOrNull("status") == "completed") {
                 throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM final_answer item completed without structured input")
             }
             return
@@ -249,8 +241,8 @@ class TurnAccumulator {
     private fun appendToolOutput(params: JsonValue.ObjectValue, delta: String) {
         if (delta.isEmpty()) return
         val turn = current ?: return
-        val itemId = textOf(params.fields["itemId"])
-        val callId = textOf(params.fields["callId"])
+        val itemId = params.stringOrNull("itemId")
+        val callId = params.stringOrNull("callId")
         if ((callId != null && callId in turn.finalAnswerCalls) || (itemId != null && itemId in turn.finalAnswerItems)) return
         appendActivity(
             itemId = itemId,
@@ -326,8 +318,8 @@ class TurnAccumulator {
     }
 
     private fun itemStatus(item: JsonValue.ObjectValue, started: Boolean): String {
-        if ((item.fields["isError"] as? JsonValue.Bool)?.value == true) return "failed"
-        return when (textOf(item.fields["status"])) {
+        if (item.booleanOrNull("isError") == true) return "failed"
+        return when (item.stringOrNull("status")) {
             "inProgress" -> "running"
             "completed" -> "completed"
             "failed" -> "failed"
@@ -350,19 +342,14 @@ class TurnAccumulator {
         else -> "调用工具"
     }
 
-    private fun append(target: StringBuilder?, delta: JsonValue?) {
-        if (target == null) return
-        val text = (delta as? JsonValue.Text)?.value ?: return
-        if (text.isEmpty()) return
-        target.append(text)
+    /** Stream deltas keep whitespace; a missing, mistyped or empty delta is a no-op. */
+    private fun append(target: StringBuilder?, delta: String?) {
+        if (target == null || delta.isNullOrEmpty()) return
+        target.append(delta)
     }
 
-    private fun textOf(value: JsonValue?): String? = (value as? JsonValue.Text)?.value
-
     private fun turnIdOf(params: JsonValue.ObjectValue): String {
-        val nested = (params.fields["turn"] as? JsonValue.ObjectValue)?.fields?.get("id")
-        val direct = params.fields["turnId"]
-        val value = (nested as? JsonValue.Text)?.value ?: (direct as? JsonValue.Text)?.value
+        val value = params.objectOrNull("turn")?.stringOrNull("id") ?: params.stringOrNull("turnId")
         return value?.takeIf { it.isNotBlank() } ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "turn id is required")
     }
 }
@@ -406,19 +393,18 @@ internal object CoreItemProjection {
     private val ANSWER_STATUSES = setOf("complete", "partial", "blocked")
 
     fun project(item: JsonValue.ObjectValue): CoreItemFields {
-        val fields = item.fields
-        val type = (fields["type"] as? JsonValue.Text)?.value
-        val toolName = nonBlank(fields["tool"]) ?: when (type) {
+        val type = item.stringOrNull("type")
+        val toolName = nonBlank(item, "tool") ?: when (type) {
             "subagent" -> "dispatch"
             "contextCompaction" -> "compact"
             else -> null
         }
-        val callId = nonBlank(fields["callId"])
-            ?: nonBlank(fields["subagentId"])
-            ?: if (toolName != null) nonBlank(fields["id"]) ?: invalid("item.id must be non-empty") else null
-        val input = objectOrNull(fields["arguments"], "item.arguments") ?: when (type) {
-            "subagent" -> compactObject("label" to nonBlank(fields["label"])?.let(JsonValue::Text), "kind" to nonBlank(fields["subagentKind"])?.let(JsonValue::Text))
-            "contextCompaction" -> compactObject("replaced" to nonNegativeInteger(fields["replaced"]), "kept" to nonNegativeInteger(fields["kept"]))
+        val callId = nonBlank(item, "callId")
+            ?: nonBlank(item, "subagentId")
+            ?: if (toolName != null) nonBlank(item, "id") ?: invalid("item.id must be non-empty") else null
+        val input = item.optionalObject("arguments", "item") ?: when (type) {
+            "subagent" -> compactObject("label" to nonBlank(item, "label")?.let(JsonValue::Text), "kind" to nonBlank(item, "subagentKind")?.let(JsonValue::Text))
+            "contextCompaction" -> compactObject("replaced" to nonNegativeInteger(item, "replaced"), "kept" to nonNegativeInteger(item, "kept"))
             else -> null
         }
         val finalAnswer = if (toolName == "final_answer" && input != null) parseFinalAnswer(input, "item.arguments") else null
@@ -427,34 +413,35 @@ internal object CoreItemProjection {
 
     private fun parseFinalAnswer(answer: JsonValue.ObjectValue, label: String): FinalAnswer {
         requireOnlyFields(answer, FINAL_ANSWER_FIELDS, label)
-        val status = when (val value = answer.fields["status"]) {
-            null -> "complete"
-            else -> (value as? JsonValue.Text)?.value?.takeIf { it in ANSWER_STATUSES } ?: invalid("$label.status has an invalid value")
+        // As in parseFinalAnswer, only an absent status or artifacts field takes the default; null is invalid.
+        val status = if (answer.optional("status") == null) {
+            "complete"
+        } else {
+            answer.requiredString("status", label).takeIf { it in ANSWER_STATUSES } ?: invalid("$label.status has an invalid value")
         }
-        val kind = if ((answer.fields["kind"] as? JsonValue.Text)?.value == "chat") "chat" else "task"
-        val summary = nonBlank(answer.fields["summary"]) ?: invalid("$label.summary must be non-empty")
-        val artifacts = when (val value = answer.fields["artifacts"]) {
-            null -> emptyList()
-            is JsonValue.ArrayValue -> value.items.mapIndexed { index, artifact -> parseArtifact(artifact, "$label.artifacts[$index]") }
-            else -> invalid("$label.artifacts must be an array")
+        val kind = if (answer.stringOrNull("kind") == "chat") "chat" else "task"
+        val summary = nonBlank(answer, "summary") ?: invalid("$label.summary must be non-empty")
+        val artifacts = if (answer.optional("artifacts") == null) {
+            emptyList()
+        } else {
+            answer.requiredArray("artifacts", label).mapIndexed { index, artifact -> parseArtifact(artifact, "$label.artifacts[$index]") }
         }
         return FinalAnswer(status, kind, summary, artifacts)
     }
 
     private fun parseArtifact(value: JsonValue, label: String): FinalAnswerArtifact {
-        val artifact = value as? JsonValue.ObjectValue ?: invalid("$label must be an object")
+        val artifact = value.asObject(label)
         requireOnlyFields(artifact, ARTIFACT_FIELDS, label)
-        val fields = artifact.fields
         return FinalAnswerArtifact(
-            kind = (fields["kind"] as? JsonValue.Text)?.value?.takeIf { it in ARTIFACT_KINDS } ?: invalid("$label.kind has an invalid value"),
-            title = (fields["title"] as? JsonValue.Text)?.value ?: invalid("$label.title must be a string"),
-            source = nullableString(fields["source"], "$label.source"),
-            uri = nullableString(fields["uri"], "$label.uri"),
-            path = nullableString(fields["path"], "$label.path"),
-            filename = nullableString(fields["filename"], "$label.filename"),
-            alt = nullableString(fields["alt"], "$label.alt"),
-            mime = nullableString(fields["mime"], "$label.mime"),
-            spec = fields["spec"] ?: JsonValue.Null,
+            kind = artifact.stringOrNull("kind")?.takeIf { it in ARTIFACT_KINDS } ?: invalid("$label.kind has an invalid value"),
+            title = artifact.requiredString("title", label),
+            source = artifact.optionalString("source", label),
+            uri = artifact.optionalString("uri", label),
+            path = artifact.optionalString("path", label),
+            filename = artifact.optionalString("filename", label),
+            alt = artifact.optionalString("alt", label),
+            mime = artifact.optionalString("mime", label),
+            spec = artifact.optional("spec") ?: JsonValue.Null,
         )
     }
 
@@ -462,22 +449,14 @@ internal object CoreItemProjection {
         if (value.fields.keys.any { it !in allowed }) invalid("$label has unsupported fields")
     }
 
-    private fun objectOrNull(value: JsonValue?, label: String): JsonValue.ObjectValue? = when (value) {
-        null, JsonValue.Null -> null
-        is JsonValue.ObjectValue -> value
-        else -> invalid("$label must be an object")
+    /** parseAppServerItem optionalString: a blank or non-string value is absent, never an error. */
+    private fun nonBlank(item: JsonValue.ObjectValue, key: String): String? = item.stringOrNull(key)?.takeIf { it.isNotBlank() }
+
+    /** optionalNonNegativeInteger, keeping Core's number literal in the projected input. */
+    private fun nonNegativeInteger(item: JsonValue.ObjectValue, key: String): JsonValue? {
+        val number = item.numberOrNull(key) ?: return null
+        return if (number >= 0 && number == Math.floor(number) && !number.isInfinite()) item.optional(key) else null
     }
-
-    private fun nullableString(value: JsonValue?, label: String): String? = when (value) {
-        null, JsonValue.Null -> null
-        is JsonValue.Text -> value.value
-        else -> invalid("$label must be a string")
-    }
-
-    private fun nonBlank(value: JsonValue?): String? = (value as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() }
-
-    private fun nonNegativeInteger(value: JsonValue?): JsonValue? =
-        (value as? JsonValue.NumberValue)?.takeIf { it.value >= 0 && it.value == Math.floor(it.value) && !it.value.isInfinite() }
 
     private fun compactObject(vararg entries: Pair<String, JsonValue?>): JsonValue.ObjectValue? {
         val present = entries.mapNotNull { (key, value) -> value?.let { key to it } }
