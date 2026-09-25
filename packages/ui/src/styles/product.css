@@ -96,28 +96,10 @@ main:has(.welcome:not([hidden])) { display: flex; align-items: center; justify-c
 .messageBody { white-space: pre-wrap; font-size: var(--chatFont); line-height: var(--chatLeading); }
 .activityMessage { margin: 2px 0; }
 .activityMessage + .activityMessage { margin-top: 0; }
-.activityMessage [data-slot="collapsible-trigger"] {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 26px;
-  padding: 2px 0;
-  cursor: pointer;
-  font-size: var(--chatFont);
-  line-height: 20px;
-  color: var(--muted);
-  border-radius: 6px;
-  width: 100%;
-  background: transparent;
-  border: 0;
-  text-align: left;
-}
-.activityMessage [data-slot="collapsible-trigger"]:hover { color: var(--ink); background: transparent; }
 .activityIcon { display: flex; align-items: center; width: 16px; flex-shrink: 0; }
 .activityIcon svg { width: 14px; height: 14px; }
 .activityChevron { display: flex; flex-shrink: 0; margin-left: 2px; opacity: .7; }
 .activityChevron svg { width: 12px; height: 12px; }
-.activityMessage [data-state="open"] .activityChevron { transform: rotate(90deg); opacity: 1; }
 .activityTitle { display: block; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .activityAction { flex-shrink: 0; }
 .activitySubject { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-weight: 400; }
@@ -327,7 +309,6 @@ footer {
 .workGroupChevron { display: inline-flex; margin-left: auto; flex-shrink: 0; }
 .workGroupContent .message { margin: 0; }
 .workGroupContent .message[data-role="assistant"] { margin: 8px 0; color: var(--ink); }
-.workGroup[data-state="failed"] [data-slot="collapsible-trigger"] { color: var(--vscode-errorForeground, #e02e2a); }
 
 .toolOutput { margin: 6px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--codeSurface); overflow: hidden; min-width: 0; }
 .toolCommand { margin: 0; padding: 8px 12px; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 var(--chatFont)/1.6 var(--codeFont); }
