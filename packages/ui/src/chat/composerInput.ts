@@ -8,14 +8,17 @@ export interface InputModeText {
   placeholder: string
   /** 输入框的可访问名称。 */
   field: string
-  /** 发送按钮的可访问名称。 */
+  /**
+   * 发送按钮的可访问名称，说明按下后投递的动作：补充指令走 steer，旁路提问走 askSideQuestion，
+   * 两者是不同的 Core 请求，名称不能互相借用。
+   */
   submit: string
 }
 
 const inputModeTexts: Readonly<Record<ComposerInputMode, InputModeText>> = {
   message: { label: "", hint: "", placeholder: "提出问题，或输入 / 选择会话操作…", field: "发送给 CodeM 的消息", submit: "发送消息" },
   steer: { label: "补充指令", hint: "补充当前任务的执行方向。", placeholder: "输入补充指令…", field: "会话命令输入", submit: "发送补充指令" },
-  askSideQuestion: { label: "旁路提问", hint: "单独提问，回答显示在这里。", placeholder: "输入旁路提问…", field: "会话命令输入", submit: "发送补充指令" },
+  askSideQuestion: { label: "旁路提问", hint: "单独提问，回答显示在这里。", placeholder: "输入旁路提问…", field: "会话命令输入", submit: "发送旁路提问" },
   shellCommand: { label: "Shell 命令", hint: "发送前会展示命令并请求确认。", placeholder: "输入要执行的命令…", field: "会话命令输入", submit: "检查命令" },
 }
 

@@ -62,8 +62,15 @@ describe("@codem/ui host contract", () => {
   it("names the mode bar, field, placeholder and send button from one table per input mode", () => {
     assert.deepEqual(inputModeText("message"), { label: "", hint: "", placeholder: "提出问题，或输入 / 选择会话操作…", field: "发送给 CodeM 的消息", submit: "发送消息" })
     assert.deepEqual(inputModeText("steer"), { label: "补充指令", hint: "补充当前任务的执行方向。", placeholder: "输入补充指令…", field: "会话命令输入", submit: "发送补充指令" })
-    assert.deepEqual(inputModeText("askSideQuestion"), { label: "旁路提问", hint: "单独提问，回答显示在这里。", placeholder: "输入旁路提问…", field: "会话命令输入", submit: "发送补充指令" })
+    assert.deepEqual(inputModeText("askSideQuestion"), { label: "旁路提问", hint: "单独提问，回答显示在这里。", placeholder: "输入旁路提问…", field: "会话命令输入", submit: "发送旁路提问" })
     assert.deepEqual(inputModeText("shellCommand"), { label: "Shell 命令", hint: "发送前会展示命令并请求确认。", placeholder: "输入要执行的命令…", field: "会话命令输入", submit: "检查命令" })
+  })
+
+  it("names the send button after the request each mode posts, never another mode's", () => {
+    // 补充指令发 steer，旁路提问发 askSideQuestion：按钮名称跟着各自的模式走。
+    for (const mode of ["steer", "askSideQuestion"] as const) assert.equal(inputModeText(mode).submit, `发送${inputModeText(mode).label}`, mode)
+    const names = (["message", "steer", "askSideQuestion", "shellCommand"] as const).map((mode) => inputModeText(mode).submit)
+    assert.equal(new Set(names).size, names.length, `send button names must differ per mode: ${names.join(", ")}`)
   })
 
   it("mentions files at the caret and sends on the configured enter key", () => {
