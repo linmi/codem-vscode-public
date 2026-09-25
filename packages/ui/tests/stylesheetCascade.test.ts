@@ -136,6 +136,51 @@ async function sourceStylesheets(): Promise<Map<string, string>> {
 }
 
 /**
+ * 同一选择器（含所在的 @media/@supports/@keyframes 上下文）只能由一个样式文件定义。
+ * 两个文件各写一份时，后引入的一份静默覆盖前一份，改前一份不再生效。同一文件内的分组加特例写法不在此列。
+ */
+function crossFileDuplicates(files: Map<string, string>): string[] {
+  const owners = new Map<string, Set<string>>()
+  for (const [name, css] of files) {
+    postcss.parse(css).walkRules((rule) => {
+      let context = ""
+      for (let parent = rule.parent; parent && parent.type !== "root"; parent = parent.parent) {
+        if (parent.type === "atrule") context = `@${parent.name} ${parent.params} > ${context}`
+      }
+      for (const selector of rule.selectors) {
+        const key = context + selector.replace(/\s+/gu, " ")
+        owners.set(key, (owners.get(key) ?? new Set<string>()).add(name))
+      }
+    })
+  }
+  return [...owners].filter(([, names]) => names.size > 1).map(([key, names]) => `${key} is defined in ${[...names].join(", ")}`)
+}
+
+describe("@codem/ui stylesheet ownership", () => {
+  it("defines each selector in one stylesheet", async () => {
+    assert.deepEqual(crossFileDuplicates(await sourceStylesheets()), [])
+  })
+
+  it("rejects a selector repeated in another stylesheet, including inside the same at-rule", () => {
+    assert.deepEqual(crossFileDuplicates(new Map([
+      ["product.css", ".slashMenu { z-index: 30; }\n@media (max-width: 440px) { .slashName { min-width: 76px; } }\n@keyframes pulse { 50% { opacity: .5; } }"],
+      ["toolPanels.css", ".slashMenu, .other { z-index: 30; }\n@media (max-width: 440px) { .slashName { min-width: 76px; } }\n@keyframes pulse { 50% { opacity: .3; } }"],
+    ])), [
+      ".slashMenu is defined in product.css, toolPanels.css",
+      "@media (max-width: 440px) > .slashName is defined in product.css, toolPanels.css",
+      "@keyframes pulse > 50% is defined in product.css, toolPanels.css",
+    ])
+  })
+
+  it("accepts one owner per selector, other at-rule contexts and grouped rules within one file", () => {
+    assert.deepEqual(crossFileDuplicates(new Map([
+      ["product.css", ".composerLeading, .composerTrailing { display: flex; }\n.composerLeading { gap: 4px; }\n#model { max-width: 155px; }"],
+      ["welcome.css", ".welcome h1 { visibility: hidden; }\n@media (min-width: 640px) { #model { max-width: 200px; } }"],
+    ])), [])
+  })
+})
+
+/**
  * shadcn 的 Trigger/Close 以 asChild 包住 Button 时，会把 Button 的 data-slot 换成自己的（dialog-trigger、popover-trigger…），
  * .x[data-slot="button"] 这类规则就永远不命中。类名出现在渲染结果里时，限定它的 data-slot 必须至少命中其中一个元素。
  */

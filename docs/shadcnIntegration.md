@@ -168,6 +168,7 @@ VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<he
 
 - 顶栏“文件与工具”和底栏“运行详情”入口此前按 shadcn `size-9` 渲染成 36×36。它们的尺寸规则写成 `.toolPanelTrigger[data-slot="button"]` / `.runtimeDetailsTrigger[data-slot="button"]`，但 `DialogTrigger`/`PopoverTrigger` 以 asChild 包住 Button 时会把 `data-slot` 换成 `dialog-trigger`/`popover-trigger`，规则从未命中。改为只按类名选中，恢复 28×28 与 24×24、静默色和悬停变深，与相邻图标按钮一致。
 - 未固定的代码选区块在 `codeSelection.css` 用 1px `--line` 虚线描边（`outline-offset: -1px`，不占布局）。`product.css` 另有一条遗留的 `border-style: dashed`，边框宽度随之取默认的 3px、颜色取正文色，叠在描边外，块高从 28px 撑到 34px。删除该条，未固定只剩虚线描边，固定后无描边。
+- 同一选择器分散在两个文件时，后引入的一份静默覆盖前一份。每个选择器只保留一份，取当前实际生效的值：`/` 菜单与输入模式条留在 `toolPanels.css`（与会话命令、旁路回答同处，原本就是后生效的一份），删去 `product.css` 的相同副本；决策面板只在 `panels.css` 定义，把 `product.css` 的副本和 `panels.css` 内 `.decisionPanel .x` 的覆盖合并为每个元素一条规则，`.decisionAnswer` 不再与输入框 textarea 共用分组；删除只是 `loadingState.css` 子集的 `loadingPixels.css`；`#model` 只保留 `product.css` 的 155px（`shadcnStyles.css` 的 140px 从未生效）；`#scrollArea` 的 `overflow-anchor` 并入主规则；`.welcome h1` 已被 `.app h1` 覆盖，不再重复列出。唯一有意改变的值：原 `.decisionPanel h2` 本想定义面板标题，却也命中计划详情 Markdown 里的二级标题，把它压成 14px/500 正文，而一级、三级标题仍按 Markdown 放大。合并后只保留 `.decisionHeading h2`，计划详情的 `##` 标题回到共享 Markdown 字号（约 20px/600）。
 
 ## 图标来源（2026-09-25）
 

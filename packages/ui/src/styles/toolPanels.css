@@ -135,6 +135,7 @@
 .composerModeBar > span { display: inline-flex; align-items: center; gap: 6px; }
 .composerModeBar > span svg { width: 14px; height: 14px; }
 .composerModeBar > button { margin-left: auto; padding: 2px 6px; height: 26px; font-size: var(--detailFontSize); color: var(--muted); }
+.composerModeBar > button:hover:not(:disabled) { color: var(--ink); }
 .composerModeBar p { flex-basis: 100%; margin: 0; font-size: var(--detailFontSize); color: var(--muted); overflow-wrap: anywhere; }
 .composerSideAnswer { padding: 12px; max-height: min(200px, 25dvh); overflow: auto; border-bottom: 1px solid var(--line); font: 500 var(--uiFontSize)/1.6 var(--uiFont); }
 .composerSideAnswer pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }

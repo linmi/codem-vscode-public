@@ -12,7 +12,6 @@
 .historyEntry[aria-current="true"] { background: var(--soft); }
 .historyPaging { padding: 6px 12px 0; text-align: center; }
 .historyPaging span { display: block; font-size: var(--captionFontSize); color: var(--muted); }
-#scrollArea { overflow-anchor: none; }
 
 .historySearch { width: 100%; margin: 8px 0 2px; padding: 7px 8px; font: 500 var(--uiFontSize) var(--uiFont); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .historySearch:focus-visible { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 1px; }

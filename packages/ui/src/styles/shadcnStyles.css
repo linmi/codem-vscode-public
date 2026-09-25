@@ -88,6 +88,5 @@
 .composerCatalogMenu [cmdk-list] { max-height: 260px; margin-top: 6px; scrollbar-width: thin; }
 .composerCatalogMenu [cmdk-empty] { margin: 10px 8px; padding: 0; font-size: var(--detailFontSize); color: var(--muted); }
 .composerCatalogMenu .composerCatalogAction { width: 100%; height: auto; min-height: 32px; justify-content: flex-start; padding: 7px 8px; margin-top: 2px; border-radius: 10px; font: inherit; flex-shrink: 0; }
-#model { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 #selectSpace .composerMenuIcon:first-child svg { width: 14px; height: 14px; }
 .composerPermissionWarning, .composerPermissionWarning .composerChoiceText small { color: var(--vscode-editorWarning-foreground, #e47140); }
