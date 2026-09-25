@@ -1267,6 +1267,53 @@ class ProjectSessionTest {
         } finally { session.close().join() }
     }
 
+    /**
+     * 与 host.ts backgroundTerminal 一致：terminals 必须是数组，processId 必须是正整数。
+     * 旧实现在缺 processId 时用列表序号冒充进程号，终止时会把这个序号发给 Core。
+     */
+    @Test
+    fun backgroundTerminalsRequireAPositiveProcessId() {
+        val terminals = java.util.concurrent.atomic.AtomicReference<JsonValue>()
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, _ -> if (method == "thread/backgroundTerminals/list") terminals.get() else null })
+            process
+        }
+        fun listing(vararg terminal: JsonValue) = JsonValue.obj("terminals" to JsonValue.ArrayValue(terminal.toList()))
+        fun terminal(processId: JsonValue?) = JsonValue.ObjectValue(
+            listOfNotNull(processId?.let { "processId" to it }, "inProgress" to JsonValue.Bool(true)).toMap(),
+        )
+        try {
+            session.connect()
+            session.resumeThread("thread-1")
+            terminals.set(listing(terminal(JsonValue.NumberValue(12.0, "12"))))
+            assertEquals(listOf("12"), session.listBackgroundTerminals().map { it.id })
+
+            val invalid = listOf(
+                listing(terminal(null)),
+                listing(terminal(JsonValue.NumberValue(0.0, "0"))),
+                listing(terminal(JsonValue.NumberValue(-3.0, "-3"))),
+                listing(terminal(JsonValue.NumberValue(1.5, "1.5"))),
+                listing(terminal(JsonValue.Text("12"))),
+                listing(terminal(JsonValue.Null)),
+                listing(JsonValue.Text("terminal")),
+                JsonValue.obj("terminals" to JsonValue.Null),
+                JsonValue.obj(),
+            )
+            for (result in invalid) {
+                terminals.set(result)
+                val error = org.junit.jupiter.api.Assertions.assertThrows(CodemError.Protocol::class.java, { session.listBackgroundTerminals() }, result.toString())
+                assertEquals(CodemError.Class.InvalidFrame, error.errorClass, result.toString())
+                assertEquals(listOf("12"), session.snapshot().background.map { it.id }, "a rejected listing keeps the last good one")
+            }
+
+            // Without a processId the old list offered "1"; terminating it must not reach Core.
+            terminals.set(listing(terminal(null)))
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Protocol::class.java) { session.terminateBackground("1") }
+            assertTrue(process.writes.none { it.contains("thread/backgroundTerminals/terminate") })
+        } finally { session.close().join() }
+    }
+
     /** 历史列表读取失败：loading 必须结束并推给界面，面板给出可读错误；刷新成功后恢复条目并清掉错误。 */
     @Test
     fun failedHistoryLoadClearsLoadingAndRefreshRecovers() {
@@ -1520,6 +1567,7 @@ class ProjectSessionTest {
         emptyUnsubscribe: Boolean = false,
         beforeReply: (String) -> Unit = {},
         shouldFail: (String) -> Boolean = { it == failMethod },
+        results: (String, JsonValue.ObjectValue) -> JsonValue? = { _, _ -> null },
     ) {
         Thread {
             val seen = AtomicInteger(0)
@@ -1546,7 +1594,7 @@ class ProjectSessionTest {
                     )))
                     continue
                 }
-                val result = when (method) {
+                val result = results(method, params) ?: when (method) {
                     "initialize" -> capabilities
                     "thread/start" -> JsonValue.obj("thread" to JsonValue.obj("id" to JsonValue.Text("thread-1")))
                     "thread/unsubscribe" -> if (emptyUnsubscribe) JsonValue.ObjectValue(emptyMap()) else JsonValue.obj("status" to JsonValue.Text("unsubscribed"))

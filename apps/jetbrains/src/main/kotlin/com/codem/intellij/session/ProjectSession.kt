@@ -1063,10 +1063,14 @@ class ProjectSession(
         val (coreProcess, currentThread, currentGeneration) = readyThread()
         val (method, params) = ThreadCommands.backgroundTerminals(currentThread)
         val result = requestResult(coreProcess, method, params, currentGeneration)
-        val listed = (result.fields["terminals"] as? JsonValue.ArrayValue)?.items.orEmpty().mapIndexed { index, item ->
-            val terminal = item.asObject()
-            val pid = ((terminal.fields["processId"] as? JsonValue.NumberValue)?.literal ?: "${index + 1}")
-            BackgroundView(pid, "terminal $pid", (terminal.fields["inProgress"] as? JsonValue.Bool)?.value == true)
+        // As parseAppServerBackgroundTerminalList: the list and every processId are required. A missing id must never
+        // become a list position that terminateBackground would then send to Core as a process to kill.
+        val listed = result.requiredArray("terminals", "$method result").mapIndexed { index, item ->
+            val label = "$method result.terminals[$index]"
+            val terminal = item.asObject(label)
+            val pid = terminal.requiredInt("processId", label).takeIf { it > 0 }
+                ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "$label.processId must be a positive integer")
+            BackgroundView(pid.toString(), "terminal $pid", terminal.booleanOrNull("inProgress") == true)
         }
         mutate { background = listed }
         return listed
