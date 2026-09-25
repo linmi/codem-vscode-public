@@ -7,7 +7,7 @@ import com.codem.intellij.account.LoginOperation
 import com.codem.intellij.webview.AccountView
 import com.codem.intellij.core.CodemError
 import com.codem.intellij.core.ResolvedRuntime
-import com.codem.intellij.core.RuntimeLocator
+import com.codem.intellij.core.RuntimeVerifier
 import com.codem.intellij.ide.AttachmentStore
 import com.codem.intellij.ide.IdeaAttachmentStore
 import com.codem.intellij.ide.IdeaDiffPresenter
@@ -87,6 +87,9 @@ class ToolWindowHost(
         onError = { error -> log.warn("CodeM snapshot publication failed", error) },
     )
     private val accountRefresh = AccountStatusRefresh({ publisher.local().account }, ::publishAccount)
+    // One verifier per host: the account refresh and connect reuse a digest only while the bundled
+    // executable is unchanged; the manifest check runs on every call, always on a pooled thread.
+    private val runtimeVerifier = pluginRoot?.let(::RuntimeVerifier)
 
     init {
         ApplicationManager.getApplication().messageBus.connect(project)
@@ -458,8 +461,13 @@ class ToolWindowHost(
         }
     }
 
-    private fun requireRuntime(): ResolvedRuntime =
-        RuntimeLocator.resolveFromPlugin(pluginRoot ?: throw CodemError.Validation("CodeM plugin installation directory is unavailable"))
+    private fun requireRuntime(): ResolvedRuntime {
+        val verifier = runtimeVerifier ?: throw CodemError.Validation("CodeM plugin installation directory is unavailable")
+        val started = System.nanoTime()
+        val verification = verifier.verify()
+        log.info("CodeM runtime integrity ${(System.nanoTime() - started) / 1_000_000}ms hashed=${verification.hashed} reused=${verification.reused}")
+        return verification.runtime
+    }
 
     private fun locateRuntime(): ResolvedRuntime? {
         return try {

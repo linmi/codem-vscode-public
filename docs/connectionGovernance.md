@@ -123,3 +123,11 @@ node --experimental-strip-types apps/vscode/scripts/benchmarkRuntimeIntegrity.ts
 同一基准脚本、同一 bundle、7 次中位数：首次打开两次单独校验 62.5ms，改为一个校验器后 30.6ms；同一激活内后续校验 0.2ms，事件循环最长停顿 0.2ms。原实现首次打开会出现两次约 31ms 的完全停顿。CodeM 输出面板新增 `Runtime integrity: <ms>; hashed <n>, reused <n>`，真实预检脚本断言同一校验器第二次连接复用两个摘要。
 
 回归门槛：复用测试把两个可执行文件的 mtime 设为整秒并等待 2 秒，第一次哈希 2 个、第二次复用 2 个，新校验器不共享结果；同尺寸改写并恢复 mtime 后只剩 ctime 变化，仍须拒绝。去掉身份中的 ctime 或去掉 2 秒限制，对应测试都会失败。
+
+### JetBrains 同一工具窗口内复用校验结果
+
+JetBrains 的 `RuntimeLocator.resolveFromPlugin` 原本已按 64 KiB 流式哈希，且所有调用都经 `runBackground` 在线程池执行，不阻塞 EDT；但打开工具窗口时账户刷新（`refreshAccount`）和随后的自动连接（`connect`）各校验一次，登录后再各一次。实测 JDK 21.0.12、同一真实 bundle、JIT 与页缓存已热，一次校验中位数 35.2ms，因此首次打开在连接链路上串行多花约 35ms。
+
+现在每个 `ToolWindowHost`（即每个项目的工具窗口）持有一个 `RuntimeVerifier`，账户刷新和连接共用；清单和文件检查、与清单比对仍每次执行，仍只在线程池调用。摘要按真实路径记录文件键（POSIX 上即 dev+inode）、大小、mtime、创建时间及 POSIX ctime，任一变化即重新哈希；哈希前后按路径读取的身份不一致或最后变更不足 2 秒时不记录。Windows NIO 不提供 change time 与文件键，改写后又恢复 mtime 的情况只能靠大小与创建时间识别，属于上述“非真实性边界”的已知限制。idea.log 记录 `CodeM runtime integrity <ms> hashed=<n> reused=<n>`。
+
+Kotlin 测试：同一校验器账户刷新哈希 2 个、连接复用 2 个，新校验器不共享；改 mtime 后只重新哈希该文件；复用后同尺寸改写并恢复 mtime（POSIX 上只剩 ctime 变化）仍被拒绝；2 秒内变更的文件每次都重新哈希。去掉 ctime 或 2 秒限制，对应测试失败。插件源码（ToolWindowHost）经 `:host:compileKotlin` 编译通过；真实 IDE 中打开工具窗口的耗时未测。

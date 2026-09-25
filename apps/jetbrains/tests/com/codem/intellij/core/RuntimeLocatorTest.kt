@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
+import java.util.concurrent.TimeUnit
 
 class RuntimeLocatorTest {
     @Test
@@ -96,6 +98,62 @@ class RuntimeLocatorTest {
         assertThrows(CodemError::class.java) { RuntimeLocator.resolveFromPlugin(root) }
     }
 
+    @Test
+    fun oneVerifierHashesOnceForTheAccountRefreshAndConnect(@org.junit.jupiter.api.io.TempDir root: Path) {
+        writeSettledBundle(root)
+        val verifier = RuntimeVerifier(root)
+        val account = verifier.verify()
+        val connect = verifier.verify()
+        assertEquals(2 to 0, account.hashed to account.reused)
+        assertEquals(0 to 2, connect.hashed to connect.reused)
+        assertEquals(account.runtime, connect.runtime)
+        assertEquals(2, RuntimeVerifier(root).verify().hashed, "another verifier does not share digests")
+    }
+
+    @Test
+    fun changedExecutableIsHashedAgain(@org.junit.jupiter.api.io.TempDir root: Path) {
+        writeSettledBundle(root)
+        val verifier = RuntimeVerifier(root)
+        verifier.verify()
+        Files.setLastModifiedTime(coreOf(root), FileTime.from(SETTLED_MTIME_SECONDS + 60, TimeUnit.SECONDS))
+        val changed = verifier.verify()
+        assertEquals(1 to 1, changed.hashed to changed.reused)
+    }
+
+    @Test
+    fun tamperedExecutableIsRejectedAfterItsDigestWasReused(@org.junit.jupiter.api.io.TempDir root: Path) {
+        writeSettledBundle(root)
+        val verifier = RuntimeVerifier(root)
+        verifier.verify()
+        assertEquals(2, verifier.verify().reused)
+        val core = coreOf(root)
+        val mtime = Files.getLastModifiedTime(core)
+        Files.writeString(core, Files.readString(core).reversed())
+        // Same size and inode with the mtime restored: on POSIX only ctime differs. Windows NIO
+        // reports no change time, so there the rewrite is detected through its new mtime instead.
+        if (!RuntimeLocator.currentTargetId().startsWith("win32-")) Files.setLastModifiedTime(core, mtime)
+        assertThrows(CodemError::class.java) { verifier.verify() }
+        assertThrows(CodemError::class.java) { verifier.verify() }
+    }
+
+    @Test
+    fun recentlyChangedExecutablesAreHashedOnEveryCall(@org.junit.jupiter.api.io.TempDir root: Path) {
+        writeBundle(root)
+        val verifier = RuntimeVerifier(root)
+        assertEquals(listOf(2, 2), List(2) { verifier.verify().hashed })
+    }
+
+    private fun coreOf(root: Path): Path = root.resolve("bin/app-server/${RuntimeLocator.targets.getValue(RuntimeLocator.currentTargetId()).executableName}")
+
+    /** Whole-second mtimes are restored exactly; waiting lets the last change leave the 2 s window. */
+    private fun writeSettledBundle(root: Path) {
+        writeBundle(root)
+        for (path in listOf(coreOf(root), root.resolve("bin/app-server/${authName()}"))) {
+            Files.setLastModifiedTime(path, FileTime.from(SETTLED_MTIME_SECONDS, TimeUnit.SECONDS))
+        }
+        Thread.sleep(2_100)
+    }
+
     private fun authName(): String = if (RuntimeLocator.currentTargetId().startsWith("win32-")) "codem-auth.exe" else "codem-auth"
 
     private fun writeBundle(root: Path): JsonValue.ObjectValue {
@@ -123,5 +181,9 @@ class RuntimeLocatorTest {
 
     private fun writeManifest(root: Path, manifest: JsonValue.ObjectValue) {
         Files.writeString(root.resolve("bin/app-server/runtime.json"), encodeJson(manifest))
+    }
+
+    private companion object {
+        const val SETTLED_MTIME_SECONDS = 1_700_000_000L
     }
 }

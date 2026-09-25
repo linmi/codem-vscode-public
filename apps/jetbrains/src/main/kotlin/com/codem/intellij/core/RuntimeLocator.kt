@@ -58,8 +58,11 @@ object RuntimeLocator {
         return id
     }
 
-    /** Only the installed plugin owns its runtime; project files cannot select executables. */
-    fun resolveFromPlugin(pluginRoot: Path): ResolvedRuntime {
+    /** Only the installed plugin owns its runtime; project files cannot select executables. Hashes both executables. */
+    fun resolveFromPlugin(pluginRoot: Path): ResolvedRuntime = verifyPlugin(pluginRoot, null).runtime
+
+    /** Validates the bundle on every call; [digests] only skips re-reading an unchanged executable. */
+    internal fun verifyPlugin(pluginRoot: Path, digests: FileDigests?): RuntimeVerification {
         val bundleRoot = pluginRoot.resolve("bin/app-server")
         val manifestPath = requireFile(bundleRoot.resolve("runtime.json"), "bundle manifest")
         val manifest = JsonValue.parse(Files.readString(manifestPath)).asObject()
@@ -86,16 +89,19 @@ object RuntimeLocator {
                 if (!Files.isExecutable(path)) throw CodemError.Validation("CodeM runtime executable permission is missing: ${path.fileName}")
             }
         }
+        var reused = 0
         fun verifyDigest(field: String, path: Path): String {
             val expected = manifest.required(field).asText()
             if (!Regex("[a-f0-9]{64}").matches(expected)) throw CodemError.Validation("CodeM runtime $field is not a SHA-256 digest")
-            val actual = sha256(path)
+            val (actual, fromMemo) = digests?.sha256(path) ?: (sha256(path) to false)
+            if (fromMemo) reused++
             if (actual != expected) throw CodemError.Validation("CodeM runtime $field integrity failed: ${path.fileName}")
             return actual
         }
         val coreDigest = verifyDigest("sha256", core)
         verifyDigest("authSha256", auth)
-        return ResolvedRuntime(target, CORE_VERSION, CLI_VERSION, core, auth, coreLicense, authLicense, coreDigest)
+        val runtime = ResolvedRuntime(target, CORE_VERSION, CLI_VERSION, core, auth, coreLicense, authLicense, coreDigest)
+        return RuntimeVerification(runtime, hashed = 2 - reused, reused = reused)
     }
 
     private fun requireBundledFile(root: Path, name: String): Path {

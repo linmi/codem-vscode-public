@@ -37,7 +37,7 @@
 ### 所有权、交互和调用次数
 
 - 构建任务拥有 `apps/jetbrains/build/runtime`；每次打包重新校验并准备两个锁定二进制，不新增全局缓存或后台服务。缺文件/版本错立即失败，不生成伪成功安装包。
-- 安装目录拥有不可变运行文件。每次运行时解析读取一份清单，对两个二进制各计算一次哈希；该层不认证、不启动 Core。连接、取消、失败和关闭仍由原有 ProjectSession/CoreProcess 管理。
+- 安装目录拥有不可变运行文件。每次运行时解析读取一份清单并与两个二进制的 SHA-256 比对；每个 ToolWindowHost 持有一个 `RuntimeVerifier`，账户刷新和连接只在文件身份未变时复用已算摘要（见 [连接治理](connectionGovernance.md#jetbrains-同一工具窗口内复用校验结果)）。该层不认证、不启动 Core。连接、取消、失败和关闭仍由原有 ProjectSession/CoreProcess 管理。
 - 不改聊天/草稿保存范围，不引入反向依赖或共享可变状态。重新安装替换插件文件；无需迁移用户历史。
 - nativeRuntime 测试独立解压 ZIP 到含空格/中文的临时目录，使用空 HOME、PATH 和明确环境；执行一次认证 `--version`、一次 Core initialize/initialized，随后关闭并确认进程消失。临时文件由测试清理。
 
