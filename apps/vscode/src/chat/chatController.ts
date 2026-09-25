@@ -7,10 +7,9 @@ import type { ActiveConversation, ConversationScope } from "../sessionHistory/ac
 import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from "../sessionHistory/conversationHistory.ts"
 import { BackgroundTasks, type BackgroundContext } from "./backgroundTasks.ts"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
-import { ComposerCatalogView } from "./composerCatalog.ts"
-import { settingPatch, type ComposerSettingAction, type LocalComposerSettings } from "../shared/composerSettings.ts"
+import { ChatSettings, type RestoredSettings } from "./chatSettings.ts"
+import { settingPatch, type ComposerSettingAction } from "../shared/composerSettings.ts"
 import type { FileDiffContent } from "../resources/filePresentation.ts"
-import { parseCodemIntelligence } from "@codem/protocol"
 import { realpath, stat } from "node:fs/promises"
 import { basename, relative, isAbsolute, sep } from "node:path"
 import { LiveSnapshotCatalog } from "./liveSnapshotCatalog.ts"
@@ -24,7 +23,7 @@ import { ConversationResources } from "../resources/conversationResources.ts"
 import { changedFilePath } from "../resources/filePresentation.ts"
 import { terminalReplyLast } from "../shared/timelineOrder.ts"
 import { randomUUID } from "node:crypto"
-import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
+import { type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
 import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatMessage, type ChatPhase, type ChatSnapshot } from "../shared/messages.ts"
 
 import { HistoryListController } from "../sessionHistory/historyList.ts"
@@ -97,8 +96,6 @@ export interface ChatControllerOptions {
 
 /** One live conversation. Core owns durable history; these are display-only snapshots. */
 export class ChatController {
-  private readonly composerCatalog = new ComposerCatalogView()
-  private pendingSettings: Partial<LocalComposerSettings>
   private pendingSend: { message: ChatMessage & { role: "user" } } | null = null
   private pendingNewChat = false
   private editorGeneration: EditorGeneration | null = null
@@ -121,7 +118,7 @@ export class ChatController {
   private accountReset: Promise<void> | null = null
   private readonly connectionTasks = new Set<Promise<void>>()
   private state: ChatSnapshot = initialSnapshot()
-  private settings: AppServerThreadSettings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" }
+  private readonly settings: ChatSettings
   private readonly resources = new ConversationResources()
   private readonly liveSnapshot: LiveSnapshotCatalog
   private readonly background: BackgroundTasks
@@ -138,9 +135,8 @@ export class ChatController {
     this.liveSnapshot = new LiveSnapshotCatalog(view => this.updateTools({ catalog: view, ...(view.loading || this.state.sessionTools.busy === "catalog:live" ? { busy: view.loading ? "catalog:live" : null } : {}) }), options.assertTrusted, options.report)
     this.conversationHistory = new ConversationHistory(options.report)
     this.background = new BackgroundTasks((snapshot, notice) => this.update({ ...snapshot, ...(notice ? { notice } : {}) }), options.assertTrusted, options.report)
-    this.pendingSettings = options.preferences?.pendingSettings() ?? {}
-    this.settings = { ...this.settings, ...this.pendingSettings }
-    this.state = { ...this.state, effort: parseCodemIntelligence(this.settings.intelligence), workMode: this.settings.workMode, permission: this.settings.permissionMode }
+    this.settings = new ChatSettings({ preferences: options.preferences, report: options.report })
+    this.state = { ...this.state, ...this.settings.choices() }
     this.historyList = new HistoryListController(() => this.publish(), options.report)
   }
 
@@ -152,7 +148,7 @@ export class ChatController {
     const pending = this.pendingSend?.message
     const messages = pending && !this.state.messages.some(message => message.id === pending.id)
       ? [...this.state.messages, pending] : this.state.messages
-    return freezeSnapshot({ ...this.state, composerCatalog: this.session && this.state.phase !== "disconnected" ? this.composerCatalog.snapshot(this.settings.model, this.session.space.key) : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
+    return freezeSnapshot({ ...this.state, composerCatalog: this.state.phase !== "disconnected" ? this.settings.catalog() : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
   }
 
   /** The current phase without building a snapshot. A call, so an earlier narrowing of `this.state.phase` does not apply. */
@@ -196,7 +192,7 @@ export class ChatController {
       acquired = session
       if (this.disposed || generation !== this.generation) { await session.host.close(); return }
       this.options.assertTrusted()
-      const restored = await this.restoreSettings(session)
+      const restored = await this.settings.restore(session)
       if (this.disposed || generation !== this.generation) { await session.host.close(); return }
       this.options.assertTrusted()
       this.bindSession(session, generation, restored, true)
@@ -211,19 +207,18 @@ export class ChatController {
     }
   }
 
-  private bindSession(session: ChatSession, generation: number, restored: { settings: AppServerThreadSettings; notice: string | null }, preserveAttachments = false): void {
+  private bindSession(session: ChatSession, generation: number, restored: RestoredSettings, preserveAttachments = false): void {
     this.session = session
-    this.composerCatalog.bind(session.models, session.spaceDirectory.list())
     this.historyList.bind({ host: session.host, cwd: session.cwd, authorize: async () => { this.options.assertTrusted(); await session.authorize(); this.options.assertTrusted() } })
     this.conversationHistory.reset()
     this.threadId = null
     this.resetResources(preserveAttachments)
-    this.settings = restored.settings
+    const settings = this.settings.bind(session, restored, session.spaceDirectory.list())
     this.directoryPaths.clear()
     this.unsubscribe = session.host.onEvent((event) => {
       if (this.session === session && generation === this.generation) this.onEvent(event)
     })
-    this.update({ ...initialSnapshot(), attachments: this.resources.attachmentViews(session.cwd), phase: "connecting", workspace: session.workspace, space: session.space.name, model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name), notice: restored.notice })
+    this.update({ ...initialSnapshot(), attachments: this.resources.attachmentViews(session.cwd), phase: "connecting", workspace: session.workspace, space: session.space.name, ...settings, notice: restored.notice })
     this.background.startPolling(() => this.backgroundContext())
   }
 
@@ -275,28 +270,6 @@ export class ChatController {
     }
   }
 
-  private async restoreSettings(session: ChatSession): Promise<{ settings: AppServerThreadSettings; notice: string | null }> {
-    const saved = await this.options.preferences?.load(session)
-    const available = !saved || session.models.some(model => model.id === saved.model)
-    const settings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default" as const, ...saved, model: available && saved ? saved.model : session.model, mcpServers: session.mcpServers }
-    let notice = available ? null : "已保存的模型当前不可用，暂用 Core 当前模型；原选择仍保留，可重新选择模型。"
-    if (Object.keys(this.pendingSettings).length) {
-      Object.assign(settings, this.pendingSettings)
-      try {
-        // Bind the unconnected choice once. Preserve an unavailable saved model preference.
-        await this.options.preferences?.save(session, { ...(saved ?? settings), ...this.pendingSettings })
-        await this.options.preferences?.savePendingSettings({})
-        this.pendingSettings = {}
-      } catch (error) {
-        this.options.report("saveSettings", error)
-        notice = [notice, "设置已应用，但保存失败；下次连接会继续尝试保存。"].filter(Boolean).join(" ")
-      }
-    }
-    return {
-      settings, notice,
-    }
-  }
-
   selectSpace(pick: (session: ChatSession, signal: AbortSignal) => Promise<ChatSession | null>): Promise<void> {
     if (this.accountReset) return Promise.resolve()
     return this.trackConnection(this.selectSpaceCurrent(pick))
@@ -314,7 +287,7 @@ export class ChatController {
       if (!next) return
       this.options.assertTrusted()
       if (this.disposed || this.session !== previous || this.active) { await next.host.close(); next = null; return }
-      const restored = await this.restoreSettings(next)
+      const restored = await this.settings.restore(next)
       if (this.disposed || this.session !== previous || this.active) { await next.host.close(); next = null; return }
       this.options.assertTrusted()
       const retiring = this.retire()
@@ -349,7 +322,7 @@ export class ChatController {
     }
   }
 
-  private settingsForCore(settings = this.settings): AppServerThreadSettings {
+  private settingsForCore(settings = this.settings.current()): AppServerThreadSettings {
     return { ...settings, additionalDirectories: [...settings.additionalDirectories, this.resources.rootForCore()] }
   }
 
@@ -597,7 +570,7 @@ export class ChatController {
   completionContext(): { ready: boolean; key: string } {
     return {
       ready: !!this.session && !this.disposed && this.state.phase === "ready" && !this.state.backgroundBusy && !this.state.sessionTools.busy && !this.editorGeneration,
-      key: `${this.contextKey()}:${this.settings.model}:${this.settings.intelligence}`,
+      key: `${this.contextKey()}:${this.settings.current().model}:${this.settings.current().intelligence}`,
     }
   }
 
@@ -772,8 +745,7 @@ export class ChatController {
         if (this.session !== session || this.disposed) return
         const modes = await session.host.readModes(session.cwd, id)
         if (this.session !== session || this.threadId !== id) return
-        this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }; this.updateSettings()
-        this.update({ messages: [], turnTimings: [], diffs: [], attachments: [], background: [], backgroundTasks: [], tools: [], historyNeedsRefresh: false })
+        this.update({ ...this.settings.acceptModes(modes), messages: [], turnTimings: [], diffs: [], attachments: [], background: [], backgroundTasks: [], tools: [], historyNeedsRefresh: false })
       } else {
         const method = { rename: "thread/name/set", fork: "thread/fork", archive: "thread/archive", unarchive: "thread/unarchive", delete: "thread/delete" } as const
         const result = await session.host.control(session.cwd, method[operation], { threadId, ...(operation === "rename" ? { name } : {}) })
@@ -842,7 +814,7 @@ export class ChatController {
   private projectDirectories(): void {
     const previous = new Map([...this.directoryPaths].map(([id, path]) => [path, id]))
     this.directoryPaths.clear()
-    const directories = this.settings.additionalDirectories.map(path => { const id = previous.get(path) ?? randomUUID(); this.directoryPaths.set(id, path); return { id, label: basename(path) } })
+    const directories = this.settings.current().additionalDirectories.map(path => { const id = previous.get(path) ?? randomUUID(); this.directoryPaths.set(id, path); return { id, label: basename(path) } })
     this.updateTools({ directories })
   }
 
@@ -932,11 +904,11 @@ export class ChatController {
         this.resetResources()
         const messages = this.resources.projectHistory(threadId, page, session.cwd)
         const diffs = this.resources.restoreDiffs(session.cwd, page, true, this.state.diffs)
-        this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }
+        const settings = this.settings.acceptModes(modes)
         this.threadId = threadId
         restored = true
         saved = this.rememberActiveConversation(session, threadId)
-        this.update({ phase: "ready", capabilities: { ...this.state.capabilities, plan: historyPlan(page) }, messages, turnTimings: historyTurnTimings(page), permission: this.settings.permissionMode, workMode: this.settings.workMode, attachments: [], diffs, background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
+        this.update({ phase: "ready", capabilities: { ...this.state.capabilities, plan: historyPlan(page) }, messages, turnTimings: historyTurnTimings(page), ...settings, attachments: [], diffs, background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
         this.historyList.close()
       })
       await saved
@@ -1025,8 +997,7 @@ export class ChatController {
     this.pendingSend = null
     const closing = this.retire()
     this.state = initialSnapshot()
-    this.settings = { ...DEFAULT_APP_SERVER_THREAD_SETTINGS, permissionMode: "default", ...this.pendingSettings }
-    this.updateSettings()
+    this.update(this.settings.reset())
     const task = Promise.allSettled([closing, ...this.retiringHosts, ...this.connectionTasks]).then(results => {
       const failures = results.flatMap(result => result.status === "rejected" ? [result.reason] : [])
       if (failures.length) throw new AggregateError(failures, "Account session cleanup failed")
@@ -1065,6 +1036,7 @@ export class ChatController {
     const retiring = Promise.all([plugins, Promise.resolve().then(() => session?.host.close())]).then(() => undefined)
     this.resetResources(false, retiring)
     this.session = null
+    this.settings.unbind()
     this.directoryPaths.clear()
     this.generation++
     this.finishActivities("incomplete")
@@ -1135,8 +1107,7 @@ export class ChatController {
     if (event.type === "turn-started") this.conversationHistory.turnStarted(event.threadId, this.threadId)
     if ("threadId" in event && event.threadId === this.threadId) {
       if (event.type === "thread-modes-updated") {
-        this.settings = { ...this.settings, permissionMode: event.state.permissionMode, workMode: event.state.workMode === "plan" ? "plan" : "default" }
-        this.updateSettings()
+        this.update(this.settings.acceptModes(event.state))
         return
       }
       if (event.type === "background-wake") {
@@ -1270,14 +1241,14 @@ export class ChatController {
   }
 
   async chooseModel(id: string): Promise<void> {
-    const model = this.composerCatalog.model(id)
+    const model = this.settings.catalogModel(id)
     if (!this.session || this.state.phase !== "ready" || !model) return
-    if (model === this.settings.model) return
+    if (model === this.settings.current().model) return
     await this.configure(async settings => ({ ...settings, model }))
   }
 
   async chooseSpace(id: string, open: (session: ChatSession, key: string, signal: AbortSignal) => Promise<ChatSession>): Promise<void> {
-    const key = this.composerCatalog.space(id)
+    const key = this.settings.catalogSpace(id)
     if (!this.session || this.state.phase !== "ready" || !key || key === this.session.space.key) return
     await this.selectSpace((session, signal) => open(session, key, signal))
   }
@@ -1290,7 +1261,7 @@ export class ChatController {
       this.options.assertTrusted()
       await session.spaceDirectory.refresh(this.lifetime.signal)
       this.options.assertTrusted()
-      if (!this.disposed && this.session === session) this.composerCatalog.updateSpaces(session.spaceDirectory.list())
+      if (!this.disposed && this.session === session) this.settings.updateSpaces(session.spaceDirectory.list())
     } catch (error) {
       this.options.report("refreshSpaces", error)
       if (!this.disposed && this.session === session) this.update({ notice: "空间列表刷新失败，现有列表保留，请重试。" })
@@ -1304,7 +1275,7 @@ export class ChatController {
     const patch = settingPatch(action)
     if (this.disposed || !["disconnected", "ready"].includes(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return
     const session = this.session
-    if (patch.permissionMode === "yolo" && this.settings.permissionMode !== "yolo") {
+    if (patch.permissionMode === "yolo" && this.settings.current().permissionMode !== "yolo") {
       this.options.assertTrusted()
       this.update({ phase: "configuring", notice: null })
       let confirmed = false
@@ -1313,20 +1284,13 @@ export class ChatController {
       if (!confirmed || this.disposed || this.session !== session) return
     }
     if (session) {
-      if (Object.entries(patch).every(([key, value]) => this.settings[key as keyof LocalComposerSettings] === value)) { this.publish(); return }
+      if (this.settings.unchanged(patch)) { this.publish(); return }
       await this.configure(async settings => ({ ...settings, ...patch }))
       return
     }
-    this.pendingSettings = { ...this.pendingSettings, ...patch }
-    this.settings = { ...this.settings, ...patch }
-    this.update({ phase: "configuring", effort: parseCodemIntelligence(this.settings.intelligence), workMode: this.settings.workMode, permission: this.settings.permissionMode, notice: null })
-    try { await this.options.preferences?.savePendingSettings(this.pendingSettings) }
-    catch (error) {
-      this.options.report("saveSettings", error)
-      if (!this.disposed) this.update({ notice: "设置已选择，但保存失败；重载后可能无法恢复，请重新选择后重试。" })
-    } finally {
-      if (!this.disposed) this.update({ phase: "disconnected" })
-    }
+    this.update({ phase: "configuring", notice: null, ...this.settings.chooseOffline(patch) })
+    const notice = await this.settings.savePending()
+    if (!this.disposed) this.update({ phase: "disconnected", ...(notice ? { notice } : {}) })
   }
 
   /** Host owns the settings transaction. Holding this phase prevents sends racing a selection. */
@@ -1340,49 +1304,27 @@ export class ChatController {
       await this.reclaimThread()
       const modes = this.threadId ? await session.host.readModes(session.cwd, this.threadId) : null
       if (this.session !== session || this.disposed) return
-      if (modes) {
-        this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }
-        this.updateSettings()
-      }
-      const next = await pick(structuredClone(this.settings), session)
+      if (modes) this.update(this.settings.acceptModes(modes))
+      const next = await pick(this.settings.draft(), session)
       if (!next || this.session !== session || this.disposed) return
       this.options.assertTrusted()
-      if (!session.models.some((model) => model.id === next.model) || !APP_SERVER_BUILTIN_INTELLIGENCE_TIERS.some((effort) => effort === next.intelligence)) throw new UserVisibleError("模型或思考强度不在 Core 支持的列表中。")
+      const change = this.settings.review(next, modes)
       if (this.active) { this.update({ notice: "后台任务已开始新一轮，请结束后再切换。" }); return }
       let confirmedModes = modes
       if (this.threadId) {
-        if (next.model !== this.settings.model || next.intelligence !== this.settings.intelligence || JSON.stringify(next.additionalDirectories) !== JSON.stringify(this.settings.additionalDirectories) || JSON.stringify(next.mcpServers) !== JSON.stringify(this.settings.mcpServers)) {
+        if (change.resume) {
           await session.host.resumeThread(session.cwd, this.threadId, this.settingsForCore(next))
           if (this.session !== session || this.disposed) return
-          this.settings = { ...this.settings, model: next.model, intelligence: next.intelligence, additionalDirectories: next.additionalDirectories, mcpServers: next.mcpServers }
-          this.updateSettings()
+          this.update(this.settings.acceptResumed(next))
         }
-        if (modes && (modes.permissionMode !== next.permissionMode || modes.workMode !== (next.workMode === "plan" ? "plan" : "normal"))) {
-          confirmedModes = await session.host.setModes({ cwd: session.cwd, threadId: this.threadId, expectedRevision: modes.revision, permissionMode: next.permissionMode, workMode: next.workMode === "plan" ? "plan" : "normal" })
-        } else {
-          confirmedModes = await session.host.readModes(session.cwd, this.threadId)
-        }
+        confirmedModes = modes && change.modes
+          ? await session.host.setModes({ cwd: session.cwd, threadId: this.threadId, expectedRevision: modes.revision, ...change.modes })
+          : await session.host.readModes(session.cwd, this.threadId)
       }
       if (this.session !== session || this.disposed) return
-      this.settings = confirmedModes ? { ...next, permissionMode: confirmedModes.permissionMode, workMode: confirmedModes.workMode === "plan" ? "plan" : "default" } : next
-      this.updateSettings()
-      this.update({ tools: [] })
-      try {
-        // A failed earlier promotion must never overwrite a newer connected choice.
-        if (Object.keys(this.pendingSettings).length) {
-          this.pendingSettings = Object.fromEntries(Object.keys(this.pendingSettings).map(key => [key, this.settings[key as keyof LocalComposerSettings]]))
-          await this.options.preferences?.savePendingSettings(this.pendingSettings)
-        }
-        await this.options.preferences?.save(session, this.settings)
-        if (Object.keys(this.pendingSettings).length) {
-          await this.options.preferences?.savePendingSettings({})
-          this.pendingSettings = {}
-        }
-      }
-      catch (error) {
-        this.options.report("saveSettings", error)
-        if (this.session === session && !this.disposed) this.update({ notice: "配置已应用，但保存失败；重载后可能无法恢复，请重新选择后重试。" })
-      }
+      this.update({ ...this.settings.commit(next, confirmedModes), tools: [] })
+      const notice = await this.settings.persist()
+      if (notice && this.session === session && !this.disposed) this.update({ notice })
     } catch (error) {
       if (this.session !== session || this.disposed) return
       this.options.report("configure", error)
@@ -1392,9 +1334,7 @@ export class ChatController {
         // A revision conflict is read back, never retried as an unconditional write.
         const modes = await session.host.readModes(session.cwd, this.threadId)
         if (this.session !== session || this.disposed) return
-        this.settings = { ...this.settings, permissionMode: modes.permissionMode, workMode: modes.workMode === "plan" ? "plan" : "default" }
-        this.updateSettings()
-        this.update({ notice })
+        this.update({ ...this.settings.acceptModes(modes), notice })
       } catch {
         // Failed resume can remove the subscription. Further sends require reconnect.
         if (this.session !== session || this.disposed) return
@@ -1538,10 +1478,6 @@ export class ChatController {
   }
   async showBackgroundLog(id: string, show: (path: string) => Promise<void>): Promise<void> {
     if (this.session && !this.disposed) await this.background.showLog(id, show)
-  }
-
-  private updateSettings(): void {
-    this.update({ model: this.settings.model, effort: parseCodemIntelligence(this.settings.intelligence), permission: this.settings.permissionMode, workMode: this.settings.workMode, mcpNames: this.settings.mcpServers.map((server) => server.name) })
   }
 
   private resetResources(preserveAttachments = false, releaseAfter: Promise<unknown> = Promise.resolve()): void {

@@ -71,3 +71,20 @@
 修复（消息列表渲染）：`MessageList` 每个增量仍重算分组，但消息行、工作分组和轮次变更改为按自身输入复用上次渲染：消息行比较消息对象，工作分组比较成员对象、阶段、本组是否含最近活动和本轮计时，轮次变更比较文件与统计；各行拿到固定的 `post` 转发函数，调用方每次给新函数也不影响复用。流式回复、内容/状态/工具变化的消息仍是新对象，照常重渲染；展开/收起是各行自己的 state，重渲染与否都保留。测量：`packages/ui/tests/messageRenders.test.ts` 在 Node 中用最小 DOM 挂载 `react-dom/client`，按组件名统计每次提交真正渲染的行（与 React DevTools 相同的 PerformedWork 判定）。503 条消息时每个回复增量渲染 654 个组件（252 消息行、251 活动行、126 工作分组、25 轮次变更）→ 1 个消息行，每个工具输出增量 → 1 个活动行加 1 个工作分组，11 条消息时相同；原实现上失败。浏览器预览（502 条、面板隐藏时 CPU 受限，同一方法前后对比）从收到消息到提交的中位数 55 ms → 15 ms。同一测试还覆盖流式中展开/收起工具行、中间工具状态变化、工作分组结束运行。
 
 仍随会话长度线性的部分：VS Code postMessage 仍序列化整份快照（模拟 JSON 往返 501 条时约 1.2 ms/增量，是剩余最大项），要与变化量成正比需要 Host 只向 Webview 发送变化的消息，属于协议改动，不在本次范围；列表每个增量仍重算分组并逐行做一次浅比较（指针比较，不渲染）。
+
+## 设置所有权
+
+问题：前述拆分没有迁移设置。`ChatController` 仍同时保存离线待应用选择 `pendingSettings`、当前线程设置 `settings` 和模型/空间句柄 `composerCatalog`；`restoreSettings`、`setComposerSetting` 与约 75 行、三层 try/catch 的 `configure` 把准入、Core 写入、模式映射和持久化写在一起，Core → 线程的工作模式映射（`workMode === "plan" ? "plan" : "default"`）重复 6 处，反向映射 2 处。完全访问确认的问题文本、`settingsAbort` 句柄和"离开 configuring 即撤回确认"的规则写在 `extension.ts` 的 `dispatch` 与 `publish` 回调里，应用入口持有设置业务状态。核对"与 `@codem/app-server` `permissionMode()` 重复的校验"：控制器没有这类校验，它只按连接的模型目录和内置强度校验选择；App Server 的 `validateThreadSettings` 只校验形状、不知道目录，两者不重复。`connectionPreferences.parseSavedSettings` 手写的权限白名单与 `parseCodemPermissionMode` 重复，属于持久化解析，不在本次范围。
+
+目标边界：`chat/chatSettings.ts` 的 `ChatSettings` 是设置的唯一所有者，只接收窄能力——`SettingsPersistence`（已有接口）、入口注入的 `requestApproval(question, signal)`（入口用 `PanelBroker.request` 适配）和 `report`；它不获得 Controller、可写 ChatSnapshot、Host 或 VS Code API，每次变更只返回展示投影（model/effort/permission/workMode/mcpNames 与 composerCatalog），由控制器随自身相位变化一次发布。控制器保留准入（相位、`backgroundBusy`、`sessionTools.busy`、进行中的轮次）、configuring 相位、`reclaimThread`、Core RPC（readModes / resumeThread / setModes）的调用顺序、冲突读回与断开，不再保存设置值、句柄或确认句柄。
+
+| 状态 | 保存范围 | 清理与失效 |
+| --- | --- | --- |
+| 离线待应用选择 | 内存 + workspaceState 的三个 pending 键 | 首个连接的空间保存成功后清空；保存失败保留，下次连接或设置事务重试；账户重置保留 |
+| 当前有效设置 | 内存 | 连接绑定时由目标空间已保存设置、待应用值与 Core 当前模型/MCP 重建；账户重置回到默认值加待应用值；断开后保留到下次绑定替换 |
+| 连接作用域、模型目录与模型/空间句柄 | 当前连接 | 连接退休与账户重置清除，旧句柄不再解析；空间刷新成功整体替换空间句柄 |
+| 完全访问确认的撤回句柄 | 一次确认 | 控制器离开 configuring、生命周期中止（退出/账户重置）或连接退休时撤回；撤回后晚到的同意无效 |
+
+必须保持的交互：菜单打开零 Host 往返，模型/空间使用连接级目录，离线目录为空；离线固定项零连接，写 workspaceState 期间 configuring 阻止发送与连接，失败提示且内存值可用；从非完全访问切到完全访问必须确认，取消或撤回不改值，确认期间阻止发送，确认本身不连接 Core；运行和忙碌时拒绝变更，重复选择当前值不写 Core；在线事务对已有线程先 readModes，模型/强度/目录/MCP 变化才 resume，模式变化带 revision setModes，否则 readModes 确认，冲突读回不重试，读回失败断开；重载由 workspaceState 恢复待应用值，连接后恢复空间设置，已保存模型不可用时暂用 Core 模型且不覆盖偏好；切换空间或工作区读取目标空间自己的设置，已消费的待应用值不传播。
+
+调用链不变：不新增认证、RPC、子进程或缓存；设置事务的 RPC 次数与顺序保持原样。
