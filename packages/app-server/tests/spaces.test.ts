@@ -106,6 +106,14 @@ test("credential broker errors are redacted", async () => {
   )
 })
 
+test("a non-positive broker timeout is rejected before any broker starts", async () => {
+  const f = fixture()
+  for (const timeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    await assert.rejects(listAppServerSpaces({ ...f.options, timeoutMs }), /CodeM space broker timeout must be positive/)
+  }
+  assert.equal(existsSync(f.capture), false)
+})
+
 test("broker timeout and cancellation terminate pending subprocesses, then a retry succeeds", async () => {
   const f = fixture("hang")
   await assert.rejects(listAppServerSpaces({ ...f.options, timeoutMs: 100 }), /timed out/)

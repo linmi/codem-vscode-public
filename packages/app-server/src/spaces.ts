@@ -1,6 +1,12 @@
 import { spawn } from "node:child_process"
 import { createInterface } from "node:readline"
 import { isAbsolute } from "node:path"
+import {
+  SPACE_BROKER_DEADLINE_MS,
+  SPACE_BROKER_TERMINATION,
+  requirePositiveTimeout,
+  terminateChildProcess,
+} from "./processLifecycle.ts"
 import { AppServerRpcPeer, type JsonObject } from "./rpc.ts"
 import type { AppServerRuntime } from "./runtime.ts"
 
@@ -116,8 +122,8 @@ async function withSpaceBroker<T>(
   run: (call: SpaceBrokerCall) => Promise<T>,
 ): Promise<T> {
   if (!isAbsolute(options.workingDirectory)) throw new Error("CodeM space workingDirectory must be absolute")
-  const timeout = options.timeoutMs ?? 180_000
-  if (!Number.isFinite(timeout) || timeout <= 0) throw new Error("Invalid CodeM space timeout")
+  requirePositiveTimeout(options.timeoutMs, "space broker")
+  const timeout = options.timeoutMs ?? SPACE_BROKER_DEADLINE_MS
   options.signal?.throwIfAborted()
   const child = spawn(options.runtime.authExecutablePath, ["__host-serve"], {
     cwd: options.workingDirectory,
@@ -131,7 +137,7 @@ async function withSpaceBroker<T>(
   let failure: Error | null = null
   const fail = (message: string): void => {
     failure ??= new Error(message)
-    child.kill("SIGKILL")
+    void terminateChildProcess(child, closed, SPACE_BROKER_TERMINATION)
   }
   child.once("error", () => fail(`Could not start CodeM ${name} broker`))
   child.stdin.on("error", () => fail(`CodeM ${name} broker input closed`))
@@ -194,8 +200,7 @@ async function withSpaceBroker<T>(
   } finally {
     clearTimeout(timer)
     options.signal?.removeEventListener("abort", abort)
-    child.kill("SIGKILL")
-    await closed
+    await terminateChildProcess(child, closed, SPACE_BROKER_TERMINATION)
     await peer.close()
   }
 }
