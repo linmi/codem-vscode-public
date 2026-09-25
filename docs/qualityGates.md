@@ -192,4 +192,17 @@ Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。�
 
 设置由 `ChatSettings`（`src/chat/chatSettings.ts`）持有。它除上述禁区外，还不能引用原生 Chat 入口、Host 面板（`src/panels/`）、Webview、`@codem/ui` 或编辑器/React 运行时：完全访问确认所需的 Host 面板只能由入口作为 `requestApproval` 能力注入。架构门禁对别名、相对路径与包名分别给出反例，Oxlint 覆盖仅类型引用；正例证明共享契约、持久化接口、目录视图与可移植包仍可使用。
 
-所有权、保存范围、清理时机及本轮分层验收见 [chatControllerBoundaries.md](chatControllerBoundaries.md)。回归覆盖旧异步操作不得恢复已清理状态、不得释放新操作的互斥，以及历史订阅状态不确定时必须断开。结构准出不使用行数或文件数量作为替代证据。
+所有权、保存范围、清理时机及本轮分层验收见 [chatControllerBoundaries.md](chatControllerBoundaries.md)。
+
+## 扩展入口门禁
+
+`src/extension.ts` 只做激活、组装与释放（边界与所有权见 [sourceOrganization.md](sourceOrganization.md#扩展入口只做激活组装与释放2026-09-25)）。机械检查两件事，均进入 `pnpm check` 与 `pnpm test:architecture`：
+
+| 约束 | 执行机制 | 正反例 |
+| --- | --- | --- |
+| 入口是根：生产模块不能导入 `scripts/support/productionEntries.ts` 列出的任一入口（扩展、原生 Chat 实验、Webview） | 架构解析检查按实际解析路径判断，覆盖相对路径、别名与动态导入；Oxlint 对 `src/` 拦截两个 Host 入口的仅类型引用（功能设置与会话状态所有者的专用规则同样包含两个入口） | 反例：功能模块经相对路径、别名、动态导入引用入口，原生入口引用扩展入口，Host 桥引用 Webview 入口，以及三种仅类型引用；正例：入口导入功能，名字相近的 `extensionHost`、`extensionSmoke`、`nativeChatApi` 不受限 |
+| 入口没有判断：`src/extension.ts` 中每个函数（含接线闭包）的圈复杂度为 1 | Oxlint `complexity` `max: 1`，只作用于该文件；`if`、条件表达式、`?.`、`??`、`&&`/`\|\|`、`switch`、`try/catch`、循环、默认参数都会计入 | 反例逐项覆盖上述写法，含闭包内的判断；正例为只含构造、接线、订阅和释放的入口，以及含判断的功能模块不受此规则约束 |
+
+2026-09-25 反向验证：把迁移前的入口放回原位，Oxlint 报 27 处复杂度违规（原 `dispatch` 为 92）；分别删除解析规则和两条 Oxlint 覆盖后，5 个解析反例和 11 个 lint 反例全部失败，恢复后通过。
+
+仍靠评审的部分：没有判断的直线逻辑（例如在接线闭包里拼装消息或串联多个功能调用）是否应属于某个所有者；无判断的可变状态（入口唯一允许的是 `deactivations` 集合，`let` 未被机械禁止）；路由每个分支调用的功能是否正确。路由对 `ViewAction` 的穷尽由类型检查保证（`action satisfies never`），新增动作不路由即编译失败。检查不限制行数或文件数量。回归覆盖旧异步操作不得恢复已清理状态、不得释放新操作的互斥，以及历史订阅状态不确定时必须断开。结构准出不使用行数或文件数量作为替代证据。

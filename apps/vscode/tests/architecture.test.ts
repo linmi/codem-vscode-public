@@ -266,3 +266,116 @@ it("settings boundary: lint rejects erased type imports of the coordinator, UI, 
     })
   }
 })
+
+/** Runs the workspace Oxlint configuration on one fixture file; a zero status means the file passes. */
+function lint(root: string, file: string): { status: number; stdout: string } {
+  try {
+    return { status: 0, stdout: execFileSync(join(workspace, "node_modules/.bin/oxlint"), ["--deny-warnings", file], { cwd: root, encoding: "utf8", stdio: "pipe" }) }
+  } catch (error) {
+    const failure = error as Error & { status: number; stdout: string }
+    return { status: failure.status, stdout: failure.stdout }
+  }
+}
+
+/** The three production entries, each importing a feature, as the real entries do. */
+async function entryFixture(t: TestContext): Promise<string> {
+  const root = await fixture(t)
+  for (const [path, source] of [
+    ["src/extension.ts", 'import { route } from "./chat/router.ts"; export function activate() { route() }'],
+    ["src/nativeChat/nativeChatExtension.ts", 'import { route } from "../chat/router.ts"; export function activate() { route() }'],
+    ["src/chat/router.ts", "export function route() {}"],
+    ["webview/main.ts", 'import { bridge } from "./host/bridge.ts"; export const mounted = bridge'],
+    ["webview/host/bridge.ts", "export const bridge = 1"],
+  ] as const) await put(root, `apps/vscode/${path}`, source)
+  await put(root, ".oxlintrc.json", await readFile(join(workspace, ".oxlintrc.json"), "utf8"))
+  return root
+}
+
+it("entry boundary: entries may import features", async t => {
+  await checkWorkspaceArchitecture(await entryFixture(t))
+})
+
+for (const [importer, source] of [
+  ["src/chat/router.ts", 'export { activate } from "../extension.ts"'],
+  ["src/chat/router.ts", 'export { activate } from "@entry"'],
+  ["src/chat/router.ts", 'export const load = () => import("../nativeChat/nativeChatExtension.ts")'],
+  ["src/nativeChat/nativeChatExtension.ts", 'export { activate } from "../extension.ts"'],
+  ["webview/host/bridge.ts", 'export { mounted } from "../main.ts"'],
+] as const) {
+  it(`entry boundary: rejects ${importer} reaching an entry through ${source}`, async t => {
+    const root = await entryFixture(t)
+    await put(root, "apps/vscode/tsconfig.json", JSON.stringify({ compilerOptions: { paths: { "@entry": ["./src/extension.ts"] } } }))
+    await put(root, `apps/vscode/${importer}`, source)
+    await assert.rejects(checkWorkspaceArchitecture(root), /production modules cannot import an application entry/)
+  })
+}
+
+it("entry boundary: lint rejects erased type imports of a Host entry and accepts similarly named modules", async t => {
+  const root = await entryFixture(t)
+  const file = "apps/vscode/src/chat/router.ts"
+  await put(root, file, 'export type { NativeChatApi } from "../nativeChat/nativeChatApi.ts"; export type { Host } from "./extensionHost.ts"; export type { Smoke } from "../extensionSmoke"')
+  assert.equal(lint(root, file).status, 0, "Modules named like an entry are not entries")
+  for (const source of [
+    'export type { activate } from "../extension.ts"',
+    'export type { activate } from "../../src/extension"',
+    'export type { activate } from "../nativeChat/nativeChatExtension.ts"',
+  ]) {
+    await put(root, file, source)
+    const result = lint(root, file)
+    assert.equal(result.status, 1, source)
+    assert.match(result.stdout, /no-restricted-imports/, source)
+  }
+  // Owners with their own import rules replace this one, so each of them lists both Host entries too.
+  for (const owner of ["apps/vscode/src/chat/backgroundTasks.ts", "apps/vscode/src/chat/chatSettings.ts"]) {
+    await put(root, owner, 'export type { activate } from "../nativeChat/nativeChatExtension.ts"')
+    const result = lint(root, owner)
+    assert.equal(result.status, 1, owner)
+    assert.match(result.stdout, /no-restricted-imports/, owner)
+  }
+})
+
+/** Straight-line assembly: construction, wiring closures, disposal. */
+const assembly = (statement: string) => `import * as vscode from "vscode"
+const deactivations = new Set<() => Promise<unknown>>()
+export function activate(context: { subscriptions: { dispose(): unknown }[]; extra?: { show(): void } }): void {
+  const output = vscode.window.createOutputChannel("CodeM")
+  const log = (line: string) => output.appendLine(line)
+  ${statement}
+  context.subscriptions.push(output, { dispose: () => { log("closed") } })
+  deactivations.add(async () => undefined)
+}
+export async function deactivate(): Promise<void> {
+  const pending = [...deactivations]
+  deactivations.clear()
+  await Promise.all(pending.map(dispose => dispose()))
+}
+`
+
+it("entry shape: the extension entry lints clean as straight-line assembly", async t => {
+  const root = await entryFixture(t)
+  await put(root, "apps/vscode/src/extension.ts", assembly('log(String(context.subscriptions.length))'))
+  assert.equal(lint(root, "apps/vscode/src/extension.ts").status, 0)
+  await put(root, "apps/vscode/src/chat/router.ts", 'export function route(ready: boolean) { if (ready) return 1; return ready ? 2 : 3 }')
+  assert.equal(lint(root, "apps/vscode/src/chat/router.ts").status, 0, "Feature modules own decisions")
+})
+
+for (const [kind, statement] of [
+  ["an if statement", 'if (context.subscriptions.length) log("some")'],
+  ["a conditional expression", 'log(context.subscriptions.length ? "some" : "none")'],
+  ["optional chaining", "context.extra?.show()"],
+  ["nullish coalescing", 'log(process.env.CODEM ?? "default")'],
+  ["a logical operator", 'log(String(context.subscriptions.length > 0 && "some"))'],
+  ["a switch", 'switch (context.subscriptions.length) { case 0: log("none") }'],
+  ["a try/catch", 'try { log("try") } catch { log("catch") }'],
+  ["a loop", "for (const item of context.subscriptions) item.dispose()"],
+  ["a default parameter", 'const open = (target = "last") => log(target); open()'],
+  ["a decision inside a wiring closure", 'const report = (error: unknown) => log(error instanceof Error ? error.message : "failed"); report(null)'],
+] as const) {
+  it(`entry shape: lint rejects ${kind} in the extension entry`, async t => {
+    const root = await entryFixture(t)
+    await put(root, "apps/vscode/src/extension.ts", assembly(statement))
+    const result = lint(root, "apps/vscode/src/extension.ts")
+    assert.equal(result.status, 1, statement)
+    assert.match(result.stdout, /complexity/, statement)
+  })
+}

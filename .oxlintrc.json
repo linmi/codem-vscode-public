@@ -72,6 +72,46 @@
     },
     {
       "files": [
+        "apps/vscode/src/**/*.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(^|/)(extension|nativeChatExtension)(\\.[cm]?[jt]sx?)?$",
+                "message": "Application entries assemble features; no module imports an entry, not even for a type."
+              },
+              {
+                "group": [
+                  "**/history/**",
+                  "!**/packages/history/**",
+                  "!@codem/history",
+                  "!@codem/history/**"
+                ],
+                "message": "Active code must not import archived source."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/vscode/src/extension.ts"
+      ],
+      "rules": {
+        "complexity": [
+          "error",
+          {
+            "max": 1
+          }
+        ]
+      }
+    },
+    {
+      "files": [
         "apps/vscode/webview/**/*.ts",
         "apps/vscode/webview/**/*.tsx"
       ],
@@ -134,7 +174,7 @@
           {
             "patterns": [
               {
-                "regex": "(^|/)(chatController|chatSurfaces|extension)\\.[cm]?tsx?$",
+                "regex": "(^|/)(chatController|chatSurfaces|extension|nativeChatExtension)\\.[cm]?tsx?$",
                 "message": "Conversation state owners cannot depend on the coordinator or application entrypoints."
               }
             ]

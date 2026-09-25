@@ -1,6 +1,7 @@
 import { readFile, readdir, realpath, stat } from "node:fs/promises"
 import { isAbsolute, join, relative, resolve, sep } from "node:path"
 import { build, type Plugin } from "esbuild"
+import { productionEntries } from "../scripts/support/productionEntries.ts"
 
 const shared = ["packages/app-server", "packages/history", "packages/protocol"]
 /** 共享 Node 包禁止编辑器与 React。@codem/ui 可以使用浏览器 UI 库。 */
@@ -88,6 +89,8 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
         const isSettingsOwner = args.importer === join(application, "src/chat/chatSettings.ts")
         const settingsForbidden = (path: string) => ["src/chat/chatController.ts", "src/chat/chatSurfaces.ts", "src/extension.ts"].some(file => path === join(application, file))
           || ["src/nativeChat", "src/panels", "webview"].some(directory => within(path, join(application, directory))) || within(path, join(root, "packages/ui"))
+        // Entries are roots: they assemble features, and no production module reaches back into one.
+        const entries = Object.values(productionEntries).map(entry => join(application, entry.path))
         const isContract = within(args.importer, contracts)
         const isView = within(args.importer, webview)
         const problem = (message: string) => ({ errors: [{ text: `${args.importer || args.path}: ${message}: ${args.path}` }] })
@@ -115,6 +118,7 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
         }
         if (isConversationOwner && ["src/chat/chatController.ts", "src/chat/chatSurfaces.ts", "src/extension.ts"].some(file => path === join(application, file))) return problem("conversation state owners cannot import the coordinator")
         if (isSettingsOwner && settingsForbidden(path)) return problem("the settings owner cannot import the coordinator, UI or entry points")
+        if (args.importer && entries.includes(path)) return problem("production modules cannot import an application entry")
         if (isView && within(path, join(application, "src")) && !within(path, contracts)) return problem("Webview cannot import Host implementation")
         if (isContract && !within(path, contracts)) return problem("application contracts cannot depend on features")
         return { path }
