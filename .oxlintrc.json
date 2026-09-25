@@ -144,6 +144,44 @@
     },
     {
       "files": [
+        "apps/vscode/src/chat/chatSettings.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(^|/)(chatController|chatSurfaces|extension|nativeChatExtension)\\.[cm]?tsx?$",
+                "message": "The settings owner cannot depend on the coordinator or application entrypoints."
+              },
+              {
+                "regex": "^(vscode|electron|react|react-dom|@codem/ui)(/|$)",
+                "message": "The settings owner cannot depend on UI or editor runtimes."
+              },
+              {
+                "group": [
+                  "**/panels/**",
+                  "**/webview/**"
+                ],
+                "message": "The settings owner receives the Host panel as an injected capability, never by import."
+              },
+              {
+                "group": [
+                  "**/history/**",
+                  "!**/packages/history/**",
+                  "!@codem/history",
+                  "!@codem/history/**"
+                ],
+                "message": "Active code must not import archived source."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
         "packages/ui/src/**/*.ts",
         "packages/ui/src/**/*.tsx"
       ],

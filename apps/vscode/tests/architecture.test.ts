@@ -200,3 +200,69 @@ for (const owner of ["src/resources/conversationResources.ts", "src/chat/backgro
     })
   })
 }
+
+const settingsOwner = "apps/vscode/src/chat/chatSettings.ts"
+/** A settings owner that uses only what it needs: shared contracts, persistence types, the catalog view and the portable packages. */
+const settingsSource = 'import type { Settings } from "../shared/composerSettings.ts"; import type { Store } from "../connection/connectionPreferences.ts"; import { catalog } from "./composerCatalog.ts"; import { value } from "@codem/protocol"; import { join } from "node:path"; export const owner: [Settings?, Store?] = []; export const use = [catalog, value, join]'
+async function settingsFixture(t: TestContext): Promise<string> {
+  const root = await fixture(t)
+  for (const [path, source] of [
+    ["src/shared/composerSettings.ts", "export interface Settings { effort: string }"],
+    ["src/connection/connectionPreferences.ts", "export interface Store { load(): unknown }"],
+    ["src/chat/composerCatalog.ts", "export const catalog = 1"],
+    ["src/chat/chatController.ts", "export class ChatController {}"],
+    ["src/chat/chatSurfaces.ts", "export class ChatSurfaces {}"],
+    ["src/extension.ts", "export function activate() {}"],
+    ["src/nativeChat/nativeChatExtension.ts", "export function activate() {}"],
+    ["src/panels/panelBroker.ts", "export class PanelBroker {}"],
+    ["webview/host/vscodeHostBridge.ts", "export class VscodeHostBridge {}"],
+  ] as const) await put(root, `apps/vscode/${path}`, source)
+  await put(root, settingsOwner, settingsSource)
+  return root
+}
+
+it("settings boundary: accepts shared contracts, persistence, the catalog view and portable packages", async t => {
+  const root = await settingsFixture(t)
+  await checkWorkspaceArchitecture(root)
+  await put(root, ".oxlintrc.json", await readFile(join(workspace, ".oxlintrc.json"), "utf8"))
+  execFileSync(join(workspace, "node_modules/.bin/oxlint"), ["--deny-warnings", settingsOwner], { cwd: root, encoding: "utf8", stdio: "pipe" })
+})
+
+for (const [target, source] of [
+  ["the coordinator through an alias", 'export { ChatController } from "@coordinator"'],
+  ["the chat surfaces", 'export { ChatSurfaces } from "./chatSurfaces.ts"'],
+  ["the entry point", 'export { activate } from "../extension.ts"'],
+  ["the native chat entry point", 'export { activate } from "../nativeChat/nativeChatExtension.ts"'],
+  ["the Host panel broker", 'export { PanelBroker } from "../panels/panelBroker.ts"'],
+  ["the Webview bridge", 'export { VscodeHostBridge } from "../../webview/host/vscodeHostBridge.ts"'],
+  ["the shared UI", 'export { ChatApp } from "@codem/ui"'],
+  ["the editor runtime", 'export { window } from "vscode"'],
+] as const) {
+  it(`settings boundary: rejects importing ${target}`, async t => {
+    const root = await settingsFixture(t)
+    await put(root, "apps/vscode/tsconfig.json", JSON.stringify({ compilerOptions: { paths: { "@coordinator": ["./src/chat/chatController.ts"] } } }))
+    await put(root, settingsOwner, source)
+    await assert.rejects(checkWorkspaceArchitecture(root), /the settings owner cannot import the coordinator, UI or entry points/)
+  })
+}
+
+it("settings boundary: lint rejects erased type imports of the coordinator, UI, panels and entry points", async t => {
+  const root = await settingsFixture(t)
+  await put(root, ".oxlintrc.json", await readFile(join(workspace, ".oxlintrc.json"), "utf8"))
+  for (const source of [
+    'export type { ChatController } from "./chatController.ts"',
+    'export type { ChatSurfaces } from "./chatSurfaces.ts"',
+    'export type { activate } from "../extension.ts"',
+    'export type { PanelInput } from "../panels/panelBroker.ts"',
+    'export type { ChatSnapshot } from "@codem/ui/contract"',
+    'export type { ExtensionContext } from "vscode"',
+  ]) {
+    await put(root, settingsOwner, source)
+    assert.throws(() => execFileSync(join(workspace, "node_modules/.bin/oxlint"), ["--deny-warnings", settingsOwner], { cwd: root, encoding: "utf8", stdio: "pipe" }), error => {
+      const failure = error as Error & { status: number; stdout: string }
+      assert.equal(failure.status, 1, source)
+      assert.match(failure.stdout, /no-restricted-imports/, source)
+      return true
+    })
+  }
+})

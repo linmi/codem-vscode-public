@@ -155,4 +155,6 @@ Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。�
 
 资源句柄、后台任务与历史读取分别由 `ConversationResources`、`BackgroundTasks`、`ConversationHistory` 持有。禁止这三个模块反向依赖聊天协调器、聊天界面容器或应用入口；默认架构门禁校验别名解析，Oxlint 校验类型引用，规则有正反向测试。控制器通过有限操作调用模块，不共享可写状态对象。
 
+设置由 `ChatSettings`（`src/chat/chatSettings.ts`）持有。它除上述禁区外，还不能引用原生 Chat 入口、Host 面板（`src/panels/`）、Webview、`@codem/ui` 或编辑器/React 运行时：完全访问确认所需的 Host 面板只能由入口作为 `requestApproval` 能力注入。架构门禁对别名、相对路径与包名分别给出反例，Oxlint 覆盖仅类型引用；正例证明共享契约、持久化接口、目录视图与可移植包仍可使用。
+
 所有权、保存范围、清理时机及本轮分层验收见 [chatControllerBoundaries.md](chatControllerBoundaries.md)。回归覆盖旧异步操作不得恢复已清理状态、不得释放新操作的互斥，以及历史订阅状态不确定时必须断开。结构准出不使用行数或文件数量作为替代证据。

@@ -84,11 +84,16 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
         const webview = join(application, "webview")
         const conversationOwners = ["src/resources/conversationResources.ts", "src/chat/backgroundTasks.ts", "src/sessionHistory/conversationHistory.ts"]
         const isConversationOwner = conversationOwners.some(file => args.importer === join(application, file))
+        // Settings receive the Host panel as an injected capability; they never reach the coordinator, UI or an entry point.
+        const isSettingsOwner = args.importer === join(application, "src/chat/chatSettings.ts")
+        const settingsForbidden = (path: string) => ["src/chat/chatController.ts", "src/chat/chatSurfaces.ts", "src/extension.ts"].some(file => path === join(application, file))
+          || ["src/nativeChat", "src/panels", "webview"].some(directory => within(path, join(application, directory))) || within(path, join(root, "packages/ui"))
         const isContract = within(args.importer, contracts)
         const isView = within(args.importer, webview)
         const problem = (message: string) => ({ errors: [{ text: `${args.importer || args.path}: ${message}: ${args.path}` }] })
         if (isArchivedImport(args.path)) return problem("archived imports are forbidden")
         if (owner && (editorRuntime.test(args.path) || reactRuntime.test(args.path))) return problem("shared source cannot import an editor/UI runtime")
+        if (isSettingsOwner && (platformImport.test(args.path) || /^@codem\/ui(?:\/|$)/.test(args.path))) return problem("the settings owner cannot import the coordinator, UI or entry points")
         // Cycle 3：正式 UI 可用 React/shadcn，仍禁止 Node、VS Code、Electron、app-server、history。
         if (isUi && (args.path.startsWith("node:") || editorRuntime.test(args.path) || args.path.startsWith("@codem/app-server") || args.path.startsWith("@codem/history"))) {
           return problem("UI cannot import Node or editor hosts")
@@ -109,6 +114,7 @@ export async function checkWorkspaceArchitecture(root: string): Promise<void> {
           return problem("shared source must use package exports instead of crossing source directories")
         }
         if (isConversationOwner && ["src/chat/chatController.ts", "src/chat/chatSurfaces.ts", "src/extension.ts"].some(file => path === join(application, file))) return problem("conversation state owners cannot import the coordinator")
+        if (isSettingsOwner && settingsForbidden(path)) return problem("the settings owner cannot import the coordinator, UI or entry points")
         if (isView && within(path, join(application, "src")) && !within(path, contracts)) return problem("Webview cannot import Host implementation")
         if (isContract && !within(path, contracts)) return problem("application contracts cannot depend on features")
         return { path }
