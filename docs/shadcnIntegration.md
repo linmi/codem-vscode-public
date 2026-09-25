@@ -167,6 +167,7 @@ VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<he
 同类遗留一并处理：
 
 - 顶栏“文件与工具”和底栏“运行详情”入口此前按 shadcn `size-9` 渲染成 36×36。它们的尺寸规则写成 `.toolPanelTrigger[data-slot="button"]` / `.runtimeDetailsTrigger[data-slot="button"]`，但 `DialogTrigger`/`PopoverTrigger` 以 asChild 包住 Button 时会把 `data-slot` 换成 `dialog-trigger`/`popover-trigger`，规则从未命中。改为只按类名选中，恢复 28×28 与 24×24、静默色和悬停变深，与相邻图标按钮一致。
+- 未固定的代码选区块在 `codeSelection.css` 用 1px `--line` 虚线描边（`outline-offset: -1px`，不占布局）。`product.css` 另有一条遗留的 `border-style: dashed`，边框宽度随之取默认的 3px、颜色取正文色，叠在描边外，块高从 28px 撑到 34px。删除该条，未固定只剩虚线描边，固定后无描边。
 
 ## 图标来源（2026-09-25）
 
