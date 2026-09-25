@@ -63,7 +63,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const accountStatus = useRef(initial.account.status)
   const accountRequest = useRef(initial.accountRequest)
   const [showJump, setShowJump] = useState(false)
-  const { busy, turnActive, generating, connected } = phaseFlags(snapshot.phase)
+  const { busy, turnActive, generating, connected, slashMenu } = phaseFlags(snapshot.phase)
   const idle = sessionIdle(snapshot)
   const modeText = inputModeText(inputMode)
   const messageAction = inputMode === "message" ? composerMessageAction(snapshot.phase) : null
@@ -128,9 +128,9 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   }, [snapshot.workspace, snapshot.space, snapshot.threadId])
 
   useEffect(() => {
-    // 运行中允许继续输入与 /steer 选择；仅提交、停止瞬态收起菜单。
-    setSlashOpen(slash !== null && (!busy || snapshot.phase === "running"))
-  }, [slash, busy])
+    // 运行中可选 /steer，旁路提问中可选 /ask；其余忙碌阶段收起，规则见 phaseFlags。
+    setSlashOpen(slash !== null && slashMenu)
+  }, [slash, slashMenu])
 
   // 草稿只在宿主确认收下这条消息后才丢弃；没被受理就还回输入框。
   useEffect(() => {

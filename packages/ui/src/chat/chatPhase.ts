@@ -9,6 +9,11 @@ export interface PhaseFlags {
   generating: boolean
   /** 已建立连接：头部状态点点亮。 */
   connected: boolean
+  /**
+   * 输入 `/` 即展开斜杠菜单：空闲、运行中（/steer）和旁路提问中（状态行提示输入 /ask 查看或取消）。
+   * 连接、恢复历史、发送和停止这些瞬态不展开；提交斜杠草稿仍可打开菜单查看各命令为何不可用。
+   */
+  slashMenu: boolean
 }
 
 /** ChatApp 按阶段派生的开关只在这里判断，组件里不再各写一遍阶段比较。 */
@@ -18,6 +23,7 @@ export function phaseFlags(phase: ChatPhase): PhaseFlags {
     turnActive: phase === "sending" || phase === "running" || phase === "stopping",
     generating: phase === "running" || phase === "stopping",
     connected: phase !== "disconnected" && phase !== "connecting" && phase !== "failed" && phase !== "closing",
+    slashMenu: !isBusy(phase) || phase === "running" || phase === "sideQuestion",
   }
 }
 

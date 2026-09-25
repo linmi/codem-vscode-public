@@ -7,7 +7,7 @@ import type { AccountState } from "../src/shared/accountTypes.ts"
 import type { PanelReply } from "../src/shared/panelTypes.ts"
 import { createPreviewState, type PreviewSearch } from "./previewState.ts"
 import { applyPreviewCatalog, previewImage, contentScenario } from "./previewContent.ts"
-import { catalogKindOptions, catalogKindTrigger, catalogRows, fixtureHooks, localMenuTriggers, resourceTab, sessionCommand, sessionPanel, slashItem, slashSubmit, surfaceEntry } from "./previewHooks.ts"
+import { catalogKindOptions, catalogKindTrigger, catalogRows, fixtureHooks, localMenuTriggers, resourceTab, sessionCommand, sessionPanel, slashItem, surfaceEntry } from "./previewHooks.ts"
 
 
 export function createPreviewRuntime(initial: PreviewSearch) {
@@ -75,21 +75,19 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     // A Host draft command is replayed to ChatApp whenever it subscribes, so it survives the mount;
     // a synthetic keystroke can lose to that replay on first load.
     emit({ type: "composerDraft", value: { draft }, focus: true, pendingRequestId: null })
-    // An idle composer opens the menu as the draft arrives. Submitting a slash draft opens it in
-    // every phase, including a running side question whose status line asks for /ask.
-    whenFound(`${slashSubmit} with draft ${draft}`, () => document.querySelector<HTMLTextAreaElement>("#prompt")?.value === draft ? document.querySelector<HTMLElement>(slashSubmit) : null, send => {
-      send.click()
-      whenRendered(slashItem(command), item => {
-        item.click()
-        whenRendered(sessionPanel(command), () => {
-          // The catalog dialog opens on the environment view; pick the fixture's kind in its selector.
-          if (command !== "catalog" || !kind || kind === "environment") return
-          whenRendered(catalogKindTrigger, trigger => {
-            trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
-            whenRendered(catalogKindOptions, () => {
-              document.querySelectorAll<HTMLElement>(catalogKindOptions)[catalogKinds.indexOf(kind)]!.click()
-              whenRendered(catalogRows, () => {})
-            })
+    // The menu opens as the draft arrives, like typing it: idle, and during a running side question
+    // whose status line asks for /ask. No submit is needed to reveal it.
+    const item = slashItem(command)
+    whenFound(`${item} with draft ${draft}`, () => document.querySelector<HTMLTextAreaElement>("#prompt")?.value === draft ? document.querySelector<HTMLElement>(item) : null, node => {
+      node.click()
+      whenRendered(sessionPanel(command), () => {
+        // The catalog dialog opens on the environment view; pick the fixture's kind in its selector.
+        if (command !== "catalog" || !kind || kind === "environment") return
+        whenRendered(catalogKindTrigger, trigger => {
+          trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
+          whenRendered(catalogKindOptions, () => {
+            document.querySelectorAll<HTMLElement>(catalogKindOptions)[catalogKinds.indexOf(kind)]!.click()
+            whenRendered(catalogRows, () => {})
           })
         })
       })

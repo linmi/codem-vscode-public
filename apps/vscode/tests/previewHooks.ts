@@ -37,8 +37,7 @@ export function sessionCommand(scenario: string, state: Pick<ChatSnapshot, "sess
   return "rename"
 }
 
-/** Submitting a slash draft opens the command menu, including in phases where typing alone does not. */
-export const slashSubmit = "#send:not(:disabled)"
+/** An available command in the slash menu, which opens as soon as the composer holds a slash draft. */
 export const slashItem =(command: string) => `[data-testid="slashMenu"] [cmdk-item][data-value=${quote(command)}][aria-disabled="false"]`
 /** /ask switches the composer to the side answer; the other session commands open the command dialog. */
 export const sessionPanel = (command: string) => command === "ask" ? '.composerSideAnswer[aria-label="旁路问答"]' : ".sessionCommandDialog"

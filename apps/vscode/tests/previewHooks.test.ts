@@ -5,13 +5,14 @@ import { join } from "node:path"
 import { before, after, it } from "node:test"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { build } from "esbuild"
+import { phaseFlags } from "../../../packages/ui/src/chat/chatPhase.ts"
 import { commandUnavailable, slashCatalog } from "../../../packages/ui/src/chat/slashCommands.ts"
 import type { ChatSnapshot as UiSnapshot } from "../../../packages/ui/src/contract.ts"
 import { chatHtml } from "../src/chat/html.ts"
 import type { AccountState } from "../src/shared/accountTypes.ts"
 import { VscodeHostBridge } from "../webview/host/vscodeHostBridge.ts"
 import { parseMarkup, querySelector, textContent, type MarkupElement } from "./markupQuery.ts"
-import { fixtureHooks, sessionCommand, slashSubmit, surfaceEntry } from "./previewHooks.ts"
+import { fixtureHooks, sessionCommand, surfaceEntry } from "./previewHooks.ts"
 import { previewScenarios } from "./previewScenarios.ts"
 import { createPreviewState, parsePreviewSearch } from "./previewState.ts"
 
@@ -59,9 +60,9 @@ it("renders every hook the preview runtime waits for in each scenario", () => {
     surfaces.add(surface)
     has(root, surfaceEntry(surface), scenario)
     if (surface !== "sessionTools") continue
-    // The slash draft can be submitted, and the command it opens is listed and available for this fixture.
+    // The slash draft opens the menu in this fixture's phase, and the command is listed and available.
     const command = sessionCommand(scenario, demo)
-    has(root, slashSubmit, scenario)
+    assert.ok(phaseFlags(snapshot.phase).slashMenu, `${scenario}: a /${command} draft does not open the slash menu in phase ${snapshot.phase}`)
     assert.ok(slashCatalog(snapshot).some(item => item.id === command), `${scenario}: /${command} is not in the slash menu`)
     assert.equal(commandUnavailable(command, snapshot), null, `${scenario}: /${command} is unavailable`)
   }
@@ -79,9 +80,9 @@ it("rejects hooks that @codem/ui does not render for the fixture", () => {
   // A previous scene's thread or phase is not this fixture.
   assert.equal(querySelector(root, fixtureHooks({ ...catalog.demo, threadId: "preview1" }).selector), null)
   assert.equal(querySelector(root, fixtureHooks({ ...catalog.demo, phase: "running" }).selector), null)
-  // An empty draft cannot be submitted, and a pending panel disables the prompt.
-  assert.equal(querySelector(parseMarkup(renderScenario("catalogPlugins").markup), slashSubmit), null)
+  // A pending panel disables the prompt, and a stopping turn does not open the menu on a slash draft.
   assert.equal(querySelector(parseMarkup(renderScenario("approval").markup), surfaceEntry("sessionTools")), null)
+  assert.equal(phaseFlags("stopping").slashMenu, false)
   assert.throws(() => querySelector(root, "#prompt ~ #send"), /Unsupported selector/)
 })
 
