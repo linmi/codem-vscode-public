@@ -68,9 +68,15 @@ describe("child process termination policy", () => {
   it("rejects timeouts that setTimeout would turn into an immediate expiry", () => {
     assert.doesNotThrow(() => requirePositiveTimeout(undefined, "fixture"))
     assert.doesNotThrow(() => requirePositiveTimeout(1, "fixture"))
+    assert.doesNotThrow(() => requirePositiveTimeout(2_147_483_647, "fixture"))
     for (const value of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
       assert.throws(() => requirePositiveTimeout(value, "fixture close"), {
         message: `CodeM fixture close timeout must be positive: ${String(value)}`,
+      })
+    }
+    for (const value of [2_147_483_648, 3e9]) {
+      assert.throws(() => requirePositiveTimeout(value, "fixture close"), {
+        message: `CodeM fixture close timeout must not exceed 2147483647ms: ${String(value)}`,
       })
     }
   })

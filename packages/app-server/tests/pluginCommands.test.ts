@@ -43,8 +43,8 @@ it("uses bounded argument-array commands, validates local installs, rejects dupl
 })
 
 it("rejects a timeout that would expire every command at once", () => {
-  for (const timeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
-    assert.throws(() => createPluginCommands({ runtime: { executablePath: process.execPath } as AppServerRuntime, cwd: tmpdir(), timeoutMs }), /CodeM plugin command timeout must be positive/)
+  for (const timeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, 3e9]) {
+    assert.throws(() => createPluginCommands({ runtime: { executablePath: process.execPath } as AppServerRuntime, cwd: tmpdir(), timeoutMs }), /CodeM plugin command timeout must (be positive|not exceed)/)
   }
 })
 

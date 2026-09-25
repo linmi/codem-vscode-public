@@ -109,11 +109,17 @@ export async function terminateChildProcess(
   throw new Error(`${policy.processName} did not exit after ${steps}`)
 }
 
-/** `setTimeout` turns zero, negative and non-finite delays into an almost immediate expiry. */
+/** Longest delay a Node timer honours; anything larger fires after 1 ms. */
+const MAX_TIMER_DELAY_MS = 2_147_483_647
+
+/** `setTimeout` turns zero, negative, non-finite and oversized delays into an almost immediate expiry. */
 export function requirePositiveTimeout(value: number | undefined, label: string): void {
   if (value === undefined) return
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`CodeM ${label} timeout must be positive: ${String(value)}`)
+  }
+  if (value > MAX_TIMER_DELAY_MS) {
+    throw new Error(`CodeM ${label} timeout must not exceed ${MAX_TIMER_DELAY_MS}ms: ${String(value)}`)
   }
 }
 
