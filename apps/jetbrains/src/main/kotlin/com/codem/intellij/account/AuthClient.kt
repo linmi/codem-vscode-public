@@ -68,8 +68,9 @@ class LoginOperation(
 ) {
     private val cancelled = AtomicBoolean(false)
     private val process = runner.start(runtime.authExecutable, listOf("auth", "login", "--json", "--force"), workingDirectory, environment)
-    private var lastEvent: String? = null
-    private var presented = false
+    // stdout 读取线程写入，awaitSuccess 在调用线程读取。
+    @Volatile private var lastEvent: String? = null
+    @Volatile private var presented = false
     @Volatile var error: CodemError? = null
         private set
 
