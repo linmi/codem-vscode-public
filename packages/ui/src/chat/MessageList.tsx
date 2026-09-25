@@ -4,15 +4,13 @@ import { Button } from "../components/ui/button.tsx"
 import { elapsedTime, type ArtifactView, type ChatMessage, type ChatSnapshot, type DiffView } from "../contract.ts"
 import { LoadingState } from "./LoadingState.tsx"
 import { SafeMarkdown } from "./SafeMarkdown.tsx"
-import { activityTitle, toolPresentation } from "./toolPresentation.ts"
+import { activityBadge, activityPlaceholder, activityTitle, toolPresentation } from "./toolPresentation.ts"
 import { lastActivityId, timelineGroups, workGroupState, type WorkMessage } from "./timelineGroups.ts"
 import { turnChanges } from "./turnChanges.ts"
 import { uiIcon } from "./uiIcons.ts"
 import { UserMessageBody } from "./userMessage.tsx"
 
 
-const toolStatus = { running: "进行中", completed: "已完成", failed: "失败", declined: "已拒绝", interrupted: "已停止", incomplete: "未完成" } as const
-const reasoningStatus = { running: "思考中", completed: "思考完成", interrupted: "思考已停止", incomplete: "思考未完成", failed: "思考失败", declined: "已拒绝" } as const
 const previewLabels: Record<DiffView["preview"], string> = {
   partial: "部分差异",
   "raw-partial": "部分差异",
@@ -163,15 +161,8 @@ function ActivityItem({ message }: { message: ChatMessage }) {
     if (!touched) setOpen(status === "failed")
   }, [status, touched])
   const presentation = toolPresentation(message.label ?? "工具")
-  const empty = status === "running"
-    ? (message.role === "reasoning" ? "正在思考…" : message.label === "skill" ? "正在加载技能说明…" : "等待工具输出…")
-    : status === "incomplete"
-      ? "未收到完成结果。"
-      : message.role === "reasoning"
-        ? "Core 未提供可显示的思考内容。"
-        : "无文本输出。"
-  const text = message.text || empty
-  const badge = message.role === "reasoning" ? reasoningStatus[status] : toolStatus[status]
+  const text = message.text || activityPlaceholder(message)
+  const badge = activityBadge(message)
   const heading = message.role === "tool"
     ? (message.label === "skill" ? "技能加载结果" : message.details?.kind === "command" ? "Shell" : `${presentation.title}输出`)
     : ""
