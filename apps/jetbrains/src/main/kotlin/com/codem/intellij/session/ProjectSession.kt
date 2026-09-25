@@ -159,6 +159,7 @@ class ProjectSession(
     private val diffContents = mutableMapOf<String, FileDiffContent>()
     private var fileDiffs = FileDiffAssembler()
     private var background = listOf<BackgroundView>()
+    private val backgroundTasks = BackgroundTasks()
     private var threadStatus: String? = null
     private var theme = "light"
     private var sideQuestionId: String? = null
@@ -236,6 +237,7 @@ class ProjectSession(
             sendKey = sendKey,
             diffs = diffs.toList(),
             background = background,
+            backgroundTasks = backgroundTasks.views(threadId),
             account = accountViewLocked(),
         )
     }
@@ -483,6 +485,7 @@ class ProjectSession(
             hasOlder = false
             clearDiffsLocked()
             background = emptyList()
+            backgroundTasks.clear()
             catalogKind = null
             catalogRows = emptyList()
             notice = null
@@ -504,6 +507,7 @@ class ProjectSession(
                 turns.resetActive()
                 historyMessages.clear()
                 clearDiffsLocked()
+                backgroundTasks.clear()
                 bindThreadLocked(actual)
                 if (lastThreadId == actual) lastThreadId = null
                 historyCursor = null
@@ -822,14 +826,17 @@ class ProjectSession(
         }
     }
 
-    fun cancelBackgroundTask(taskId: String): String {
+    /** [id] is the view's handle for a woken task. Core receives that task's own taskId on the thread that owns it. */
+    fun cancelBackgroundTask(id: String): String {
         val (coreProcess, currentThread, currentGeneration) = readyThread()
-        val (method, params) = ThreadCommands.cancelBackgroundTask(currentThread, taskId)
+        val task = lock.withLock { backgroundTasks.owned(id, currentThread) }
+        val (method, params) = ThreadCommands.cancelBackgroundTask(task.threadId, task.taskId)
         val result = requestResult(coreProcess, method, params, currentGeneration)
         val status = result.stringOrNull("status")
         if (status != "cancelled" && status != "notFound" && status != "noop") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM background cancellation returned invalid status")
         }
+        mutate { backgroundTasks.settle(id, task, status) }
         return status
     }
 
@@ -1331,6 +1338,7 @@ class ProjectSession(
         fileSearch = null
         clearDiffsLocked()
         background = emptyList()
+        backgroundTasks.clear()
         sideQuestionId = null
     }
 
@@ -1714,6 +1722,11 @@ class ProjectSession(
             "item/fileChange/delta" -> {
                 val content = fileDiffs.accept(notification.params) ?: return emptyList()
                 applyFileDiffLocked(content)
+            }
+            in BackgroundTasks.wakeMethods -> {
+                // As host.ts: a wake counts only for the subscribed thread it names, also while that thread is idle.
+                val owner = eventThread ?: return emptyList()
+                backgroundTasks.wake(owner, BackgroundTasks.parseWake(notification.method, notification.params))
             }
             else -> {
                 turns.apply(notification, threadId)

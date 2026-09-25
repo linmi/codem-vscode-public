@@ -103,6 +103,8 @@ data class FileSearchView(
 
 data class PastedImage(val mediaType: String, val data: String)
 data class BackgroundView(val id: String, val label: String, val inProgress: Boolean)
+/** A background task Core woke. [id] is the host's opaque handle, never Core's taskId; [phase] is a @codem/ui BackgroundTaskPhase. */
+data class BackgroundTaskView(val id: String, val label: String, val phase: String)
 data class SkillView(val id: String, val name: String, val description: String)
 data class PanelChoiceView(val id: String, val label: String, val selected: Boolean = false)
 data class PendingPanelView(
@@ -210,6 +212,7 @@ data class ChatSnapshot(
     val selections: List<SelectionView> = emptyList(),
     val diffs: List<DiffView> = emptyList(),
     val background: List<BackgroundView> = emptyList(),
+    val backgroundTasks: List<BackgroundTaskView> = emptyList(),
     val history: HistoryListView = HistoryListView(),
     val fileSearch: FileSearchView? = null,
     val sendKey: String = "enter",
@@ -457,6 +460,7 @@ fun encodeChatSnapshot(snapshot: ChatSnapshot): JsonValue.ObjectValue {
         "sendKey" to JsonValue.Text(snapshot.sendKey),
         "diffs" to JsonValue.ArrayValue(snapshot.diffs.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "added" to JsonValue.NumberValue(it.added.toDouble(), it.added.toString()), "removed" to JsonValue.NumberValue(it.removed.toDouble(), it.removed.toString()), "preview" to JsonValue.Text(it.preview), "available" to JsonValue.Bool(it.available)) }),
         "background" to JsonValue.ArrayValue(snapshot.background.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "inProgress" to JsonValue.Bool(it.inProgress)) }),
+        "backgroundTasks" to JsonValue.ArrayValue(snapshot.backgroundTasks.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "phase" to JsonValue.Text(it.phase)) }),
     )
 }
 

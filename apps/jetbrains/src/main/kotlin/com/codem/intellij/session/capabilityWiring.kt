@@ -35,7 +35,7 @@ object CapabilityWiring {
         Entry("B07", Status.DomainWired, Status.UiWired, "shellCommand 动作接到已有实现；空回执不代表成功"),
         Entry("B08", Status.DomainWired, Status.UiWired, "额外目录进入会话并 resume；宿主选择器无 IDEA 时用注入端口"),
         Entry("B09", Status.DomainWired, Status.UiWired, "background terminal list/terminate/clean 已接 ProjectSession 与 UI"),
-        Entry("B10", Status.DomainWired, Status.UiWired, "cancelBackgroundTask 已接 UI；wake/主动轮次 Unverified"),
+        Entry("B10", Status.DomainWired, Status.UiWired, "wake 任务进入 UI，取消按所属线程发送 Core taskId；主动轮次 Unverified"),
         Entry("B11", Status.DomainWired, Status.UiWired, "tools 目录快照可加载；mcpStdio 安全存储与真实工具调用仍 Unverified"),
         Entry("B12", Status.DomainWired, Status.UiWired, "环境/配置/Hooks/插件/权限/Core 空间/Provider 目录快照已接，已脱敏"),
         Entry("B13", Status.DomainWired, Status.UiWired, "listLiveTurns 标明诊断快照，不是持久历史"),

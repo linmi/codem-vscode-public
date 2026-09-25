@@ -1416,6 +1416,67 @@ class ProjectSessionTest {
     }
 
     /**
+     * 与 VS Code BackgroundTasks 一致：`backgroundTask/wake*`（样本见 core/backgroundTaskWake.json）在所属会话显示为后台任务，
+     * 界面只拿到不透明 id、标签和阶段。取消时 Core 收到该任务自己的 taskId 和所属线程；未知 id、已切走会话的任务都被拒绝，不发 RPC。
+     * 旧实现忽略唤醒通知，任务卡片和“取消任务”从不出现；取消时把界面给的 id 原样当作 Core taskId 发出。
+     */
+    @Test
+    fun wakeTasksAppearAndCancelWithTheirOwnCoreTaskId() {
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, _ ->
+                if (method == "thread/backgroundTask/cancel") JsonValue.obj("status" to JsonValue.Text("cancelled")) else null
+            })
+            process
+        }
+        val wakes = ContractFixtures.cases("core/backgroundTaskWake.json")
+            .filter { it.requiredObject("expected", "wake case").requiredString("kind", "wake case") == "accepted" }
+        fun enqueueWake(case: JsonValue.ObjectValue, threadId: String?) {
+            val params = case.requiredObject("params", "wake case").fields.toMutableMap()
+            if (threadId == null) params.remove("threadId") else params["threadId"] = JsonValue.Text(threadId)
+            enqueueNotification(process, case.requiredString("method", "wake case"), JsonValue.ObjectValue(params))
+        }
+        fun rows(snapshot: com.codem.intellij.webview.ChatSnapshot) =
+            encodeChatSnapshot(snapshot).arrayOrNull("backgroundTasks")?.map { it.asObject("backgroundTasks row") }
+        fun cancel(id: String) = parseViewAction(JsonValue.obj("type" to JsonValue.Text("cancelBackgroundTask"), "id" to JsonValue.Text(id)))
+        fun cancels() = process.writes.map { JsonValue.parse(it).asObject() }.filter { it.stringOrNull("method") == "thread/backgroundTask/cancel" }
+        try {
+            session.connect()
+            session.resumeThread("thread-1")
+            // A wake for another thread, and one naming no thread, are not this conversation's tasks.
+            enqueueWake(wakes.first(), "thread-other")
+            enqueueWake(wakes.first(), null)
+            for (wake in wakes) enqueueWake(wake, "thread-1")
+            val shown = rows(awaitSnapshot(session) { rows(it)?.size == 2 })!!
+            assertEquals(
+                listOf("后台任务 1" to "started", "后台任务 2" to "skipped"),
+                shown.map { it.requiredString("label", "row") to it.requiredString("phase", "row") },
+                "a repeated taskId keeps its row and label, the method decides the phase",
+            )
+            assertEquals(setOf("id", "label", "phase"), shown.first().fields.keys, "Core's taskId stays in the host")
+            val first = shown.first().requiredString("id", "row")
+            assertTrue(shown.none { it.requiredString("id", "row").startsWith("task-") }, "the view id is not Core's taskId")
+
+            // The old code sent whatever id the view gave as the Core taskId. A Core taskId is not a view handle.
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.applyViewAction(cancel("task-1")) }
+            assertTrue(cancels().isEmpty(), "an unknown handle must not reach Core")
+
+            session.applyViewAction(cancel(first))
+            assertEquals(
+                JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "taskId" to JsonValue.Text("task-1")),
+                cancels().single().required("params"),
+            )
+            assertEquals("cancelled", rows(session.snapshot())!!.first().requiredString("phase", "row"))
+
+            // Switching conversation drops its tasks; their handles no longer cancel anything.
+            session.resumeThread("thread-2")
+            assertEquals(emptyList<JsonValue.ObjectValue>(), rows(session.snapshot()))
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.applyViewAction(cancel(first)) }
+            assertEquals(1, cancels().size)
+        } finally { session.close().join() }
+    }
+
+    /**
      * 与 host.ts threadSummary / thread/list 一致：preview 必须是字符串、archived 必须是布尔值、total 必须是非负整数。
      * 旧实现把错类型的 preview 显示成“未命名会话”、archived 当作 false，total 1.5 截断成 1。
      */
