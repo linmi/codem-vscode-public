@@ -150,8 +150,13 @@ interface AuthProcessRunner {
 interface LiveAuthProcess {
     fun onStdoutLine(listener: (String) -> Unit)
 
-    /** 对照 Node 的 close：进程退出且 stdout 读到 EOF、末行也已交给监听器后才返回；整段等待受 timeoutMs 硬截止。 */
+    /**
+     * 对照 Node 的 close：进程退出且 stdout 读到 EOF、末行也已交给监听器后才返回；整段等待受 timeoutMs 硬截止，
+     * 截止后不再交付 stdout 行。登录进行中 stdout 读取失败时结束进程并抛出 Authentication 错误。
+     */
     fun await(timeoutMs: Long): AuthCommandResult
+
+    /** 结束进程；之后读取线程安静结束，不再交付 stdout 行。 */
     fun destroy()
 }
 
@@ -238,6 +243,8 @@ class JavaAuthProcessRunner : AuthProcessRunner {
             start()
         }
         val stdoutClosed = CompletableFuture<Unit>()
+        // 由我们停止：destroy（Unix 上 JDK 的 destroy 会关闭进程 stdout）或 await 截止。此后读取线程安静结束，不再交付行。
+        val stopped = AtomicBoolean(false)
         return object : LiveAuthProcess {
             override fun onStdoutLine(listener: (String) -> Unit) {
                 Thread {
@@ -246,8 +253,17 @@ class JavaAuthProcessRunner : AuthProcessRunner {
                         process.inputStream.bufferedReader().use { reader ->
                             while (true) {
                                 val line = reader.readLine() ?: break
+                                // 登录已失败、取消或超时：缓冲里迟到的 login_success 不能再推进度。
+                                if (stopped.get()) break
                                 listener(line)
                             }
+                        }
+                    } catch (error: Exception) {
+                        // 我们关闭 stdout 引起的 IOException 是预期结束；登录仍在进行时的读取失败
+                        // 交给 await 报告并结束 CLI，不带着异常退出线程，也不空等截止。
+                        if (!stopped.get()) {
+                            stdoutClosed.completeExceptionally(error)
+                            destroy()
                         }
                     } finally {
                         stdoutClosed.complete(Unit)
@@ -262,17 +278,21 @@ class JavaAuthProcessRunner : AuthProcessRunner {
                     // 退出早于读取线程处理完末行；不等 EOF 会把刚写出的 login_success 判成失败。
                     stdoutClosed.get(maxOf(0L, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)
                 } catch (_: TimeoutException) {
+                    stopped.set(true)
                     process.destroyForcibly()
                     try {
                         process.inputStream.close()
                     } catch (_: Exception) {
                     }
                     throw CodemError.Authentication("CodeM login timed out after ${timeoutMs}ms")
+                } catch (error: ExecutionException) {
+                    throw CodemError.Authentication("CodeM login stdout reader failed", error.cause ?: error)
                 }
                 return AuthCommandResult(process.exitValue(), null, "")
             }
 
             override fun destroy() {
+                stopped.set(true)
                 process.destroy()
                 if (!process.waitFor(2_000, TimeUnit.MILLISECONDS)) process.destroyForcibly()
             }

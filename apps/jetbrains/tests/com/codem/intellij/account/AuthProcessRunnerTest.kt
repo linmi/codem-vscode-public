@@ -15,9 +15,12 @@ import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 
 class AuthProcessRunnerTest {
     @Test
@@ -72,14 +75,62 @@ class AuthProcessRunnerTest {
     @Test
     @DisabledOnOs(OS.WINDOWS)
     fun stalledStdoutDrainStillHitsTheLoginDeadline() {
-        // CLI 已退出，但读取线程卡在回调里到不了 EOF：等待读尽也不能越过硬截止。
-        val started = System.currentTimeMillis()
-        val error = assertThrows(CodemError.Authentication::class.java) {
-            scriptedLogin("printf '%s\\n%s\\n' '$SESSION' '$SUCCESS'", timeoutMs = 400, present = { Thread.sleep(3_000) }).awaitSuccess()
+        withUncaughtRecorded { uncaught ->
+            // CLI 已退出，但读取线程卡在回调里到不了 EOF：等待读尽也不能越过硬截止。
+            // 截止时 login_success 已在读取缓冲中；await 关闭 stdout 后读取线程必须安静结束，也不再交付迟到的进度。
+            val reader = CompletableFuture<Thread>()
+            val progress = CopyOnWriteArrayList<LoginProgress>()
+            val started = System.currentTimeMillis()
+            val error = assertThrows(CodemError.Authentication::class.java) {
+                scriptedLogin("printf '%s\\n%s\\n' '$SESSION' '$SUCCESS'", progress, timeoutMs = 400, present = {
+                    reader.complete(Thread.currentThread())
+                    Thread.sleep(1_500)
+                }).awaitSuccess()
+            }
+            val elapsed = System.currentTimeMillis() - started
+            assertEquals("CodeM login timed out after 400ms", error.message)
+            assertTrue(elapsed < 1_200, "login deadline took ${elapsed}ms")
+            assertEndedQuietly(reader.get(1, TimeUnit.SECONDS), uncaught)
+            assertEquals(listOf(LoginProgress.AuthorizationReady), progress)
         }
-        val elapsed = System.currentTimeMillis() - started
-        assertTrue(error.message!!.contains("timed out"), error.message)
-        assertTrue(elapsed < 2_000, "login deadline took ${elapsed}ms")
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun readerStoppedByCancelEndsQuietly(@TempDir directory: Path) {
+        withUncaughtRecorded { uncaught ->
+            val pidFile = directory.resolve("login.pid")
+            val reader = CompletableFuture<Thread>()
+            val operation = scriptedLogin(
+                "echo $$ > '$pidFile'; printf '%s\\n' '$SESSION'; exec sleep 30",
+                timeoutMs = 10_000,
+                present = { reader.complete(Thread.currentThread()) },
+            )
+            val thread = reader.get(5, TimeUnit.SECONDS)
+            operation.cancel()
+            assertThrows(CodemError.Cancelled::class.java) { operation.awaitSuccess() }
+            assertEndedQuietly(thread, uncaught)
+            assertReaped(Files.readString(pidFile).trim().toLong())
+        }
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun stdoutFailureWhileLoginIsActiveFailsTheLoginAndReapsTheCli(@TempDir directory: Path) {
+        // 读取循环在登录进行中抛出 IOException（此处在交付 login_session 后注入），CLI 仍在等授权。
+        val boom = IOException("login stdout broke")
+        val failingStdout: (LiveAuthProcess) -> LiveAuthProcess = { real ->
+            object : LiveAuthProcess by real {
+                override fun onStdoutLine(listener: (String) -> Unit) = real.onStdoutLine { line ->
+                    listener(line)
+                    throw boom
+                }
+            }
+        }
+        val (error, pid) = loginWithThrowingCallback(directory, listOf(SESSION), wrap = failingStdout)
+        assertEquals("CodeM login stdout reader failed", error.message)
+        assertSame(boom, error.cause)
+        assertReaped(pid)
     }
 
     @Test
@@ -87,7 +138,7 @@ class AuthProcessRunnerTest {
     fun throwingPresenterFailsTheLoginAndReapsTheCli(@TempDir directory: Path) {
         val boom = IllegalStateException("browser unavailable")
         val progress = CopyOnWriteArrayList<LoginProgress>()
-        val (error, pid) = loginWithThrowingCallback(directory, listOf(SESSION), boom, progress, present = { throw boom })
+        val (error, pid) = loginWithThrowingCallback(directory, listOf(SESSION), progress, present = { throw boom })
         assertEquals("CodeM login authorization presenter failed", error.message)
         assertSame(boom, error.cause)
         assertEquals(listOf(LoginProgress.AuthorizationReady), progress)
@@ -108,7 +159,6 @@ class AuthProcessRunnerTest {
         val (error, pid) = loginWithThrowingCallback(
             directory,
             events,
-            boom,
             present = { presented += it },
             onProgress = { if (it == failing) throw boom },
         )
@@ -119,37 +169,56 @@ class AuthProcessRunnerTest {
         assertReaped(pid)
     }
 
-    /** CLI 发完事件后仍在等授权；回调抛出必须立刻结束登录，不能等 authLoginMs，也不能带走读取线程。 */
+    /**
+     * CLI 发完事件后仍在等授权；失败必须立刻结束登录，不能等 authLoginMs。
+     * fail 会 destroy CLI（同时关闭 stdout），读取线程也必须安静结束。
+     */
     private fun loginWithThrowingCallback(
         directory: Path,
         events: List<String>,
-        boom: Throwable,
         progress: MutableList<LoginProgress> = CopyOnWriteArrayList(),
         present: (String) -> Unit = {},
         onProgress: (LoginProgress) -> Unit = {},
-    ): Pair<CodemError, Long> {
+        wrap: (LiveAuthProcess) -> LiveAuthProcess = { it },
+    ): Pair<CodemError, Long> = withUncaughtRecorded { uncaught ->
         val pidFile = directory.resolve("login.pid")
-        val uncaught = CopyOnWriteArrayList<Throwable>()
+        // 每个脚本都先发 login_session，AuthorizationReady 回调运行在读取线程上。
+        val reader = CompletableFuture<Thread>()
+        val started = System.currentTimeMillis()
+        val error = assertThrows(CodemError.Authentication::class.java) {
+            scriptedLogin(
+                "echo $$ > '$pidFile'; printf '%s\\n' ${events.joinToString(" ") { "'$it'" }}; exec sleep 30",
+                progress,
+                timeoutMs = 10_000,
+                present = present,
+                onProgress = {
+                    reader.complete(Thread.currentThread())
+                    onProgress(it)
+                },
+                wrap = wrap,
+            ).awaitSuccess()
+        }
+        val elapsed = System.currentTimeMillis() - started
+        assertTrue(elapsed < 2_000, "login took ${elapsed}ms to fail: ${error.message}")
+        assertEndedQuietly(reader.get(1, TimeUnit.SECONDS), uncaught)
+        error to Files.readString(pidFile).trim().toLong()
+    }
+
+    private fun <T> withUncaughtRecorded(block: (List<Pair<Thread, Throwable>>) -> T): T {
+        val uncaught = CopyOnWriteArrayList<Pair<Thread, Throwable>>()
         val previous = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { _, thrown -> uncaught += thrown }
+        Thread.setDefaultUncaughtExceptionHandler { thread, thrown -> uncaught += thread to thrown }
         try {
-            val started = System.currentTimeMillis()
-            val error = assertThrows(CodemError.Authentication::class.java) {
-                scriptedLogin(
-                    "echo $$ > '$pidFile'; printf '%s\\n' ${events.joinToString(" ") { "'$it'" }}; exec sleep 30",
-                    progress,
-                    timeoutMs = 10_000,
-                    present = present,
-                    onProgress = onProgress,
-                ).awaitSuccess()
-            }
-            val elapsed = System.currentTimeMillis() - started
-            assertTrue(elapsed < 2_000, "login took ${elapsed}ms to fail after its callback threw: ${error.message}")
-            assertTrue(uncaught.none { thrown -> generateSequence(thrown) { it.cause }.any { it === boom } }, "reader thread died: $uncaught")
-            return error to Files.readString(pidFile).trim().toLong()
+            return block(uncaught)
         } finally {
             Thread.setDefaultUncaughtExceptionHandler(previous)
         }
+    }
+
+    private fun assertEndedQuietly(reader: Thread, uncaught: List<Pair<Thread, Throwable>>) {
+        reader.join(5_000)
+        assertFalse(reader.isAlive, "login stdout reader is still running")
+        assertEquals(emptyList<Throwable>(), uncaught.filter { it.first === reader }.map { it.second })
     }
 
     private fun assertReaped(pid: Long) {
@@ -164,13 +233,14 @@ class AuthProcessRunnerTest {
         timeoutMs: Long = 5_000,
         present: (String) -> Unit = {},
         onProgress: (LoginProgress) -> Unit = {},
+        wrap: (LiveAuthProcess) -> LiveAuthProcess = { it },
     ): LoginOperation {
         val shell = object : AuthProcessRunner {
             private val real = JavaAuthProcessRunner()
             override fun run(executable: Path, arguments: List<String>, cwd: Path, environment: Map<String, String>, timeoutMs: Long, stdoutLimit: Int) =
                 throw UnsupportedOperationException()
             override fun start(executable: Path, arguments: List<String>, cwd: Path, environment: Map<String, String>) =
-                real.start(Path.of("/bin/sh"), listOf("-c", script), cwd, environment)
+                wrap(real.start(Path.of("/bin/sh"), listOf("-c", script), cwd, environment))
         }
         val cwd = Path.of(System.getProperty("java.io.tmpdir")).toAbsolutePath()
         return AuthClient(fakeRuntime(), cwd, timeouts = Timeouts(authLoginMs = timeoutMs), runner = shell)
