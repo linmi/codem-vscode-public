@@ -1,12 +1,17 @@
 import { spawn, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStdio } from "node:child_process"
 import { isAbsolute } from "node:path"
+import {
+  AUTH_COMMAND_DEADLINE_MS,
+  AUTH_COMMAND_TERMINATION,
+  AUTH_LOGIN_TERMINATION,
+  requirePositiveTimeout,
+  terminateChildProcess,
+} from "./processLifecycle.ts"
 import type { AppServerRuntime } from "./runtime.ts"
 
 const AUTH_CAPTURE_LIMIT_BYTES = 8 * 1024
 const AUTH_STATUS_OUTPUT_LIMIT_BYTES = 64 * 1024
 const AUTH_LOGIN_OUTPUT_LIMIT_BYTES = 1024 * 1024
-const DEFAULT_AUTH_STATUS_TIMEOUT_MS = 30_000
-const DEFAULT_AUTH_CLOSE_TIMEOUT_MS = 2_000
 
 export interface AppServerAuthStatus {
   readonly loggedIn: boolean
@@ -49,7 +54,7 @@ export class AppServerLoginCancelledError extends Error {
 export async function readAppServerAuthStatus(options: AppServerAuthenticationOptions & { readonly signal?: AbortSignal }): Promise<AppServerAuthStatus> {
   validateOptions(options)
   const result = await runCapturedAuthCommand(options, ["auth", "status", "--json"], {
-    timeoutMs: options.statusTimeoutMs ?? DEFAULT_AUTH_STATUS_TIMEOUT_MS,
+    timeoutMs: options.statusTimeoutMs ?? AUTH_COMMAND_DEADLINE_MS,
     stdoutLimitBytes: AUTH_STATUS_OUTPUT_LIMIT_BYTES,
     label: "authentication status",
   })
@@ -80,6 +85,10 @@ export function startAppServerLogin(options: StartAppServerLoginOptions): AppSer
   }
 
   const child = spawnAuth(options, args)
+  const termination = {
+    ...AUTH_LOGIN_TERMINATION,
+    stepTimeoutMs: options.closeTimeoutMs ?? AUTH_LOGIN_TERMINATION.stepTimeoutMs,
+  }
   let stdoutBytes = 0
   let stderr = ""
   let lineBuffer = ""
@@ -134,7 +143,7 @@ export function startAppServerLogin(options: StartAppServerLoginOptions): AppSer
       if (cancelled) return
       cancelled = true
       verification.abort()
-      if (child.exitCode === null && child.signalCode === null) await terminateAuthProcess(child, closed, options.closeTimeoutMs ?? DEFAULT_AUTH_CLOSE_TIMEOUT_MS)
+      if (child.exitCode === null && child.signalCode === null) await terminateChildProcess(child, closed, termination)
       await completed.catch(() => undefined)
     },
   }
@@ -207,18 +216,16 @@ export function startAppServerLogin(options: StartAppServerLoginOptions): AppSer
   function fail(error: Error): void {
     if (terminalError || cancelled) return
     terminalError = error
-    void terminateAuthProcess(child, closed, options.closeTimeoutMs ?? DEFAULT_AUTH_CLOSE_TIMEOUT_MS).catch(
-      (terminationError: unknown) => {
-        terminalError = new Error(`${error.message}; ${asError(terminationError).message}`, { cause: error })
-      },
-    )
+    void terminateChildProcess(child, closed, termination).catch((terminationError: unknown) => {
+      terminalError = new Error(`${error.message}; ${asError(terminationError).message}`, { cause: error })
+    })
   }
 }
 
 export async function signOutAppServer(options: AppServerAuthenticationOptions & { readonly signal?: AbortSignal }): Promise<AppServerAuthStatus> {
   validateOptions(options)
   const result = await runCapturedAuthCommand(options, ["auth", "logout"], {
-    timeoutMs: options.statusTimeoutMs ?? DEFAULT_AUTH_STATUS_TIMEOUT_MS,
+    timeoutMs: options.statusTimeoutMs ?? AUTH_COMMAND_DEADLINE_MS,
     stdoutLimitBytes: AUTH_STATUS_OUTPUT_LIMIT_BYTES,
     label: "logout",
   })
@@ -248,14 +255,16 @@ async function runCapturedAuthCommand(
   let stderr = ""
   let terminalError: Error | null = null
   const completion = processCompletion(child, command.label)
+  // The awaited completion below carries the outcome, including a failed start.
+  const kill = (): void => void terminateChildProcess(child, completion, AUTH_COMMAND_TERMINATION).catch(() => undefined)
   const timer = setTimeout(() => {
     terminalError = new Error(`CodeM ${command.label} timed out after ${command.timeoutMs}ms`)
-    child.kill("SIGKILL")
+    kill()
   }, command.timeoutMs)
   timer.unref?.()
   const abort = () => {
     terminalError = new Error(`CodeM ${command.label} cancelled`)
-    child.kill("SIGKILL")
+    kill()
   }
   options.signal?.addEventListener("abort", abort, { once: true })
   if (options.signal?.aborted) abort()
@@ -265,7 +274,7 @@ async function runCapturedAuthCommand(
     stdoutBytes += Buffer.byteLength(chunk)
     if (stdoutBytes > command.stdoutLimitBytes && terminalError === null) {
       terminalError = new Error(`CodeM ${command.label} stdout exceeded ${command.stdoutLimitBytes} bytes`)
-      child.kill("SIGKILL")
+      kill()
       return
     }
     if (terminalError === null) stdout += chunk
@@ -306,33 +315,6 @@ function processCompletion(
     })
     child.once("close", (exitCode, signal) => resolve({ exitCode, signal }))
   })
-}
-
-async function terminateAuthProcess(
-  child: ChildProcessWithoutNullStreams,
-  completion: Promise<unknown>,
-  timeoutMs: number,
-): Promise<void> {
-  requirePositiveTimeout(timeoutMs, "authentication close")
-  if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM")
-  if (await waitForCompletion(completion, timeoutMs)) return
-  if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL")
-  if (await waitForCompletion(completion, timeoutMs)) return
-  throw new Error("CodeM authentication process did not exit after SIGTERM and SIGKILL")
-}
-
-async function waitForCompletion(completion: Promise<unknown>, timeoutMs: number): Promise<boolean> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  try {
-    return await Promise.race([
-      completion.then(() => true),
-      new Promise<false>((resolve) => {
-        timer = setTimeout(() => resolve(false), timeoutMs)
-      }),
-    ])
-  } finally {
-    if (timer !== undefined) clearTimeout(timer)
-  }
 }
 
 function parseAuthStatus(text: string): AppServerAuthStatus | null {
@@ -420,13 +402,6 @@ function validateOptions(options: AppServerAuthenticationOptions): void {
   }
   requirePositiveTimeout(options.statusTimeoutMs, "authentication status")
   requirePositiveTimeout(options.closeTimeoutMs, "authentication close")
-}
-
-function requirePositiveTimeout(value: number | undefined, label: string): void {
-  if (value === undefined) return
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`CodeM ${label} timeout must be positive: ${String(value)}`)
-  }
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

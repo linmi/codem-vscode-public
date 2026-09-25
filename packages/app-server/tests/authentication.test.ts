@@ -30,6 +30,16 @@ describe("App Server authentication", () => {
     await assert.rejects(readAppServerAuthStatus({ ...fixture.options(), signal: abort.signal }), { name: "AbortError" })
   })
 
+  it("kills a status subprocess at its deadline, even one that ignores SIGTERM, and reaps it", async () => {
+    const fixture = createAuthFixture({ status: "wait" })
+    const marker = join(fixture.root, "status-started")
+    await assert.rejects(
+      readAppServerAuthStatus({ ...fixture.options({ CODEM_FIXTURE_STATUS_MARKER: marker }), statusTimeoutMs: 1_000 }),
+      /authentication status timed out after 1000ms/u,
+    )
+    assert.throws(() => process.kill(Number(readFileSync(marker, "utf8")), 0), { code: "ESRCH" })
+  })
+
   it("reads a strict signed-in credential-broker status", async () => {
     const fixture = createAuthFixture()
     const status = await readAppServerAuthStatus(fixture.options())
