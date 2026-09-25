@@ -11,6 +11,8 @@ import {
   REQUIRED_APP_SERVER_ITEM_TYPES,
   appServerHostEnvironment,
   type AppServerHostEvent,
+  type AppServerInteraction,
+  type AppServerInteractionResponse,
   type AppServerRuntime,
 } from "../src/index.ts"
 
@@ -790,6 +792,200 @@ describe("AppServerHost", () => {
   })
 })
 
+const QUESTION_REQUEST = {
+  method: "item/tool/requestUserInput",
+  params: {
+    questions: [
+      { id: "scope", header: "Scope", question: "Which checks?", allowsMultipleSelection: true, options: [{ label: "Types" }, { label: "Tests" }] },
+      { header: "Mode", question: "How strict?", options: [{ label: "Strict", description: "Fail fast" }, { label: "Lenient" }] },
+    ],
+  },
+}
+const REWIND_REQUEST = {
+  method: "item/rewind/requestSelection",
+  params: {
+    checkpoints: [
+      { id: "cp-1", label: "Before edit", createdAt: null, fileCount: 1, diffExcerpt: null, warning: null },
+      { id: "cp-2", label: "Session start", createdAt: "2026-09-25T00:00:00.000Z", fileCount: null, diffExcerpt: null, warning: null },
+    ],
+    modes: ["code", "both"],
+  },
+}
+const PLAN_REQUEST = { method: "item/plan/requestApproval", params: { plan: "1. Add tests" } }
+const PLAN_MODE_REQUEST = { method: "item/planMode/requestApproval", params: {} }
+const PERMISSION_REQUEST = {
+  method: "item/commandExecution/requestApproval",
+  params: { tool: "run_bash", callId: "call-1", options: [{ optionId: "allow_once", label: "Allow once" }, { optionId: "reject_once", label: "Reject" }], preview: { kind: "generic", summary: "echo hi" } },
+}
+const ANSWERED_QUESTIONS = {
+  kind: "question",
+  cancelled: false,
+  answers: [
+    { question: "Which checks?", selected: ["Types", "Tests"], freeText: null },
+    { question: "How strict?", selected: ["Strict"], freeText: "Only on CI" },
+  ],
+} as const satisfies AppServerInteractionResponse
+const [CHECKS_ANSWER, STRICTNESS_ANSWER] = ANSWERED_QUESTIONS.answers
+
+describe("AppServerHost interactions", () => {
+  for (const scenario of [
+    { name: "question answers", request: QUESTION_REQUEST, response: ANSWERED_QUESTIONS, result: { answers: [{ question: "Which checks?", selected: ["Types", "Tests"], freeText: null }, { question: "How strict?", selected: ["Strict"], freeText: "Only on CI" }] } },
+    { name: "a free-text-only answer", request: { method: QUESTION_REQUEST.method, params: { questions: [{ question: "Anything else?" }] } }, response: { kind: "question", cancelled: false, answers: [{ question: "Anything else?", selected: [], freeText: "No" }] }, result: { answers: [{ question: "Anything else?", selected: [], freeText: "No" }] } },
+    { name: "a cancelled question", request: QUESTION_REQUEST, response: { kind: "question", cancelled: true }, result: { cancelled: true } },
+    { name: "a rewind selection", request: REWIND_REQUEST, response: { kind: "rewind", cancelled: false, checkpointId: "cp-2", mode: "both" }, result: { status: "selected", checkpointId: "cp-2", mode: "both" } },
+    { name: "a cancelled rewind", request: REWIND_REQUEST, response: { kind: "rewind", cancelled: true }, result: { status: "cancelled" } },
+    { name: "an approved plan", request: PLAN_REQUEST, response: { kind: "plan", approved: true }, result: { approved: true } },
+    { name: "a rejected plan", request: PLAN_REQUEST, response: { kind: "plan", approved: false, feedback: "Add tests" }, result: { approved: false, feedback: "Add tests" } },
+    { name: "a plan-mode decision", request: PLAN_MODE_REQUEST, response: { kind: "plan-mode", approved: false }, result: { approved: false } },
+  ] satisfies readonly { name: string; request: HitlRequest; response: AppServerInteractionResponse; result: unknown }[]) {
+    it(`encodes ${scenario.name} for Core`, { timeout: 5000 }, async () => {
+      const harness = await openInteraction(scenario.request)
+      try {
+        assert.equal(harness.interaction.requestId, "interaction-1")
+        await harness.host.respondToInteraction("interaction-1", scenario.response)
+        await harness.completed
+        assert.deepEqual(harness.responses(), [{ id: "hitl-1", result: scenario.result }])
+      } finally { await harness.host.close() }
+    })
+  }
+
+  for (const scenario of [
+    { name: "permission option", request: PERMISSION_REQUEST, valid: { kind: "permission", optionId: "reject_once" }, invalid: [
+      [{ kind: "permission", optionId: "allow_always" }, /not offered/],
+    ] },
+    { name: "question answer", request: QUESTION_REQUEST, valid: ANSWERED_QUESTIONS, invalid: [
+      [{ ...ANSWERED_QUESTIONS, answers: [{ ...CHECKS_ANSWER, selected: ["Docs"] }, STRICTNESS_ANSWER] }, /question 1 option was not offered/],
+      [{ ...ANSWERED_QUESTIONS, answers: [CHECKS_ANSWER, { ...STRICTNESS_ANSWER, selected: ["Strict", "Lenient"] }] }, /question 2 allows one option/],
+      [{ ...ANSWERED_QUESTIONS, answers: [{ ...CHECKS_ANSWER, selected: ["Types", "Types"] }, STRICTNESS_ANSWER] }, /question 1 repeats an option/],
+      [{ ...ANSWERED_QUESTIONS, answers: [{ ...CHECKS_ANSWER, question: "Which risks?" }, STRICTNESS_ANSWER] }, /question 1 was not offered/],
+      [{ ...ANSWERED_QUESTIONS, answers: [STRICTNESS_ANSWER, CHECKS_ANSWER] }, /question 1 was not offered/],
+      [{ ...ANSWERED_QUESTIONS, answers: [CHECKS_ANSWER] }, /requires 2 answers/],
+      [{ ...ANSWERED_QUESTIONS, answers: [...ANSWERED_QUESTIONS.answers, { question: "Extra?", selected: [], freeText: "x" }] }, /requires 2 answers/],
+      [{ kind: "question", cancelled: false }, /requires 2 answers/],
+      [{ kind: "rewind", cancelled: true }, /requires a question response/],
+    ] },
+    { name: "rewind selection", request: REWIND_REQUEST, valid: { kind: "rewind", cancelled: false, checkpointId: "cp-1", mode: "code" }, invalid: [
+      [{ kind: "rewind", cancelled: false, checkpointId: "cp-9", mode: "code" }, /checkpoint was not offered/],
+      [{ kind: "rewind", cancelled: false, checkpointId: "cp-1", mode: "conversation" }, /mode was not offered/],
+      [{ kind: "rewind", cancelled: false, checkpointId: "cp-1", mode: "everything" as never }, /rewind mode is invalid/],
+      [{ kind: "rewind", cancelled: false, mode: "code" }, /checkpointId must be non-empty/],
+      [{ kind: "plan", approved: true }, /requires a rewind response/],
+    ] },
+  ] satisfies readonly { name: string; request: HitlRequest; valid: AppServerInteractionResponse; invalid: readonly (readonly [AppServerInteractionResponse, RegExp])[] }[]) {
+    it(`rejects a ${scenario.name} that Core never offered and keeps the request answerable`, { timeout: 5000 }, async () => {
+      const harness = await openInteraction(scenario.request)
+      try {
+        for (const [response, message] of scenario.invalid) {
+          await assert.rejects(harness.host.respondToInteraction("interaction-1", response), message)
+        }
+        assert.deepEqual(harness.responses(), [])
+        await harness.host.respondToInteraction("interaction-1", scenario.valid)
+        await harness.completed
+        assert.equal(harness.responses().length, 1)
+        await assert.rejects(harness.host.respondToInteraction("interaction-1", scenario.valid), /not pending/)
+      } finally { await harness.host.close() }
+    })
+  }
+
+  for (const scenario of [
+    { resolved: { status: "answered" }, status: "answered", error: null },
+    { resolved: { status: "cancelled" }, status: "cancelled", error: null },
+    { resolved: { answered: false }, status: "cancelled", error: null },
+    { resolved: { status: "failed", error: "Core timed out" }, status: "failed", error: "Core timed out" },
+  ] as const) {
+    it(`retires a pending interaction on serverRequest/resolved ${JSON.stringify(scenario.resolved)}`, { timeout: 5000 }, async () => {
+      const harness = await openInteraction(QUESTION_REQUEST, { HITL_RESOLVED: JSON.stringify(scenario.resolved) })
+      try {
+        await harness.sent
+        assert.deepEqual(harness.events.filter(event => event.type === "interaction-resolved"), [
+          { type: "interaction-resolved", threadId: harness.threadId, turnId: "turn-1", requestId: "interaction-1", status: scenario.status, error: scenario.error },
+        ])
+        await assert.rejects(harness.host.respondToInteraction("interaction-1", ANSWERED_QUESTIONS), /not pending/)
+        assert.deepEqual(harness.responses(), [])
+      } finally { await harness.host.close() }
+    })
+  }
+
+  it("ignores serverRequest/resolved for another turn", { timeout: 5000 }, async () => {
+    const harness = await openInteraction(QUESTION_REQUEST, { HITL_RESOLVED: JSON.stringify({ turnId: "turn-other", status: "answered" }) })
+    try {
+      await harness.sent
+      assert.equal(harness.events.some(event => event.type === "interaction-resolved"), false)
+      await harness.host.respondToInteraction("interaction-1", ANSWERED_QUESTIONS)
+      await harness.completed
+      assert.equal(harness.responses().length, 1)
+    } finally { await harness.host.close() }
+  })
+
+  it("clears pending interactions when Core closes the thread", { timeout: 5000 }, async () => {
+    const harness = await openInteraction(REWIND_REQUEST, { HITL_CLOSE: "1" })
+    try {
+      await harness.sent
+      assert.ok(harness.events.some(event => event.type === "thread-closed" && event.threadId === harness.threadId && event.reason === "thread/closed"))
+      await assert.rejects(harness.host.respondToInteraction("interaction-1", { kind: "rewind", cancelled: false, checkpointId: "cp-1", mode: "code" }), /not pending/)
+      assert.deepEqual(harness.responses(), [])
+    } finally { await harness.host.close() }
+  })
+})
+
+interface HitlRequest {
+  readonly method: string
+  readonly params: Record<string, unknown>
+}
+
+interface InteractionHarness {
+  readonly host: AppServerHost
+  readonly threadId: string
+  readonly interaction: AppServerInteraction
+  readonly events: readonly AppServerHostEvent[]
+  /** Resolves after Core's follow-up frames for the request (resolved/closed) were delivered. */
+  readonly sent: Promise<void>
+  readonly completed: Promise<void>
+  readonly responses: () => readonly unknown[]
+}
+
+async function openInteraction(request: HitlRequest, environment: Record<string, string> = {}): Promise<InteractionHarness> {
+  const fixture = createFixture()
+  const host = new AppServerHost({
+    runtime: fixture.runtime,
+    clientInfo: { name: "interaction-test", version: "1" },
+    assertAuthenticated() {},
+    environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, HITL_REQUEST: JSON.stringify(request), ...environment },
+  })
+  const events: AppServerHostEvent[] = []
+  let interacted!: (interaction: AppServerInteraction) => void, sent!: () => void, completed!: () => void, failed!: (error: Error) => void
+  const interaction = new Promise<AppServerInteraction>((resolve, reject) => { interacted = resolve; failed = reject })
+  const hitlSent = new Promise<void>(resolve => { sent = resolve })
+  const turnCompleted = new Promise<void>(resolve => { completed = resolve })
+  host.onEvent(event => {
+    events.push(event)
+    if (event.type === "interaction") interacted(event.interaction)
+    if (event.type === "warning" && event.message === "hitl-sent") sent()
+    if (event.type === "turn-completed") completed()
+    if (event.type === "protocol-error") failed(new Error(event.message))
+  })
+  try {
+    const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
+    if (request.method === REWIND_REQUEST.method) await host.rewindThread(fixture.root, threadId)
+    else await host.startTurn({ cwd: fixture.root, threadId, submissionId: "interaction", text: "ask" })
+    return {
+      host,
+      threadId,
+      interaction: await interaction,
+      events,
+      sent: hitlSent,
+      completed: turnCompleted,
+      responses: () => readFileSync(fixture.capturePath, "utf8").trim().split("\n").flatMap(line => {
+        const record = JSON.parse(line) as { response?: { id: unknown; result?: unknown; error?: unknown } }
+        return record.response ? [{ id: record.response.id, ...(record.response.error ? { error: record.response.error } : { result: record.response.result }) }] : []
+      }),
+    }
+  } catch (error: unknown) {
+    await host.close()
+    throw error
+  }
+}
+
 function createFixture(
   hookRun: Record<string, unknown> = {
     event: "SessionStart",
@@ -841,6 +1037,14 @@ const modes = new Map()
 let failedModeRead = false
 let hitlThread = null
 const mode = (threadId) => modes.get(threadId) ?? { revision: 0, permissionEpoch: 0, permissionMode: "default", workMode: "normal" }
+const sendHitlRequest = (threadId) => {
+  hitlThread = threadId
+  const request = JSON.parse(process.env.HITL_REQUEST)
+  send({ jsonrpc: "2.0", id: "hitl-1", method: request.method, params: { threadId, turnId: "turn-1", requestId: "interaction-1", ...request.params } })
+  if (process.env.HITL_RESOLVED) send({ jsonrpc: "2.0", method: "serverRequest/resolved", params: { threadId, turnId: "turn-1", requestId: "interaction-1", ...JSON.parse(process.env.HITL_RESOLVED) } })
+  if (process.env.HITL_CLOSE) send({ jsonrpc: "2.0", method: "thread/closed", params: { threadId } })
+  send({ jsonrpc: "2.0", method: "warning", params: { threadId, message: "hitl-sent" } })
+}
 const lines = readline.createInterface({ input: process.stdin })
 if (process.env.IGNORE_SHUTDOWN) {
   setInterval(() => {}, 1000)
@@ -851,6 +1055,7 @@ lines.on("line", (line) => {
   const frame = JSON.parse(line)
   if (!Object.prototype.hasOwnProperty.call(frame, "id")) return
   if (typeof frame.method !== "string") {
+    capture({ response: frame })
     if (hitlThread && frame.id === "hitl-1") {
       send({ jsonrpc: "2.0", method: "item/completed", params: { threadId: hitlThread, turnId: "turn-1", item: { id: "tool-1", type: "commandExecution", status: "completed", callId: "call-1", summary: "exit 0", output: "HITL_OK", isError: false } } })
       send({ jsonrpc: "2.0", method: "turn/completed", params: { threadId: hitlThread, turn: { id: "turn-1", status: "completed", stopReason: "end_turn", error: null } } })
@@ -910,6 +1115,11 @@ lines.on("line", (line) => {
     const invalid = process.env.INVALID_CLEAR
     return send({ id: frame.id, result: { operationId: invalid === "operation" ? "wrong" : frame.params.operationId, previousThreadId: invalid === "source" ? "wrong" : frame.params.threadId, thread: { id: invalid === "same-id" ? frame.params.threadId : "cleared-thread", cwd: invalid === "cwd" ? "/foreign" : frame.params.cwd, status: invalid === "status" ? "idle" : "loaded" } } })
   }
+  if (frame.method === "thread/rewind/start") {
+    send({ jsonrpc: "2.0", method: "turn/started", params: { threadId: frame.params.threadId, turn: { id: "turn-1" } } })
+    send({ jsonrpc: "2.0", id: frame.id, result: { turn: { id: "turn-1" } } })
+    return sendHitlRequest(frame.params.threadId)
+  }
   if (frame.method === "thread/turns/list") return send({ id: frame.id, result: { turns: [], nextCursor: null, total: 0 } })
   if (frame.method === "thread/items/list") return send({ id: frame.id, result: { items: [], nextCursor: null, total: 0 } })
   if (frame.method === "turn/start") {
@@ -917,6 +1127,7 @@ lines.on("line", (line) => {
     send({ jsonrpc: "2.0", id: frame.id, result: { turn: { id: "turn-1" } } })
     send({ jsonrpc: "2.0", method: "item/started", params: { threadId: frame.params.threadId, turnId: "turn-1", item: { id: "tool-1", type: "commandExecution", status: "inProgress", tool: "run_bash", callId: "call-1", arguments: { command: "pwd" } } } })
     if (process.env.SHUTDOWN_HOLD === "turn") return
+    if (process.env.HITL_REQUEST) return sendHitlRequest(frame.params.threadId)
     if (process.env.HITL_EMPTY_LABEL) {
       hitlThread = frame.params.threadId
       send({ jsonrpc: "2.0", id: "hitl-1", method: "item/commandExecution/requestApproval", params: { threadId: frame.params.threadId, turnId: "turn-1", requestId: "permission-1", tool: "run_bash", callId: "call-1", options: [{ optionId: "allow_once", label: "" }, { optionId: "reject_once", name: "Reject" }], preview: { kind: "bash_command", cwd: require("node:path").dirname(process.env.CAPTURE_PATH), command: "echo HITL_OK", risk: {}, suggestedRules: [] } } })

@@ -23,7 +23,7 @@ export const hostReference = {
   cancelBackgroundTask: entry("resources", "cancelBackgroundTask(cwd, threadId, taskId) → Promise<status>", "取消 Core 后台任务", "status 为 cancelled / notFound / noop；taskId 不是 PID。", "resources"),
   startSideQuestion: entry("execution", "startSideQuestion(cwd, threadId, operationId, question) → Promise<string>", "创建独立旁问，返回 sideQuestionId", "当前 Host 要求主轮次与旁问均空闲。", "sideQuestion"),
   cancelSideQuestion: entry("execution", "cancelSideQuestion(cwd, threadId, sideQuestionId) → Promise<void>", "请求取消旁问", "等待 side-question-completed 确定结果。", "sideQuestion"),
-  respondToInteraction: entry("approvals", "respondToInteraction(requestId, response) → Promise<void>", "提交用户决策", "响应 kind 必须匹配；拒绝失效归属及非法选项。", "approval"),
+  respondToInteraction: entry("approvals", "respondToInteraction(requestId, response) → Promise<void>", "提交用户决策", "响应 kind 必须匹配；拒绝失效归属，以及 Core 未提供的审批选项、检查点、回退范围或问答选项。", "approval"),
   readModes: entry("modes", "readModes(cwd, threadId) → Promise<AppServerModeState>", "读取线程模式与 revision", "只接受当前订阅线程；不能用旧快照覆盖新状态。", "sessions"),
   setModes: entry("modes", "setModes({ cwd, threadId, expectedRevision, permissionMode?, workMode? }) → Promise<AppServerModeState>", "以用户看到的修订号更新模式", "至少提供一种模式；冲突不自动重试。", "modes"),
   listThreads: entry("sessions", "listThreads(cwd, cursor?) → Promise<{ threads, nextCursor, total }>", "分页查询持久会话目录", "cursor 为字符串；nextCursor=null 时结束。", "snapshots"),

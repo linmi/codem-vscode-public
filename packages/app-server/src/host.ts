@@ -432,7 +432,8 @@ interface PendingInteraction {
   readonly threadId: string
   readonly turnId: string
   readonly method: string
-  readonly allowedOptions: ReadonlySet<string>
+  /** Exactly what the UI was shown; every reply is checked against it before reaching Core. */
+  readonly offer: AppServerInteraction
 }
 
 export class AppServerHost {
@@ -663,7 +664,7 @@ export class AppServerHost {
     }
     const expectedKind = interactionKind(pending.method)
     if (response.kind !== expectedKind) throw new Error(`CodeM interaction ${id} requires a ${expectedKind} response`)
-    const result = interactionResult(pending, response)
+    const result = interactionResult(pending.offer, response)
     this.pendingInteractions.delete(id)
     thread.connection.connection.peer.respond(pending.rpcId, result)
   }
@@ -1543,9 +1544,7 @@ export class AppServerHost {
         threadId,
         turnId: requestTurnId,
         method: request.method,
-        allowedOptions: new Set(
-          interaction.kind === "permission" ? interaction.options.map((option) => option.id) : [],
-        ),
+        offer: interaction,
       })
       this.emit({ type: "interaction", interaction })
     } catch (error: unknown) {
@@ -1764,27 +1763,49 @@ function parseInteraction(request: AppServerRequest, threadId: string, turnId: s
   throw new Error(`Unsupported CodeM client request: ${request.method}`)
 }
 
-function interactionResult(pending: PendingInteraction, response: AppServerInteractionResponse): JsonObject {
-  if (response.kind === "permission") {
-    if (!pending.allowedOptions.has(response.optionId))
+function interactionResult(offer: AppServerInteraction, response: AppServerInteractionResponse): JsonObject {
+  if (offer.kind === "permission" && response.kind === "permission") {
+    if (!offer.options.some((option) => option.id === response.optionId))
       throw new Error(`CodeM permission option ${response.optionId} was not offered`)
     return { outcome: { optionId: response.optionId } }
   }
-  if (response.kind === "question") {
-    return response.cancelled ? { cancelled: true } : { answers: response.answers ?? [] }
+  if (offer.kind === "question" && response.kind === "question") {
+    return response.cancelled ? { cancelled: true } : { answers: questionAnswers(offer, response.answers ?? []) }
   }
-  if (response.kind === "rewind") {
+  if (offer.kind === "rewind" && response.kind === "rewind") {
     if (response.cancelled) return { status: "cancelled" }
-    return {
-      status: "selected",
-      checkpointId: nonBlankString(response.checkpointId, "rewind checkpointId"),
-      mode: rewindMode(response.mode, "rewind mode"),
-    }
+    const checkpointId = nonBlankString(response.checkpointId, "rewind checkpointId")
+    if (!offer.checkpoints.some((checkpoint) => checkpoint.id === checkpointId))
+      throw new Error("CodeM rewind checkpoint was not offered")
+    const mode = rewindMode(response.mode, "rewind mode")
+    if (!offer.modes.includes(mode)) throw new Error("CodeM rewind mode was not offered")
+    return { status: "selected", checkpointId, mode }
   }
-  if (response.kind === "plan") {
+  if (offer.kind === "plan" && response.kind === "plan") {
     return { approved: response.approved, ...(response.approved ? {} : { feedback: response.feedback ?? "" }) }
   }
-  return { approved: response.approved }
+  if (offer.kind === "plan-mode" && response.kind === "plan-mode") return { approved: response.approved }
+  throw new Error(`CodeM interaction ${offer.requestId} requires a ${offer.kind} response`)
+}
+
+/** One answer per offered question, in order, selecting only that question's offered labels. */
+function questionAnswers(
+  offer: Extract<AppServerInteraction, { kind: "question" }>,
+  answers: NonNullable<Extract<AppServerInteractionResponse, { kind: "question" }>["answers"]>,
+): JsonObject[] {
+  if (answers.length !== offer.questions.length)
+    throw new Error(`CodeM question ${offer.requestId} requires ${offer.questions.length} answers`)
+  return offer.questions.map((question, index) => {
+    const answer = answers[index]!
+    const label = `question ${index + 1}`
+    if (answer.question !== question.question) throw new Error(`CodeM ${label} was not offered`)
+    const selected = stringArray(answer.selected, `${label} selected`)
+    if (new Set(selected).size !== selected.length) throw new Error(`CodeM ${label} repeats an option`)
+    if (!question.allowsMultipleSelection && selected.length > 1) throw new Error(`CodeM ${label} allows one option`)
+    const offered = new Set(question.options.map((option) => option.label))
+    if (!selected.every((option) => offered.has(option))) throw new Error(`CodeM ${label} option was not offered`)
+    return { question: question.question, selected: [...selected], freeText: nullableString(answer.freeText, `${label} freeText`) }
+  })
 }
 
 function permissionOptionLabel(option: JsonObject, optionId: string): string {
