@@ -179,7 +179,9 @@ describe("AppServerConnection", () => {
       workingDirectory: root,
       clientInfo: { name: "codem-vscode", version: "0.1.0" },
       environment: { PATH: process.env.PATH },
-      closeTimeoutMs: 25,
+      // close() must succeed, so a step has to outlast a real kill. Windows sends TerminateProcess at the
+      // SIGTERM step, and windows-latest has needed more than two 25 ms steps to report the close.
+      closeTimeoutMs: 500,
       onExit: (exit) => exits.push(exit),
     })
 
