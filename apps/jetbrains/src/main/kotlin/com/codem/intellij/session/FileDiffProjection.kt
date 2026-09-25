@@ -39,16 +39,16 @@ class FileDiffAssembler(private val maxBytes: Int = 8 * 1024 * 1024) {
     private val completed = mutableSetOf<String>()
 
     fun accept(params: JsonValue.ObjectValue): FileDiffContent? {
-        val itemId = text(params, "itemId")
+        val itemId = text(params, "itemId", DELTA)
         if (itemId in completed) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM file diff $itemId continued after completion")
-        val callId = text(params, "callId")
-        val backgroundId = nullableText(params, "backgroundTaskId")
-        if ((params.fields["encoding"] as? JsonValue.Text)?.value != "json") {
+        val callId = text(params, "callId", DELTA)
+        val backgroundId = params.optionalString("backgroundTaskId", DELTA)
+        if (params.stringOrNull("encoding") != "json") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM item/fileChange/delta encoding must be json")
         }
-        val sequence = count(params, "sequence", itemId)
-        val complete = boolean(params, "complete")
-        val delta = string(params, "delta")
+        val sequence = count(params, "sequence", DELTA)
+        val complete = params.requiredBoolean("complete", DELTA)
+        val delta = params.requiredString("delta", DELTA)
         val buffer = buffers.getOrPut(itemId) { Buffer(callId, backgroundId) }
         if (buffer.callId != callId || buffer.backgroundId != backgroundId) {
             throw invalid("file diff $itemId changed correlation identity")
@@ -79,28 +79,27 @@ class FileDiffAssembler(private val maxBytes: Int = 8 * 1024 * 1024) {
     }
 
     private fun parse(itemId: String, callId: String, backgroundId: String?, decoded: JsonValue.ObjectValue): FileDiffContent {
-        if (text(decoded, "tool_call_id") != callId) {
+        val label = "file diff $itemId"
+        if (text(decoded, "tool_call_id", label) != callId) {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM file diff $itemId changed tool_call_id")
         }
-        if (nullableText(decoded, "background_task_id") != backgroundId) throw invalid("file diff $itemId changed background identity")
-        val binary = boolean(decoded, "is_binary")
-        val truncated = boolean(decoded, "truncated")
-        val stats = (decoded.fields["stats"] as? JsonValue.ObjectValue)
-            ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM file diff $itemId is missing stats")
-        val hunks = (decoded.fields["hunks"] as? JsonValue.ArrayValue)?.items?.map { parseHunk(itemId, it) }
-            ?: throw invalid("file diff $itemId is missing hunks")
+        if (decoded.optionalString("background_task_id", label) != backgroundId) throw invalid("file diff $itemId changed background identity")
+        val binary = decoded.requiredBoolean("is_binary", label)
+        val truncated = decoded.requiredBoolean("truncated", label)
+        val stats = decoded.requiredObject("stats", label)
+        val hunks = decoded.requiredArray("hunks", label).mapIndexed { index, hunk -> parseHunk(itemId, hunk, "$label.hunks[$index]") }
         if (binary && hunks.isNotEmpty()) {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM file diff $itemId binary diff contains text hunks")
         }
-        val added = count(stats, "lines_added", itemId)
-        val removed = count(stats, "lines_removed", itemId)
+        val added = count(stats, "lines_added", "$label.stats")
+        val removed = count(stats, "lines_removed", "$label.stats")
         val observedAdded = hunks.sumOf { it.added.toLong() }
         val observedRemoved = hunks.sumOf { it.removed.toLong() }
         if (!binary && ((!truncated && (observedAdded != added.toLong() || observedRemoved != removed.toLong())) ||
             (truncated && (observedAdded > added || observedRemoved > removed)))) throw invalid("file diff $itemId statistics disagree with hunks")
-        val changeType = text(decoded, "change_type")
+        val changeType = text(decoded, "change_type", label)
         if (changeType !in setOf("new", "modified", "deleted", "renamed", "copied", "type-changed", "unmerged")) throw invalid("file diff $itemId has an invalid change type")
-        val raw = nullableText(decoded, "raw_unified")
+        val raw = decoded.optionalString("raw_unified", label)
         val preview = when {
             binary -> "binary"
             !truncated -> "complete"
@@ -109,7 +108,7 @@ class FileDiffAssembler(private val maxBytes: Int = 8 * 1024 * 1024) {
             else -> "omitted"
         }
         return FileDiffContent(
-            path = text(decoded, "path"),
+            path = text(decoded, "path", label),
             changeType = changeType,
             linesAdded = added,
             linesRemoved = removed,
@@ -118,24 +117,25 @@ class FileDiffAssembler(private val maxBytes: Int = 8 * 1024 * 1024) {
         )
     }
 
-    private fun parseHunk(itemId: String, value: JsonValue): FileDiffHunk {
-        val hunk = value.asObject()
-        val oldStart = count(hunk, "old_start", itemId)
-        val newStart = count(hunk, "new_start", itemId)
-        val oldCount = count(hunk, "old_count", itemId)
-        val newCount = count(hunk, "new_count", itemId)
+    private fun parseHunk(itemId: String, value: JsonValue, label: String): FileDiffHunk {
+        val hunk = value.asObject(label)
+        val oldStart = count(hunk, "old_start", label)
+        val newStart = count(hunk, "new_start", label)
+        val oldCount = count(hunk, "old_count", label)
+        val newCount = count(hunk, "new_count", label)
         if ((oldCount == 0 && oldStart != 0) || (oldCount > 0 && oldStart < 1) ||
             (newCount == 0 && newStart != 0) || (newCount > 0 && newStart < 1)) throw invalid("file diff $itemId has invalid hunk bounds")
         val before = mutableListOf<String>()
         val after = mutableListOf<String>()
         var added = 0
         var removed = 0
-        val lines = (hunk.fields["lines"] as? JsonValue.ArrayValue)?.items ?: throw invalid("file diff $itemId hunk is missing lines")
-        for (entry in lines) {
-            val line = entry.asObject()
-            val body = string(line, "text")
-            val kind = text(line, "kind")
-            fun lineNumber(key: String): Int? = if (line.fields[key] == JsonValue.Null) null else count(line, key, itemId)
+        val lines = hunk.requiredArray("lines", label)
+        for ((index, entry) in lines.withIndex()) {
+            val lineLabel = "$label.lines[$index]"
+            val line = entry.asObject(lineLabel)
+            val body = line.requiredString("text", lineLabel)
+            val kind = text(line, "kind", lineLabel)
+            fun lineNumber(key: String): Int? = if (line.optional(key) == JsonValue.Null) null else count(line, key, lineLabel)
             val oldLine = lineNumber("old_line")
             val newLine = lineNumber("new_line")
             if ((kind == "insert" && (oldLine != null || newLine == null)) ||
@@ -154,24 +154,17 @@ class FileDiffAssembler(private val maxBytes: Int = 8 * 1024 * 1024) {
         return FileDiffHunk(oldStart, newStart, before, after, added, removed)
     }
 
-    private fun count(value: JsonValue.ObjectValue, key: String, itemId: String): Int {
-        val number = (value.fields[key] as? JsonValue.NumberValue)?.value ?: throw invalid("file diff $itemId $key is missing")
-        if (!number.isFinite() || number < 0 || number > Int.MAX_VALUE || number != kotlin.math.floor(number)) throw invalid("file diff $itemId $key must be a nonnegative integer")
-        return number.toInt()
-    }
+    private fun count(value: JsonValue.ObjectValue, key: String, path: String): Int =
+        value.requiredInt(key, path).takeIf { it >= 0 } ?: throw invalid("$path.$key must be a nonnegative integer")
 
-    private fun string(value: JsonValue.ObjectValue, key: String): String =
-        (value.fields[key] as? JsonValue.Text)?.value ?: throw invalid("file diff $key must be text")
-    private fun text(value: JsonValue.ObjectValue, key: String): String =
-        string(value, key).takeIf { it.isNotBlank() } ?: throw invalid("file diff $key must not be blank")
-    private fun nullableText(value: JsonValue.ObjectValue, key: String): String? = when (val field = value.fields[key]) {
-        null, JsonValue.Null -> null
-        is JsonValue.Text -> field.value
-        else -> throw invalid("file diff $key must be nullable text")
-    }
-    private fun boolean(value: JsonValue.ObjectValue, key: String): Boolean =
-        (value.fields[key] as? JsonValue.Bool)?.value ?: throw invalid("file diff $key must be boolean")
+    private fun text(value: JsonValue.ObjectValue, key: String, path: String): String =
+        value.requiredString(key, path).takeIf { it.isNotBlank() } ?: throw invalid("$path.$key must not be blank")
+
     private fun invalid(message: String) = CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM $message")
+
+    private companion object {
+        const val DELTA = "item/fileChange/delta"
+    }
 
     private class Buffer(val callId: String, val backgroundId: String?) {
         val chunks = StringBuilder()

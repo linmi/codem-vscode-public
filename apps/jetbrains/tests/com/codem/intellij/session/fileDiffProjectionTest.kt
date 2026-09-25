@@ -51,6 +51,18 @@ class FileDiffProjectionTest {
             body.replace("\"new_line\":null", "\"new_line\":2"),
             body.replace("\"text\":\"after\"", "\"text\":null"),
             body.replace("\"change_type\":\"modified\"", "\"change_type\":\"unknown\""),
+            body.replace("\"change_type\":\"modified\"", "\"change_type\":7"),
+            body.replace("\"background_task_id\":null", "\"background_task_id\":7"),
+            body.replace("\"raw_unified\":null", "\"raw_unified\":false"),
+            body.replace("\"stats\":{\"lines_added\":1,\"lines_removed\":1}", "\"stats\":[1,1]"),
+            body.replace("\"lines_added\":1", "\"lines_added\":-1"),
+            body.replace("\"lines_added\":1", "\"lines_added\":\"1\""),
+            body.substringBefore("\"hunks\":") + "\"hunks\":{}}",
+            body.substringBefore("\"lines\":") + "\"lines\":\"none\"}]}",
+            body.replace("\"hunks\":[{", "\"hunks\":[\"hunk\",{"),
+            body.replace("\"lines\":[{", "\"lines\":[\"line\",{"),
+            body.replace("\"old_line\":null,", ""),
+            body.replace("{\"tool_call_id\":\"call\",", "{"),
             "{broken",
         )
         malformed.forEachIndexed { index, invalid ->
@@ -67,5 +79,25 @@ class FileDiffProjectionTest {
         assertThrows(CodemError.Protocol::class.java) { FileDiffAssembler(10).accept(frame()) }
         val fractional = frame().copy(fields = frame().fields + ("sequence" to JsonValue.NumberValue(0.5, "0.5")))
         assertThrows(CodemError.Protocol::class.java) { FileDiffAssembler().accept(fractional) }
+    }
+
+    @Test
+    fun deltaFramesRequireTypedCorrelationFields() {
+        fun with(key: String, value: JsonValue?) = JsonValue.ObjectValue(if (value == null) frame().fields - key else frame().fields + (key to value))
+        assertEquals("sample.txt", FileDiffAssembler().accept(with("backgroundTaskId", JsonValue.Null))!!.path)
+        val invalid = listOf(
+            "itemId" to JsonValue.Text(" "),
+            "itemId" to null,
+            "callId" to JsonValue.NumberValue(1.0, "1"),
+            "backgroundTaskId" to JsonValue.Bool(true),
+            "encoding" to null,
+            "encoding" to JsonValue.Text("base64"),
+            "complete" to JsonValue.Text("true"),
+            "delta" to null,
+            "sequence" to JsonValue.NumberValue(-1.0, "-1"),
+        )
+        for ((key, value) in invalid) {
+            assertThrows(CodemError.Protocol::class.java, { FileDiffAssembler().accept(with(key, value)) }, "$key=$value")
+        }
     }
 }
