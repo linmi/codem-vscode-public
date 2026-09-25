@@ -91,6 +91,68 @@ class InteractionPresentationTest {
         assertTrue(writes.single().contains("-32000"))
     }
 
+    /**
+     * 这些请求字段一向宽松读取（与 host.ts 的严格解析不同，见 PR 说明）：无效的选项、标签与模式被跳过或退回缺省，
+     * 只有没有可用选项/检查点/模式时才拒绝。
+     */
+    @Test
+    fun requestFieldsAreReadLeniently() {
+        val writes = mutableListOf<String>()
+        val peer = RpcPeer(writes::add, {}, {}, {})
+        val router = InteractionRouter()
+        assertNull(router.handle(RpcRequest(RpcId.TextId("approval"), "item/tool/requestApproval", JsonValue.obj(
+            "reason" to JsonValue.NumberValue(1.0, "1"),
+            "preview" to JsonValue.obj(
+                "path" to JsonValue.Text("/work/src/App.kt"),
+                "diffExcerpt" to JsonValue.NumberValue(1.0, "1"),
+                "command" to JsonValue.Text("pnpm check"),
+            ),
+            "options" to JsonValue.ArrayValue(listOf(
+                JsonValue.Text("allow"),
+                JsonValue.obj("label" to JsonValue.Text("no id")),
+                JsonValue.obj("optionId" to JsonValue.Text(" "), "id" to JsonValue.Text("shadowed")),
+                JsonValue.obj("optionId" to JsonValue.NumberValue(1.0, "1"), "id" to JsonValue.Text("allow_once"), "label" to JsonValue.Text(" ")),
+                JsonValue.obj("optionId" to JsonValue.Text("reject"), "label" to JsonValue.Text("拒绝")),
+            )),
+        )), peer, 1, "thread"))
+        val approval = router.panelView()!!
+        assertEquals(listOf("allow_once", "拒绝"), approval.choices.map { it.label })
+        assertEquals("", approval.description)
+        assertEquals("App.kt\npnpm check", approval.detail)
+        router.revokeThread(1, "thread")
+
+        assertNull(router.handle(RpcRequest(RpcId.TextId("question"), "item/tool/requestUserInput", JsonValue.obj(
+            "questions" to JsonValue.ArrayValue(listOf(JsonValue.obj(
+                "id" to JsonValue.Text(" "),
+                "question" to JsonValue.Text("哪个？"),
+                "options" to JsonValue.ArrayValue(listOf(JsonValue.Text("甲"), JsonValue.obj("label" to JsonValue.Text(" ")), JsonValue.obj("label" to JsonValue.Text("乙")))),
+            ))),
+        )), peer, 1, "thread"))
+        assertEquals(listOf("乙"), router.panelView()!!.choices.map { it.label })
+        assertEquals("question-1", router.current()!!.questions.single().id)
+        router.revokeThread(1, "thread")
+
+        val checkpoint = JsonValue.obj("id" to JsonValue.Text("cp-1"), "label" to JsonValue.NumberValue(1.0, "1"))
+        assertNull(router.handle(RpcRequest(RpcId.TextId("rewind"), "item/rewind/requestSelection", JsonValue.obj(
+            "checkpoints" to JsonValue.ArrayValue(listOf(checkpoint)),
+            "modes" to JsonValue.ArrayValue(listOf(JsonValue.NumberValue(1.0, "1"), JsonValue.Text("everything"), JsonValue.Text("code"))),
+        )), peer, 1, "thread"))
+        assertEquals(listOf("cp-1", "code"), router.panelView()!!.choices.map { it.label })
+        router.revokeThread(1, "thread")
+
+        for (params in listOf(
+            JsonValue.obj("checkpoints" to JsonValue.ArrayValue(listOf(JsonValue.Text("cp-1"))), "modes" to JsonValue.ArrayValue(listOf(JsonValue.Text("code")))),
+            JsonValue.obj("checkpoints" to JsonValue.ArrayValue(listOf(checkpoint)), "modes" to JsonValue.ArrayValue(listOf(JsonValue.Text("everything")))),
+            JsonValue.obj("checkpoints" to JsonValue.obj(), "modes" to JsonValue.ArrayValue(listOf(JsonValue.Text("code")))),
+        )) {
+            assertNotNull(router.handle(RpcRequest(RpcId.TextId("rewind"), "item/rewind/requestSelection", params), peer, 1, "thread"), params.toString())
+        }
+        assertNotNull(router.handle(RpcRequest(RpcId.TextId("question"), "item/tool/requestUserInput", JsonValue.obj(
+            "questions" to JsonValue.ArrayValue(listOf(JsonValue.Text("哪个？"))),
+        )), peer, 1, "thread"))
+        assertNull(router.panelView())
+    }
+
     @Test
     fun foreignOrDuplicateRequestCannotReplaceCurrentInteraction() {
         val writes = mutableListOf<String>()
