@@ -37,6 +37,9 @@
 - 使用 TypeScript 7.0（当前固定 7.0.2）进行类型检查，Oxlint 进行静态检查。`pnpm check` 依次运行 lint、类型检查和测试；检查范围仅限活跃应用和包。
 - 按风险运行必要验证，如实说明未完成或受阻的检查。
 - 每个完成并验证的独立变更创建只包含本次工作的 commit；只有用户明确授权才 push。
+- 分支命名为 `<type>/<短横线描述>`，type 取 `feat`、`fix`、`refactor`、`optimize` 之一（性能改进用 `optimize`，如 `fix/jetbrains-utf8-framing`）；在首次提交前改掉工具自动生成的分支名。
+- commit 标题和 PR 标题使用 `type(scope): 描述`，必须带 scope（如 `fix(jetbrains): …`、`refactor(app-server): …`），不写裸 `fix: …`。
+- 一个会话只产出一个 PR；一个 PR 只修同一类问题，每个问题一个 commit。合并到 `main` 前须确认所列问题均已修复且 CI 通过，用 rebase 方式合并以保持线性历史；分支建在另一 PR 的提交上时，待其合并后 rebase 到 `main` 再提 PR。
 
 ## 结构整理门禁
 
