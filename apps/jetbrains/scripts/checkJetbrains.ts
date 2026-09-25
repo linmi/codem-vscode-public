@@ -44,9 +44,13 @@ const task = live ? "liveTest" : runtime ? "runtimeTest" : plugin ? "buildPlugin
 const testsIndex = process.argv.indexOf("--tests")
 const tests = testsIndex >= 0 ? process.argv[testsIndex + 1] : undefined
 if (testsIndex >= 0 && (!live || !tests || tests.startsWith("--"))) fail("--tests requires --live and a Gradle test name")
-const result = spawnSync(gradlew, [task, "--no-daemon", ...(tests ? ["--tests", tests] : [])], {
+// Node refuses to spawn .bat files without a shell (CVE-2024-27980), so Windows runs the wrapper through cmd.exe.
+const windows = process.platform === "win32"
+const result = spawnSync(windows ? `"${gradlew}"` : gradlew, [task, "--no-daemon", ...(tests ? ["--tests", tests] : [])], {
   cwd: app,
   stdio: "inherit",
+  shell: windows,
   env: { ...process.env, JAVA_HOME: javaHome ?? process.env.JAVA_HOME },
 })
+if (result.error) fail(`CodeM JetBrains Gradle wrapper could not start: ${result.error.message}`)
 process.exit(result.status ?? 1)
