@@ -7,6 +7,7 @@ import type { AccountState } from "../src/shared/accountTypes.ts"
 import type { PanelReply } from "../src/shared/panelTypes.ts"
 import { createPreviewState, type PreviewSearch } from "./previewState.ts"
 import { applyPreviewCatalog, previewImage, contentScenario } from "./previewContent.ts"
+import { catalogKindOptions, catalogKindTrigger, catalogRows, fixtureHooks, localMenuTriggers, resourceTab, sessionCommand, sessionPanel, slashItem, slashSubmit, surfaceEntry } from "./previewHooks.ts"
 
 
 export function createPreviewRuntime(initial: PreviewSearch) {
@@ -44,61 +45,82 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     const id = requestAnimationFrame(() => { frames.delete(id); if (owner === generation) callback() })
     frames.add(id)
   }
-  function whenRendered(selector: string, callback: (node: HTMLElement) => void) {
+  function whenFound(label: string, find: () => HTMLElement | null, callback: (node: HTMLElement) => void) {
     const owner = generation
     const finish = () => { observer.disconnect(); clearTimeout(timer); pendingElements.delete(finish) }
     const check = () => {
       if (owner !== generation) { finish(); return }
-      const node = document.querySelector<HTMLElement>(selector)
+      const node = find()
       if (node) { finish(); callback(node) }
     }
     const observer = new MutationObserver(check)
-    const timer = setTimeout(() => { finish(); throw new Error(`Preview surface did not mount: ${selector}`) }, 3000)
+    const timer = setTimeout(() => { finish(); throw new Error(`Preview surface did not mount: ${label}`) }, 3000)
     pendingElements.add(finish)
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true })
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true })
     check()
   }
-  function showSurface() {
-    // React and the transcript have separate roots. Wait for their actual controls,
-    // rather than assuming a fixed number of frames means both roots have committed.
-    nextFrame(() => {
-      if (surface && ["effort", "workMode", "permissionMode", "model", "space"].includes(surface)) {
-        const ids: Record<string, string> = { effort: "selectEffort", workMode: "selectWorkMode", permissionMode: "selectPermission", model: "selectModel", space: "selectSpace" }
-        const scope = JSON.stringify([demo.workspace, demo.space, demo.threadId])
-        whenRendered(`#${ids[surface]}${surface === "effort" ? "" : `[data-menu-scope=${JSON.stringify(scope)}]`}:not(:disabled)`, node => { if (surface === "model" || surface === "space") node.click(); else node.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })) })
-      } else if (surface === "sessionTools") {
-        whenRendered(`#slashCommandsHost[data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, () => {
-          const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
-          prompt.value = "/"; prompt.dispatchEvent(new Event("input", { bubbles: true }))
-          const kind = demo.sessionTools.catalog?.kind
-          const command = demo.sessionTools.sideQuestion ? "ask" : search.scenario === "sessionDirectories" ? "directories" : kind || search.scenario.startsWith("catalog") ? (kind && kind !== "skills" ? "catalog" : "skills") : "rename"
-          whenRendered(`[cmdk-item][data-value="${command}"]`, node => {
-            node.click()
-            if (kind && kind !== "skills" && kind !== "environment") whenRendered('[role="dialog"] [aria-label="目录类型"]', trigger => {
-              trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
-              whenRendered('[role="listbox"] [role="option"]', () => {
-                document.querySelectorAll<HTMLElement>('[role="listbox"] [role="option"]')[catalogKinds.indexOf(kind)]!.click()
-              })
+  function whenRendered(selector: string, callback: (node: HTMLElement) => void) {
+    whenFound(selector, () => document.querySelector<HTMLElement>(selector), callback)
+  }
+  /** Acts only after @codem/ui has committed this fixture, never on the previous scene's render. */
+  function whenCommitted(selector: string, callback: (node: HTMLElement) => void) {
+    const fixture = fixtureHooks(demo)
+    const committed = () => document.querySelector(fixture.selector) !== null && document.getElementById("workspace")?.textContent === fixture.workspace
+    whenFound(`${selector} once ${fixture.selector} shows workspace ${fixture.workspace}`, () => committed() ? document.querySelector<HTMLElement>(selector) : null, callback)
+  }
+  function openSessionCommand() {
+    const command = sessionCommand(search.scenario, demo)
+    const kind = demo.sessionTools.catalog?.kind
+    const draft = `/${command}`
+    // A Host draft command is replayed to ChatApp whenever it subscribes, so it survives the mount;
+    // a synthetic keystroke can lose to that replay on first load.
+    emit({ type: "composerDraft", value: { draft }, focus: true, pendingRequestId: null })
+    // An idle composer opens the menu as the draft arrives. Submitting a slash draft opens it in
+    // every phase, including a running side question whose status line asks for /ask.
+    whenFound(`${slashSubmit} with draft ${draft}`, () => document.querySelector<HTMLTextAreaElement>("#prompt")?.value === draft ? document.querySelector<HTMLElement>(slashSubmit) : null, send => {
+      send.click()
+      whenRendered(slashItem(command), item => {
+        item.click()
+        whenRendered(sessionPanel(command), () => {
+          // The catalog dialog opens on the environment view; pick the fixture's kind in its selector.
+          if (command !== "catalog" || !kind || kind === "environment") return
+          whenRendered(catalogKindTrigger, trigger => {
+            trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
+            whenRendered(catalogKindOptions, () => {
+              document.querySelectorAll<HTMLElement>(catalogKindOptions)[catalogKinds.indexOf(kind)]!.click()
+              whenRendered(catalogRows, () => {})
             })
           })
         })
-      } else if (surface === "capabilities") {
-        whenRendered(`#runtimeDetails[data-state="closed"][data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, node => node.click())
-      } else if (surface === "activities") {
-        for (const detail of document.querySelectorAll<HTMLDetailsElement>(".workGroup, .activityMessage details")) {
-          if (!detail.open) detail.querySelector<HTMLElement>(":scope > summary")?.click()
-        }
-      } else if (surface) {
-        whenRendered(`#toggleResources[data-state="closed"][data-thread-id=${JSON.stringify(demo.threadId ?? "")}]`, node => {
+      })
+    })
+  }
+  function showSurface() {
+    // The bridge hands snapshots to React asynchronously. Wait for the committed fixture and its
+    // actual controls rather than assuming a fixed number of frames means React has rendered them.
+    nextFrame(() => {
+      const current = surface
+      if (current && Object.hasOwn(localMenuTriggers, current)) {
+        whenCommitted(surfaceEntry(current), node => { if (current === "model" || current === "space") node.click(); else node.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })) })
+      } else if (current === "sessionTools") {
+        whenCommitted(surfaceEntry(current), openSessionCommand)
+      } else if (current === "capabilities") {
+        whenCommitted(surfaceEntry(current), node => node.click())
+      } else if (current === "activities") {
+        whenCommitted(surfaceEntry(current), () => {
+          for (const detail of document.querySelectorAll<HTMLDetailsElement>(surfaceEntry(current))) {
+            if (!detail.open) detail.querySelector<HTMLElement>(":scope > summary")?.click()
+          }
+        })
+      } else if (current) {
+        whenCommitted(surfaceEntry(current), node => {
           node.click()
-          whenRendered(`[data-resource-tab="${surface}"]`, node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })))
+          whenRendered(resourceTab(current), node => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })))
         })
       }
       if (["accountProfile", "accountAvatar", "accountAvatarFailure", "accountSignOutFailure"].includes(search.scenario)) emit({ type: "showAccount" })
-      if (search.scenario === "sendFailure") {
-        const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")!
-        prompt.value = "继续检查错误恢复，并保留这段草稿。"; prompt.dispatchEvent(new Event("input", { bubbles: true }))
-      }
+      // The Host restores a retained draft; React ignores direct writes to its controlled textarea.
+      if (search.scenario === "sendFailure") emit({ type: "composerDraft", value: { draft: "继续检查错误恢复，并保留这段草稿。" }, focus: false, pendingRequestId: null })
     })
   }
   function reset() {
@@ -123,8 +145,7 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     demo.messages = demo.messages.map(message => ({ ...message, id: `${generation}:${message.id}` }))
     if (activePanel) activePanel.id = `preview${generation}Panel`
     panelReplies.length = 0; viewActions.length = 0
-    const prompt = document.querySelector<HTMLTextAreaElement>("#prompt")
-    if (prompt) { prompt.value = ""; prompt.dispatchEvent(new Event("input", { bubbles: true })) }
+    if (ready) emit({ type: "composerDraft", value: { draft: "" }, focus: false, pendingRequestId: null })
     publish()
     showSurface()
   }
