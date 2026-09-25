@@ -300,19 +300,26 @@ class JavaAuthProcessRunner : AuthProcessRunner {
     }
 }
 
+/** Like authentication.ts parseAuthStatus: a present optional field of the wrong type makes the whole status invalid. */
 fun parseStatus(text: String): AuthStatus? {
     val obj = cliJsonObject(text) ?: return null
     val loggedIn = obj.booleanOrNull("loggedIn") ?: return null
-    return AuthStatus(
-        loggedIn = loggedIn,
-        authMethod = obj.stringOrNull("authMethod"),
-        routerCredential = obj.booleanOrNull("routerCredential"),
-        serverUrl = obj.stringOrNull("serverUrl"),
-        tenantId = obj.stringOrNull("tenantId"),
-        userId = obj.stringOrNull("userId"),
-        displayName = obj.stringOrNull("displayName"),
-    )
+    return try {
+        AuthStatus(
+            loggedIn = loggedIn,
+            authMethod = obj.optionalString("authMethod", AUTH_STATUS),
+            routerCredential = obj.optionalBoolean("routerCredential", AUTH_STATUS),
+            serverUrl = obj.optionalString("serverUrl", AUTH_STATUS),
+            tenantId = obj.optionalString("tenantId", AUTH_STATUS),
+            userId = obj.optionalString("userId", AUTH_STATUS),
+            displayName = obj.optionalString("displayName", AUTH_STATUS),
+        )
+    } catch (_: CodemError) {
+        null
+    }
 }
+
+private const val AUTH_STATUS = "auth status"
 
 fun parseLoginEvent(line: String): LoginEvent? {
     val obj = cliJsonObject(line) ?: return null

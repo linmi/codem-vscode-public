@@ -15,6 +15,23 @@ class AuthOutputParsingTest {
         assertEquals(AuthStatus(false, null, null, null, null, null, null), parseStatus("""{"loggedIn":false,"authMethod":null,"routerCredential":null}"""))
     }
 
+    /** authentication.ts optionalString/optionalBoolean 返回 undefined 时整份状态作废；此前 Kotlin 把错类型字段当作缺失，仍返回状态。 */
+    @Test
+    fun statusWithAMistypedOptionalFieldIsNotAStatus() {
+        val mistyped = listOf(
+            "authMethod" to "1",
+            "routerCredential" to "\"true\"",
+            "serverUrl" to "{}",
+            "tenantId" to "[]",
+            "userId" to "false",
+            "displayName" to "2",
+        )
+        for ((key, value) in mistyped) {
+            val text = """{"loggedIn":true,"$key":$value}"""
+            assertNull(parseStatus(text), text)
+        }
+    }
+
     @Test
     fun statusWithoutABooleanLoggedInIsNotAStatus() {
         for (text in listOf("", "not json", "[]", "{}", """{"loggedIn":"true"}""", """{"loggedIn":null}""")) {

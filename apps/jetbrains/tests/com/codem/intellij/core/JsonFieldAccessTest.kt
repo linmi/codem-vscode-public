@@ -40,6 +40,11 @@ class JsonFieldAccessTest {
         assertNull(sample.optionalObject("absent", "frame"))
         assertNull(sample.optionalObject("nothing", "frame"))
         assertInvalidFrame("frame.text is not an object") { sample.optionalObject("text", "frame") }
+
+        assertEquals(true, sample.optionalBoolean("flag", "frame"))
+        assertNull(sample.optionalBoolean("absent", "frame"))
+        assertNull(sample.optionalBoolean("nothing", "frame"))
+        assertInvalidFrame("frame.text is not a boolean") { sample.optionalBoolean("text", "frame") }
     }
 
     @Test

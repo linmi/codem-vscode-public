@@ -43,6 +43,8 @@ sealed class JsonValue {
 
         fun requiredBoolean(key: String, path: String): Boolean = field(key, path).asBoolean("$path.$key")
 
+        fun optionalBoolean(key: String, path: String): Boolean? = present(key)?.asBoolean("$path.$key")
+
         fun booleanOrNull(key: String): Boolean? = (fields[key] as? Bool)?.value
 
         /** 整数语义：JSON 数值必须是 Int 范围内的整数，1.5 或 1e10 都不会被截断成别的值。 */
