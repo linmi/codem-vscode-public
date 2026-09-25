@@ -276,13 +276,10 @@
   .composerTrailing { gap: 3px; }
   #model { max-width: 95px; }
   .composerLeading { gap: 0; }
-  #selectWorkMode { padding-inline: 5px; }
 }
 @media (max-width: 340px) {
   #model { max-width: 62px; }
   .composerTrailing { gap: 1px; }
-  .optionButton { padding-inline: 4px; }
-  .composerLeading .iconButton { width: 24px; padding: 4px; }
 }
 @keyframes workingPulse { 50% { opacity: .35; } }
 

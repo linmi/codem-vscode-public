@@ -19,7 +19,8 @@ main:has(.workingRow:not([hidden])) .messages { padding-bottom: 8px; }
 .toolInputCard:empty { display: none; }
 .turnStatus { margin: 10px 0 16px; color: var(--muted); font-size: var(--uiFontSize); line-height: 20px; }
 .turnStatus p { margin: 0; }
-.app[data-phase="configuring"] .composerToolbar .optionButton:disabled, .app[data-phase="configuring"] .composerToolbar .iconButton:disabled { opacity: 1; }
+/* 设置事务期间输入栏的菜单触发器全部保持原亮度，禁用语义不变。 */
+.app[data-phase="configuring"] .composerToolbar .composerMenuTrigger:disabled { opacity: 1; }
 .jumpLatest { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: var(--popover); box-shadow: var(--composerShadow); color: var(--muted); }
 .jumpLatest:hover:not(:disabled) { color: var(--ink); }
 .jumpLatest svg { transform: rotate(180deg); }

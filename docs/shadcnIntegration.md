@@ -219,3 +219,26 @@ VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<he
 输入栏的图标触发器同样只保留一条规则。附件和权限一直共用 `.composerMenuTrigger.composerIconTrigger`（28×28、4px 内边距、静默色，悬停时加 `--soft` 浅底并变为正文色）。思考强度则单独写了一套 `#selectEffort.effortTrigger`：尺寸相同，但颜色取 `--vscode-descriptionForeground`，悬停底色取 `--vscode-toolbar-hoverBackground`，悬停时也不变为正文色。在真实 VS Code 里，这两个变量取宿主主题的值，与相邻按钮的 `--muted`、`--soft` 不同。现在思考强度也使用这两个共享类，删除它的自有规则；圆角并入共享规则，删除按 id 分别设置的 `border-radius`，以及只剩这一个用途的 `.permission` 类。完全访问模式下权限按钮的警告色、思考强度信号图标的 20px 尺寸和菜单本身都不变。
 
 实测（VS Code 模拟预览，深色）：修改前，思考强度悬停后仍是静默色 `rgba(252,252,252,.58)`，底色为 `--hover`（`rgba(252,252,252,.04)`），而附件按钮悬停后变为 `#fcfcfc`，底色为 `--soft`（`rgba(252,252,252,.027)`）。修改后，三个触发器在静止、悬停和键盘焦点（1px 描边）下一致。菜单能正常展开，按 Esc 后焦点回到触发器；320px 宽时输入栏和顶栏都没有横向溢出。真实 VS Code 未运行，宿主主题变量下的实际颜色未经实测。
+
+输入栏还有两条规则写给了旧的 `.iconButton`。当初附件和权限都是手写的 `.iconButton`（见 `cc88473d` 的 `webview/styles.css` 和 `docs/synaraStyleAlignment.md` 的“底部提示与布局稳定性”）；改为 shadcn 触发器后，这两条规则都不再命中任何元素：
+
+- 设置事务期间保持工具栏亮度（原文“设置事务期间保持工具栏视觉亮度，按钮禁用语义不变”）：只剩 `.optionButton:disabled` 一半生效。所以在 `configuring` 阶段，工作模式和模型保持原亮度，附件、权限、思考强度却降到 0.5。
+- 340px 以下收窄：`.composerLeading .iconButton` 不再命中任何元素；同一块里的 `.optionButton { padding-inline: 4px }` 特异性低于 `.composerMenuTrigger[data-slot]`，也从未生效。420px 以下只有工作模式单独按 id 收紧到 5px，模型仍是 6px。
+
+现在按原意、用共享类名实现：
+
+- 设置事务规则改为 `.composerToolbar .composerMenuTrigger:disabled`，五个触发器保持同一亮度，禁用语义不变。
+- 窄栏规则放在 `shadcnStyles.css` 的共享触发器规则旁：420px 以下，两个文字触发器的左右内边距同为 5px；340px 以下同为 4px，三个图标触发器及其外层都收到 24px 宽，2px 内边距仍放得下 20px 的思考强度信号。
+- 删除 `#selectWorkMode` 的按 id 规则和两条死规则。
+- 图标触发器补上 `justify-content: center`：SelectTrigger 自带 `justify-between`，只有一个可见子元素时，附件和权限图标原本左 4px、右 8px，偏向左侧。
+
+空间选择在底栏，不在工具栏，设置事务期间照旧降低亮度，这与原规则的范围一致。
+
+实测（VS Code 模拟预览）：
+
+- 340px 下，浅色和深色的三个图标触发器都是 24×28，图标左右间距相等；工作模式与模型的左右内边距都是 4px。
+- 380px 下，图标触发器为 28×28，文字触发器左右内边距都是 5px。
+- 1024px 下尺寸不变，图标居中（左右各 6px，思考强度信号左右各 4px）。
+- 把演示状态切到 `configuring` 后，五个触发器都禁用，透明度都是 1；修改前图标组是 0.5。
+- 340px 和 380px 下输入栏都没有横向溢出；附件菜单能正常展开，按 Esc 后焦点回到触发器。
+- 真实 VS Code 未运行。

@@ -91,7 +91,7 @@ Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。�
 - 按钮：`.sessionHeader`、`.accountHeader` 里的按钮必须是 `variant="toolbar" size="toolbarIcon"` 的 Button，`#runtimeDetailsHost` 里的必须是 `size="footerIcon"`。每个按钮都要带全该尺寸的变体类名；`className` 经 tailwind-merge 顶掉尺寸类也算违规。
 - 样式：无层规则不得修改这些按钮的宽高（含 min/max 与 inline/block-size）或文字颜色。
 
-选择器按“可能命中”判断：伪类和 `data-state`、`aria-*` 的取值视为可能成立，所有组合符都按后代关系处理，伪元素不算按钮本身。测试还断言十个按钮及其可访问名称都出现在这一帧，避免检查落空。
+选择器按“可能命中”判断：伪类和 `data-state`、`data-phase`、`aria-*` 的取值视为可能成立，所有组合符都按后代关系处理，伪元素不算按钮本身。测试还断言十个按钮及其可访问名称都出现在这一帧，避免检查落空。
 
 在修复前的源码上，该检查报出 23 处违规：10 个按钮没有使用共享变体，另有 13 条规则逐个设置按钮的尺寸或颜色。正例覆盖头像按钮的形状微调、层内规则、其他元素和弹层规则。反例覆盖以下情形：
 
@@ -107,7 +107,17 @@ Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。�
 
 输入栏的附件、权限和思考强度是 Select 触发器，不是 Button，另有一项检查：三个触发器都要带 `.composerMenuTrigger.composerIconTrigger`，且无层的宽高或文字颜色规则要么命中全部三个，要么一个都不命中。属性按当前帧的取值判断，所以完全访问模式下权限按钮的警告色（`data-mode="yolo"`）不在检查范围内。在修复前的源码上，这项检查报出 5 处违规：思考强度既没有共享类，又有自己的尺寸与颜色规则，共享的三条规则因此只命中另外两个触发器。反例覆盖以下三种情形：用自有规则代替共享类、只给部分触发器改色、窄屏时只收窄其中一个。
 
-两项检查都不判断形状是否合理。已进入 `pnpm check`。
+这项检查后来扩展到输入栏全部五个菜单触发器，并同时渲染就绪帧和设置事务期间（`configuring`）的帧，按组检查：
+
+- 图标组（附件、权限、思考强度）：带 `.composerMenuTrigger.composerIconTrigger`，检查宽高、颜色和内边距。
+- 文字组（工作模式、模型）：带 `.composerMenuTrigger.optionButton`，检查内边距。
+- 全部五个：检查透明度，也就是设置事务期间的亮度。
+
+在每一帧里，规则要么命中组内全部触发器，要么一个都不命中。另有一项失效规则检查：点名输入栏区域或触发器类名（`.composerToolbar`、`.composerLeading`、`.composerTrailing`、`.composerMenuTrigger`、`.composerIconTrigger`、`.optionButton`）的无层规则，必须在某一帧里命中至少一个元素；伪元素规则除外。
+
+在修复前的样式上，分组检查报出 2 处违规：`#selectWorkMode` 单独设置窄屏内边距，设置事务期间只有文字组保持亮度。失效规则检查也报出 2 处：`.composerLeading .iconButton`，以及设置事务规则里的 `.iconButton:disabled`。反例覆盖只给一个文字触发器设窄屏内边距、文字触发器缺共享类、设置事务期间只让文字组保持亮度、窄屏规则或设置事务规则还留在不再渲染的类名上，以及限定了触发器从不带的 data-slot。
+
+两项检查都不判断形状是否合理，也不计算层叠：同一元素上被更高特异性规则盖掉的声明不在检查范围内。已进入 `pnpm check`。
 
 ## 结构整理门禁
 

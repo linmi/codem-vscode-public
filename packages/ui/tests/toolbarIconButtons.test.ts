@@ -63,7 +63,10 @@ function compounds(selector: string): string[] {
   return parts.filter(Boolean)
 }
 
-/** 伪类和会随交互变化的状态属性（data-state、aria-*）的取值一律当作可能成立，只比元素名、类名、id 和其余属性。 */
+/**
+ * 伪类和会随交互或会话阶段变化的状态属性（data-state、data-phase、aria-*）的取值一律当作可能成立，只比元素名、类名、id 和其余属性。
+ * data-mode 等表示业务取值的属性照常比较。
+ */
 function compoundMayMatch(compound: string, element: MarkupElement): boolean {
   let bare = ""
   for (let index = 0; index < compound.length; index++) {
@@ -90,7 +93,7 @@ function compoundMayMatch(compound: string, element: MarkupElement): boolean {
     if (attribute) {
       const actual = element.attributes.get(attribute.toLowerCase())
       if (actual === undefined) return false
-      if (operator === "=" && !/^(?:data-state|aria-[\w-]+)$/u.test(attribute) && actual !== value!.replace(/^["']|["']$/gu, "")) return false
+      if (operator === "=" && !/^(?:data-state|data-phase|aria-[\w-]+)$/u.test(attribute) && actual !== value!.replace(/^["']|["']$/gu, "")) return false
     }
   }
   return true
@@ -134,7 +137,7 @@ function toolbarIconViolations(markup: string, css: string, variantClasses: (siz
     const missing = variantClasses(size).filter((className) => !element.classes.includes(className))
     if (missing.length) violations.push(`${name} lost ${missing.join(" ")} from the shared ${size} variant`)
   }
-  for (const { selector, properties } of sizeAndInkRules(css)) {
+  for (const { selector, properties } of unlayeredRules(css, sizeAndInk)) {
     for (const { element, name } of buttons) {
       if (selectorMayMatch(selector, element)) violations.push(`${selector} { ${properties} } overrides the shared variant on ${name}`)
     }
@@ -142,38 +145,66 @@ function toolbarIconViolations(markup: string, css: string, variantClasses: (siz
   return violations
 }
 
-/** 无层且设置宽高或文字颜色的规则，逐个选择器列出；它们压过全部 Tailwind 工具类。 */
-function sizeAndInkRules(css: string): { selector: string; properties: string }[] {
+/** 无层且设置了 `pattern` 所列属性的规则，逐个选择器列出；无层规则压过全部 Tailwind 工具类。 */
+function unlayeredRules(css: string, pattern: RegExp): { selector: string; properties: string }[] {
   const rules: { selector: string; properties: string }[] = []
   postcss.parse(css).walkRules((rule) => {
     if (inLayer(rule)) return
-    const properties = rule.nodes.flatMap((node) => node.type === "decl" && sizeAndInk.test(node.prop) ? [node.prop] : [])
+    const properties = rule.nodes.flatMap((node) => node.type === "decl" && pattern.test(node.prop) ? [node.prop] : [])
     if (properties.length) for (const selector of rule.selectors) rules.push({ selector, properties: properties.join("; ") })
   })
   return rules
 }
 
 /**
- * 输入栏的附件、权限、思考强度是 Select 触发器，不是 Button，共用 .composerMenuTrigger.composerIconTrigger 这条类名规则。
- * 三个都要带这两个类；无层的宽高或文字颜色规则要么命中全部，要么一个都不命中。
- * 属性按当前帧的取值判断：完全访问时权限按钮的警告色取决于 data-mode，首帧是默认权限，不在此列。
+ * 输入栏的菜单触发器是 Select / Popover 触发器，按类名共用规则：图标触发器（附件、权限、思考强度）带 .composerIconTrigger，
+ * 文字触发器（工作模式、模型）带 .optionButton，全部带 .composerMenuTrigger。每组都要带齐这些类；
+ * 一条无层规则若设置了该组关心的属性，要么命中组内全部，要么一个都不命中。图标组看宽高、颜色和内边距，文字组看内边距，
+ * 全部五个看透明度（设置事务期间保持同一亮度）。每一帧分别判断，属性按该帧的取值：
+ * 完全访问时权限按钮的警告色取决于 data-mode，这里的帧都是默认权限，不在此列。
  */
-const composerIconTriggers = ["addAttachment", "selectPermission", "selectEffort"]
+const composerGroups: readonly { ids: readonly string[]; classes: readonly string[]; properties: RegExp }[] = [
+  { ids: ["addAttachment", "selectPermission", "selectEffort"], classes: ["composerMenuTrigger", "composerIconTrigger"], properties: /^(?:(?:min-|max-)?(?:width|height|inline-size|block-size)|color|padding(?:-[\w-]+)?)$/u },
+  { ids: ["selectWorkMode", "selectModel"], classes: ["composerMenuTrigger", "optionButton"], properties: /^padding(?:-[\w-]+)?$/u },
+  { ids: ["addAttachment", "selectWorkMode", "selectPermission", "selectEffort", "selectModel"], classes: ["composerMenuTrigger"], properties: /^opacity$/u },
+]
 
-function composerIconTriggerViolations(markup: string, css: string): string[] {
-  const elements = markupElements(markup)
-  const violations: string[] = []
-  const triggers = composerIconTriggers.flatMap((id) => {
-    const element = elements.find((candidate) => candidate.attributes.get("id") === id)
-    if (!element) violations.push(`#${id} did not render`)
-    else if (!element.classes.includes("composerMenuTrigger") || !element.classes.includes("composerIconTrigger")) violations.push(`#${id} does not carry .composerMenuTrigger.composerIconTrigger`)
-    return element ? [{ id, element }] : []
-  })
-  for (const { selector, properties } of sizeAndInkRules(css)) {
-    const matched = triggers.filter(({ element }) => selectorMayMatch(selector, element))
-    if (matched.length && matched.length < triggers.length) violations.push(`${selector} { ${properties} } styles only ${matched.map(({ id }) => `#${id}`).join(", ")}`)
+function composerTriggerViolations(frames: readonly string[], css: string): string[] {
+  const violations = new Set<string>()
+  for (const frame of frames) {
+    const elements = markupElements(frame)
+    for (const group of composerGroups) {
+      const triggers = group.ids.flatMap((id) => {
+        const element = elements.find((candidate) => candidate.attributes.get("id") === id)
+        if (!element) violations.add(`#${id} did not render`)
+        else if (group.classes.some((className) => !element.classes.includes(className))) violations.add(`#${id} does not carry .${group.classes.join(".")}`)
+        return element ? [{ id, element }] : []
+      })
+      for (const { selector, properties } of unlayeredRules(css, group.properties)) {
+        const matched = triggers.filter(({ element }) => selectorMayMatch(selector, element))
+        if (matched.length && matched.length < triggers.length) violations.add(`${selector} { ${properties} } styles only ${matched.map(({ id }) => `#${id}`).join(", ")}`)
+      }
+    }
   }
-  return violations
+  return [...violations]
+}
+
+/**
+ * 点名输入栏区域或触发器类名的无层规则，必须在某一帧里命中至少一个元素。触发器换了实现、旧类名不再渲染时，
+ * 这类规则会静默失效（例如窄栏收紧与设置事务期间保持亮度曾只写给 .iconButton）。伪元素规则不在此列。
+ */
+const composerClass = /\.(?:composerToolbar|composerLeading|composerTrailing|composerMenuTrigger|composerIconTrigger|optionButton)(?![\w-])/u
+
+function deadComposerRules(frames: readonly string[], css: string): string[] {
+  const elements = frames.flatMap((frame) => markupElements(frame))
+  const dead: string[] = []
+  postcss.parse(css).walkRules((rule) => {
+    if (inLayer(rule)) return
+    for (const selector of rule.selectors) {
+      if (composerClass.test(selector) && !selector.includes("::") && !elements.some((element) => selectorMayMatch(selector, element))) dead.push(`${selector} matches nothing in the composer`)
+    }
+  })
+  return dead
 }
 
 const entry = fileURLToPath(new URL("../src/styles.css", import.meta.url))
@@ -189,6 +220,7 @@ const signedIn: Extract<AccountState, { status: "signedIn" }> = {
 describe("@codem/ui toolbar icon buttons", () => {
   let directory = ""
   let markup = ""
+  let composerFrames: string[] = []
   let variantClasses: (size: string) => string[] = () => []
 
   before(async () => {
@@ -218,7 +250,10 @@ describe("@codem/ui toolbar icon buttons", () => {
       conversationSearch: { open: false, status: "idle", query: "", hits: [], truncated: false, error: null, target: null, historical: false },
       pluginManagement: { open: false, loaded: false, status: "idle", entries: [], skills: [], error: null, notice: null },
     }
-    markup = render(views.ChatApp, { host, initial: ready }) + render(views.AccountPage, { account: signedIn, brandMark: null, focusRequest: 0, onBack() {}, post() {} })
+    const chat = render(views.ChatApp, { host, initial: ready })
+    markup = chat + render(views.AccountPage, { account: signedIn, brandMark: null, focusRequest: 0, onBack() {}, post() {} })
+    // 设置事务期间（configuring）输入栏触发器全部禁用；与就绪帧一起检查。
+    composerFrames = [chat, render(views.ChatApp, { host, initial: { ...ready, phase: "configuring" } })]
     variantClasses = (size) => /class="([^"]*)"/u.exec(render(views.Button, { variant: "toolbar", size }))![1]!.split(/\s+/u)
   })
 
@@ -273,31 +308,67 @@ describe("@codem/ui toolbar icon buttons", () => {
     })
   }
 
-  it("gives the composer's attachment, permission and effort triggers one class rule", () => {
-    assert.deepEqual(composerIconTriggerViolations(markup, shared), [])
+  it("gives the composer's triggers one class rule per group, in the ready and configuring frames", () => {
+    assert.match(composerFrames[1]!, /data-phase="configuring"/u)
+    assert.deepEqual(composerTriggerViolations(composerFrames, shared), [])
   })
 
-  const composer = (effortClass: string) => `<form class="composer"><div class="composerToolbar"><div class="composerLeading"><span id="attachmentMenu"><button id="addAttachment" data-slot="select-trigger" class="composerMenuTrigger composerIconTrigger"></button></span></div><div class="composerTrailing"><span id="permissionMenu"><button id="selectPermission" data-slot="select-trigger" data-mode="default" class="composerMenuTrigger composerIconTrigger"></button></span><span id="effortSelector"><button id="selectEffort" data-slot="select-trigger" class="${effortClass}"><span><svg class="effortSignal"></svg></span></button></span><span id="modelMenu"><button id="selectModel" data-slot="popover-trigger" class="composerMenuTrigger optionButton">Auto</button></span></div></div></form>`
+  it("leaves no composer rule that matches nothing rendered", () => {
+    assert.deepEqual(deadComposerRules(composerFrames, shared), [])
+  })
 
-  it("accepts rules shared by all three triggers, their wrappers, the effort signal and state or neighbour rules", () => {
-    assert.deepEqual(composerIconTriggerViolations(composer("composerMenuTrigger composerIconTrigger"), `.composerMenuTrigger[data-slot] { height: 28px; color: gray; }
+  const shared3 = "composerMenuTrigger composerIconTrigger"
+  const composer = ({ phase = "ready", effort = shared3, workMode = "composerMenuTrigger optionButton" } = {}) => {
+    const disabled = phase === "configuring" ? ' disabled=""' : ""
+    return `<div class="app" data-phase="${phase}"><form class="composer"><div class="composerToolbar"><div class="composerLeading"><span id="attachmentMenu"><button id="addAttachment" data-slot="select-trigger" class="${shared3}"${disabled}><span class="composerMenuIcon"><svg></svg></span><svg></svg></button></span><span id="workModeMenu"><button id="selectWorkMode" data-slot="select-trigger" class="${workMode}"${disabled}>Agent<svg></svg></button></span></div><div class="composerTrailing"><span id="permissionMenu"><button id="selectPermission" data-slot="select-trigger" data-mode="default" class="${shared3}"${disabled}></button></span><span id="effortSelector"><button id="selectEffort" data-slot="select-trigger" class="${effort}"${disabled}><span><svg class="effortSignal"></svg></span></button></span><span id="modelMenu"><button id="selectModel" data-slot="popover-trigger" class="composerMenuTrigger optionButton"${disabled}>Auto</button></span></div></div></form></div>`
+  }
+  const frames = (options: { effort?: string; workMode?: string } = {}) => [composer(options), composer({ ...options, phase: "configuring" })]
+  const sharedComposerCss = `.composerLeading, .composerTrailing { display: flex; }
+.composerLeading { gap: 4px; }
+.optionButton { padding: 5px 8px; border-radius: 999px; }
+.composerMenuTrigger[data-slot] { height: 28px; padding: 4px 6px; color: gray; }
 .composerMenuTrigger[data-slot]:hover:not(:disabled) { color: black; }
-.composerMenuTrigger.composerIconTrigger { width: 28px; }
+.composerMenuTrigger[data-slot] > svg { display: none; }
+.composerMenuTrigger.composerIconTrigger { width: 28px; padding: 4px; }
+.app[data-phase="configuring"] .composerToolbar .composerMenuTrigger:disabled { opacity: 1; }
+@media (max-width: 420px) { .composerLeading { gap: 0; } .composerMenuTrigger.optionButton { padding-inline: 5px; } }
+@media (max-width: 340px) { .composerMenuTrigger.optionButton { padding-inline: 4px; } .composerMenuTrigger.composerIconTrigger { width: 24px; padding: 2px; } #attachmentMenu, #permissionMenu, #effortSelector { width: 24px; } }`
+
+  it("accepts rules shared by a whole group, wrappers, the effort signal, the yolo colour and neighbours", () => {
+    const css = `${sharedComposerCss}
 [data-slot="select-trigger"] { height: 30px; }
 #attachmentMenu, #permissionMenu, #effortSelector { width: 28px; height: 28px; }
 #selectEffort .effortSignal { width: 20px; height: 20px; }
 #selectPermission[data-mode="yolo"] { color: orange; }
-#selectModel { color: black; }
-@layer utilities { #selectEffort { width: 1px; } }`), [])
+#selectModel { min-width: 0; color: black; }
+.sendButton:disabled { opacity: .2; }
+.composerMenuTrigger[data-slot]::after { width: 1px; }
+.decisionHeading .iconButton { width: 22px; }
+@layer utilities { #selectEffort { width: 1px; } .composerToolbar .gone { opacity: 1; } }`
+    assert.deepEqual(composerTriggerViolations(frames(), css), [])
+    assert.deepEqual(deadComposerRules(frames(), css), [])
   })
 
-  for (const [label, effortClass, css, expected] of [
-    ["an effort trigger with its own rule instead of the shared class", "effortTrigger", "#selectEffort.effortTrigger { width: 28px; height: 28px; color: gray; }", ["#selectEffort does not carry .composerMenuTrigger.composerIconTrigger", "#selectEffort.effortTrigger { width; height; color } styles only #selectEffort"]],
-    ["a colour for some of the triggers", "composerMenuTrigger composerIconTrigger", "#addAttachment, .composerTrailing .composerIconTrigger { color: red; }", ["#addAttachment { color } styles only #addAttachment", ".composerTrailing .composerIconTrigger { color } styles only #selectPermission, #selectEffort"]],
-    ["a narrow-width size for the leading trigger", "composerMenuTrigger composerIconTrigger", "@media (max-width: 340px) { .composerLeading .composerIconTrigger { width: 24px; } }", [".composerLeading .composerIconTrigger { width } styles only #addAttachment"]],
+  for (const [label, options, css, expected] of [
+    ["an effort trigger with its own rule instead of the shared class", { effort: "effortTrigger" }, "#selectEffort.effortTrigger { width: 28px; height: 28px; color: gray; }", ["#selectEffort does not carry .composerMenuTrigger.composerIconTrigger", "#selectEffort.effortTrigger { width; height; color } styles only #selectEffort", "#selectEffort does not carry .composerMenuTrigger"]],
+    ["a colour for some of the icon triggers", {}, "#addAttachment, .composerTrailing .composerIconTrigger { color: red; }", ["#addAttachment { color } styles only #addAttachment", ".composerTrailing .composerIconTrigger { color } styles only #selectPermission, #selectEffort"]],
+    ["a narrow-width size for the leading icon trigger", {}, "@media (max-width: 340px) { .composerLeading .composerIconTrigger { width: 24px; } }", [".composerLeading .composerIconTrigger { width } styles only #addAttachment"]],
+    ["a narrow-width padding for one text trigger", {}, "@media (max-width: 420px) { #selectWorkMode { padding-inline: 5px; } }", ["#selectWorkMode { padding-inline } styles only #selectWorkMode"]],
+    ["a text trigger without the shared class", { workMode: "composerMenuTrigger" }, "", ["#selectWorkMode does not carry .composerMenuTrigger.optionButton"]],
+    ["keeping only the text triggers opaque while configuring", {}, '.app[data-phase="configuring"] .composerToolbar .optionButton:disabled { opacity: 1; }', ['.app[data-phase="configuring"] .composerToolbar .optionButton:disabled { opacity } styles only #selectWorkMode, #selectModel']],
   ] as const) {
     it(`rejects ${label}`, () => {
-      assert.deepEqual(composerIconTriggerViolations(composer(effortClass), css), expected)
+      assert.deepEqual(composerTriggerViolations(frames(options), css), expected)
+    })
+  }
+
+  for (const [label, css, expected] of [
+    ["a narrow-width rule left on a class the composer no longer renders", "@media (max-width: 340px) { .composerLeading .iconButton { width: 24px; padding: 4px; } }", [".composerLeading .iconButton matches nothing in the composer"]],
+    ["a configuring rule left on a class the composer no longer renders", '.app[data-phase="configuring"] .composerToolbar .optionButton:disabled, .app[data-phase="configuring"] .composerToolbar .iconButton:disabled { opacity: 1; }', ['.app[data-phase="configuring"] .composerToolbar .iconButton:disabled matches nothing in the composer']],
+    ["a trigger class qualified by a slot it never has", '.composerMenuTrigger[data-slot="button"] { gap: 2px; }', ['.composerMenuTrigger[data-slot="button"] matches nothing in the composer']],
+  ] as const) {
+    it(`rejects ${label}`, () => {
+      assert.deepEqual(deadComposerRules(frames(), `${sharedComposerCss}\n${css}`), expected)
     })
   }
 })

@@ -54,7 +54,16 @@
 .composerMenuTrigger[data-slot]:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
 .composerMenuTrigger[data-slot] > svg { display: none; }
 /* 附件、权限、思考强度三个图标触发器共用这一条尺寸规则，配色、悬停和焦点随 .composerMenuTrigger。 */
-.composerMenuTrigger.composerIconTrigger { width: 28px; padding: 4px; border-radius: 999px; }
+.composerMenuTrigger.composerIconTrigger { width: 28px; padding: 4px; border-radius: 999px; justify-content: center; }
+/* 窄栏里输入栏触发器一起收紧：文字触发器收左右内边距，图标触发器收到 24px 宽，2px 内边距仍放得下 20px 的思考强度信号。 */
+@media (max-width: 420px) {
+  .composerMenuTrigger.optionButton { padding-inline: 5px; }
+}
+@media (max-width: 340px) {
+  .composerMenuTrigger.optionButton { padding-inline: 4px; }
+  .composerMenuTrigger.composerIconTrigger { width: 24px; padding: 2px; }
+  #attachmentMenu, #permissionMenu, #effortSelector { width: 24px; }
+}
 .composerMenuIcon { display: inline-flex; flex-shrink: 0; }
 .composerMenuIcon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .composerPickerMenu { width: 280px; max-width: calc(100vw - 24px); padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--popover) 70%, transparent); backdrop-filter: blur(40px) saturate(150%); box-shadow: var(--composerShadow); color: var(--ink); font: 500 var(--uiFontSize)/1.5 var(--uiFont); scrollbar-width: thin; }
