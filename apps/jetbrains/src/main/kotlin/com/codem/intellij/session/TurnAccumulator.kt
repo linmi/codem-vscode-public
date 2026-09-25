@@ -3,6 +3,7 @@ package com.codem.intellij.session
 import com.codem.intellij.core.CodemError
 import com.codem.intellij.core.JsonValue
 import com.codem.intellij.core.RpcNotification
+import com.codem.intellij.webview.ChatMessageView
 
 data class TurnState(
     val turnId: String,
@@ -17,6 +18,11 @@ data class TurnState(
     var diffSummary: JsonValue? = null,
     val activities: MutableList<TurnActivity> = mutableListOf(),
     val toolMessageIds: MutableMap<String, String> = mutableMapOf(),
+    /** final_answer 的 callId 与 itemId：其结果与进度属于结构化交付，不再作为工具活动出现。 */
+    val finalAnswerCalls: MutableSet<String> = mutableSetOf(),
+    val finalAnswerItems: MutableSet<String> = mutableSetOf(),
+    /** 按 itemId 保存结构化交付；与流式正文分开，轮次消息中排在最后。 */
+    val finalAnswers: LinkedHashMap<String, FinalAnswer> = linkedMapOf(),
     val startedAt: Long = System.currentTimeMillis(),
     var finishedAt: Long? = null,
 )
@@ -25,6 +31,8 @@ data class TurnState(
  * 流式文本保留空格、换行和制表符；空增量是合法 no-op。
  * 只有 turn/completed 才能进入终态。activity 不是终态。
  * 思考/工具走 item 事件投影，不另存 transcript。
+ * 工具名、callId、输入与 final_answer 由 [CoreItemProjection] 按 Node Host 的 parseAppServerItem 推导，
+ * 活动文案与交付位置对齐 VS Code chatController。
  */
 class TurnAccumulator {
     var current: TurnState? = null
@@ -52,14 +60,8 @@ class TurnAccumulator {
             "turn/activity" -> {
                 val turn = current ?: return
                 if (turn.phase == TurnPhase.Terminal) return
-                // VS Code：provider_stream → 模型正在生成；其余 → Core 正在处理。
-                val source = textOf(notification.params.fields["source"])
-                val raw = textOf(notification.params.fields["activity"])
-                turn.activity = when {
-                    source == "provider_stream" -> "模型正在生成"
-                    !raw.isNullOrBlank() && raw != "working" -> raw
-                    else -> "Core 正在处理"
-                }
+                // 与 VS Code chatController 相同的两种文案；Core 的原始 activity 文本不进入界面。
+                turn.activity = if (textOf(notification.params.fields["source"]) == "provider_stream") "模型正在生成" else "Core 正在处理"
             }
             "item/agentMessage/delta" -> append(current?.text, notification.params.fields["delta"])
             "item/reasoning/textDelta" -> {
@@ -160,54 +162,99 @@ class TurnAccumulator {
         return turn
     }
 
-    fun liveMessages(): List<com.codem.intellij.webview.ChatMessageView> {
+    fun liveMessages(): List<ChatMessageView> {
         val turn = current ?: return emptyList()
         if (turn.phase == TurnPhase.Terminal) return emptyList()
-        return turn.activities.map { it.toMessage(turn.turnId) }
+        return turn.activities.map { it.toMessage(turn.turnId) } + finalReplies(turn)
     }
 
-    fun committedMessages(): List<com.codem.intellij.webview.ChatMessageView> {
+    /**
+     * 终态顺序：思考/工具、流式正文、结构化交付。交付放在最后，与 VS Code terminalReplyLast 一致。
+     * 正文沿用 turnId 作为消息 id，ProjectSession 按 id 去重，不会重复落盘。
+     */
+    fun committedMessages(): List<ChatMessageView> {
         val turn = current ?: return emptyList()
         if (turn.phase != TurnPhase.Terminal) return emptyList()
-        return turn.activities.map { it.toMessage(turn.turnId) }
+        val text = turn.text.toString()
+        val reply = if (text.isEmpty()) emptyList() else listOf(ChatMessageView(turn.turnId, "assistant", text, turnId = turn.turnId))
+        return turn.activities.map { it.toMessage(turn.turnId) } + reply + finalReplies(turn)
     }
 
+    private fun finalReplies(turn: TurnState): List<ChatMessageView> =
+        turn.finalAnswers.map { (itemId, answer) ->
+            ChatMessageView(
+                "${turn.turnId}:final:$itemId",
+                "assistant",
+                answer.summary,
+                turnId = turn.turnId,
+                hasArtifacts = answer.artifacts.isNotEmpty(),
+            )
+        }
+
     private fun applyItem(params: JsonValue.ObjectValue, started: Boolean) {
+        val turn = current ?: return
+        if (turn.phase == TurnPhase.Terminal) return
         val item = params.fields["item"] as? JsonValue.ObjectValue ?: return
         val type = textOf(item.fields["type"]) ?: return
         if (type == "userMessage" || type == "agentMessage") return
-        val toolName = textOf(item.fields["tool"]) ?: textOf(item.fields["toolName"])
-        if (toolName == "final_answer") return
-        val itemId = textOf(item.fields["id"]) ?: return
+        val itemId = textOf(item.fields["id"])?.takeIf { it.isNotBlank() } ?: return
+        val projected = CoreItemProjection.project(item)
+        if (projected.toolName == "final_answer") {
+            acceptFinalAnswer(turn, item, itemId, projected, started)
+            return
+        }
+        // final_answer 调用的结果条目属于交付本身，不另起工具活动。
+        if (projected.callId != null && projected.callId in turn.finalAnswerCalls) return
         val reasoning = type == "reasoning"
         val status = itemStatus(item, started)
         val label = when {
             reasoning -> "思考过程"
-            !toolName.isNullOrBlank() && type == "mcpToolCall" -> "MCP · $toolName"
-            !toolName.isNullOrBlank() -> toolName
+            projected.toolName != null && type == "mcpToolCall" -> "MCP · ${projected.toolName}"
+            projected.toolName != null -> projected.toolName
             else -> typeLabel(type)
         }
         val body = textOf(item.fields["output"]) ?: textOf(item.fields["text"]) ?: ""
         val summary = textOf(item.fields["summary"]).orEmpty()
-        val input = item.fields["arguments"] ?: item.fields["input"]
         appendActivity(
             itemId = itemId,
-            callId = textOf(item.fields["callId"]),
+            callId = projected.callId,
             role = if (reasoning) "reasoning" else "tool",
             label = label,
             status = status,
             delta = body,
             append = false,
             summary = summary,
-            details = if (reasoning) null else ToolDetailsProjection.project(label.removePrefix("MCP · "), input),
+            details = if (reasoning) null else ToolDetailsProjection.project(label.removePrefix("MCP · "), projected.input),
         )
+    }
+
+    /**
+     * 与 Node Host 合并 started/completed 的规则一致：后到的交付覆盖摘要，首个非空的附件列表保留；
+     * completed 却始终没有结构化输入是协议错误。
+     */
+    private fun acceptFinalAnswer(turn: TurnState, item: JsonValue.ObjectValue, itemId: String, projected: CoreItemFields, started: Boolean) {
+        projected.callId?.let { turn.finalAnswerCalls += it }
+        turn.finalAnswerItems += itemId
+        val previous = turn.finalAnswers[itemId]
+        val answer = projected.finalAnswer
+        if (answer == null) {
+            if (!started && previous == null && textOf(item.fields["status"]) == "completed") {
+                throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM final_answer item completed without structured input")
+            }
+            return
+        }
+        turn.finalAnswers[itemId] = if (previous?.artifacts?.isNotEmpty() == true) answer.copy(artifacts = previous.artifacts) else answer
     }
 
     private fun appendToolOutput(params: JsonValue.ObjectValue, delta: String) {
         if (delta.isEmpty()) return
+        val turn = current ?: return
+        val itemId = textOf(params.fields["itemId"])
+        val callId = textOf(params.fields["callId"])
+        if ((callId != null && callId in turn.finalAnswerCalls) || (itemId != null && itemId in turn.finalAnswerItems)) return
         appendActivity(
-            itemId = textOf(params.fields["itemId"]),
-            callId = textOf(params.fields["callId"]),
+            itemId = itemId,
+            callId = callId,
             role = "tool",
             label = "调用工具",
             status = "running",
@@ -318,4 +365,125 @@ class TurnAccumulator {
         val value = (nested as? JsonValue.Text)?.value ?: (direct as? JsonValue.Text)?.value
         return value?.takeIf { it.isNotBlank() } ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "turn id is required")
     }
+}
+
+data class FinalAnswerArtifact(
+    val kind: String,
+    val title: String,
+    val source: String?,
+    val uri: String?,
+    val path: String?,
+    val filename: String?,
+    val alt: String?,
+    val mime: String?,
+    val spec: JsonValue,
+)
+
+/** Core final_answer 的结构化交付：摘要与附件都保留，不被当作普通工具调用丢弃。 */
+data class FinalAnswer(
+    val status: String,
+    val kind: String,
+    val summary: String,
+    val artifacts: List<FinalAnswerArtifact>,
+)
+
+internal data class CoreItemFields(
+    val toolName: String?,
+    val callId: String?,
+    val input: JsonValue.ObjectValue?,
+    val finalAnswer: FinalAnswer?,
+)
+
+/**
+ * `@codem/app-server` parseAppServerItem 中决定展示的字段：toolName 是 packages/ui toolPresentation 的键，
+ * callId 关联进度，input 进入工具详情，final_answer 按 parseFinalAnswer 严格解析。
+ * 与 packages/contracts/core/itemProjection.json 逐例对照；结构不符按 InvalidFrame 拒绝。
+ */
+internal object CoreItemProjection {
+    private val FINAL_ANSWER_FIELDS = setOf("status", "kind", "summary", "artifacts")
+    private val ARTIFACT_FIELDS = setOf("kind", "title", "source", "uri", "path", "filename", "alt", "mime", "spec")
+    private val ARTIFACT_KINDS = setOf("file", "image", "chart", "url")
+    private val ANSWER_STATUSES = setOf("complete", "partial", "blocked")
+
+    fun project(item: JsonValue.ObjectValue): CoreItemFields {
+        val fields = item.fields
+        val type = (fields["type"] as? JsonValue.Text)?.value
+        val toolName = nonBlank(fields["tool"]) ?: when (type) {
+            "subagent" -> "dispatch"
+            "contextCompaction" -> "compact"
+            else -> null
+        }
+        val callId = nonBlank(fields["callId"])
+            ?: nonBlank(fields["subagentId"])
+            ?: if (toolName != null) nonBlank(fields["id"]) ?: invalid("item.id must be non-empty") else null
+        val input = objectOrNull(fields["arguments"], "item.arguments") ?: when (type) {
+            "subagent" -> compactObject("label" to nonBlank(fields["label"])?.let(JsonValue::Text), "kind" to nonBlank(fields["subagentKind"])?.let(JsonValue::Text))
+            "contextCompaction" -> compactObject("replaced" to nonNegativeInteger(fields["replaced"]), "kept" to nonNegativeInteger(fields["kept"]))
+            else -> null
+        }
+        val finalAnswer = if (toolName == "final_answer" && input != null) parseFinalAnswer(input, "item.arguments") else null
+        return CoreItemFields(toolName, callId, input, finalAnswer)
+    }
+
+    private fun parseFinalAnswer(answer: JsonValue.ObjectValue, label: String): FinalAnswer {
+        requireOnlyFields(answer, FINAL_ANSWER_FIELDS, label)
+        val status = when (val value = answer.fields["status"]) {
+            null -> "complete"
+            else -> (value as? JsonValue.Text)?.value?.takeIf { it in ANSWER_STATUSES } ?: invalid("$label.status has an invalid value")
+        }
+        val kind = if ((answer.fields["kind"] as? JsonValue.Text)?.value == "chat") "chat" else "task"
+        val summary = nonBlank(answer.fields["summary"]) ?: invalid("$label.summary must be non-empty")
+        val artifacts = when (val value = answer.fields["artifacts"]) {
+            null -> emptyList()
+            is JsonValue.ArrayValue -> value.items.mapIndexed { index, artifact -> parseArtifact(artifact, "$label.artifacts[$index]") }
+            else -> invalid("$label.artifacts must be an array")
+        }
+        return FinalAnswer(status, kind, summary, artifacts)
+    }
+
+    private fun parseArtifact(value: JsonValue, label: String): FinalAnswerArtifact {
+        val artifact = value as? JsonValue.ObjectValue ?: invalid("$label must be an object")
+        requireOnlyFields(artifact, ARTIFACT_FIELDS, label)
+        val fields = artifact.fields
+        return FinalAnswerArtifact(
+            kind = (fields["kind"] as? JsonValue.Text)?.value?.takeIf { it in ARTIFACT_KINDS } ?: invalid("$label.kind has an invalid value"),
+            title = (fields["title"] as? JsonValue.Text)?.value ?: invalid("$label.title must be a string"),
+            source = nullableString(fields["source"], "$label.source"),
+            uri = nullableString(fields["uri"], "$label.uri"),
+            path = nullableString(fields["path"], "$label.path"),
+            filename = nullableString(fields["filename"], "$label.filename"),
+            alt = nullableString(fields["alt"], "$label.alt"),
+            mime = nullableString(fields["mime"], "$label.mime"),
+            spec = fields["spec"] ?: JsonValue.Null,
+        )
+    }
+
+    private fun requireOnlyFields(value: JsonValue.ObjectValue, allowed: Set<String>, label: String) {
+        if (value.fields.keys.any { it !in allowed }) invalid("$label has unsupported fields")
+    }
+
+    private fun objectOrNull(value: JsonValue?, label: String): JsonValue.ObjectValue? = when (value) {
+        null, JsonValue.Null -> null
+        is JsonValue.ObjectValue -> value
+        else -> invalid("$label must be an object")
+    }
+
+    private fun nullableString(value: JsonValue?, label: String): String? = when (value) {
+        null, JsonValue.Null -> null
+        is JsonValue.Text -> value.value
+        else -> invalid("$label must be a string")
+    }
+
+    private fun nonBlank(value: JsonValue?): String? = (value as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() }
+
+    private fun nonNegativeInteger(value: JsonValue?): JsonValue? =
+        (value as? JsonValue.NumberValue)?.takeIf { it.value >= 0 && it.value == Math.floor(it.value) && !it.value.isInfinite() }
+
+    private fun compactObject(vararg entries: Pair<String, JsonValue?>): JsonValue.ObjectValue? {
+        val present = entries.mapNotNull { (key, value) -> value?.let { key to it } }
+        return if (present.isEmpty()) null else JsonValue.ObjectValue(linkedMapOf(*present.toTypedArray()))
+    }
+
+    private fun invalid(reason: String): Nothing =
+        throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM App Server $reason")
 }

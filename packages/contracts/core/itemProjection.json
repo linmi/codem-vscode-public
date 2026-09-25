@@ -1,0 +1,138 @@
+{
+  "id": "core.item.presentation-projection.v1",
+  "capabilityId": "A05",
+  "coreVersion": "0.8.47",
+  "cliVersion": "0.1.208",
+  "protocolVersion": 1,
+  "provenance": {
+    "kind": "source",
+    "paths": ["packages/app-server/src/items.ts", "apps/vscode/src/chat/chatController.ts"],
+    "revision": "56eda27a47a3642269f857de6ed4c7353efc311e"
+  },
+  "notes": "The item fields that decide how a live tool call is presented: toolName is the key packages/ui toolPresentation reads, callId correlates progress, input feeds tool details, and final_answer carries the structured delivery. Hosts must derive the same values or reject the item as a protocol error.",
+  "cases": [
+    {
+      "name": "tool-call-uses-protocol-tool",
+      "item": { "id": "item-1", "type": "commandExecution", "status": "inProgress", "tool": "run_bash", "callId": "call-1", "arguments": { "command": "pnpm check" } },
+      "expected": { "kind": "accepted", "toolName": "run_bash", "callId": "call-1", "input": { "command": "pnpm check" }, "finalAnswer": null }
+    },
+    {
+      "name": "tool-without-call-id-correlates-by-item-id",
+      "item": { "id": "item-2", "type": "toolCall", "status": "completed", "tool": "read_files", "arguments": { "path": "README.md" } },
+      "expected": { "kind": "accepted", "toolName": "read_files", "callId": "item-2", "input": { "path": "README.md" }, "finalAnswer": null }
+    },
+    {
+      "name": "subagent-maps-to-dispatch",
+      "item": { "id": "item-3", "type": "subagent", "status": "inProgress", "subagentId": "agent-1", "label": "Review changes", "subagentKind": "explorer" },
+      "expected": { "kind": "accepted", "toolName": "dispatch", "callId": "agent-1", "input": { "label": "Review changes", "kind": "explorer" }, "finalAnswer": null }
+    },
+    {
+      "name": "context-compaction-maps-to-compact",
+      "item": { "id": "item-4", "type": "contextCompaction", "status": "completed", "replaced": 12, "kept": 4 },
+      "expected": { "kind": "accepted", "toolName": "compact", "callId": "item-4", "input": { "replaced": 12, "kept": 4 }, "finalAnswer": null }
+    },
+    {
+      "name": "reasoning-is-not-a-tool",
+      "item": { "id": "item-5", "type": "reasoning", "status": "inProgress", "text": "" },
+      "expected": { "kind": "accepted", "toolName": null, "callId": null, "input": null, "finalAnswer": null }
+    },
+    {
+      "name": "final-answer-with-artifacts",
+      "item": {
+        "id": "item-6",
+        "type": "toolCall",
+        "status": "completed",
+        "tool": "final_answer",
+        "callId": "call-6",
+        "arguments": {
+          "status": "partial",
+          "kind": "chat",
+          "summary": "Report is ready.",
+          "artifacts": [
+            { "kind": "file", "title": "Report", "path": "docs/report.md" },
+            { "kind": "chart", "title": "Trend", "mime": null, "spec": { "type": "line", "data": [1, 2] } }
+          ]
+        }
+      },
+      "expected": {
+        "kind": "accepted",
+        "toolName": "final_answer",
+        "callId": "call-6",
+        "input": {
+          "status": "partial",
+          "kind": "chat",
+          "summary": "Report is ready.",
+          "artifacts": [
+            { "kind": "file", "title": "Report", "path": "docs/report.md" },
+            { "kind": "chart", "title": "Trend", "mime": null, "spec": { "type": "line", "data": [1, 2] } }
+          ]
+        },
+        "finalAnswer": {
+          "status": "partial",
+          "kind": "chat",
+          "summary": "Report is ready.",
+          "artifacts": [
+            { "kind": "file", "title": "Report", "source": null, "uri": null, "path": "docs/report.md", "filename": null, "alt": null, "mime": null, "spec": null },
+            { "kind": "chart", "title": "Trend", "source": null, "uri": null, "path": null, "filename": null, "alt": null, "mime": null, "spec": { "type": "line", "data": [1, 2] } }
+          ]
+        }
+      }
+    },
+    {
+      "name": "final-answer-defaults",
+      "item": { "id": "item-7", "type": "toolCall", "status": "inProgress", "tool": "final_answer", "callId": "call-7", "arguments": { "summary": "Done.", "kind": "other" } },
+      "expected": {
+        "kind": "accepted",
+        "toolName": "final_answer",
+        "callId": "call-7",
+        "input": { "summary": "Done.", "kind": "other" },
+        "finalAnswer": { "status": "complete", "kind": "task", "summary": "Done.", "artifacts": [] }
+      }
+    },
+    {
+      "name": "final-answer-blank-summary",
+      "item": { "id": "item-8", "type": "toolCall", "status": "completed", "tool": "final_answer", "arguments": { "summary": "   " } },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    },
+    {
+      "name": "final-answer-unsupported-field",
+      "item": { "id": "item-9", "type": "toolCall", "status": "completed", "tool": "final_answer", "arguments": { "summary": "Done.", "extra": true } },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    },
+    {
+      "name": "final-answer-invalid-status",
+      "item": { "id": "item-10", "type": "toolCall", "status": "completed", "tool": "final_answer", "arguments": { "summary": "Done.", "status": "done" } },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    },
+    {
+      "name": "final-answer-artifacts-not-array",
+      "item": { "id": "item-11", "type": "toolCall", "status": "completed", "tool": "final_answer", "arguments": { "summary": "Done.", "artifacts": {} } },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    },
+    {
+      "name": "final-answer-artifact-invalid-kind",
+      "item": { "id": "item-12", "type": "toolCall", "status": "completed", "tool": "final_answer", "arguments": { "summary": "Done.", "artifacts": [{ "kind": "video", "title": "Clip" }] } },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    },
+    {
+      "name": "final-answer-artifact-unsupported-field",
+      "item": { "id": "item-13", "type": "toolCall", "status": "completed", "tool": "final_answer", "arguments": { "summary": "Done.", "artifacts": [{ "kind": "file", "title": "Report", "size": 3 }] } },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    },
+    {
+      "name": "final-answer-artifact-non-string-path",
+      "item": { "id": "item-14", "type": "toolCall", "status": "completed", "tool": "final_answer", "arguments": { "summary": "Done.", "artifacts": [{ "kind": "file", "title": "Report", "path": 3 }] } },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    },
+    {
+      "name": "final-answer-artifact-missing-title",
+      "item": { "id": "item-15", "type": "toolCall", "status": "completed", "tool": "final_answer", "arguments": { "summary": "Done.", "artifacts": [{ "kind": "url", "uri": "https://example.com" }] } },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    },
+    {
+      "name": "non-object-arguments",
+      "item": { "id": "item-16", "type": "toolCall", "status": "inProgress", "tool": "run_bash", "arguments": "pnpm check" },
+      "expected": { "kind": "protocol-error", "class": "invalid-frame" }
+    }
+  ]
+}

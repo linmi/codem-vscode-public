@@ -767,6 +767,34 @@ class ProjectSessionTest {
         assertTrue(published.any { it.messages.any { message -> message.role == "assistant" } })
     }
 
+    /** final_answer 是独立交付：保留摘要与附件标记，落盘时排在正文之后，正文不重复。 */
+    @Test
+    fun finalAnswerIsCommittedAfterTheStreamedText() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        session.connect()
+        session.send("summarize", "req-final")
+        fun notify(method: String, params: JsonValue.ObjectValue) =
+            process.enqueue(encodeJson(JsonValue.obj("jsonrpc" to JsonValue.Text("2.0"), "method" to JsonValue.Text(method), "params" to params)))
+        notify("item/agentMessage/delta", JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "delta" to JsonValue.Text("Streamed notes")))
+        notify(
+            "item/completed",
+            JsonValue.obj(
+                "threadId" to JsonValue.Text("thread-1"),
+                "turnId" to JsonValue.Text("turn-1"),
+                "item" to JsonValue.parse(
+                    """{"id":"final-1","type":"toolCall","status":"completed","tool":"final_answer","callId":"call-final","arguments":{"summary":"Delivered summary","artifacts":[{"kind":"file","title":"Report","path":"docs/report.md"}]}}""",
+                ),
+            ),
+        )
+        completeTurn(process, "thread-1", "turn-1")
+        val done = awaitSnapshot(session) { snap -> snap.phase == "ready" && snap.messages.any { it.id == "turn-1:final:final-1" } }
+        val turnMessages = done.messages.filter { it.turnId == "turn-1" && it.role == "assistant" }
+        assertEquals(listOf("Streamed notes", "Delivered summary"), turnMessages.map { it.text })
+        assertTrue(turnMessages.last().hasArtifacts)
+        assertTrue(done.messages.none { it.label == "final_answer" })
+    }
+
     /** 审批入队是界面事实：不推快照，卡片就永远不出现，用户也无从回复。 */
     @Test
     fun approvalRequestIsPublishedAndClearedAfterReply() {

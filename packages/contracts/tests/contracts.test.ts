@@ -13,6 +13,7 @@ import {
   APP_SERVER_PROTOCOL_VERSION,
   APP_SERVER_KNOWN_NOTIFICATIONS,
   AppServerRpcPeer,
+  parseAppServerItem,
 } from "@codem/app-server"
 import { resolveSessionsRoot, readSessionHistory } from "@codem/history"
 import { parseUiAction } from "@codem/ui/contract"
@@ -62,6 +63,7 @@ describe("@codem/contracts package integrity", () => {
       "core/interactionReplies.json",
       "core/knownNotifications.json",
       "core/jsonText.json",
+      "core/itemProjection.json",
       "webview/sendAction.json",
       "webview/panelReply.json",
       "webview/initialSnapshot.json",
@@ -165,6 +167,22 @@ describe("core transport samples", () => {
       } else {
         assert.equal(testCase.expected.kind, "protocol-error", testCase.name)
         assert.throws(() => JSON.parse(testCase.text), SyntaxError, testCase.name)
+      }
+    }
+  })
+
+  it("derives the presentation fields of every item sample like the Node host", async () => {
+    const sample = await readJson(join(root, "core/itemProjection.json"))
+    const cases = sample.cases as readonly { readonly name: string; readonly item: unknown; readonly expected: Record<string, unknown> }[]
+    assert.ok(cases.length > 0)
+    for (const testCase of cases) {
+      if (testCase.expected.kind === "accepted") {
+        const item = parseAppServerItem(testCase.item, "item")
+        const { toolName, callId, input, finalAnswer } = testCase.expected
+        assert.deepEqual({ toolName: item.toolName, callId: item.callId, input: item.input, finalAnswer: item.finalAnswer }, { toolName, callId, input, finalAnswer }, testCase.name)
+      } else {
+        assert.deepEqual(testCase.expected, { kind: "protocol-error", class: "invalid-frame" }, testCase.name)
+        assert.throws(() => parseAppServerItem(testCase.item, "item"), testCase.name)
       }
     }
   })
