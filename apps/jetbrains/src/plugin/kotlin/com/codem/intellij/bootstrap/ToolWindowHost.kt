@@ -28,6 +28,7 @@ import com.codem.intellij.webview.FileSearchView
 import com.codem.intellij.webview.IdeTheme
 import com.codem.intellij.webview.JcefHostPanel
 import com.codem.intellij.webview.SelectionView
+import com.codem.intellij.webview.SnapshotPublisher
 import com.codem.intellij.webview.SubmissionReceiptView
 import com.codem.intellij.webview.submissionRequestId
 import com.codem.intellij.webview.ViewAction
@@ -52,6 +53,8 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * 更改要点：构造即读登录态，不依赖 JCEF ready 竞态；已登录自动连 Core；
  * auth status / connect 有独立看门狗，超时必须下发失败+重试，不能停在 checking。
+ * 快照只经 [SnapshotPublisher] 串行发布：Core 读线程、后台池、看门狗和 EDT 都只改各自状态再请求发布，
+ * 发布线程按最新状态组装并盖唯一递增版本，旧快照不会晚于新快照送达。
  */
 class ToolWindowHost(
     private val project: Project,
@@ -73,30 +76,31 @@ class ToolWindowHost(
         Thread(runnable, "codem-host-watchdog").apply { isDaemon = true }
     }
     private val searchedFiles = java.util.concurrent.ConcurrentHashMap<String, Path>()
-    @Volatile private var local = themed(initialSnapshot().copy(sendKey = storedSendKey()))
-    private val accountRefresh = AccountStatusRefresh({ current().account }, ::publishAccount)
+    private val publishing = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "codem-snapshot-publisher").apply { isDaemon = true }
+    }
+    private val publisher = SnapshotPublisher(
+        initialLocal = initialLocal(),
+        executor = publishing,
+        compose = ::compose,
+        deliver = { snapshot ->
+            panel.applyTheme(IdeTheme.current())
+            panel.postSnapshot(snapshot)
+        },
+        onError = { error -> log.warn("CodeM snapshot publication failed", error) },
+    )
+    private val accountRefresh = AccountStatusRefresh({ publisher.local().account }, ::publishAccount)
 
     init {
         ApplicationManager.getApplication().messageBus.connect(project)
             .subscribe(LafManagerListener.TOPIC, LafManagerListener {
-                ApplicationManager.getApplication().invokeLater {
-                    if (!project.isDisposed) publish(current())
-                }
+                if (!project.isDisposed) publisher.refresh()
             })
+        // 首屏快照在页面脚本执行前排队；JcefHostPanel 在 onLoadEnd 时补发。
+        publisher.refresh()
         // 重载后 UI ready 可能丢；不靠用户再点登录，后台直接读本机 CLI 登录态并自动连接。
         runBackground { refreshAccount() }
         watchEditorSelection()
-    }
-
-    fun current(): ChatSnapshot = sessionRef.get()?.snapshot()?.withLocalAccount() ?: local
-
-    fun publish(snapshot: ChatSnapshot) {
-        // 调用方若要保留 Host 账户，先 withLocalAccount；这里不再回写成旧 local.account，
-        // 否则 publishAccount(signedIn) 会被 checking 盖掉，界面永远只剩 Logo。
-        val next = themed(snapshot.copy(brandMark = snapshot.brandMark ?: local.brandMark))
-        local = next
-        panel.applyTheme(IdeTheme.current())
-        panel.postSnapshot(next)
     }
 
     fun handle(action: ViewAction) {
@@ -104,10 +108,10 @@ class ToolWindowHost(
         log.info("CodeM view action ${action.javaClass.simpleName}")
         when (action) {
             ViewAction.Ready -> {
-                publish(current())
+                publisher.refresh()
                 runBackground {
                     // 重复 Ready 复用已完成的登录态，避免再起一个会堵死的 auth status。
-                    val status = current().account.status
+                    val status = publisher.local().account.status
                     if (status == "checking" || status == "error") refreshAccount()
                     else maybeAutoConnect()
                 }
@@ -139,6 +143,8 @@ class ToolWindowHost(
         cancelLogin()
         watchdogs.shutdownNow()
         sessionRef.getAndSet(null)?.close()
+        publisher.close()
+        publishing.shutdown()
     }
 
     private fun connect() {
@@ -151,23 +157,16 @@ class ToolWindowHost(
             val runtime = locateRuntime() ?: return
             val cwd = workingDirectory() ?: run {
                 log.warn("CodeM connection aborted: no project directory")
-                publish(failed("CodeM requires a trusted project before starting Core"))
+                publishFailure("CodeM requires a trusted project before starting Core")
                 return
             }
             if (!trust.isTrusted(cwd)) {
                 log.warn("CodeM connection aborted: workspace is not trusted")
-                publish(failed("CodeM requires a trusted project before starting Core"))
+                publishFailure("CodeM requires a trusted project before starting Core")
                 return
             }
             log.info("CodeM workspace trust accepted")
-            publish(
-                local.copy(
-                    phase = "connecting",
-                    notice = HostLoadingFeedback.CONNECTING,
-                    canRetry = false,
-                    version = local.version + 1,
-                ),
-            )
+            publisher.update { it.copy(phase = "connecting", notice = HostLoadingFeedback.CONNECTING, canRetry = false) }
             scheduleConnectWatchdog(generation)
             val session = sessionRef.get() ?: createSession(runtime, cwd, trusted = true).also { sessionRef.set(it) }
             try {
@@ -185,8 +184,7 @@ class ToolWindowHost(
                     return
                 }
                 session.rememberSendKey(storedSendKey())
-                val visible = if (snapshot.phase == "ready") snapshot.copy(notice = null, sendKey = storedSendKey()) else snapshot.copy(sendKey = storedSendKey())
-                publish(visible.withLocalAccount())
+                publisher.show { if (it.phase == "ready") it.copy(notice = null) else it }
                 if (snapshot.phase == "ready") {
                     log.info("CodeM connection finished")
                 } else {
@@ -194,7 +192,7 @@ class ToolWindowHost(
                 }
             } catch (error: Throwable) {
                 if (connectGeneration.get() != generation) return
-                publish(session.snapshot().copy(notice = SafeNotice.from(error, HostLoadingFeedback.CONNECT_TIMEOUT)).withLocalAccount())
+                publisher.show { it.copy(notice = SafeNotice.from(error, HostLoadingFeedback.CONNECT_TIMEOUT)) }
                 log.warn("CodeM connection failed", error)
             }
         } finally {
@@ -207,8 +205,9 @@ class ToolWindowHost(
      * 再后台跑 CLI。不能先 locateRuntime 再回写，否则登录页一直是死按钮。
      */
     private fun beginSignIn() {
-        val status = current().account.status
-        val progress = current().account.progress
+        val account = publisher.local().account
+        val status = account.status
+        val progress = account.progress
         if (status == "signingIn" && progress != "cancelling") {
             log.info("CodeM sign-in already in progress")
             return
@@ -301,28 +300,28 @@ class ToolWindowHost(
     private fun scheduleConnectWatchdog(generation: Long) {
         watchdogs.schedule({
             if (connectGeneration.get() != generation) return@schedule
-            if (!HostLoadingFeedback.connectStillPending(current().phase)) return@schedule
+            if (!HostLoadingFeedback.connectStillPending(publisher.current().phase)) return@schedule
             connectGeneration.compareAndSet(generation, generation + 1)
             connectInFlight.set(false)
-            publish(failed(HostLoadingFeedback.CONNECT_TIMEOUT))
+            publishFailure(HostLoadingFeedback.CONNECT_TIMEOUT)
             log.warn("CodeM connection still connecting after ${HostLoadingFeedback.CONNECT_MS}ms")
         }, HostLoadingFeedback.CONNECT_MS, TimeUnit.MILLISECONDS)
     }
 
     private fun cancelLogin() {
-        if (current().account.status != "signingIn") return
+        if (publisher.local().account.status != "signingIn") return
         loginCancelled.set(true)
         publishAccount(AccountProjection.cancelling())
         loginRef.getAndSet(null)?.cancel()
     }
 
     private fun publishAccount(account: AccountView) {
-        publish(current().copy(account = account, version = current().version + 1))
+        publisher.update { it.copy(account = account) }
     }
 
     /** 已登录后自动连 Core，对齐 VS Code autoConnect；不把「连接」做成主按钮。 */
     private fun maybeAutoConnect() {
-        val snap = current()
+        val snap = publisher.current()
         if (snap.account.status != "signedIn") return
         if (snap.phase != "disconnected") return
         if (!autoConnectAttempted.compareAndSet(false, true)) return
@@ -335,6 +334,8 @@ class ToolWindowHost(
         loginRef.getAndSet(null)?.cancel()
         sessionRef.getAndSet(null)?.close()
         autoConnectAttempted.set(false)
+        // 会话前的 Host 状态不能冒充会话视图：再次登录从 disconnected 开始，才能自动连接。
+        publisher.update { initialLocal().copy(account = it.account) }
         accountRefresh.replace(AccountProjection.signedOut())
     }
 
@@ -351,47 +352,33 @@ class ToolWindowHost(
             }
             val session = sessionRef.get()
             if (session == null) {
-                publish(current().copy(
-                    notice = "CodeM is not connected", version = current().version + 1,
-                    submission = SubmissionReceiptView(action.requestId, false),
-                ))
+                notify("CodeM is not connected", SubmissionReceiptView(action.requestId, false))
                 return
             }
             log.info("CodeM turn/start requestId=${action.requestId}")
             session.applyViewAction(action)
         } catch (error: Throwable) {
-            publish(current().copy(
-                notice = SafeNotice.from(error, "CodeM action failed"),
-                submission = SubmissionReceiptView(action.requestId, false),
-                version = current().version + 1,
-            ))
+            notify(SafeNotice.from(error, "CodeM action failed"), SubmissionReceiptView(action.requestId, false))
             log.warn("CodeM turn/start failed", error)
         }
     }
-
-    private fun ChatSnapshot.withLocalAccount(): ChatSnapshot =
-        copy(account = local.account, brandMark = local.brandMark ?: brandMark)
 
     private fun pinSelection() {
         val session = sessionRef.get()
         if (session != null) {
             session.pinSelection()
-            publish(session.snapshot())
+            publisher.refresh()
             return
         }
         val snap = selectionReader.current()
         if (snap == null) {
-            publish(local.copy(notice = "CodeM has no editor selection", version = local.version + 1))
+            notify("CodeM has no editor selection")
             return
         }
         val file = snap.path.substringAfterLast('/').substringAfterLast('\\')
-        publish(
-            local.copy(
-                selections = listOf(SelectionView("sel-local", "$file:${snap.startLine}-${snap.endLine}")),
-                notice = null,
-                version = local.version + 1,
-            ),
-        )
+        publisher.update {
+            it.copy(selections = listOf(SelectionView("sel-local", "$file:${snap.startLine}-${snap.endLine}")), notice = null)
+        }
     }
 
     private fun pickAttachment(kind: String) {
@@ -412,22 +399,22 @@ class ToolWindowHost(
         try {
             if (session != null) {
                 session.attach(path, storeKind)
-                publish(session.snapshot())
+                publisher.refresh()
                 return
             }
             val root = project.basePath?.let { Path.of(it) } ?: throw CodemError.Validation("CodeM has no project directory")
             val bound = PathGuard.bind(root, path)
             attachments.validate(bound, storeKind)
             val view = AttachmentView("att-local", bound.fileName.toString(), storeKind.name.lowercase())
-            publish(local.copy(attachments = local.attachments + view, notice = null, version = local.version + 1))
+            publisher.update { it.copy(attachments = it.attachments + view, notice = null) }
         } catch (error: Throwable) {
-            publish(current().copy(notice = SafeNotice.from(error, "CodeM attachment failed"), version = current().version + 1))
+            notify(SafeNotice.from(error, "CodeM attachment failed"))
         }
     }
 
     private fun applyTheme(theme: String) {
         sessionRef.get()?.setTheme(theme)
-        publish(current().copy(theme = theme, version = current().version + 1))
+        publisher.update { it.copy(theme = theme) }
     }
 
     private fun openChangedFile(id: String) {
@@ -439,7 +426,7 @@ class ToolWindowHost(
                     ?: throw CodemError.Validation("CodeM changed file is no longer available")
                 com.codem.intellij.ide.revealFile(project, file)
             } catch (error: Throwable) {
-                publish(session.snapshot().copy(notice = SafeNotice.from(error, "无法打开变更文件")))
+                publisher.show { it.copy(notice = SafeNotice.from(error, "无法打开变更文件")) }
             }
         }
     }
@@ -447,14 +434,14 @@ class ToolWindowHost(
     private fun openDiff(id: String) {
         val session = sessionRef.get()
         if (session == null) {
-            publish(local.copy(notice = "CodeM has no diff to open", version = local.version + 1))
+            notify("CodeM has no diff to open")
             return
         }
         try {
             session.openDiff(id)
-            publish(session.snapshot())
+            publisher.refresh()
         } catch (error: Throwable) {
-            publish(session.snapshot().copy(notice = SafeNotice.from(error, "CodeM diff is not available")))
+            publisher.show { it.copy(notice = SafeNotice.from(error, "CodeM diff is not available")) }
         }
     }
 
@@ -462,27 +449,24 @@ class ToolWindowHost(
         val session = sessionRef.get()
         if (session != null) {
             session.removeAttachment(id)
-            publish(session.snapshot())
+            publisher.refresh()
             return
         }
-        publish(local.copy(attachments = local.attachments.filterNot { it.id == id }, version = local.version + 1))
+        publisher.update { snapshot -> snapshot.copy(attachments = snapshot.attachments.filterNot { it.id == id }) }
     }
 
     private fun applyOnSession(action: ViewAction) {
         val session = sessionRef.get()
         if (session == null) {
-            publish(local.copy(
-                notice = "CodeM is not connected", version = local.version + 1,
-                submission = action.submissionRequestId()?.let { SubmissionReceiptView(it, false) } ?: local.submission,
-            ))
+            notify("CodeM is not connected", action.submissionRequestId()?.let { SubmissionReceiptView(it, false) })
             return
         }
         runBackground {
             try {
                 session.applyViewAction(action)
-                publish(session.snapshot())
+                publisher.refresh()
             } catch (error: Throwable) {
-                publish(session.snapshot().copy(notice = SafeNotice.from(error, "CodeM action failed")))
+                publisher.show { it.copy(notice = SafeNotice.from(error, "CodeM action failed")) }
             }
         }
     }
@@ -496,7 +480,7 @@ class ToolWindowHost(
             log.info("CodeM locked runtime located")
             resolved
         } catch (error: Throwable) {
-            publish(failed(SafeNotice.from(error, "CodeM locked runtime is not bundled")))
+            publishFailure(SafeNotice.from(error, "CodeM locked runtime is not bundled"))
             null
         }
     }
@@ -512,8 +496,9 @@ class ToolWindowHost(
             diffPresenter = diffs,
             historySource = historySource(),
             directoryPicker = { chooseDirectory() },
-            onSnapshot = { snapshot ->
-                if (sessionRef.get() === created) publish(snapshot.withLocalAccount())
+            // 会话变化只作为发布请求：发布线程按最新状态重新组装，读线程先捕获的快照不会晚到覆盖。
+            onSnapshot = {
+                if (sessionRef.get() === created) publisher.refresh()
             },
         )
         return created
@@ -551,17 +536,17 @@ class ToolWindowHost(
         val snap = selectionReader.current()
         if (snap == null || snap.text.isEmpty()) session.setLiveSelection(null, 1, 1, "")
         else session.setLiveSelection(snap.path, snap.startLine, snap.endLine, snap.text)
-        publish(session.snapshot().withLocalAccount())
+        publisher.refresh()
     }
 
     private fun removeSelection(id: String) {
         val session = sessionRef.get()
         if (session != null) {
             session.removeSelection(id)
-            publish(session.snapshot().withLocalAccount())
+            publisher.refresh()
             return
         }
-        publish(local.copy(selections = local.selections.filterNot { it.id == id }, version = local.version + 1))
+        publisher.update { snapshot -> snapshot.copy(selections = snapshot.selections.filterNot { it.id == id }) }
     }
 
     /** 额外目录用 IDEA 的目录框，不再固定返回空。必须在 EDT 上选。 */
@@ -608,7 +593,7 @@ class ToolWindowHost(
         try {
             session.attach(path, com.codem.intellij.ide.AttachmentStore.Kind.File)
             session.publishFileSearch(null)
-            publish(session.snapshot().withLocalAccount())
+            publisher.refresh()
         } catch (error: Throwable) {
             publishSearch(FileSearchView(action.requestId, "error", emptyList(), SafeNotice.from(error, "无法添加这个文件")))
         }
@@ -616,11 +601,11 @@ class ToolWindowHost(
 
     private fun pasteImages(action: ViewAction.PasteImages) {
         val session = sessionRef.get() ?: run {
-            publish(local.copy(notice = "请先连接后再粘贴图片", version = local.version + 1))
+            notify("请先连接后再粘贴图片")
             return
         }
         if (session.snapshot().attachments.size + action.images.size > 20) {
-            publish(session.snapshot().copy(notice = "每条消息最多添加 20 个附件").withLocalAccount())
+            publisher.show { it.copy(notice = "每条消息最多添加 20 个附件") }
             return
         }
         try {
@@ -628,9 +613,9 @@ class ToolWindowHost(
                 com.codem.intellij.session.ImageAttachment(image.mediaType, java.util.Base64.getDecoder().decode(image.data))
             }
             session.attachPastedImages(images)
-            publish(session.snapshot().withLocalAccount())
+            publisher.refresh()
         } catch (error: Throwable) {
-            publish(session.snapshot().copy(notice = SafeNotice.from(error, "图片粘贴失败，请重新复制后重试。")).withLocalAccount())
+            publisher.show { it.copy(notice = SafeNotice.from(error, "图片粘贴失败，请重新复制后重试。")) }
             log.warn("CodeM image paste failed", error)
         }
     }
@@ -640,9 +625,9 @@ class ToolWindowHost(
         val session = sessionRef.get()
         if (session != null) {
             session.rememberSendKey(sendKey)
-            publish(session.snapshot().withLocalAccount())
+            publisher.refresh()
         } else {
-            publish(local.copy(sendKey = sendKey, version = local.version + 1))
+            publisher.update { it.copy(sendKey = sendKey) }
         }
     }
 
@@ -655,14 +640,31 @@ class ToolWindowHost(
         val session = sessionRef.get()
         if (session != null) {
             session.publishFileSearch(search)
-            publish(session.snapshot().withLocalAccount())
+            publisher.refresh()
         } else {
-            publish(local.copy(fileSearch = search, version = local.version + 1))
+            publisher.update { it.copy(fileSearch = search) }
         }
     }
 
-    private fun failed(notice: String): ChatSnapshot =
-        local.copy(phase = "failed", notice = notice, canRetry = true, version = local.version + 1)
+    /** 页面视图：有会话时取会话快照，否则取 Host 状态；账户与品牌标记始终来自 Host。 */
+    private fun compose(local: ChatSnapshot): ChatSnapshot {
+        val view = sessionRef.get()?.snapshot()?.let { it.copy(account = local.account, brandMark = local.brandMark ?: it.brandMark) }
+            ?: local
+        return themed(view)
+    }
+
+    private fun initialLocal(): ChatSnapshot = themed(initialSnapshot().copy(sendKey = storedSendKey()))
+
+    /** 连接失败写入 Host 状态并立即显示，包括仍卡在连接中的会话之上。 */
+    private fun publishFailure(notice: String) {
+        publisher.update { it.copy(phase = "failed", notice = notice, canRetry = true) }
+    }
+
+    /** 操作反馈：无会话时写入 Host 状态；有会话时只叠加一次，会话下一次变化即替换。 */
+    private fun notify(notice: String, submission: SubmissionReceiptView? = null) {
+        val change: (ChatSnapshot) -> ChatSnapshot = { it.copy(notice = notice, submission = submission ?: it.submission) }
+        if (sessionRef.get() == null) publisher.update(change) else publisher.show(change)
+    }
 
     private fun themed(snapshot: ChatSnapshot): ChatSnapshot {
         val tokens = IdeTheme.current()
@@ -684,7 +686,7 @@ class ToolWindowHost(
             try {
                 work()
             } catch (error: Throwable) {
-                publish(current().copy(notice = SafeNotice.from(error, "CodeM action failed"), version = current().version + 1))
+                notify(SafeNotice.from(error, "CodeM action failed"))
             }
         }
     }

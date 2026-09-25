@@ -102,8 +102,8 @@ class CodemBrowserPanel(
         browser = JcefHostPanel(resourceRoot, tokens) { action ->
             if (::host.isInitialized) host.handle(action)
         }
+        // Host 构造时即排队首屏快照，发布由它的串行发布者独占。
         host = ToolWindowHost(project, browser, pluginRoot)
-        host.publish(host.current())
         add(browser, BorderLayout.CENTER)
     }
 
