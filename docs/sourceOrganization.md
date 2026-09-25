@@ -12,9 +12,9 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 
 | 目录 | 职责 |
 | --- | --- |
-| `apps/vscode/src/extension.ts` | 正式扩展入口与组装 |
-| `src/chat/` | 聊天协调器、界面容器、HTML 与 Host 展示投影 |
-| `src/connection/` | 独立账户认证与展示状态、连接、空间目录、连接偏好和 MCP 配置 |
+| `apps/vscode/src/extension.ts` | 正式扩展入口：只做激活、组装与释放 |
+| `src/chat/` | 聊天协调器、界面容器、Webview 动作路由、聊天命令、聊天日志、HTML 与 Host 展示投影 |
+| `src/connection/` | 独立账户认证与展示状态、连接、会话打开、自动连接、空间目录、连接偏好和 MCP 配置 |
 | `src/sessionHistory/` | 历史读取、列表、正文搜索租约及历史消息投影 |
 | `src/plugins/` | 插件管理操作、取消/核对状态和不透明安装句柄；不拥有聊天连接或文件路径 UI |
 | `src/resources/` | 文件、附件、产物句柄和差异内容 |
@@ -69,7 +69,7 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 | Webview 动作到功能调用的映射：未登录准入与拒绝回执、线程标识校验、文件搜索/选择与图片回执、发送失败提示、退出登录清理顺序 | `chat/viewActionRouter.ts` | 所调方法的 `Pick`（聊天、账户、选区、面板、界面容器、原生能力、会话打开）与日志、提示、输出面板三个函数；不引用 `vscode` 运行时 |
 | 本地插件文件夹 → 安装来源（取消、非本地文件夹拒绝） | `plugins/pluginSource.ts` | 选择结果；文件夹对话框由 `integrations/nativeFeatures.ts` 提供 |
 | 自动连接的唯一一次尝试及其触发（ready、授予信任、改设置） | `connection/autoConnect.ts` | 是否登录、界面是否可用、连接 |
-| 会话打开：运行时 → MCP、分段耗时、失败关闭；上次连接的读取与记住；回合事件日志 | `connection/sessionOpener.ts` | 偏好、MCP 读取、认证状态回调、日志 |
+| 会话打开：运行时 → MCP、分段耗时、失败关闭；上次连接的读取与记住；回合事件日志 | `connection/sessionOpener.ts` | 本次激活的运行时校验器（与账户读取共用）、偏好、MCP 读取、认证状态回调、日志 |
 | 相位耗时与失败日志 | `chat/chatLog.ts` | 写一行日志 |
 | 断线撤回面板 | `panels/panelBroker.ts` 的 `followChat` | 聊天相位 |
 | 聊天命令（打开、历史、新会话、连接、账户、登录） | `chat/chatCommands.ts` | 所调方法的 `Pick` |
@@ -90,3 +90,30 @@ JetBrains 应用在 `apps/jetbrains/`：`core`/`account`/`session`/`history` 是
 必须保持的交互（每个 Webview 动作行为不变）：未登录只接受 ready、登录、退出、取消登录、刷新账户和查看日志，其余动作不触达功能，粘贴图片与发送得到拒绝回执并重新发布账户；控制类线程动作（steer、旁路提问、Shell、压缩、回退、清空）只作用于当前线程，`manageThread` 照旧不校验；文件搜索失败回空列表与“文件搜索失败，请重试。”，选中文件失败回 `accepted: false`；附带选区发送失败提示原因并回 `accepted: false`；退出登录依次撤回面板、清空选区、重置草稿、允许下个账户再自动连接一次，再重置聊天并记录 `Account disconnect`；插件文件夹取消返回无来源，非本地文件夹以“插件需要可访问的本地文件夹。”拒绝，对话框关闭后已取消的操作不再继续；自动连接每次激活最多一次，未打开聊天、未信任、无文件夹或关闭设置时不连接；命令与账户页导航不变。关闭时 `deactivate` 等待 `ChatController` 与 `AccountController` 释放，订阅释放仍撤回面板；`pnpm test:shutdown` 的关闭预算不变。
 
 调用链：不新增认证、RPC、子进程或缓存；会话打开仍是一次 connectRuntime → 一次 SecretStorage MCP 读取，失败关闭 Host；ready 仍是一次账户读取加最多一次连接。
+
+### 实施步骤
+
+1. `gitActions.ts` 改收 `Pick<ChatController, "contextKey" | "assertContextDirectory" | "generateText">`，与行内补全相同。
+2. 状态与构造顺序：界面容器先建、`serve` 后挂载；`AutoConnect`、`ChatLog`、`PanelBroker.followChat` 接管自动连接、相位耗时和断线撤回；聊天快照经 `EventEmitter` 发布；`deactivate` 等待模块内唯一的 `deactivations` 集合。此步 `dispatch` 仍在入口，只改读常量。
+3. 路由：`dispatch` 整体移入 `ViewActionRouter`，插件文件夹规则移入 `plugins/pluginSource.ts`，文件夹对话框移入 `NativeFeatures.pickPluginFolder`，发送键写入移入 `ChatSurfaces.saveSendKey`；`action satisfies never` 让未路由的新动作编译失败。发送分支里第二次登录判断删除：准入已对未登录账户返回，中间没有 await，这个分支不会执行。
+4. 其余逻辑：`SessionOpener`、`registerChatCommands`、`EditorSelection.addContext`、`AccountController.assertSignedIn`。扩展版本号改为激活时读取一次（原为每次连接时读取，值不变）。变基时并入 main 上的运行时校验器改动：入口创建一个 `createBundledAppServerRuntimeResolver`，账户读取与 `SessionOpener` 共用。
+5. 门禁：见 [qualityGates.md](qualityGates.md#扩展入口门禁)。
+
+入口结果（与当前 main 比较）：265 行 → 106 行；`case` 69 行（73 个标签）→ 0；可变闭包变量 7 个与模块变量 2 个 → 0，仅保留有注释的 `deactivations` 集合；非空断言 14 处（含插件分支 2 处）→ 0；Oxlint 圈复杂度检查在旧入口报 27 处，新入口 0 处。行数只作结果记录，不是验收依据。
+
+### 准出记录
+
+- 功能修改集中：每条判断都在一个所有者里（上表），入口只剩构造、接线闭包与释放，由复杂度门禁保证入口没有判断。
+- 状态可独立验证：`AutoConnect`（`autoConnect.test.ts` 经真实入口）、`ChatLog`（`chatLog.test.ts`）、`ChatSurfaces.serve`（`chatSurfaces.test.ts`：未 `serve` 不注册、只能 `serve` 一次、发送键变更重发）、`PanelBroker.followChat`、`SessionOpener`、`EditorSelection.addContext`、`AccountController.assertSignedIn` 各有测试；路由 7 项测试覆盖未登录拒绝回执、过期线程标识、文件搜索/选择失败回执、插件文件夹与市场标识、发送失败提示、退出登录顺序与计时、空间/发送键/日志的交接。
+- 变异验证：去掉 steer 的线程校验、把文件搜索失败的提示改为 null、去掉插件文件夹的 scheme 校验、去掉对话框关闭后的取消检查，对应路由测试均失败；删掉一个路由分支，类型检查失败。
+- 取消、失败、重载、上下文切换：退出登录失败仍记录耗时并把失败交给账户所有者（显示 signOutFailed）；插件选择取消与迟到结果、会话打开时 MCP 失败关闭 Host、取消后不上报认证状态、损坏的上次连接在启动 Core 前失败，均有测试；Webview 重载沿用 `ChatSurfaces` 既有恢复与 `publish` 重放；自动连接重载不重复，退出后允许下个账户一次。
+- 依赖方向：入口 → 功能单向；`productionReachability` 仍要求每个新文件可从正式入口到达；架构门禁拒绝任何生产模块引用入口。路由、命令与会话打开只引用所需类型，路由不引用 `vscode` 运行时。没有新增循环：唯一迟后的边是聊天快照的 `EventEmitter` 订阅和界面容器的 `serve`，两者都是显式 API。
+- 已知差异：聊天快照监听改经 `vscode.EventEmitter` 派发，监听器抛错时由 VS Code 记录而不再抛回控制器；正常路径的调用顺序与次数不变，现有监听器不会抛错。
+
+### 验证层次
+
+- 单元/集成：变基到当前 main 后 `pnpm check` 通过（VS Code 应用 498 项，含 JetBrains 域检查；总数含同期其他任务的测试）；`pnpm test:architecture` 77 项、`pnpm test:shutdown` 7 项通过；五个提交逐个运行 lint、类型检查和 VS Code 测试均通过。`runtimeIntegrity.test.ts`（main 新增）的夹具随入口调整为让新所有者真实运行，只替换 Core 连接。
+- 构建：`pnpm build:vscode`、`pnpm --filter codem build:native-chat` 通过；`git diff --check` 通过。
+- 模拟界面：在本任务自己的 4338 端口与单独新建的标签页运行 Webview 预览（变基后构建）。实际展开思考强度、权限、模型菜单与能力目录类型选择；强度改为 high、权限改为自动审批后触发器随模拟 Host 回写更新；`@` 文件搜索返回 `src/main.ts`，回车选中后成为附件且焦点回到输入框，无结果时不显示列表；历史打开、刷新提示、关闭；能力目录由插件切到技能并刷新出 2 项；Escape 后焦点回到触发器；控制台无消息。模拟 Host 在页面内（`previewRuntime.ts`），不经过 `ViewActionRouter`、`ChatSurfaces` 或入口，因此这一层只证明 Webview 侧与消息形状未受影响；模拟 Host 没有实现插件管理与恢复历史，这两项未在界面层验证，由路由与控制器测试覆盖。结束后关闭本任务标签页并停止该服务，未触碰其他任务的标签页与服务。
+- 真实 VS Code：没有可复用的开发宿主，运行一次默认 `pnpm --filter codem test:extension`（临时隔离的用户目录，工作区关闭自动连接，不启动 Core）：激活、16 个命令注册、打开聊天、重复“在标签页打开”只开一个、移回侧栏、原生能力检查通过，扩展宿主退出码 0，结束后无残留进程。未做手动交互或实时模型验证。
+- 真实 Core：未运行。
