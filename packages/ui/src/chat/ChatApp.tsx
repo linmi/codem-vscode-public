@@ -310,8 +310,8 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
           {editorSurface ? (
             <div className="headerActions" id="standaloneActions">
               <HistoryButton snapshot={snapshot} post={post} />
-              <button type="button" className="iconButton" id="newChat" title="新建会话" aria-label="新建会话" disabled={!idle} onClick={() => post({ type: "newChat" })} dangerouslySetInnerHTML={{ __html: uiIcon("plus") }} />
-              <button type="button" className="iconButton" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志" onClick={() => post({ type: "showOutput" })} dangerouslySetInnerHTML={{ __html: uiIcon("terminal") }} />
+              <Button type="button" variant="toolbar" size="toolbarIcon" id="newChat" title="新建会话" aria-label="新建会话" disabled={!idle} onClick={() => post({ type: "newChat" })} dangerouslySetInnerHTML={{ __html: uiIcon("plus") }} />
+              <Button type="button" variant="toolbar" size="toolbarIcon" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志" onClick={() => post({ type: "showOutput" })} dangerouslySetInnerHTML={{ __html: uiIcon("terminal") }} />
             </div>
           ) : null}
         </div>

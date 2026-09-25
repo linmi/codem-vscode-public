@@ -192,3 +192,26 @@ VS Code 把宿主默认样式作为第一个层（`vscode-default`）插在 `<he
 提及列表验证：`pnpm check`、`pnpm build:vscode`、`pnpm --filter @codem/ui build` 通过；独立端口的 VS Code 模拟预览中，900×700 浅色与深色、380×480 深色实际展开，检查位置、10 项时内部滚动与高亮滚动到可见、↑/↓ 循环、`aria-activedescendant` 与选中项一致、Enter / Tab 选中（发出 `selectFile`、去掉 `@query`、不发送消息、焦点留在输入框）、Esc 收起且不再发搜索、再输入重新展开、悬停与点选、点外收起、错误状态与空结果。多项结果由页面注入同一请求 id 的模拟回执。控制台无 error。真实 Core 与真实 VS Code / JetBrains 未运行，读屏软件未实测。
 
 权限菜单每行的图标原本单独占一行、文字落到下一行：图标与 `.composerChoiceText` 都在 Radix `ItemText` 这个行内 span 里，而 `.composerChoiceText` 是块级 flex，被挤到图标下方；迁入 `@codem/ui` 前的 VS Code 副本就是如此。现在 `.composerChoiceMenu` 选项的 `ItemText` 排成一行（居中对齐、间距 8px），图标不收缩，与迁移前原生权限选择器一致；无图标的附件、工作模式菜单外观不变。`composerMenuChecks.mjs` 增加“图标在文字左侧且同一行”的检查。验证：独立端口的 VS Code 模拟预览中 380×700 浅色与深色实际展开权限、附件、工作模式菜单，三行图标均在文字左侧同一行、垂直居中，宽度与 Esc 焦点返回不变；`stylesheetCascade.test.ts` 通过。
+
+## 顶栏与底栏图标按钮（2026-09-25）
+
+问题：聊天顶栏的“搜索当前会话正文”和“管理插件与技能”按 shadcn `size="icon"`（`size-9`）渲染成 36×36，没有设内边距（取浏览器默认的 1px 6px），颜色取正文色。相邻按钮各有一条规则：“文件与工具”在 `toolPanels.css`（28×28、静默色、图标线宽 1.7）；历史、新建、日志是手写的 `.iconButton`（28×28，键盘焦点是 base 层的 2px 描边，其余按钮是 shadcn 的 3px 焦点环）；头像按钮 `.accountTrigger` 自定宽高；底栏“运行详情”在 `runtimeDetails.css`（24×24）；账户页顶栏的返回与刷新由 `.accountHeader button` 定成 28×28，颜色仍是正文色。
+
+处理：共享 Button 增加 `toolbar` 变体（静默色；悬停或 `aria-expanded="true"` 时加 `--soft` 底并变为正文色）和两档尺寸：`toolbarIcon` 为 28×28、8px 圆角、6px 内边距；`footerIcon` 为 24×24、6px 圆角、4px 内边距，只用于 24px 高的底栏说明行。变体和尺寸都是 Tailwind 工具类，DialogTrigger / PopoverTrigger 以 asChild 包住 Button 时照样保留（被替换的只有 `data-slot`）。聊天顶栏的七个按钮和账户页顶栏的两个按钮都用 `variant="toolbar" size="toolbarIcon"`，运行详情用 `size="footerIcon"`。历史、新建、日志改为 shadcn Button，图标仍取自 `uiIcons.ts`。删除 `.toolPanelTrigger`、`.runtimeDetailsTrigger` 的全部规则，以及 `.accountHeader button` 和 `.accountTrigger` 的宽高；头像按钮只保留 2px 内边距和圆形，用来放下 24px 头像。`.iconButton` 只剩决策面板的关闭按钮在用，本次不改。
+
+在 VS Code 模拟预览中实测（1024×768，浅色 / 深色）：
+
+| 按钮 | 修改前 | 修改后 |
+| --- | --- | --- |
+| 搜索当前会话正文、管理插件与技能 | 36×36，内边距 1px 6px，圆角 6px，正文色 `#0d0d0d` / `#fcfcfc` | 28×28，内边距 6px，圆角 8px，静默色 `rgba(13,13,13,.6)` / `rgba(252,252,252,.58)` |
+| 文件与工具 | 28×28，静默色，图标线宽 1.7 | 28×28，静默色，线宽 1.5，与其余图标一致 |
+| 个人账户（头像） | 28×28，内边距 2px，圆形 | 不变；按钮文字色改为静默色，头像自身配色不变 |
+| 历史会话、新建会话、查看 CodeM 日志 | 28×28，静默色；焦点为 2px 描边；禁用透明度 0.4；悬停底色 `--hover` | 28×28，静默色；焦点为 3px 焦点环；禁用透明度 0.5；悬停底色 `--soft`（深色下相差约 1% 透明度）；打开历史面板时按钮保持浅底 |
+| 运行详情与快捷键 | 24×24，内边距 4px，圆角 6px，静默色 | 不变 |
+| 账户页：返回聊天、刷新账户信息 | 28×28，内边距 6px，圆角 6px，正文色 | 28×28，内边距 6px，圆角 8px，静默色 |
+
+悬停时所有按钮都变为正文色，并加 `--soft` 浅底。打开的对话框、浮层或历史面板对应的触发按钮保持同样的状态。可访问名称、`id`、`title` 和焦点返回均不变。禁用的 shadcn 按钮不响应指针事件，所以禁用状态下的新建按钮不再显示 title 提示，与搜索、插件按钮一致。
+
+门禁见 [qualityGates.md](qualityGates.md#工具栏图标按钮门禁)。
+
+验证：`pnpm check`、`pnpm build:vscode`、`pnpm --filter @codem/ui build` 通过。使用独立端口的 VS Code 模拟预览（4340，会话场景和账户页）和共享 UI 预览（4339，JetBrains 宿主的搜索与插件场景），分别在浅色和深色下检查以下项目：计算尺寸、内边距、圆角、颜色，悬停变为正文色并加浅底，Tab 键焦点环，打开历史与“文件与工具”时的按钮状态，Esc 后焦点回到按钮，以及可访问名称。共享 UI 预览没有深色开关，深色是在页面里临时切换 `.app` 的主题类后检查的。真实 Core、真实 VS Code 和 JetBrains 宿主未运行。

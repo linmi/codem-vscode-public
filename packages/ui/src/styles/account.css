@@ -14,14 +14,14 @@
 .accountNotice { margin-top: 20px; font-size: var(--uiFontSize); overflow-wrap: anywhere; }
 .accountHeader { min-height: 44px; padding: 6px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }
 .accountHeader h1 { flex: 1; margin: 0; font-size: var(--chatFont); font-weight: 500; }
-.accountHeader button { width: 28px; height: 28px; padding: 6px; }
 .accountProfile { max-width: 360px; margin: 0 auto; padding: 36px 20px; text-align: center; }
 .accountProfile h2 { margin: 14px 0 6px; font-size: 18px; overflow-wrap: anywhere; }
 .accountAvatar { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--soft); color: var(--ink); border: 1px solid var(--line); font-size: var(--detailFontSize); font-weight: 500; }
 .accountAvatar [data-slot="avatar-fallback"] { font-size: inherit; color: inherit; background: inherit; }
 .accountAvatarLarge { width: 56px; height: 56px; font-size: 22px; }
 .accountAvatarLarge svg { width: 26px; height: 26px; }
-.accountTrigger { width: 28px; height: 28px; padding: 2px; border-radius: 50%; }
+/* 头像按钮沿用工具栏图标按钮的 28×28 与配色，只把内边距收到 2px 放下 24px 头像，并改成圆形。 */
+.accountTrigger { padding: 2px; border-radius: 50%; }
 .accountConnected { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: var(--uiFontSize); }
 .accountConnected > span { width: 5px; height: 5px; background: var(--vscode-charts-green, #16833e); border-radius: 50%; }
 .accountFields { margin: 28px 0 18px; text-align: left; }

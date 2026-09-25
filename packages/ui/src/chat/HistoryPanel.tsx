@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { Button } from "../components/ui/button.tsx"
 import { isBusy, visibleControls, type ChatSnapshot } from "../contract.ts"
 import { uiIcon } from "./uiIcons.ts"
 
@@ -9,9 +10,10 @@ import { uiIcon } from "./uiIcons.ts"
 export function HistoryButton({ snapshot, post }: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) {
   const history = snapshot.history
   return (
-    <button
+    <Button
       type="button"
-      className="iconButton"
+      variant="toolbar"
+      size="toolbarIcon"
       aria-label="历史会话"
       title={history.open ? "关闭历史会话" : "浏览当前工作区的历史会话"}
       aria-expanded={history.open}

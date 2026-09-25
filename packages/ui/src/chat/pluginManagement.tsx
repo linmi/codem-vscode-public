@@ -15,7 +15,7 @@ export function PluginManagement({ snapshot, post }: { snapshot: ChatSnapshot; p
   const candidate = view.entries.find(entry => entry.id === removing)
   const validSpec = isPluginSpec(spec.trim())
   return <Dialog open={view.open} onOpenChange={open => { setRemoving(null); post({ type: open ? "showPluginManagement" : "closePluginManagement" }) }}>
-    <DialogTrigger asChild><Button variant="ghost" size="icon" aria-label="管理插件与技能" title="管理插件与技能" disabled={disabled}><PackageIcon /></Button></DialogTrigger>
+    <DialogTrigger asChild><Button variant="toolbar" size="toolbarIcon" aria-label="管理插件与技能" title="管理插件与技能" disabled={disabled}><PackageIcon /></Button></DialogTrigger>
     <DialogContent className="pluginManagementDialog">
       <DialogHeader><DialogTitle>插件与技能</DialogTitle><DialogDescription>插件安装与启停影响当前用户的所有工作区。只安装你信任的插件。</DialogDescription></DialogHeader>
       <div className="pluginInstallActions"><Button variant="outline" disabled={disabled} onClick={() => post({ type: "installLocalPlugin" })}>从文件夹安装</Button><Button variant="ghost" disabled={disabled} onClick={() => post({ type: "showPluginManagement" })}>刷新清单</Button></div>

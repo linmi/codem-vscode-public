@@ -111,7 +111,7 @@ export function AccountTrigger({
 }) {
   const name = account.profile.displayName?.trim() || "CodeM 用户"
   return (
-    <Button type="button" variant="ghost" size="icon" className="accountTrigger" data-testid="accountTrigger" aria-label={`个人账户：${name}`} title="个人账户" onClick={onOpen}>
+    <Button type="button" variant="toolbar" size="toolbarIcon" className="accountTrigger" data-testid="accountTrigger" aria-label={`个人账户：${name}`} title="个人账户" onClick={onOpen}>
       <AccountAvatar profile={account.profile} />
     </Button>
   )
@@ -158,11 +158,11 @@ function ProfilePage({
       }}
     >
       <header className="accountHeader">
-        <Button ref={back} type="button" variant="ghost" size="icon" data-testid="accountBack" aria-label="返回聊天" onClick={onBack}>
+        <Button ref={back} type="button" variant="toolbar" size="toolbarIcon" data-testid="accountBack" aria-label="返回聊天" onClick={onBack}>
           <ArrowLeftIcon aria-hidden="true" />
         </Button>
         <h1 id="accountTitle">个人账户</h1>
-        <Button type="button" variant="ghost" size="icon" data-testid="refreshAccount" aria-label="刷新账户信息" title="刷新账户信息" disabled={refreshing} onClick={onRefresh}>
+        <Button type="button" variant="toolbar" size="toolbarIcon" data-testid="refreshAccount" aria-label="刷新账户信息" title="刷新账户信息" disabled={refreshing} onClick={onRefresh}>
           <RefreshCwIcon aria-hidden="true" />
         </Button>
       </header>

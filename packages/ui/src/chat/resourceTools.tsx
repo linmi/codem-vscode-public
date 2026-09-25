@@ -34,7 +34,7 @@ export function ResourceTools({ snapshot, post }: { snapshot: ChatSnapshot; post
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button id="toggleResources" data-thread-id={snapshot.threadId ?? ""} className="toolPanelTrigger" variant="ghost" size="icon" title="文件与工具" aria-label="文件与工具">
+        <Button id="toggleResources" data-thread-id={snapshot.threadId ?? ""} variant="toolbar" size="toolbarIcon" title="文件与工具" aria-label="文件与工具">
           <FolderKanbanIcon aria-hidden="true" />
         </Button>
       </DialogTrigger>

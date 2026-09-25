@@ -1,9 +1,4 @@
 /* Shared dialog controls; confirmation and resource layouts are sized by content. */
-/* DialogTrigger asChild 把 data-slot 改成 dialog-trigger，只能按类名选中。 */
-.toolPanelTrigger { width: 28px; height: 28px; padding: 6px; border-radius: 8px; color: var(--muted); }
-.toolPanelTrigger:hover:not(:disabled) { color: var(--ink); }
-.toolPanelTrigger[data-state="open"] { background: var(--soft); color: var(--ink); }
-.toolPanelTrigger svg { width: 16px; height: 16px; stroke-width: 1.7; }
 .toolDialog[data-slot="dialog-content"] { width: min(600px, calc(100vw - 24px)); max-width: none; height: auto; max-height: calc(100dvh - 32px); padding: 0; gap: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; box-shadow: var(--composerShadow); }
 .toolDialogHeading { display: flex; align-items: center; gap: 12px; padding: 24px 52px 20px 24px; flex-shrink: 0; }
 .toolDialogHeading > div { min-width: 0; }

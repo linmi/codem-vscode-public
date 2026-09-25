@@ -19,7 +19,7 @@ export function RuntimeDetails({ snapshot }: { snapshot: ChatSnapshot }) {
   return (
     <Popover modal={false}>
       <PopoverTrigger asChild>
-        <Button id="runtimeDetails" data-thread-id={snapshot.threadId ?? ""} className="runtimeDetailsTrigger" variant="ghost" size="icon" title="运行详情与快捷键" aria-label="运行详情与快捷键">
+        <Button id="runtimeDetails" data-thread-id={snapshot.threadId ?? ""} variant="toolbar" size="footerIcon" title="运行详情与快捷键" aria-label="运行详情与快捷键">
           <InfoIcon aria-hidden="true" />
         </Button>
       </PopoverTrigger>

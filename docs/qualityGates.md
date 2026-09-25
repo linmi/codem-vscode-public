@@ -84,6 +84,29 @@ Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。�
 
 同一文件还按 `styles.css` 的引入清单逐个解析源样式文件，要求同一选择器（连同所在 `@media`/`@supports`/`@keyframes` 上下文）只由一个文件定义，拦截后引入文件静默覆盖前一份的重复规则；同一文件内“分组加特例”的写法不在此列，跨文件的不同上下文也允许。整理前的样式在该检查下有 48 处跨文件重复；反例覆盖根层、同一 `@media` 与同名 keyframes 的重复，正例覆盖分组规则、不同上下文与单一归属。
 
+## 工具栏图标按钮门禁
+
+`packages/ui/tests/toolbarIconButtons.test.ts` 用 esbuild 打包真实的 `ChatApp` 与 `AccountPage`，渲染已登录、带会话搜索和插件管理的编辑器页首帧和账户页，再编译真实的 `styles.css`，然后检查两项。
+
+- 按钮：`.sessionHeader`、`.accountHeader` 里的按钮必须是 `variant="toolbar" size="toolbarIcon"` 的 Button，`#runtimeDetailsHost` 里的必须是 `size="footerIcon"`。每个按钮都要带全该尺寸的变体类名；`className` 经 tailwind-merge 顶掉尺寸类也算违规。
+- 样式：无层规则不得修改这些按钮的宽高（含 min/max 与 inline/block-size）或文字颜色。
+
+选择器按“可能命中”判断：伪类和 `data-state`、`aria-*` 的取值视为可能成立，所有组合符都按后代关系处理，伪元素不算按钮本身。测试还断言十个按钮及其可访问名称都出现在这一帧，避免检查落空。
+
+在修复前的源码上，该检查报出 23 处违规：10 个按钮没有使用共享变体，另有 13 条规则逐个设置按钮的尺寸或颜色。正例覆盖头像按钮的形状微调、层内规则、其他元素和弹层规则。反例覆盖以下情形：
+
+- 36px 的 ghost 按钮
+- 手写按钮
+- 顶栏用了底栏尺寸
+- `className` 顶掉尺寸类
+- 按 id 设置尺寸
+- 按类名修改悬停色
+- 打开状态下改色
+- 区域后代规则
+- `@media` 里的 data-slot 规则
+
+该检查不覆盖输入栏的 Select 触发器，也不判断形状是否合理。已进入 `pnpm check`。
+
 ## 结构整理门禁
 
 评审要求：按变化原因组织职责；状态只有一个所有者；接口只暴露必要能力；入口仅组装和协调。禁止用整个 Controller、万能 context 或共享可变对象连接拆出的模块。每轮写清不变量，原子迁移调用方并删除旧实现，不预建通用框架，不以行数阈值判定设计质量。

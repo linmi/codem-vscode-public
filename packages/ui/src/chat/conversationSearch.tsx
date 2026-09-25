@@ -16,7 +16,7 @@ export function ConversationSearch({ snapshot, post }: { snapshot: ChatSnapshot;
   const disabled = !snapshot.threadId || snapshot.phase !== "ready" || Boolean(snapshot.sessionTools.busy) || snapshot.backgroundBusy
   return <>
     <Dialog open={view.open} onOpenChange={open => post({ type: open ? "showConversationSearch" : "closeConversationSearch" })}>
-      <DialogTrigger asChild><Button variant="ghost" size="icon" aria-label="搜索当前会话正文" title="搜索当前会话正文" disabled={disabled}><SearchIcon /></Button></DialogTrigger>
+      <DialogTrigger asChild><Button variant="toolbar" size="toolbarIcon" aria-label="搜索当前会话正文" title="搜索当前会话正文" disabled={disabled}><SearchIcon /></Button></DialogTrigger>
       <DialogContent className="conversationSearchDialog">
         <DialogHeader><DialogTitle>搜索当前会话</DialogTitle><DialogDescription>搜索已保存的用户消息与回复，包含未加载的早期消息。</DialogDescription></DialogHeader>
         <form onSubmit={event => { event.preventDefault(); if (query.trim() && !disabled) post({ type: "searchConversation", query: query.trim() }) }}>

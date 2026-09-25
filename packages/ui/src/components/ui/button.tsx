@@ -13,11 +13,16 @@ const buttonVariants = cva(
         destructive: "bg-destructive text-white hover:bg-destructive/90",
         outline: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground",
         ghost: "hover:bg-accent hover:text-accent-foreground",
+        // CodeM: header and footer icon buttons are muted and turn to ink on hover or while their panel is open.
+        toolbar: "text-muted-foreground hover:bg-accent hover:text-accent-foreground aria-expanded:bg-accent aria-expanded:text-accent-foreground",
       },
       size: {
         default: "h-9 px-4 py-2",
         sm: "h-8 rounded-md px-3",
         icon: "size-9",
+        // CodeM: 28px chat and account header buttons, and the 24px button in the 24px footer line.
+        toolbarIcon: "size-7 rounded-lg p-1.5",
+        footerIcon: "size-6 rounded-md p-1",
       },
     },
     defaultVariants: { variant: "default", size: "default" },
