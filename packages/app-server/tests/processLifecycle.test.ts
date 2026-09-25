@@ -222,6 +222,7 @@ describe("real child processes", () => {
     )
     const [helperLine] = await Promise.all([child.line(line => line.startsWith("helper ")), child.line(line => line === "ready")])
     const helperPid = Number(helperLine.slice("helper ".length))
+    assert.ok(Number.isInteger(helperPid) && helperPid > 0, `helper pid must be reported, got ${helperPid}`)
     cleanups.push(() => forceKill(helperPid))
     await terminateChildProcess(child.process, child.closed, { ...PLUGIN_COMMAND_TERMINATION, stepTimeoutMs: 100 })
     assert.equal((await child.closed).signal, "SIGKILL")
@@ -332,7 +333,9 @@ function spawnNode(source: string, extra: { readonly detached?: boolean } = {}) 
   return { process: child, closed, line }
 }
 
+/** Negative pids address a process group; 0 would address the test runner's own group, so it is refused. */
 function forceKill(pid: number): void {
+  if (!Number.isInteger(pid) || pid === 0) return
   try { process.kill(pid, "SIGKILL") } catch { /* already gone */ }
 }
 

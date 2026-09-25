@@ -37,7 +37,11 @@ describe("App Server authentication", () => {
       readAppServerAuthStatus({ ...fixture.options({ CODEM_FIXTURE_STATUS_MARKER: marker }), statusTimeoutMs: 1_000 }),
       /authentication status timed out after 1000ms/u,
     )
-    assert.throws(() => process.kill(Number(readFileSync(marker, "utf8")), 0), { code: "ESRCH" })
+    // The fixture writes its pid on start, well before the deadline. A missing pid would read as 0,
+    // and kill(0, 0) signals our own process group, so require a real pid before the reap check.
+    const pid = Number(readFileSync(marker, "utf8"))
+    assert.ok(Number.isInteger(pid) && pid > 0, `status fixture pid must be written, got ${pid}`)
+    assert.throws(() => process.kill(pid, 0), { code: "ESRCH" })
   })
 
   it("reads a strict signed-in credential-broker status", async () => {
