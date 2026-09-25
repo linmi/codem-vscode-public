@@ -261,6 +261,196 @@ class ProjectSessionTest {
         assertEquals(false, SafeNotice.containsSensitive(snapshot.notice ?: ""))
     }
 
+    /** 协议错误必须推送 failed；失败原因不被后续操作覆盖；重试起新 Core 而不是退回死连接。 */
+    @Test
+    fun protocolErrorPublishesFailureAndRetryStartsAFreshCore() {
+        val published = java.util.concurrent.CopyOnWriteArrayList<com.codem.intellij.webview.ChatSnapshot>()
+        val processes = java.util.concurrent.CopyOnWriteArrayList<ScriptedProcess>()
+        val session = session(onSnapshot = { published += it }) { process ->
+            processes += process
+            startResponder(process, handshakeCapabilities())
+            process
+        }
+        try {
+            session.connect()
+            session.resumeThread("thread-1")
+            processes.single().enqueue("{not json")
+            val failed = awaitPublished(published) { it.phase == "failed" }
+            assertEquals("CodeM connection failed", failed.notice)
+            assertEquals(true, failed.canRetry)
+            assertEquals(null, failed.threadId)
+            assertEquals("thread-1", failed.resumeThreadId)
+            assertEquals(false, failed.canResume)
+            awaitCondition { !processes.single().isAlive }
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.send("too early", "req-dead") }
+            assertEquals("CodeM connection failed", session.snapshot().notice)
+
+            session.connect()
+            assertEquals(2, processes.size)
+            val retried = session.snapshot()
+            assertEquals("ready", retried.phase)
+            assertEquals(null, retried.notice)
+            assertEquals("turn-1", session.send("after retry", "req-retry"))
+        } finally { session.close().join() }
+    }
+
+    /** 轮次中退出：不再显示运行中，审批撤销，未完成工具留作 incomplete，重试不被“活动轮次”挡住。 */
+    @Test
+    fun coreExitDuringTurnEndsTheTurnAndAllowsRetry() {
+        val published = java.util.concurrent.CopyOnWriteArrayList<com.codem.intellij.webview.ChatSnapshot>()
+        val processes = java.util.concurrent.CopyOnWriteArrayList<ScriptedProcess>()
+        val session = session(onSnapshot = { published += it }) { process ->
+            processes += process
+            startResponder(process, handshakeCapabilities())
+            process
+        }
+        try {
+            session.connect()
+            session.send("hello", "req-crash")
+            val process = processes.single()
+            enqueueNotification(process, "item/started", JsonValue.obj(
+                "threadId" to JsonValue.Text("thread-1"),
+                "turnId" to JsonValue.Text("turn-1"),
+                "item" to JsonValue.obj(
+                    "id" to JsonValue.Text("tool-1"),
+                    "type" to JsonValue.Text("commandExecution"),
+                    "status" to JsonValue.Text("inProgress"),
+                    "tool" to JsonValue.Text("run_bash"),
+                ),
+            ))
+            enqueueNotification(process, "item/agentMessage/delta", JsonValue.obj(
+                "threadId" to JsonValue.Text("thread-1"),
+                "delta" to JsonValue.Text("partial answer"),
+            ))
+            process.enqueue(encodeJson(JsonValue.obj(
+                "jsonrpc" to JsonValue.Text("2.0"), "id" to JsonValue.Text("approval-rpc"),
+                "method" to JsonValue.Text("item/tool/requestApproval"),
+                "params" to JsonValue.obj("threadId" to JsonValue.Text("thread-1"),
+                    "options" to JsonValue.ArrayValue(listOf(JsonValue.obj("id" to JsonValue.Text("allow_once"))))),
+            )))
+            awaitSnapshot(session) { it.pendingPanel != null && it.assistantText == "partial answer" }
+
+            process.destroy(true)
+            val failed = awaitPublished(published) { it.phase == "failed" }
+            assertEquals("CodeM Core exited unexpectedly (exit code 137, signal SIGKILL)", failed.notice)
+            assertEquals(true, failed.canRetry)
+            assertEquals(null, failed.pendingPanel)
+            assertEquals("", failed.assistantText)
+            assertEquals("hello", failed.messages.single { it.role == "user" }.text)
+            assertEquals("incomplete", failed.messages.single { it.role == "tool" }.status)
+            assertTrue(failed.messages.none { it.role == "assistant" })
+            assertTrue(failed.turnTimings.single().finishedAt != null)
+            assertEquals(null, failed.threadId)
+            assertEquals("thread-1", failed.resumeThreadId)
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.stop() }
+
+            session.connect()
+            assertEquals(2, processes.size)
+            assertEquals("ready", session.snapshot().phase)
+            assertEquals("turn-1", session.send("after retry", "req-retry"))
+        } finally { session.close().join() }
+    }
+
+    /** turn/start 未确认就退出：撤回乐观行、回执为拒绝，失败原因不被随后的发送失败覆盖。 */
+    @Test
+    fun coreExitBeforeTurnStartIsAcknowledgedWithdrawsTheOptimisticRow() {
+        val session = session { process ->
+            startResponder(process, handshakeCapabilities(), beforeReply = { if (it == "turn/start") process.destroy(true) })
+            process
+        }
+        try {
+            session.connect()
+            org.junit.jupiter.api.Assertions.assertThrows(Exception::class.java) { session.send("lost", "req-lost") }
+            val failed = awaitSnapshot(session) { it.phase == "failed" }
+            assertEquals("CodeM Core exited unexpectedly (exit code 137, signal SIGKILL)", failed.notice)
+            assertEquals(true, failed.canRetry)
+            assertTrue(failed.messages.none { it.id == "req-lost" })
+            assertEquals("req-lost", failed.submission?.requestId)
+            assertEquals(false, failed.submission?.accepted)
+        } finally { session.close().join() }
+    }
+
+    /** 失败连接上的重试再失败时停在 failed，不能因为死 Core 仍挂着而退回 ready。 */
+    @Test
+    fun failedRetryAfterCoreExitStaysFailed() {
+        val processes = java.util.concurrent.CopyOnWriteArrayList<ScriptedProcess>()
+        val space = FailingSpace()
+        val session = session(spaceOverride = space) { process ->
+            processes += process
+            startResponder(process, handshakeCapabilities())
+            process
+        }
+        try {
+            session.connect()
+            processes.single().destroy(true)
+            awaitSnapshot(session) { it.phase == "failed" }
+            space.failPrepare = true
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Validation::class.java) { session.chooseSpace("other") }
+            val after = session.snapshot()
+            assertEquals("failed", after.phase)
+            assertEquals("CodeM space other is not available", after.notice)
+            assertEquals(true, after.canRetry)
+            assertEquals(1, processes.size)
+        } finally { session.close().join() }
+    }
+
+    /** 读线程回调（如 JCEF 推送）抛出非 CodeM 异常时，连接明确失败，而不是 stdout 读线程静默死亡。 */
+    @Test
+    fun snapshotSubscriberFailureFailsTheConnectionInsteadOfSilencingTheReader() {
+        val processes = java.util.concurrent.CopyOnWriteArrayList<ScriptedProcess>()
+        val session = session(onSnapshot = { snapshot ->
+            if (snapshot.assistantText.contains("explode")) throw IllegalStateException("fixture snapshot push failed")
+        }) { process ->
+            processes += process
+            startResponder(process, handshakeCapabilities())
+            process
+        }
+        try {
+            session.connect()
+            session.send("hello", "req-push")
+            enqueueNotification(processes.single(), "item/agentMessage/delta", JsonValue.obj(
+                "threadId" to JsonValue.Text("thread-1"),
+                "delta" to JsonValue.Text("explode"),
+            ))
+            val failed = awaitSnapshot(session) { it.phase == "failed" }
+            assertEquals("CodeM connection failed", failed.notice)
+            assertEquals(true, failed.canRetry)
+            awaitCondition { !processes.single().isAlive }
+            session.connect()
+            assertEquals("ready", session.snapshot().phase)
+        } finally { session.close().join() }
+    }
+
+    /** 句柄按单调序号分配：删除后再添加不复用旧 id，删除一个不会连带删掉另一个。 */
+    @Test
+    fun directoryAndSelectionHandlesStayUniqueAfterRemoval() {
+        val folders = (1..3).map { Files.createTempDirectory("codem-extra-$it") }
+        var selection = SelectionSnapshot("src/A.kt", 1, 1, "same text", 1, true)
+        val session = session(selectionReader = object : SelectionReader {
+            override fun current() = selection
+        }) { ScriptedProcess() }
+
+        session.addDirectory(folders[0])
+        session.addDirectory(folders[1])
+        session.removeDirectory(session.snapshot().sessionTools.directories.first().id)
+        session.addDirectory(folders[2])
+        val directories = session.snapshot().sessionTools.directories
+        assertEquals(2, directories.map { it.id }.toSet().size)
+        session.removeDirectory(directories.first().id)
+        assertEquals(listOf(folders[2].fileName.toString()), session.snapshot().sessionTools.directories.map { it.label })
+
+        val first = session.pinSelection()!!
+        selection = SelectionSnapshot("src/B.kt", 1, 1, "same text", 1, true)
+        val second = session.pinSelection()!!
+        assertEquals(second, session.pinSelection())
+        session.removeSelection(first)
+        selection = SelectionSnapshot("src/C.kt", 1, 1, "other text", 1, true)
+        val third = session.pinSelection()!!
+        assertEquals(2, setOf(second, third).size)
+        session.removeSelection(second)
+        assertEquals(listOf("C.kt:1-1"), session.snapshot().selections.map { it.label })
+    }
+
     @Test
     fun resumeAndClearUseNodeRequestShapes() {
         val process = ScriptedProcess()
@@ -925,6 +1115,22 @@ class ProjectSessionTest {
             Thread.sleep(15)
         }
         throw AssertionError("notification did not reach the snapshot: ${session.snapshot()}")
+    }
+
+    private fun awaitCondition(condition: () -> Boolean) {
+        repeat(80) {
+            if (condition()) return
+            Thread.sleep(15)
+        }
+        throw AssertionError("condition was not reached")
+    }
+
+    private fun enqueueNotification(process: ScriptedProcess, method: String, params: JsonValue.ObjectValue) {
+        process.enqueue(encodeJson(JsonValue.obj(
+            "jsonrpc" to JsonValue.Text("2.0"),
+            "method" to JsonValue.Text(method),
+            "params" to params,
+        )))
     }
 
     private fun completeTurn(process: ScriptedProcess, threadId: String, turnId: String) {

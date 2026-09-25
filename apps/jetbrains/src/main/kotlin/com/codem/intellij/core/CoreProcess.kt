@@ -63,17 +63,18 @@ class CoreProcess(
             onNotification = onNotification,
             onRequest = { request -> onRequest(request, peer) },
             onProtocolError = { error ->
-                onProtocolError(error)
-                if (process.isAlive) process.destroy(false)
+                try { onProtocolError(error) } finally { if (process.isAlive) process.destroy(false) }
             },
         )
         process.startStdout { bytes, length ->
             try {
                 frames.push(bytes, length).forEach(peer::consume)
-            } catch (error: CodemError) {
+            } catch (error: Throwable) {
+                // 回调抛出任何异常都会让读线程停止读 stdout；连接必须明确失败，不能静默变聋。
+                val failure = error as? CodemError
+                    ?: CodemError.Protocol(CodemError.Class.Protocol, "CodeM App Server event handling failed", error)
                 peer.close()
-                onProtocolError(error)
-                if (process.isAlive) process.destroy(false)
+                try { onProtocolError(failure) } finally { if (process.isAlive) process.destroy(false) }
             }
         }
         process.startStderr { text ->

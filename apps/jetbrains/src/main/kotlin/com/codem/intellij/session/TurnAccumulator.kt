@@ -147,6 +147,19 @@ class TurnAccumulator {
         current = null
     }
 
+    /**
+     * 连接丢失不是终态：仍在运行的思考/工具标为 incomplete 交给时间线保留，
+     * 没有 turn/completed 的正文不落。已终态的轮次不动。
+     */
+    fun abandonActive(): TurnState? {
+        val turn = current?.takeIf { it.phase != TurnPhase.Terminal } ?: return null
+        current = null
+        for (activity in turn.activities) {
+            if (activity.status == "running") activity.status = "incomplete"
+        }
+        return turn
+    }
+
     fun liveMessages(): List<com.codem.intellij.webview.ChatMessageView> {
         val turn = current ?: return emptyList()
         if (turn.phase == TurnPhase.Terminal) return emptyList()

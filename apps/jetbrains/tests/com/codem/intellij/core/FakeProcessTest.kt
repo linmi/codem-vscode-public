@@ -105,6 +105,57 @@ class FakeProcessTest {
         assertTrue(!process.isAlive)
     }
 
+    /** 回调抛出非 CodeM 异常不能让 stdout 读线程静默死亡：待决请求被拒绝、上报协议失败并结束进程。 */
+    @Test
+    fun callbackExceptionFailsTheConnectionInsteadOfKillingTheReader() {
+        val process = ScriptedProcess()
+        val failures = java.util.concurrent.LinkedBlockingQueue<CodemError>()
+        val started = CoreProcess(
+            runtime = fakeRuntime(),
+            workingDirectory = Files.createTempDirectory("codem-core-cwd"),
+            onNotification = { throw IllegalStateException("fixture subscriber failed") },
+            onRequest = { _, _ -> },
+            onProtocolError = { failures.add(it) },
+            processFactory = { _, _, _ -> process },
+        )
+        answerInitialize(process)
+        started.start()
+        val pending = started.request("thread/start", JsonValue.obj())
+        process.enqueue(
+            encodeJson(
+                JsonValue.obj(
+                    "jsonrpc" to JsonValue.Text("2.0"),
+                    "method" to JsonValue.Text("warning"),
+                    "params" to JsonValue.obj("message" to JsonValue.Text("fixture")),
+                ),
+            ),
+        )
+        val failure = failures.poll(2, TimeUnit.SECONDS) ?: throw AssertionError("reader failure was not reported")
+        assertEquals(CodemError.Class.Protocol, failure.errorClass)
+        assertTrue(failure.cause is IllegalStateException)
+        org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.ExecutionException::class.java) {
+            pending.get(1, TimeUnit.SECONDS)
+        }
+        assertTrue(!process.isAlive)
+    }
+
+    private fun answerInitialize(process: ScriptedProcess) {
+        val capabilities = handshakeCapabilities()
+        Thread {
+            while (process.writes.isEmpty()) Thread.sleep(5)
+            val request = JsonValue.parse(process.writes.peek()).asObject()
+            process.enqueue(
+                encodeJson(
+                    JsonValue.obj(
+                        "jsonrpc" to JsonValue.Text("2.0"),
+                        "id" to request.required("id"),
+                        "result" to capabilities,
+                    ),
+                ),
+            )
+        }.start()
+    }
+
     private fun fakeRuntime(): ResolvedRuntime {
         val file = Files.createTempFile("codem-core", "")
         Files.writeString(file, "x")

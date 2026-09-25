@@ -1,22 +1,20 @@
 package com.codem.intellij.core
 
 /**
- * 普通 RPC、初始化、审批等待和生成等待分开计时。
+ * 普通 RPC、初始化、关闭和认证子进程分开计时。
+ * 审批与生成不设本地超时：轮次只以 turn/completed 或连接丢失结束，与 App Server host 一致。
  * 本地超时只表示客户端停止等待，不表示 Core 已撤销。
  */
 data class Timeouts(
     val initializeMs: Long = 5_000,
     val rpcMs: Long = 30_000,
-    val approvalMs: Long = 30 * 60_000,
-    val generationMs: Long = 10 * 60_000,
     val closeStageMs: Long = 2_000,
-    val rpcGraceMs: Long = 1_000,
     val authStatusMs: Long = 8_000,
     val authLoginMs: Long = 10 * 60_000,
     val spaceBrokerMs: Long = 180_000,
 ) {
     init {
-        require(initializeMs > 0 && rpcMs > 0 && approvalMs > 0 && generationMs > 0 && closeStageMs > 0) {
+        require(initializeMs > 0 && rpcMs > 0 && closeStageMs > 0) {
             "CodeM timeouts must be positive"
         }
     }

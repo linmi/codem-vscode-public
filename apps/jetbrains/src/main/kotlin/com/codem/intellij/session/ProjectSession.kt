@@ -21,6 +21,7 @@ import com.codem.intellij.core.CodemError
 import com.codem.intellij.core.CoreProcess
 import com.codem.intellij.core.JsonValue
 import com.codem.intellij.core.KnownNotifications
+import com.codem.intellij.core.ProcessExit
 import com.codem.intellij.core.ProcessHandleAdapter
 import com.codem.intellij.core.ResolvedRuntime
 import com.codem.intellij.core.RpcPeer
@@ -138,8 +139,11 @@ class ProjectSession(
     private var catalogKind: String? = null
     private var catalogRows = listOf<CatalogRowView>()
     private var directories = mutableListOf<DirectoryRef>()
+    // 句柄序号只增不减、重连也不归零：删除或换连接后旧 id 不会指向新条目。
+    private var directorySequence = 0L
     private val attachments = AttachmentCollection(attachmentStore)
     private var selections = mutableListOf<SelectionHandle>()
+    private var selectionSequence = 0L
     private var liveSelection: SelectionHandle? = null
     private var dismissedLiveLabel: String? = null
     private var listedModels = listOf<ListedModel>()
@@ -409,7 +413,8 @@ class ProjectSession(
             recordSubmission(requestId, true)
             result
         } catch (error: Throwable) {
-            lock.withLock { notice = SessionNotice(SafeNotice.from(error, "CodeM send failed"), true) }
+            // 连接已失败时保留失败原因，不让随之而来的发送失败盖掉它。
+            lock.withLock { if (phase != ConnectionPhase.Failed) notice = SessionNotice(SafeNotice.from(error, "CodeM send failed"), true) }
             recordSubmission(requestId, false)
             throw error
         }
@@ -968,8 +973,8 @@ class ProjectSession(
                 SelectionHandle("sel-current", "$file:${it.startLine}-${it.endLine}", it.text, it.startLine, it.endLine, pinned = false)
             } ?: liveSelection
             if (source == null || source.text.isEmpty()) return@withLock null
-            if (selections.any { it.text == source.text && it.label == source.label }) return@withLock selections.first { it.text == source.text }.id
-            val id = "sel-${selections.size + 1}"
+            selections.firstOrNull { it.text == source.text && it.label == source.label }?.let { return@withLock it.id }
+            val id = "sel-${++selectionSequence}"
             selections += source.copy(id = id, pinned = true)
             snapshotVersion += 1
             id
@@ -1055,9 +1060,8 @@ class ProjectSession(
     fun addDirectory(path: Path) {
         val real = PathGuard.realPathOrNormalized(path)
         if (!Files.isDirectory(real)) throw CodemError.Validation("CodeM extra directory must be a directory")
-        val id = "dir-${directories.size + 1}"
         lock.withLock {
-            directories += DirectoryRef(id, real.fileName.toString(), real)
+            directories += DirectoryRef("dir-${++directorySequence}", real.fileName.toString(), real)
         }
         val current = lock.withLock { threadId }
         if (current != null) resumeThread(current)
@@ -1211,6 +1215,19 @@ class ProjectSession(
     private fun replaceConnection(preflightGeneration: Long, catalog: SpaceList, prepared: PreparedSpace, broker: SpaceGateway, status: AuthStatus) {
         val currentGeneration = connectionIds.incrementAndGet()
         var startupError: CodemError? = null
+        // 提交前丢失只记为启动失败，提交时拒绝；提交后丢失才让当前会话转 failed。二者在同一把锁内判定，没有空窗。
+        fun lose(error: CodemError, message: String) {
+            val lost = lock.withLock {
+                attachments.release(currentGeneration)
+                if (generation.get() != currentGeneration) {
+                    if (startupError == null) startupError = error
+                    return@withLock null
+                }
+                loseConnectionLocked(message)
+            } ?: return
+            lost.forEach { it.close() }
+            emitSnapshot()
+        }
         lock.withLock {
             assertGeneration(preflightGeneration)
             phase = ConnectionPhase.Starting
@@ -1250,16 +1267,8 @@ class ProjectSession(
                 }
                 if (accepted) emitSnapshot()
             },
-            onProtocolError = { error ->
-                lock.withLock {
-                    startupError = error
-                    if (generation.get() == currentGeneration) {
-                        phase = ConnectionPhase.Failed
-                        notice = SessionNotice(SafeNotice.from(error, "CodeM connection failed"), true)
-                    }
-                }
-            },
-            onExit = { lock.withLock { attachments.release(currentGeneration) } },
+            onProtocolError = { error -> lose(error, SafeNotice.from(error, "CodeM connection failed")) },
+            onExit = { exit -> lose(CodemError.Process("CodeM App Server exited during startup", stage = "exit"), exitNotice(exit)) },
             processFactory = processFactory ?: ::defaultProcess,
         ).start()
         bump { core += 1 }
@@ -1381,6 +1390,49 @@ class ProjectSession(
             snapshotVersion += 1
         }
         emitSnapshot()
+    }
+
+    /**
+     * 已提交连接丢失（协议错误或进程退出），对标 App Server host 的 connection-closed：
+     * 撤销该代次的事件与迟到结果，结束交互和未完成轮次，释放线程订阅，界面转 failed 并可重试。
+     * 死掉的 Core 交给 retiring，由调用方关闭、下次替换或会话关闭时等待回收。草稿与待发附件保留。
+     */
+    private fun loseConnectionLocked(message: String): List<CoreProcess> {
+        val lost = listOfNotNull(core)
+        retiring += lost
+        core = null
+        generation.set(connectionIds.incrementAndGet())
+        interactions.revoke(generation.get())
+        abandonTurnLocked()
+        lastThreadId = threadId ?: lastThreadId
+        threadId = null
+        modesValid = false
+        phase = ConnectionPhase.Failed
+        notice = SessionNotice(message, true)
+        snapshotVersion += 1
+        turnChanged.signalAll()
+        return lost
+    }
+
+    /** 未确认的发送撤回乐观行；已开始的轮次保留思考/工具为 incomplete，正文没有终态不落。 */
+    private fun abandonTurnLocked() {
+        val turn = turns.abandonActive() ?: return
+        if (turn.phase == TurnPhase.Submitting) historyMessages.removeAll { it.id == turn.submissionId }
+        for (activity in turn.activities) {
+            val message = activity.toMessage(turn.turnId)
+            if (historyMessages.none { it.id == message.id }) historyMessages += message
+        }
+        val finishedAt = System.currentTimeMillis()
+        turnTimings = turnTimings.map { timing ->
+            if (timing.turnId == turn.turnId && timing.finishedAt == null) timing.copy(finishedAt = finishedAt) else timing
+        }.toMutableList()
+    }
+
+    private fun exitNotice(exit: ProcessExit): String {
+        val status = listOfNotNull(exit.code?.let { "exit code $it" }, exit.signal?.let { "signal $it" })
+            .joinToString(", ")
+            .ifEmpty { "no exit status" }
+        return "CodeM Core exited unexpectedly ($status)"
     }
 
     private fun retireCoresLocked(): List<CoreProcess> {
