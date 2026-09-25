@@ -1285,7 +1285,13 @@ class ProjectSession(
             sendRevocations(revoked)
             closeQuietly(outgoing)
         } catch (error: Throwable) {
-            created.close().join()
+            // 候选连接的失败始终是抛出的错误：关闭有界等待，关闭失败或超时作为 suppressed 附在原错误上。
+            try {
+                created.close().get(timeouts.shutdownBudgetMs, TimeUnit.MILLISECONDS)
+            } catch (cleanup: Exception) {
+                if (cleanup is InterruptedException) Thread.currentThread().interrupt()
+                error.addSuppressed((cleanup as? java.util.concurrent.ExecutionException)?.cause ?: cleanup)
+            }
             throw error
         }
     }

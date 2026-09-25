@@ -917,6 +917,48 @@ class ProjectSessionTest {
         }
     }
 
+    /** 候选 Core 在清理后仍存活时，抛出的仍是 model/list 失败本身；关闭失败或超时作为 suppressed 附上，且不无限等待。 */
+    @Test
+    fun candidateFailureSurvivesACoreThatOutlivesItsCleanup() {
+        for (hangs in listOf(false, true)) {
+            val leak = CodemError.Process("CodeM App Server did not exit after stdin close, SIGTERM, and SIGKILL", stage = "close")
+            val release = java.util.concurrent.CountDownLatch(1)
+            val processes = mutableListOf<ScriptedProcess>()
+            val session = session(
+                wrap = { process ->
+                    if (process !== processes.getOrNull(1)) process
+                    else object : com.codem.intellij.core.ProcessHandleAdapter by process {
+                        override fun shutdown(stageMs: Long) {
+                            if (hangs) release.await() else throw leak
+                        }
+                    }
+                },
+            ) { process ->
+                processes += process
+                startResponder(process, handshakeCapabilities(), if (processes.size == 2) "model/list" else null)
+                process
+            }
+            try {
+                session.connect()
+                val thrown = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively<Throwable>(java.time.Duration.ofSeconds(10)) {
+                    org.junit.jupiter.api.Assertions.assertThrows(Throwable::class.java) { session.chooseSpace("other") }
+                }
+                val chain = generateSequence(thrown) { it.cause }.toList()
+                assertTrue(chain.none { it is java.util.concurrent.CompletionException }, "hangs=$hangs $thrown")
+                assertTrue(chain.any { it.message?.contains("fixture rejected model/list") == true }, "hangs=$hangs $thrown")
+                val suppressed = thrown.suppressed.single()
+                if (hangs) assertTrue(suppressed is java.util.concurrent.TimeoutException, suppressed.toString())
+                else org.junit.jupiter.api.Assertions.assertSame(leak, suppressed)
+                assertEquals("ready", session.snapshot().phase, "hangs=$hangs")
+            } finally {
+                release.countDown()
+                session.close().join()
+                // The survivor never leaves through shutdown, and the session no longer tracks it.
+                processes.forEach { it.destroy(true) }
+            }
+        }
+    }
+
     @Test
     fun successfulSpaceSwitchStartsFreshAndRejectsRetiredEvents() {
         val processes = mutableListOf<ScriptedProcess>()
