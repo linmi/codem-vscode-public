@@ -1436,6 +1436,26 @@ class ProjectSessionTest {
         } finally { session.close().join() }
     }
 
+    /** 与 host.ts 一致：thread/status/changed 的 status 必须是字符串。旧实现把错类型当作没有状态，连接照常。 */
+    @Test
+    fun threadStatusChangeRequiresAStringStatus() {
+        for (status in listOf(JsonValue.NumberValue(42.0, "42"), JsonValue.Null, null)) {
+            val process = ScriptedProcess()
+            val session = session {
+                startResponder(process, handshakeCapabilities())
+                process
+            }
+            try {
+                session.connect()
+                enqueueNotification(process, "thread/status/changed", JsonValue.obj("status" to JsonValue.Text("idle")))
+                awaitSnapshot(session) { it.capabilities.threadStatus == "idle" }
+                enqueueNotification(process, "thread/status/changed", JsonValue.ObjectValue(listOfNotNull(status?.let { "status" to it }).toMap()))
+                val failed = awaitSnapshot(session) { it.phase == "failed" }
+                assertEquals(true, failed.canRetry, status.toString())
+            } finally { session.close().join() }
+        }
+    }
+
     /** 历史列表读取失败：loading 必须结束并推给界面，面板给出可读错误；刷新成功后恢复条目并清掉错误。 */
     @Test
     fun failedHistoryLoadClearsLoadingAndRefreshRecovers() {

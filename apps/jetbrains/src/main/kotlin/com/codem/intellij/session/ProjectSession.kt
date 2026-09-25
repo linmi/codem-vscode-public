@@ -1691,7 +1691,8 @@ class ProjectSession(
                 notice = SessionNotice("CodeM skills catalog changed", true)
             }
             "thread/status/changed" -> {
-                threadStatus = notification.params.stringOrNull("status")
+                // host.ts fails the frame when status is not a string, instead of showing no status.
+                threadStatus = notification.params.requiredString("status", "thread/status/changed")
             }
             "thread/mode/changed" -> {
                 val current = threadId ?: return emptyList()
