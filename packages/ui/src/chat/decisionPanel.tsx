@@ -6,21 +6,19 @@ import { uiIcon } from "./uiIcons.ts"
 /**
  * 对照 VS Code panelView：编号选项、键盘 1-9、上一题和确认。
  * 回退不走这条窄条，仍用原来的对话框。
+ * 选中项、补充文字和提交中状态都只属于当前请求，换请求时在这里一起重置。
  */
 export function DecisionPanel({
   panel,
-  text,
-  setText,
   post,
 }: {
   panel: PendingPanel | null
-  text: string
-  setText: (value: string) => void
   post: (action: Record<string, unknown>) => void
 }) {
   const active = panel && panel.kind !== "rewind" ? panel : null
   const [selected, setSelected] = useState<string[]>([])
   const [pending, setPending] = useState(false)
+  const [text, setText] = useState(active?.initialText ?? "")
   useEffect(() => {
     setSelected(active?.choices.filter((choice) => choice.selected).map((choice) => choice.id) ?? [])
     setPending(false)

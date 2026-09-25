@@ -43,7 +43,6 @@ import { uiIcon } from "./uiIcons.ts"
 export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSnapshot }) {
   const [snapshot, setSnapshot] = useState<ChatSnapshot>(initial)
   const [draft, setDraft] = useState(() => String(host.getState()?.draft ?? ""))
-  const [panelText, setPanelText] = useState("")
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
   const [accountFocus, setAccountFocus] = useState(0)
@@ -117,14 +116,9 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
 
   useEffect(() => {
     setOpenMenu(null)
-    setPanelText("")
     setSlashOpen(false)
     setInputMode("message")
   }, [snapshot.workspace, snapshot.space, snapshot.threadId])
-
-  useEffect(() => {
-    setPanelText(snapshot.pendingPanel?.initialText ?? "")
-  }, [snapshot.pendingPanel?.id])
 
   useEffect(() => {
     // 运行中允许继续输入与 /steer 选择；仅提交、停止瞬态收起菜单。
@@ -382,7 +376,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
           <div><button id="connect" type="button" className="primaryButton" disabled={snapshot.phase === "connecting"} onClick={() => post({ type: "connect" })}>连接工作区</button></div>
         </div>
         <p id="notice" className="notice" role="status" hidden={!snapshot.notice}>{snapshot.notice ?? ""}</p>
-        <DecisionPanel panel={snapshot.pendingPanel} text={panelText} setText={setPanelText} post={post} />
+        <DecisionPanel panel={snapshot.pendingPanel} post={post} />
         <RewindPanel panel={snapshot.pendingPanel} post={post} />
         {sessionRequest ? <SessionCommandPanel snapshot={snapshot} request={sessionRequest} close={() => setSessionRequest(null)} post={post} onShell={confirmShell} /> : null}
         <form
