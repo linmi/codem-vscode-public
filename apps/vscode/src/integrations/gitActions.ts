@@ -13,8 +13,10 @@ interface Repository {
 }
 interface GitApi { repositories: Repository[]; onDidCloseRepository: vscode.Event<Repository> }
 interface GitExtension { enabled: boolean; getAPI(version: 1): GitApi }
+/** The chat calls commit generation makes: the context it must not outlive, the repository check and one generation. */
+type CommitChat = Pick<ChatController, "contextKey" | "assertContextDirectory" | "generateText">
 
-export function registerGitActions(chat: ChatController, log: (message: string) => void): vscode.Disposable {
+export function registerGitActions(chat: CommitChat, log: (message: string) => void): vscode.Disposable {
   let active: AbortController | null = null
   const command = vscode.commands.registerCommand("codem.generateCommitMessage", async (source?: { rootUri?: vscode.Uri }) => {
     if (active) { void vscode.window.showInformationMessage("正在生成提交说明，可在进度通知中取消。"); return }
