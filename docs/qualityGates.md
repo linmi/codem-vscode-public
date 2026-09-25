@@ -49,6 +49,19 @@ JetBrains 发行包不带 Node，Kotlin 端保留自己的协议实现；漂移�
 
 VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.test.ts` 检查入口目录只保留组装文件、功能目录有明确归属，`webview/` 只有入口、样式入口和 `host/`；反例覆盖旧平铺路径、无归属目录及重建组件/输入区/样式副本。`webviewStyles.test.ts` 要求 VS Code 样式等于共享 `@codem/ui` 样式加 `body.vscode-*` 限定的主题桥接。`productionReachability.test.ts` 要求 `src/` 与 `webview/` 下每个 TypeScript 文件都能从 `scripts/support/productionEntries.ts` 列出的正式入口（扩展、Webview、原生 Chat 实验，两个构建脚本共用这份清单）到达：运行时依赖取 esbuild 解析，仅类型引用取 `tsc --listFilesOnly`，只被测试或其他死文件引用的文件同样报错；反例覆盖孤立文件、仅被孤立文件或测试引用的文件、孤立类型与移除入口，正例覆盖值、类型、再导出、动态导入、`require` 与声明文件。架构解析检查 Webview → 共享契约、共享契约 → 纯代码的依赖方向，含别名解析与类型导入反例；基础组件边界由 `@codem/ui` 的 UI 规则负责。全部进入 `pnpm check`。
 
+## 预览场景挂载门禁
+
+Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。预览运行时依赖的界面元素集中在 `tests/previewHooks.ts`。`previewHooks.test.ts` 用 esbuild 打包真实 `ChatApp`，对每个预览场景先经生产 `VscodeHostBridge` 投影 fixture，再以 `react-dom/server` 渲染，用 `markupQuery.ts` 查询：
+
+- 样例已提交的判定（外壳 `data-phase`、运行详情 `data-thread-id`、工作区标签）命中；
+- 各场景入口元素存在且可用：会话命令的输入框与带 `/命令` 草稿的提交按钮、本地菜单触发器、运行详情、资源面板、活动折叠项；
+- 会话命令场景要打开的命令在斜杠菜单目录中，且对该 fixture 可用；
+- `preview.css` 中 `body > …` 布局选择器命中 Webview 实际挂载结构。
+
+反例：旧 `#slashCommandsHost[data-thread-id]`、`data-menu-scope`、`body > .app`、`#accountRoot` 不命中；其他线程或阶段的判定、空草稿提交、待审批时的输入框均不命中；不支持的选择器语法直接报错，避免误判通过。把运行时入口改回 `#slashCommandsHost` 或把样式改回 `#accountRoot` 时，该测试均实际失败。
+
+边界：服务端渲染不包含 portal 与交互后才出现的内容（cmdk 菜单项、对话框内部、Select 选项），这些步骤只能在浏览器中逐场景打开验证；运行时在浏览器中等待超过 3 秒仍会抛出 `Preview surface did not mount`。门禁不启动浏览器，不新增依赖。
+
 ## 结构整理门禁
 
 评审要求：按变化原因组织职责；状态只有一个所有者；接口只暴露必要能力；入口仅组装和协调。禁止用整个 Controller、万能 context 或共享可变对象连接拆出的模块。每轮写清不变量，原子迁移调用方并删除旧实现，不预建通用框架，不以行数阈值判定设计质量。
