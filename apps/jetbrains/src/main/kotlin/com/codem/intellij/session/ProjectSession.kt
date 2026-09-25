@@ -375,7 +375,7 @@ class ProjectSession(
                 turnStartParams(activeThread, requestId, text, skillName, attachmentIds, selectionIds),
             ).get(timeouts.rpcMs, TimeUnit.MILLISECONDS).asObject()
             bump { rpc += 1 }
-            val turnId = ((result.fields["turn"] as? JsonValue.ObjectValue)?.fields?.get("id") as? JsonValue.Text)?.value
+            val turnId = result.objectOrNull("turn")?.stringOrNull("id")
                 ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "turn/start omitted turn.id")
             mutate {
                 assertGeneration(currentGeneration)
@@ -525,7 +525,7 @@ class ProjectSession(
     private fun unsubscribeCurrent(coreProcess: CoreProcess, currentGeneration: Long) {
         val id = lock.withLock { assertGeneration(currentGeneration); threadId } ?: return
         val result = requestResult(coreProcess, "thread/unsubscribe", JsonValue.obj("threadId" to JsonValue.Text(id)), currentGeneration)
-        val status = (result.fields["status"] as? JsonValue.Text)?.value
+        val status = result.stringOrNull("status")
         if (result.fields.size != 1 || status !in setOf("unsubscribed", "notSubscribed")) {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM thread/unsubscribe status")
         }
@@ -614,11 +614,11 @@ class ProjectSession(
     private fun historyEntries(page: ThreadListPage): List<com.codem.intellij.webview.HistoryEntryView> {
         return page.threads.map { thread ->
             val id = thread.required("id").asText()
-            val preview = (thread.fields["preview"] as? JsonValue.Text)?.value?.trim()?.take(160)
+            val preview = thread.stringOrNull("preview")?.trim()?.take(160)
             com.codem.intellij.webview.HistoryEntryView(
                 id = id,
                 title = preview?.ifBlank { null } ?: "未命名会话",
-                archived = (thread.fields["archived"] as? JsonValue.Bool)?.value == true,
+                archived = thread.booleanOrNull("archived") == true,
             )
         }
     }
@@ -665,7 +665,7 @@ class ProjectSession(
             val model = item.asObject()
             val id = model.required("id").asText()
             if (id.isBlank()) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "model/list contains an empty id")
-            ListedModel("model-${index + 1}", id, (model.fields["supportsVision"] as? JsonValue.Bool)?.value == true)
+            ListedModel("model-${index + 1}", id, model.booleanOrNull("supportsVision") == true)
         }
         val active = result.required("activeModel").asText()
         if (listed.none { it.modelId == active }) {
@@ -684,7 +684,7 @@ class ProjectSession(
             is JsonValue.Text -> value.value
             else -> throw CodemError.Protocol(CodemError.Class.InvalidFrame, "thread/list nextCursor is invalid")
         }
-        val total = (result.required("total") as? JsonValue.NumberValue)?.value?.toInt()
+        val total = result.numberOrNull("total")?.toInt()
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "thread/list total is invalid")
         if (total < 0) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "thread/list total is invalid")
         return ThreadListPage(threads, next, total)
@@ -704,14 +704,12 @@ class ProjectSession(
             threadDirectories(),
         )
         val result = requestResult(coreProcess, method, params, currentGeneration)
-        if ((result.fields["operationId"] as? JsonValue.Text)?.value != operationId ||
-            (result.fields["previousThreadId"] as? JsonValue.Text)?.value != currentThread
-        ) {
+        if (result.stringOrNull("operationId") != operationId || result.stringOrNull("previousThreadId") != currentThread) {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM clear changed operation or source identity")
         }
         val target = result.required("thread").asObject()
         val targetId = target.required("id").asText()
-        if (targetId == currentThread || (target.fields["status"] as? JsonValue.Text)?.value != "loaded") {
+        if (targetId == currentThread || target.stringOrNull("status") != "loaded") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM clear target")
         }
         mutate {
@@ -739,10 +737,10 @@ class ProjectSession(
         }
         val (method, params) = ThreadCommands.steer(currentThread, turnId, submissionId, trimmed)
         val result = requestResult(coreProcess, method, params, currentGeneration)
-        if ((result.fields["turnId"] as? JsonValue.Text)?.value != turnId) {
+        if (result.stringOrNull("turnId") != turnId) {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM turn/steer changed turn identity")
         }
-        if ((result.fields["submissionId"] as? JsonValue.Text)?.value != submissionId) {
+        if (result.stringOrNull("submissionId") != submissionId) {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM turn/steer changed submission identity")
         }
     }
@@ -783,8 +781,8 @@ class ProjectSession(
         val (coreProcess, currentThread, currentGeneration) = readyThread()
         val (method, params) = ThreadCommands.fork(currentThread, workingDirectory.toString())
         val result = requestResult(coreProcess, method, params, currentGeneration)
-        return ((result.fields["thread"] as? JsonValue.ObjectValue)?.fields?.get("id") as? JsonValue.Text)?.value
-            ?: (result.fields["threadId"] as? JsonValue.Text)?.value
+        return result.objectOrNull("thread")?.stringOrNull("id")
+            ?: result.stringOrNull("threadId")
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "thread/fork omitted thread id")
     }
 
@@ -807,7 +805,7 @@ class ProjectSession(
         val (method, params) = ThreadCommands.sideQuestion(currentThread, trimmed)
         val result = requestResult(coreProcess, method, params, currentGeneration)
         val accepted = result.required("sideQuestion").asObject()
-        if ((accepted.fields["status"] as? JsonValue.Text)?.value != "accepted") {
+        if (accepted.stringOrNull("status") != "accepted") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM side question returned invalid status")
         }
         return accepted.required("id").asText()
@@ -817,9 +815,7 @@ class ProjectSession(
         val (coreProcess, currentThread, currentGeneration) = readyThread()
         val (method, params) = ThreadCommands.cancelSideQuestion(currentThread, sideQuestionId)
         val result = requestResult(coreProcess, method, params, currentGeneration)
-        if ((result.fields["sideQuestionId"] as? JsonValue.Text)?.value != sideQuestionId ||
-            (result.fields["status"] as? JsonValue.Text)?.value != "cancelled"
-        ) {
+        if (result.stringOrNull("sideQuestionId") != sideQuestionId || result.stringOrNull("status") != "cancelled") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM side question cancellation returned an invalid status")
         }
     }
@@ -828,7 +824,7 @@ class ProjectSession(
         val (coreProcess, currentThread, currentGeneration) = readyThread()
         val (method, params) = ThreadCommands.cancelBackgroundTask(currentThread, taskId)
         val result = requestResult(coreProcess, method, params, currentGeneration)
-        val status = (result.fields["status"] as? JsonValue.Text)?.value
+        val status = result.stringOrNull("status")
         if (status != "cancelled" && status != "notFound" && status != "noop") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM background cancellation returned invalid status")
         }
@@ -1485,8 +1481,8 @@ class ProjectSession(
             ThreadCommands.rewind(currentThread)
         }
         val result = requestResult(coreProcess, method, params, currentGeneration)
-        val turnId = ((result.fields["turn"] as? JsonValue.ObjectValue)?.fields?.get("id") as? JsonValue.Text)?.value
-            ?: (result.fields["turnId"] as? JsonValue.Text)?.value
+        val turnId = result.objectOrNull("turn")?.stringOrNull("id")
+            ?: result.stringOrNull("turnId")
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "$methodName omitted turn id")
         mutate {
             assertGeneration(currentGeneration)
@@ -1639,18 +1635,18 @@ class ProjectSession(
     /** Caller holds the lock: a public call wraps it in [mutate], a notification is already inside one. */
     private fun acceptModesLocked(result: JsonValue.ObjectValue, expectedThread: String, currentGeneration: Long): ModeState {
         assertGeneration(currentGeneration)
-        val reported = (result.fields["threadId"] as? JsonValue.Text)?.value
+        val reported = result.stringOrNull("threadId")
         if (reported != null && reported != expectedThread) {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM mode response thread mismatch")
         }
-        val stateObj = (result.fields["state"] as? JsonValue.ObjectValue) ?: result
-        val revision = (stateObj.fields["revision"] as? JsonValue.NumberValue)?.value?.toInt()
+        val stateObj = result.objectOrNull("state") ?: result
+        val revision = stateObj.numberOrNull("revision")?.toInt()
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM mode revision")
-        val epoch = (stateObj.fields["permissionEpoch"] as? JsonValue.NumberValue)?.value?.toInt()
+        val epoch = stateObj.numberOrNull("permissionEpoch")?.toInt()
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM permission epoch")
-        val permission = (stateObj.fields["permissionMode"] as? JsonValue.Text)?.value
+        val permission = stateObj.stringOrNull("permissionMode")
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM permission mode")
-        val work = (stateObj.fields["workMode"] as? JsonValue.Text)?.value
+        val work = stateObj.stringOrNull("workMode")
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM work mode")
         if (work != "normal" && work != "plan") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "Invalid CodeM work mode")
@@ -1675,11 +1671,11 @@ class ProjectSession(
 
     /** B14：通知进入快照 notice/运行信息；warning 不得转成功。返回 turn/completed 撤销的交互回包，由调用方在锁外发送。 */
     private fun applyNotificationLocked(notification: RpcNotification): List<CoreReply> {
-        val eventThread = (notification.params.fields["threadId"] as? JsonValue.Text)?.value
+        val eventThread = notification.params.stringOrNull("threadId")
         if (eventThread != null && eventThread != threadId) return emptyList()
         when (notification.method) {
             "warning" -> {
-                val raw = (notification.params.fields["message"] as? JsonValue.Text)?.value ?: "CodeM reported a warning"
+                val raw = notification.params.stringOrNull("message") ?: "CodeM reported a warning"
                 notice = SessionNotice(SafeNotice.from(CodemError.Validation(raw), "CodeM reported a warning"), true)
             }
             "hook/completed" -> {
@@ -1689,7 +1685,7 @@ class ProjectSession(
                 notice = SessionNotice("CodeM skills catalog changed", true)
             }
             "thread/status/changed" -> {
-                threadStatus = (notification.params.fields["status"] as? JsonValue.Text)?.value
+                threadStatus = notification.params.stringOrNull("status")
             }
             "thread/mode/changed" -> {
                 val current = threadId ?: return emptyList()
@@ -1781,14 +1777,14 @@ class ProjectSession(
     }
 
     private fun applyDiffSummaryLocked(params: JsonValue.ObjectValue) {
-        val files = (params.fields["diff"] as? JsonValue.ArrayValue)?.items
+        val files = params.arrayOrNull("diff")
             ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM diff summary is missing files")
         val rows = files.map { item ->
             val file = item.asObject()
-            val path = (file.fields["path"] as? JsonValue.Text)?.value?.takeIf { it.isNotBlank() }
+            val path = file.stringOrNull("path")?.takeIf { it.isNotBlank() }
                 ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM diff summary is missing path")
             fun count(key: String): Int {
-                val value = (file.fields[key] as? JsonValue.NumberValue)?.value
+                val value = file.numberOrNull(key)
                     ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM diff summary $key is missing")
                 if (!value.isFinite() || value < 0 || value > Int.MAX_VALUE || value != kotlin.math.floor(value)) {
                     throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM diff summary $key must be a nonnegative integer")
@@ -1817,10 +1813,8 @@ class ProjectSession(
     }
 
     private fun usageView(value: JsonValue.ObjectValue?): UsageView? {
-        val usage = (value?.fields?.get("usage") as? JsonValue.ObjectValue) ?: value ?: return null
-        fun number(vararg keys: String): Int? = keys.firstNotNullOfOrNull { key ->
-            (usage.fields[key] as? JsonValue.NumberValue)?.value?.toInt()
-        }
+        val usage = value?.objectOrNull("usage") ?: value ?: return null
+        fun number(vararg keys: String): Int? = keys.firstNotNullOfOrNull { key -> usage.numberOrNull(key)?.toInt() }
         val input = number("inputTokens", "input")
         val output = number("outputTokens", "output")
         val cacheRead = number("cacheReadTokens", "cacheRead")
@@ -1832,13 +1826,12 @@ class ProjectSession(
     private fun planItems(plan: JsonValue?): List<PlanItemView> {
         val items = when (plan) {
             is JsonValue.ArrayValue -> plan.items
-            is JsonValue.ObjectValue -> (plan.fields["entries"] as? JsonValue.ArrayValue)?.items.orEmpty()
+            is JsonValue.ObjectValue -> plan.arrayOrNull("entries").orEmpty()
             else -> return emptyList()
         }
-        return items.mapNotNull { item ->
-            val obj = item as? JsonValue.ObjectValue ?: return@mapNotNull null
-            val content = (obj.fields["content"] as? JsonValue.Text)?.value ?: return@mapNotNull null
-            PlanItemView(content, (obj.fields["status"] as? JsonValue.Text)?.value ?: "pending")
+        return items.filterIsInstance<JsonValue.ObjectValue>().mapNotNull { item ->
+            val content = item.stringOrNull("content") ?: return@mapNotNull null
+            PlanItemView(content, item.stringOrNull("status") ?: "pending")
         }
     }
 
@@ -1847,12 +1840,8 @@ class ProjectSession(
         fun walk(value: JsonValue, fallback: String) {
             when (value) {
                 is JsonValue.ObjectValue -> {
-                    val name = (value.fields["name"] as? JsonValue.Text)?.value
-                        ?: (value.fields["id"] as? JsonValue.Text)?.value
-                        ?: (value.fields["label"] as? JsonValue.Text)?.value
-                    val detail = (value.fields["description"] as? JsonValue.Text)?.value
-                        ?: (value.fields["status"] as? JsonValue.Text)?.value
-                        ?: (value.fields["type"] as? JsonValue.Text)?.value
+                    val name = value.stringOrNull("name") ?: value.stringOrNull("id") ?: value.stringOrNull("label")
+                    val detail = value.stringOrNull("description") ?: value.stringOrNull("status") ?: value.stringOrNull("type")
                     if (name != null) rows += CatalogRowView(redact(name), redact(detail ?: kind))
                     value.fields.forEach { (key, child) ->
                         if (key in CATALOG_COLLECTIONS) walk(child, key)
