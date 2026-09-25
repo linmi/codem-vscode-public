@@ -3,7 +3,7 @@ import {
   AbandonedRpcRequests,
   APP_SERVER_ABANDONED_REQUEST_LIMIT,
   APP_SERVER_ABANDONED_REQUEST_TTL_MS,
-} from "./rpc-abandoned.ts"
+} from "./rpcAbandoned.ts"
 
 export type JsonObject = Record<string, unknown>
 export { APP_SERVER_ABANDONED_REQUEST_LIMIT, APP_SERVER_ABANDONED_REQUEST_TTL_MS }

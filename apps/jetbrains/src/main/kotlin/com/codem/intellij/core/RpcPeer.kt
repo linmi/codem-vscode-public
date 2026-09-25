@@ -236,7 +236,7 @@ class RpcPeer(
 }
 
 /**
- * 对照 Node rpc-abandoned：按最早到期时间排一个清扫定时器，Core 不再发帧也会到期。
+ * 对照 Node rpcAbandoned.ts：按最早到期时间排一个清扫定时器，Core 不再发帧也会到期。
  * 只由 RpcPeer 持有；close 取消定时器，之后不再接收新条目。
  */
 private class AbandonedRequests(

@@ -12,7 +12,7 @@ import {
   redactAppServerSecrets,
 } from "../src/index.ts"
 
-import { parseAppServerLiveTurns, parseAppServerBackgroundTerminalList, parseAppServerPluginList } from "../src/control-plane.ts"
+import { parseAppServerLiveTurns, parseAppServerBackgroundTerminalList, parseAppServerPluginList } from "../src/controlPlane.ts"
 
 describe("App Server control-plane projection", () => {
   it("projects Core alive into terminal state and rejects the obsolete wire inProgress field", () => {

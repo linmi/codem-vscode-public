@@ -145,7 +145,7 @@
 [host]: ../packages/app-server/src/host.ts
 [connection]: ../packages/app-server/src/connection.ts
 [runtime]: ../packages/app-server/src/runtime.ts
-[controlPlane]: ../packages/app-server/src/control-plane.ts
+[controlPlane]: ../packages/app-server/src/controlPlane.ts
 [auth]: ../packages/app-server/src/authentication.ts
 [spaces]: ../packages/app-server/src/spaces.ts
 [historyPackage]: ../packages/history/README.md

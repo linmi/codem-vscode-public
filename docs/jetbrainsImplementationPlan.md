@@ -27,7 +27,7 @@
 | Core / CLI | [runtime.ts](../packages/app-server/src/runtime.ts)：0.8.45 / 0.1.208 | 以源码和锁文件为准，不默认升级 latest |
 | 协议 | [preflight.ts](../packages/app-server/src/preflight.ts)：协议版本 1、版本与能力校验 | 移植校验语义；握手成功不代表各功能验收完成 |
 | 传输与进程 | [connection.ts](../packages/app-server/src/connection.ts)、[rpc.ts](../packages/app-server/src/rpc.ts) | 核实帧格式、请求关联、abandon、关闭与异常语义 |
-| Agent 领域能力 | [host.ts](../packages/app-server/src/host.ts)、[control-plane.ts](../packages/app-server/src/control-plane.ts)、[items.ts](../packages/app-server/src/items.ts) | 从入口、请求、事件到状态完整追踪，不只搬方法名 |
+| Agent 领域能力 | [host.ts](../packages/app-server/src/host.ts)、[controlPlane.ts](../packages/app-server/src/controlPlane.ts)、[items.ts](../packages/app-server/src/items.ts) | 从入口、请求、事件到状态完整追踪，不只搬方法名 |
 | 认证与空间 | [authentication.ts](../packages/app-server/src/authentication.ts)、[spaces.ts](../packages/app-server/src/spaces.ts)、[连接治理](connectionGovernance.md) | 核实 broker 协议，保留一次启动事务内的有效结果复用 |
 | 历史 | [当前历史包](../packages/history/README.md)、[来源记录](../UPSTREAM.md) | 重放与完整性规则均需迁移，不只逐行显示 JSON |
 | 会话与 UI | [chatController.ts](../apps/vscode/src/chat/chatController.ts)、[messages.ts](../apps/vscode/src/shared/messages.ts)、[Webview 入口](../apps/vscode/webview/main.ts) | 区分业务不变量与平台适配，按边界抽取 |

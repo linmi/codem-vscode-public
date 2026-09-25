@@ -44,7 +44,7 @@ import {
   type AppServerPermissionProfile,
   type AppServerPluginList,
   type AppServerToolList,
-} from "./control-plane.ts"
+} from "./controlPlane.ts"
 
 import {
   CODEM_BUILTIN_INTELLIGENCE_TIERS,

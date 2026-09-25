@@ -145,5 +145,5 @@ export {
   type AppServerPluginList,
   type AppServerThreadModelSelection,
   type AppServerToolList,
-} from "./control-plane.ts"
+} from "./controlPlane.ts"
 export { PluginOperationError, createPluginCommands, parseInstalledPlugins, type InstalledPlugin, type PluginCommands, type PluginSource, type PluginChange } from "./plugins/pluginCommands.ts"
