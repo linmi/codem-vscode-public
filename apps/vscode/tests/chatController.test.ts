@@ -1155,6 +1155,32 @@ it("a blank chat's first thread is created once when an editor generation and a 
   } finally { await f.controller.dispose() }
 })
 
+it("an idle conversation's background poll never gates chat actions or publishes an unchanged list", async t => {
+  t.mock.timers.enable({ apis: ["setInterval"] })
+  const f = setup(); const published: ChatSnapshot[] = []
+  const controller = new ChatController({ connect: async () => f.session, assertTrusted() {}, publish: state => published.push(state), interact: async () => null, report() {} })
+  const flush = () => new Promise(resolve => setImmediate(resolve))
+  let lists = 0
+  try {
+    await controller.connect(); await controller.send("first")
+    f.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+    f.host.listBackgroundTerminals = async () => { lists++; return { cwd: "/workspace", terminals: [] } }
+    const before = published.length
+    for (let tick = 0; tick < 3; tick++) { t.mock.timers.tick(3000); await flush() }
+    assert.equal(lists, 3)
+    assert.equal(published.length, before, "an unchanged background list publishes nothing")
+    let finish!: () => void
+    f.host.listBackgroundTerminals = () => { lists++; return new Promise(resolve => { finish = () => resolve({ cwd: "/workspace", terminals: [] }) }) }
+    t.mock.timers.tick(3000); await flush()
+    assert.equal(lists, 4)
+    assert.equal(controller.snapshot().backgroundBusy, false)
+    await controller.newChat()
+    assert.equal(controller.snapshot().threadId, null, "a click during a poll is not dropped")
+    finish(); await flush()
+    assert.ok(published.slice(before).every(state => !state.backgroundBusy))
+  } finally { await controller.dispose() }
+})
+
 it("platform generation rejects a context captured before a conversation switch without issuing a request", async () => {
   const f = setup(); await f.controller.connect()
   const previous = f.controller.contextKey()

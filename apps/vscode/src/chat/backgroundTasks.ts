@@ -17,8 +17,13 @@ export interface BackgroundSnapshot {
 export class BackgroundTasks {
   private readonly terminals = new Map<string, AppServerBackgroundTerminal>()
   private readonly tasks = new Map<string, { taskId: string; view: BackgroundTaskView }>()
-  private busy = false
+  /** Only a user-initiated terminate, clean or cancel holds the chat's busy gate. */
+  private mutating = false
+  /** List reads in flight; reads never publish busy and a poll never overlaps one. */
+  private reading = 0
   private revision = 0
+  /** A newer read or mutation makes older list results stale. */
+  private reads = 0
   private poll: ReturnType<typeof setInterval> | null = null
 
   private readonly changed: (snapshot: BackgroundSnapshot, notice?: string) => void
@@ -35,7 +40,7 @@ export class BackgroundTasks {
     return {
       background: [...this.terminals].map(([id, terminal], index) => ({ id, label: `后台进程 ${index + 1}`, inProgress: terminal.inProgress })),
       backgroundTasks: [...this.tasks.values()].map(task => ({ ...task.view })),
-      backgroundBusy: this.busy,
+      backgroundBusy: this.mutating,
     }
   }
 
@@ -43,14 +48,15 @@ export class BackgroundTasks {
     this.revision++
     this.terminals.clear()
     this.tasks.clear()
-    this.busy = false
+    this.mutating = false
+    this.reading = 0
   }
 
   startPolling(context: () => BackgroundContext | null): void {
     this.stopPolling()
     this.poll = setInterval(() => {
       const current = context()
-      if (current) void this.refresh(current)
+      if (current) void this.read(current, false)
     }, 3000)
     this.poll.unref()
   }
@@ -69,19 +75,19 @@ export class BackgroundTasks {
     this.changed(this.snapshot())
   }
 
-  async refresh(context: BackgroundContext): Promise<void> { await this.run(context, async () => {}) }
+  async refresh(context: BackgroundContext): Promise<void> { await this.read(context, true) }
   async terminate(context: BackgroundContext, id: string): Promise<void> {
     const terminal = this.terminals.get(id)
-    if (terminal) await this.run(context, async () => { await context.host.terminateBackgroundTerminal(context.cwd, context.threadId, terminal.processId) })
+    if (terminal) await this.mutate(context, async () => { await context.host.terminateBackgroundTerminal(context.cwd, context.threadId, terminal.processId) })
   }
   async clean(context: BackgroundContext): Promise<void> {
-    await this.run(context, async () => { await context.host.cleanBackgroundTerminals(context.cwd, context.threadId) })
+    await this.mutate(context, async () => { await context.host.cleanBackgroundTerminals(context.cwd, context.threadId) })
   }
   async cancel(context: BackgroundContext, id: string): Promise<void> {
     const task = this.tasks.get(id)
     if (!task) return
     const revision = this.revision
-    await this.run(context, async () => {
+    await this.mutate(context, async () => {
       const phase = await context.host.cancelBackgroundTask(context.cwd, context.threadId, task.taskId)
       if (revision !== this.revision) return
       this.tasks.set(id, { ...task, view: { ...task.view, phase } })
@@ -95,29 +101,54 @@ export class BackgroundTasks {
     await show(terminal.logPath)
   }
 
-  private async run(context: BackgroundContext, action: () => Promise<void>): Promise<void> {
-    if (this.busy) return
+  /** A read shares the list with the chat but never its busy gate. A manual refresh always reads (the newest read wins) and reports failure. */
+  private async read(context: BackgroundContext, manual: boolean): Promise<void> {
+    if (this.mutating || (!manual && this.reading)) return
     const revision = this.revision
-    this.busy = true
+    this.reading++
+    try {
+      this.assertTrusted()
+      await this.list(context, revision)
+    } catch (error) {
+      this.report("background", error)
+      if (manual && revision === this.revision) this.changed(this.snapshot(), "后台列表刷新失败，请稍后重试。")
+    } finally {
+      if (revision === this.revision) this.reading--
+    }
+  }
+
+  private async mutate(context: BackgroundContext, action: () => Promise<void>): Promise<void> {
+    if (this.mutating) return
+    const revision = this.revision
+    this.mutating = true
+    this.reads++
     this.changed(this.snapshot())
     try {
       this.assertTrusted()
       await action()
       if (revision !== this.revision) return
-      const result = await context.host.listBackgroundTerminals(context.cwd, context.threadId)
-      if (revision !== this.revision) return
-      const previous = new Map([...this.terminals].map(([id, terminal]) => [terminal.processId, id]))
-      this.terminals.clear()
-      for (const terminal of result.terminals) this.terminals.set(previous.get(terminal.processId) ?? randomUUID(), terminal)
-      this.changed(this.snapshot())
+      await this.list(context, revision)
     } catch (error) {
       this.report("background", error)
       if (revision === this.revision) this.changed(this.snapshot(), "后台操作失败，请刷新后重试。")
     } finally {
       if (revision === this.revision) {
-        this.busy = false
-        this.changed(this.snapshot()) 
+        this.mutating = false
+        this.changed(this.snapshot())
       }
     }
+  }
+
+  /** Publishes only a changed list; a result superseded by a newer read, mutation or conversation is dropped. */
+  private async list(context: BackgroundContext, revision: number): Promise<void> {
+    const read = ++this.reads
+    const result = await context.host.listBackgroundTerminals(context.cwd, context.threadId)
+    if (revision !== this.revision || read !== this.reads) return
+    const current = [...this.terminals.values()]
+    if (current.length === result.terminals.length && result.terminals.every((terminal, index) => terminal.processId === current[index]!.processId && terminal.inProgress === current[index]!.inProgress && terminal.logPath === current[index]!.logPath)) return
+    const previous = new Map([...this.terminals].map(([id, terminal]) => [terminal.processId, id]))
+    this.terminals.clear()
+    for (const terminal of result.terminals) this.terminals.set(previous.get(terminal.processId) ?? randomUUID(), terminal)
+    this.changed(this.snapshot())
   }
 }
