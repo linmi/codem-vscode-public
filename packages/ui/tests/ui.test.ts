@@ -252,6 +252,31 @@ describe("@codem/ui host contract", () => {
     assert.equal(initialSnapshot().account.status, "checking")
   })
 
+  it("reuses the view of a deeply frozen message and normalizes anything else every time", () => {
+    const deepFreeze = <T>(value: T): T => {
+      if (value && typeof value === "object" && !Object.isFrozen(value)) {
+        Object.freeze(value)
+        for (const item of Object.values(value)) deepFreeze(item)
+      }
+      return value
+    }
+    const frozen = deepFreeze({ id: "a", role: "tool", label: "run_bash", text: "ok", summary: "", status: "completed", details: { kind: "command", fields: [{ label: "目录", value: "workspace" }], code: null } })
+    const snapshot = (messages: unknown[]) => asSnapshot({ type: "state", messages })!.messages
+    const [first] = snapshot([frozen]), [second] = snapshot([frozen])
+    assert.equal(second, first, "An unchanged frozen message keeps its view")
+    assert.equal(Object.isFrozen(first) && Object.isFrozen(first!.details!.fields[0]), true, "A shared view is frozen")
+    assert.deepEqual(first, snapshot([structuredClone(frozen)])[0], "Reuse gives exactly what normalizing a copy gives")
+
+    const mutable = structuredClone(frozen)
+    const [one] = snapshot([mutable]), [two] = snapshot([mutable])
+    assert.notEqual(one, two, "Mutable input is normalized again")
+    assert.equal(Object.isFrozen(one), false)
+    const shallow = Object.freeze({ ...structuredClone(frozen) })
+    assert.notEqual(snapshot([shallow])[0], snapshot([shallow])[0], "A message with mutable parts is not reused")
+    const unknown = deepFreeze({ id: "b", role: "system", text: "hidden" })
+    assert.deepEqual([snapshot([unknown]), snapshot([unknown])], [[], []], "An unknown role stays dropped")
+  })
+
   it("carries Host account-page requests as a counter, never as open state", () => {
     assert.equal(initialSnapshot().accountRequest, 0)
     assert.equal("accountOpen" in initialSnapshot(), false)

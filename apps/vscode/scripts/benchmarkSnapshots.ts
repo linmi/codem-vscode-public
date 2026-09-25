@@ -43,8 +43,8 @@ const format = (value: number) => value.toFixed(3)
 for (const size of sizes) {
   const stage = { host: [] as number[], transport: [] as number[], bridge: [] as number[], app: [] as number[] }
   const bridge = new VscodeHostBridge()
-  let hostPrevious: ChatSnapshot | undefined, bridgePrevious: ReturnType<typeof asSnapshot> | undefined
-  let hostRecopied = 0, bridgeRecopied = 0, bytes = 0
+  let hostPrevious: ChatSnapshot | undefined, bridgePrevious: ReturnType<typeof asSnapshot> | undefined, appPrevious: ReturnType<typeof asSnapshot> | undefined
+  let hostRecopied = 0, bridgeRecopied = 0, appRecopied = 0, bytes = 0
   let consumer = 0
   let bridgeCounters = { clones: 0, stringifies: 0, stringifiedBytes: 0 }
   const conversation = await streamingConversation(size, state => {
@@ -61,14 +61,17 @@ for (const size of sizes) {
     bridgeCounters = { clones: bridgeCounters.clones + counters.clones - before.clones, stringifies: bridgeCounters.stringifies + counters.stringifies - before.stringifies, stringifiedBytes: bridgeCounters.stringifiedBytes + counters.stringifiedBytes - before.stringifiedBytes }
     bridgeRecopied += recopied(bridgePrevious?.messages, update.snapshot.messages, "turn-1:streaming")
     bridgePrevious = update.snapshot
-    asSnapshot(update.snapshot)
+    const shown = asSnapshot(update.snapshot)!
     const applied = performance.now()
+    appRecopied += recopied(appPrevious?.messages, shown.messages, "turn-1:streaming")
+    appPrevious = shown
     stage.transport.push(transported - started); stage.bridge.push(bridged - transported); stage.app.push(applied - bridged)
     consumer += applied - started
   })
   // Prime the bridge with the full conversation, as a Webview holds it before streaming.
   bridge.receive(unwire(wire(conversation.controller.snapshot())))
   bridgePrevious = undefined
+  appPrevious = undefined
   const hostBefore = { ...counters }
   for (let index = 0; index < deltas; index++) {
     consumer = 0
@@ -81,6 +84,6 @@ for (const size of sizes) {
   console.log(`\n${messages} messages, ${deltas} deltas, ${Math.round(bytes / deltas / 1024)} KiB per posted state`)
   console.log(`  median ms/delta  host ${format(median(stage.host))}  postMessage(JSON) ${format(median(stage.transport))}  bridge ${format(median(stage.bridge))}  ChatApp asSnapshot ${format(median(stage.app))}`)
   console.log(`  per delta        host clones ${host.clones / deltas}  host cloned messages ${host.clonedMessages / deltas}  host stringifies ${host.stringifies / deltas}  unchanged messages re-created by host ${hostRecopied / deltas}`)
-  console.log(`                   bridge clones ${bridgeCounters.clones / deltas}  bridge stringifies ${bridgeCounters.stringifies / deltas} (${Math.round(bridgeCounters.stringifiedBytes / deltas / 1024)} KiB)  unchanged messages re-normalized by bridge ${bridgeRecopied / deltas}`)
+  console.log(`                   bridge clones ${bridgeCounters.clones / deltas}  bridge stringifies ${bridgeCounters.stringifies / deltas} (${Math.round(bridgeCounters.stringifiedBytes / deltas / 1024)} KiB)  unchanged messages re-normalized by bridge ${bridgeRecopied / deltas}  by ChatApp ${appRecopied / deltas}`)
   await conversation.controller.dispose()
 }

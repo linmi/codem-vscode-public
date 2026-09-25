@@ -650,52 +650,87 @@ function asToolDetails(value: unknown): ToolDetails | undefined {
   return { kind: record.kind, fields, code: typeof record.code === "string" ? record.code.slice(0, 4000) : null }
 }
 
+/**
+ * 深度冻结的 Host 消息与它的规范化结果。规范化只取决于消息本身，深度冻结的消息不会再变，
+ * 所以同一个消息对象总能复用同一份冻结结果：没变的消息保持同一对象，消息列表据此跳过重渲染。
+ * 范围：本模块（一个页面）；键为弱引用，消息对象被回收即失效。未冻结的输入（其他 Host 每次新解析的 JSON）每次重新规范化，结果不冻结。
+ */
+const frozenMessageViews = new WeakMap<object, ChatMessage | null>()
+
 /** 把 Host 投影（含 VS Code 现网消息）收成共享消息，丢掉 turnStatus 与未知角色。 */
 export function normalizeMessages(value: unknown): ChatMessage[] {
   if (!Array.isArray(value)) return []
   const messages: ChatMessage[] = []
   for (const item of value) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue
-    const record = item as Record<string, unknown>
-    if (typeof record.id !== "string" || !record.id || typeof record.text !== "string") continue
-    const text = record.text.length > 64_000 ? record.text.slice(0, 64_000) : record.text
-    const turnId = optionalText(record.turnId)
-    const label = optionalText(record.label)
-    const artifacts = normalizeArtifacts(record.artifacts)
-    const attachments = record.role === "user" ? normalizeAttachments(record.attachments) : []
-    const hasArtifacts = artifacts.length > 0 || record.hasArtifacts === true
-    if (record.role === "turnStatus") {
-      messages.push({ id: record.id, role: "turnStatus", text, outcome: "stopped", ...(turnId ? { turnId } : {}), ...(label ? { label } : {}) })
-      continue
-    }
-    if (record.role === "user" || record.role === "assistant") {
-      messages.push({
-        id: record.id,
-        role: record.role,
-        text,
-        ...(turnId ? { turnId } : {}),
-        ...(label ? { label } : {}),
-        ...(artifacts.length ? { artifacts, hasArtifacts: true } : hasArtifacts ? { hasArtifacts: true } : {}),
-        ...(attachments.length ? { attachments } : {}),
-      })
-      continue
-    }
-    if (record.role === "reasoning" || record.role === "tool") {
-      const status = activityStatuses.find((item) => item === record.status) ?? "completed"
-      const details = asToolDetails(record.details)
-      messages.push({
-        id: record.id,
-        role: record.role,
-        text,
-        status,
-        summary: typeof record.summary === "string" ? record.summary.slice(0, 4000) : "",
-        ...(turnId ? { turnId } : {}),
-        ...(label ? { label } : { label: record.role === "reasoning" ? "思考过程" : "工具" }),
-        ...(details ? { details } : {}),
-      })
-    }
+    const view = messageView(item)
+    if (view) messages.push(view)
   }
   return messages
+}
+
+function messageView(item: unknown): ChatMessage | null {
+  if (!item || typeof item !== "object") return null
+  const known = frozenMessageViews.get(item)
+  if (known !== undefined) return known
+  const view = normalizeMessage(item)
+  if (!deeplyFrozen(item)) return view
+  const shared = view && deepFreeze(view)
+  frozenMessageViews.set(item, shared)
+  return shared
+}
+
+function normalizeMessage(item: unknown): ChatMessage | null {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null
+  const record = item as Record<string, unknown>
+  if (typeof record.id !== "string" || !record.id || typeof record.text !== "string") return null
+  const text = record.text.length > 64_000 ? record.text.slice(0, 64_000) : record.text
+  const turnId = optionalText(record.turnId)
+  const label = optionalText(record.label)
+  const artifacts = normalizeArtifacts(record.artifacts)
+  const attachments = record.role === "user" ? normalizeAttachments(record.attachments) : []
+  const hasArtifacts = artifacts.length > 0 || record.hasArtifacts === true
+  if (record.role === "turnStatus") {
+    return { id: record.id, role: "turnStatus", text, outcome: "stopped", ...(turnId ? { turnId } : {}), ...(label ? { label } : {}) }
+  }
+  if (record.role === "user" || record.role === "assistant") {
+    return {
+      id: record.id,
+      role: record.role,
+      text,
+      ...(turnId ? { turnId } : {}),
+      ...(label ? { label } : {}),
+      ...(artifacts.length ? { artifacts, hasArtifacts: true } : hasArtifacts ? { hasArtifacts: true } : {}),
+      ...(attachments.length ? { attachments } : {}),
+    }
+  }
+  if (record.role === "reasoning" || record.role === "tool") {
+    const status = activityStatuses.find((item) => item === record.status) ?? "completed"
+    const details = asToolDetails(record.details)
+    return {
+      id: record.id,
+      role: record.role,
+      text,
+      status,
+      summary: typeof record.summary === "string" ? record.summary.slice(0, 4000) : "",
+      ...(turnId ? { turnId } : {}),
+      ...(label ? { label } : { label: record.role === "reasoning" ? "思考过程" : "工具" }),
+      ...(details ? { details } : {}),
+    }
+  }
+  return null
+}
+
+function deeplyFrozen(value: unknown): boolean {
+  if (!value || typeof value !== "object") return true
+  return Object.isFrozen(value) && Object.values(value).every(deeplyFrozen)
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value)
+    for (const item of Object.values(value)) deepFreeze(item)
+  }
+  return value
 }
 
 function normalizeAccount(value: unknown): AccountState {
