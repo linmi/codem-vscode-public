@@ -105,6 +105,8 @@ VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.tes
 
 预算针对已建立的 Core 连接；认证、空间准备和初始化保留各自的取消/超时机制。Controller 退出会取消连接生命周期，迟到连接只能关闭，不能绑定或恢复界面。门禁不是对任意第三方回调执行时间的保证。
 
+子进程终止方式由 `packages/app-server/src/processLifecycle.ts` 统一持有：Core 连接、登录、认证命令、空间凭据代理与插件命令各有一项显式策略（优雅或立即、是否终止进程树、每步等待）。默认检查断言 Core 策略在 1 秒释放后分三步等待仍不超过 7 秒，并断言只有插件命令终止进程树；升级到 SIGKILL、进程组回收和 Windows `taskkill` 分支均有故障注入测试。
+
 ## 验证层次
 
 - 2026-09-20 本地结果：`pnpm check` 通过（217 个测试，含本轮 7 个关闭故障测试、13 个架构门禁测试）；`pnpm build:vscode`、`actionlint .github/workflows/quality.yml`、`git diff --check` 通过。测试总数包含同期其他任务的预览测试，不将它们计为本轮新增覆盖。

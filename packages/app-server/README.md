@@ -91,4 +91,18 @@ The VS Code controller synchronously revokes old event authority before retiring
 
 The default tests include real child-process fixtures that withhold unsubscribe, interrupt or side-question cancellation replies, plus a child ignoring EOF and SIGTERM. Assertions check that the PID no longer exists and that the independent test watchdog was not needed. These are isolated protocol fixtures, not live Core or model calls. Controller tests cover repeated disposal, failure-triggered retirement, slow space retirement and failure while other hosts are still closing.
 
+### Child process termination
+
+`src/processLifecycle.ts` decides how each asynchronous child process this package starts is stopped. Each caller uses one named policy, and the timeouts are named constants there. `preflightAppServer` runs Core through `spawnSync` and relies on its built-in timeout.
+
+| Process | Policy | Tree | Sequence |
+| --- | --- | --- | --- |
+| Core App Server | graceful | no | stdin EOF, `SIGTERM`, `SIGKILL`, waiting up to `closeTimeoutMs` (2 s) after each; an error if Core outlives all three |
+| `auth login` | graceful | no | `SIGTERM`, `SIGKILL`, waiting up to `closeTimeoutMs` (2 s) after each; an error if it outlives both |
+| `auth status`, `auth logout` | immediate | no | `SIGKILL` on the 30 s deadline, cancellation or oversized output; the call returns once the process has closed |
+| Space broker (`__host-serve`) | immediate | no | `SIGKILL` after every run and on the 180 s deadline, cancellation or protocol failure; the call returns once the broker has closed |
+| `plugin` commands | graceful | yes | on the 60 s deadline, cancellation or oversized output: `SIGTERM` to the process group (`taskkill /pid <pid> /t /f` on Windows), `SIGKILL` 1 s later; the command settles once it has closed |
+
+A tree policy only reaches the whole tree when the child is spawned with `terminationSpawnOptions(policy)`, which makes it lead its own POSIX process group. Timeouts must be positive and finite (`requirePositiveTimeout`); otherwise `setTimeout` would expire almost immediately. `tests/processLifecycle.test.ts` checks every policy, escalation step, the POSIX and Windows tree branches, and that Core still fits the 7-second shutdown budget; it also runs in `pnpm test:windows`.
+
 Native skills use `startTurn({ skillName, text, ... })` with Core structured skill input; attachments are rejected for this input variant. `clearThread` validates the operation/source identity and returns the newly loaded thread ID. The editor must revoke old handles and use that new identity. See [capability acceptance and Core limitations](../../docs/appServerCapabilities.md).
