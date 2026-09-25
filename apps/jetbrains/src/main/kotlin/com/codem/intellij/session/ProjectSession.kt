@@ -1245,14 +1245,19 @@ class ProjectSession(
                 if (!KnownNotifications.isKnown(notification.method)) {
                     throw CodemError.Protocol(CodemError.Class.UnknownNotification, "CodeM App Server emitted unknown notification ${notification.method}")
                 }
-                val changed = lock.withLock {
-                    if (generation.get() != currentGeneration) return@withLock false
-                    applyNotificationLocked(notification)
-                    turnChanged.signalAll()
-                    snapshotVersion += 1
-                    true
+                // 认证失效属于整条连接，不按线程过滤：Core 已无法再路由任务，与断线同一路径摘除，重试失败才不会退回 ready。
+                if (notification.method == "auth/invalidated") {
+                    lose(CodemError.Authentication(AUTH_INVALIDATED), AUTH_INVALIDATED)
+                } else {
+                    val changed = lock.withLock {
+                        if (generation.get() != currentGeneration) return@withLock false
+                        applyNotificationLocked(notification)
+                        turnChanged.signalAll()
+                        snapshotVersion += 1
+                        true
+                    }
+                    if (changed) emitSnapshot()
                 }
-                if (changed) emitSnapshot()
             },
             onRequest = { request: RpcRequest, peer: RpcPeer ->
                 // 入队本身不是界面事实：受理后必须升版本并推快照，否则审批卡片永远不出现。
@@ -1393,9 +1398,10 @@ class ProjectSession(
     }
 
     /**
-     * 已提交连接丢失（协议错误或进程退出），对标 App Server host 的 connection-closed：
+     * 已提交连接丢失（协议错误、进程退出或认证失效），对标 App Server host 的 connection-closed：
      * 撤销该代次的事件与迟到结果，结束交互和未完成轮次，释放线程订阅，界面转 failed 并可重试。
      * 死掉的 Core 交给 retiring，由调用方关闭、下次替换或会话关闭时等待回收。草稿与待发附件保留。
+     * 之后的重试没有旧 Core 可退：认证或启动再失败仍是 failed，成功才以新 Core 回到 ready。
      */
     private fun loseConnectionLocked(message: String): List<CoreProcess> {
         val lost = listOfNotNull(core)
@@ -1673,10 +1679,6 @@ class ProjectSession(
         val eventThread = (notification.params.fields["threadId"] as? JsonValue.Text)?.value
         if (eventThread != null && eventThread != threadId) return
         when (notification.method) {
-            "auth/invalidated" -> {
-                phase = ConnectionPhase.Failed
-                notice = SessionNotice("CodeM authentication is no longer valid", true)
-            }
             "warning" -> {
                 val raw = (notification.params.fields["message"] as? JsonValue.Text)?.value ?: "CodeM reported a warning"
                 notice = SessionNotice(SafeNotice.from(CodemError.Validation(raw), "CodeM reported a warning"), true)
@@ -1857,6 +1859,7 @@ class ProjectSession(
     private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
     companion object {
+        private const val AUTH_INVALIDATED = "CodeM authentication is no longer valid"
         private val CATALOG_COLLECTIONS = setOf(
             "skills", "hooks", "plugins", "profiles", "spaces", "items", "turns", "tools", "permissionProfiles",
         )

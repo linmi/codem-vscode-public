@@ -394,6 +394,77 @@ class ProjectSessionTest {
         } finally { session.close().join() }
     }
 
+    /**
+     * 认证失效按断线处理：推送 failed 并可重试，轮次与审批结束，Core 被关闭，草稿保留。
+     * 登录仍无效时 connect/chooseSpace 重试都停在 failed，不因旧 Core 挂着退回 ready；重新登录后重试才起新 Core。
+     */
+    @Test
+    fun authInvalidationDetachesTheCoreSoAFailedRetryStaysFailed() {
+        val published = java.util.concurrent.CopyOnWriteArrayList<com.codem.intellij.webview.ChatSnapshot>()
+        val processes = java.util.concurrent.CopyOnWriteArrayList<ScriptedProcess>()
+        val auth = StubAuth()
+        val session = session(auth = auth, onSnapshot = { published += it }) { process ->
+            processes += process
+            startResponder(process, handshakeCapabilities())
+            process
+        }
+        try {
+            session.connect()
+            session.saveDraft("keep me")
+            session.send("hello", "req-auth")
+            val process = processes.single()
+            enqueueNotification(process, "item/started", JsonValue.obj(
+                "threadId" to JsonValue.Text("thread-1"),
+                "turnId" to JsonValue.Text("turn-1"),
+                "item" to JsonValue.obj(
+                    "id" to JsonValue.Text("tool-1"),
+                    "type" to JsonValue.Text("commandExecution"),
+                    "status" to JsonValue.Text("inProgress"),
+                    "tool" to JsonValue.Text("run_bash"),
+                ),
+            ))
+            process.enqueue(encodeJson(JsonValue.obj(
+                "jsonrpc" to JsonValue.Text("2.0"), "id" to JsonValue.Text("approval-rpc"),
+                "method" to JsonValue.Text("item/tool/requestApproval"),
+                "params" to JsonValue.obj("threadId" to JsonValue.Text("thread-1"),
+                    "options" to JsonValue.ArrayValue(listOf(JsonValue.obj("id" to JsonValue.Text("allow_once"))))),
+            )))
+            awaitSnapshot(session) { it.pendingPanel != null }
+
+            enqueueNotification(process, "auth/invalidated", JsonValue.ObjectValue(emptyMap()))
+            val failed = awaitPublished(published) { it.phase == "failed" }
+            assertEquals("CodeM authentication is no longer valid", failed.notice)
+            assertEquals(true, failed.canRetry)
+            assertEquals(null, failed.pendingPanel)
+            assertEquals("incomplete", failed.messages.single { it.role == "tool" }.status)
+            assertEquals(null, failed.threadId)
+            assertEquals("thread-1", failed.resumeThreadId)
+            assertEquals(false, failed.canResume)
+            awaitCondition { !process.isAlive }
+            assertEquals("keep me", session.currentDraft())
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.send("too early", "req-dead") }
+            assertEquals("CodeM authentication is no longer valid", session.snapshot().notice)
+
+            auth.loggedIn = false
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Authentication::class.java) { session.connect() }
+            val retryFailed = session.snapshot()
+            assertEquals("failed", retryFailed.phase)
+            assertEquals("CodeM login is required before starting App Server threads", retryFailed.notice)
+            assertEquals(true, retryFailed.canRetry)
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Authentication::class.java) { session.chooseSpace("proj") }
+            assertEquals("failed", session.snapshot().phase)
+            assertEquals(1, processes.size)
+
+            auth.loggedIn = true
+            session.connect()
+            assertEquals(2, processes.size)
+            val retried = session.snapshot()
+            assertEquals("ready", retried.phase)
+            assertEquals(null, retried.notice)
+            assertEquals("turn-1", session.send("after login", "req-relogin"))
+        } finally { session.close().join() }
+    }
+
     /** 读线程回调（如 JCEF 推送）抛出非 CodeM 异常时，连接明确失败，而不是 stdout 读线程静默死亡。 */
     @Test
     fun snapshotSubscriberFailureFailsTheConnectionInsteadOfSilencingTheReader() {
@@ -1151,6 +1222,7 @@ class ProjectSessionTest {
     private fun session(
         trusted: Boolean = true,
         workingDirectory: Path? = null,
+        auth: AuthGateway = StubAuth(),
         spaceOverride: SpaceGateway = StubSpace(),
         historySource: HistorySource? = null,
         selectionReader: SelectionReader? = null,
@@ -1171,7 +1243,7 @@ class ProjectSessionTest {
             trusted = trusted,
             timeouts = Timeouts(initializeMs = 2_000, rpcMs = 2_000, closeStageMs = 200),
             processFactory = { _, _, _ -> factory(ScriptedProcess()) },
-            authOverride = StubAuth(),
+            authOverride = auth,
             spaceOverride = spaceOverride,
             selectionReader = selectionReader,
             attachmentStore = attachmentStore,
@@ -1326,9 +1398,13 @@ class ProjectSessionTest {
             ),
         )
 
+    /** 默认已登录；置 loggedIn = false 模拟登录已失效，此后按 AuthClient 规则拒绝启动。 */
     private class StubAuth : AuthGateway {
-        override fun status() = AuthStatus(true, "cli", true, null, null, "u1", "User")
-        override fun assertAuthenticated(status: AuthStatus) = Unit
+        @Volatile var loggedIn = true
+        override fun status() = AuthStatus(loggedIn, "cli", loggedIn, null, null, "u1", "User")
+        override fun assertAuthenticated(status: AuthStatus) {
+            if (!status.loggedIn) throw CodemError.Authentication("CodeM login is required before starting App Server threads")
+        }
     }
 
     private class StubSpace : SpaceGateway {
