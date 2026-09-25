@@ -14,6 +14,7 @@ import {
   APP_SERVER_KNOWN_NOTIFICATIONS,
   AppServerRpcPeer,
   parseAppServerItem,
+  validateAppServerInitializeResult,
 } from "@codem/app-server"
 import { resolveSessionsRoot, readSessionHistory } from "@codem/history"
 import { parseUiAction } from "@codem/ui/contract"
@@ -154,6 +155,22 @@ describe("core transport samples", () => {
   it("keeps the known notification set identical to the Node host", async () => {
     const sample = await readJson(join(root, "core/knownNotifications.json"))
     assert.deepEqual(sample.methods, [...APP_SERVER_KNOWN_NOTIFICATIONS])
+  })
+
+  it("accepts the recorded Core initialize result and still requires each announced item kind", async () => {
+    const sample = await readJson(join(root, "core/initializeHandshake.json"))
+    const events = sample.events as readonly { readonly direction: string; readonly frame: { readonly result?: Record<string, unknown> } }[]
+    const result = events.find(event => event.direction === "core-to-host")!.frame.result!
+    const runtime = { coreVersion: String(sample.coreVersion), executablePath: "codem-core" }
+    const expected = sample.expected as { readonly protocolVersion: number; readonly agentVersion: string }
+    assert.deepEqual(validateAppServerInitializeResult(result, runtime), { protocolVersion: expected.protocolVersion, agentVersion: expected.agentVersion })
+
+    const items = (result.capabilities as { readonly items: { readonly types: readonly string[] } }).items
+    for (const type of items.types) {
+      const missing = structuredClone(result) as { capabilities: { items: { types: string[] } } }
+      missing.capabilities.items.types = items.types.filter(value => value !== type)
+      assert.throws(() => validateAppServerInitializeResult(missing, runtime), new RegExp(`items\\.types is missing ${type}$`, "u"))
+    }
   })
 
   it("agrees with JSON.parse on every RFC 8259 text sample", async () => {

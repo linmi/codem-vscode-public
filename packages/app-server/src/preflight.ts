@@ -1,3 +1,4 @@
+import { APP_SERVER_ITEM_STATUSES, APP_SERVER_ITEM_TYPES, type AppServerItemType } from "./items.ts"
 import type { AppServerRuntime } from "./runtime.ts"
 
 export const APP_SERVER_PROTOCOL_VERSION = 1
@@ -41,26 +42,18 @@ export const REQUIRED_APP_SERVER_BOOLEAN_CAPABILITIES = [
   "mcp.stdio",
 ] as const
 
-export const REQUIRED_APP_SERVER_ITEM_TYPES = [
-  "userMessage",
-  "agentMessage",
-  "reasoning",
-  "commandExecution",
-  "fileChange",
-  "mcpToolCall",
-  "webSearch",
-  "contextCompaction",
-  "toolCall",
-  "subagent",
-] as const
+/**
+ * `toolResult` only appears in durable `thread/items/list` records. Pinned Core does not announce it in
+ * `initialize` (see packages/contracts/core/initializeHandshake.json), so requiring it would reject Core.
+ */
+const DURABLE_ONLY_ITEM_TYPES: readonly AppServerItemType[] = ["toolResult"]
 
-export const REQUIRED_APP_SERVER_ITEM_STATUSES = [
-  "inProgress",
-  "completed",
-  "failed",
-  "declined",
-  "interrupted",
-] as const
+/** Item kinds Core must announce in `initialize`: every kind the Host parses, minus the durable-only ones. */
+export const REQUIRED_APP_SERVER_ITEM_TYPES: readonly AppServerItemType[] = APP_SERVER_ITEM_TYPES.filter(
+  (type) => !DURABLE_ONLY_ITEM_TYPES.includes(type),
+)
+
+export const REQUIRED_APP_SERVER_ITEM_STATUSES = APP_SERVER_ITEM_STATUSES
 
 export interface AppServerInitialization {
   readonly protocolVersion: typeof APP_SERVER_PROTOCOL_VERSION
