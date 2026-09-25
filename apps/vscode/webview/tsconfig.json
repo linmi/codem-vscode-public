@@ -8,17 +8,11 @@
       "DOM.Iterable"
     ],
     "types": [],
-    "jsx": "react-jsx",
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    }
+    "jsx": "react-jsx"
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "../tests/previewNavigation.tsx",
-    "../src/shared/messages.ts"
+    "../tests/previewNavigation.tsx"
   ]
 }

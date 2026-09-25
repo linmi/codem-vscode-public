@@ -466,7 +466,7 @@
     "build:native-chat": "node --experimental-strip-types scripts/buildNativeChat.ts",
     "build": "node --experimental-strip-types scripts/build.ts",
     "watch": "node --experimental-strip-types scripts/build.ts --watch",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p webview/tsconfig.json && tsc --noEmit -p webview/tsconfig.composer.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p webview/tsconfig.json",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "test:extension": "node --experimental-strip-types scripts/smoke.ts",
     "test:runtime": "node --experimental-strip-types scripts/runtimeSmoke.ts",

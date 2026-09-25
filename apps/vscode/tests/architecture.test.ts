@@ -208,27 +208,6 @@ it("structure gate: composer state accepts its contracts and rejects UI, Host, e
   }
 })
 
-it("structure gate: composer type environment accepts plain state and rejects DOM and ambient Node APIs", async t => {
-  const root = await fixture(t)
-  const directory = "apps/vscode/webview"
-  const config = JSON.parse(await readFile(join(workspace, directory, "tsconfig.composer.json"), "utf8"))
-  config.extends = join(workspace, "tsconfig.json")
-  await put(root, `${directory}/tsconfig.composer.json`, JSON.stringify(config))
-  const path = `${directory}/composer/composerState.ts`
-  const check = () => execFileSync(join(workspace, "apps/vscode/node_modules/.bin/tsc"), ["--noEmit", "-p", `${directory}/tsconfig.composer.json`], { cwd: root, encoding: "utf8", stdio: "pipe" })
-  await put(root, path, 'export const drafts = new Map<string, string>()')
-  check()
-  for (const source of ['export const draft = document.createElement("textarea")', 'export const draft = process.env.DRAFT']) {
-    await put(root, path, source)
-    assert.throws(check, error => {
-      const failure = error as Error & { status: number; stdout: string }
-      assert.notEqual(failure.status, 0)
-      assert.match(failure.stdout, /Cannot find name '(document|process)'/)
-      return true
-    }, source)
-  }
-})
-
 for (const owner of ["src/resources/conversationResources.ts", "src/chat/backgroundTasks.ts", "src/sessionHistory/conversationHistory.ts"]) {
   it(`conversation boundary rejects reverse coordinator dependencies from ${owner}, including aliases and types`, async t => {
     const root = await fixture(t)

@@ -32,6 +32,7 @@ export async function bundleNotices(root: string, inputs: readonly string[]): Pr
     notices.push({ name: manifest.name, text: `## ${manifest.name}@${manifest.version}\n\n${texts.join("\n\n")}` })
   }
   const ui = await readFile(join(root, "packaging/uiNotices.txt"), "utf8")
-  const shadcn = await readFile(join(root, "webview/components/shadcnLicense.md"), "utf8")
+  // The bundled shadcn components are @codem/ui sources; their MIT notice ships beside them.
+  const shadcn = await readFile(join(root, "node_modules/@codem/ui/src/components/shadcnLicense.md"), "utf8")
   return `# Third-party notices\n\n${ui}\n## shadcn/ui\n\n${shadcn}\n${notices.sort((a, b) => a.name.localeCompare(b.name)).map(notice => notice.text).join("\n\n")}\n`
 }

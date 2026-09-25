@@ -8,8 +8,12 @@ import { setTimeout as delay } from "node:timers/promises"
 import { resolveSessionsRoot } from "@codem/history"
 import { ChatController, type ChatSession } from "../src/chat/chatController.ts"
 import { historyMessages } from "../src/sessionHistory/historyMessages.ts"
-import { timelineGroups } from "../src/shared/timelineGroups.ts"
+import { normalizeMessages } from "@codem/ui/contract"
+import { timelineGroups as uiTimelineGroups } from "../../../packages/ui/src/chat/timelineGroups.ts"
 import { liveRuntime } from "./liveRuntime.ts"
+
+/** Group Host messages the way the shared chat view does: through the UI projection first. */
+const timelineGroups = (messages: readonly unknown[]) => uiTimelineGroups(normalizeMessages(messages))
 
 /** Opt-in real Core regression: concurrent workspace changes must not trigger another answer. */
 export async function runLiveReplyDelivery(extensionRoot: string, workspace: string): Promise<void> {

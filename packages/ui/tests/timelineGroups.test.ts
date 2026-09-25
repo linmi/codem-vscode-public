@@ -1,10 +1,10 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { timelineGroups } from "../src/shared/timelineGroups.ts"
-import type { ActivityMessage, ChatMessage } from "../src/shared/messages.ts"
+import { timelineGroups } from "../src/chat/timelineGroups.ts"
+import type { ChatMessage } from "../src/contract.ts"
 const user = (id: string): ChatMessage => ({ id, role: "user", label: "你", text: "问题" })
 const answer = (id: string): ChatMessage => ({ id, role: "assistant", label: "CodeM", text: id })
-const tool = (id: string): ActivityMessage => ({ id, role: "tool", label: "搜索", text: "结果", summary: "", status: "completed" })
+const tool = (id: string): ChatMessage => ({ id, role: "tool", label: "搜索", text: "结果", summary: "", status: "completed" })
 const ids = (messages: readonly ChatMessage[]) => timelineGroups(messages).map(group => group.kind === "message" ? group.message.id : group.messages.map(message => message.id))
 
 it("folds intermediate progress with its work while preserving all trailing answer content", () => {
@@ -40,18 +40,18 @@ it("folds pre-tool progress and cancelled work without hiding answers from anoth
   assert.deepEqual(ids([user("u"), answer("start"), { ...tool("t"), status: "interrupted" }]), ["u", ["start", "t"]])
   assert.deepEqual(ids([{ ...answer("final1"), turnId: "one" }, { ...tool("t2"), turnId: "two" }]), ["final1", ["t2"]])
   assert.deepEqual(ids([answer("previous"), user("new"), tool("next")]), ["previous", "new", ["next"]])
-  const delivered = { ...answer("artifact"), artifacts: [{ id: "file", kind: "file" as const, title: "结果", detail: "", available: true }] }
+  const delivered = { ...answer("artifact"), hasArtifacts: true }
   assert.deepEqual(ids([delivered, tool("late")]), ["artifact", ["late"]])
 })
 
 it("associates usable final results with only their own work and user submission", () => {
   const hasResult = (messages: ChatMessage[]) => timelineGroups(messages).flatMap(group => group.kind === "work" ? [group.hasResult] : [])
-  const failed: ActivityMessage = { ...tool("failed"), status: "failed" }
+  const failed: ChatMessage = { ...tool("failed"), status: "failed" }
   assert.deepEqual(hasResult([failed, answer("result")]), [true])
   assert.deepEqual(hasResult([answer("progress"), failed]), [false], "Intermediate progress is not a final result")
   assert.deepEqual(hasResult([failed, { ...answer("blank"), text: " \n" }]), [false])
-  assert.deepEqual(hasResult([failed, { ...answer("artifact"), text: "", artifacts: [{ id: "file", kind: "file", title: "结果", detail: "", available: true }] }]), [true])
-  assert.deepEqual(hasResult([{ ...answer("artifact"), artifacts: [{ id: "file", kind: "file", title: "结果", detail: "", available: true }] }, failed]), [true], "Delivered artifacts remain results when later work follows")
+  assert.deepEqual(hasResult([failed, { ...answer("artifact"), text: "", hasArtifacts: true }]), [true])
+  assert.deepEqual(hasResult([{ ...answer("artifact"), hasArtifacts: true }, failed]), [true], "Delivered artifacts remain results when later work follows")
   assert.deepEqual(hasResult([{ ...failed, turnId: "one" }, { ...answer("other"), turnId: "two" }]), [false])
   assert.deepEqual(hasResult([failed, user("next"), answer("next-result")]), [false])
   assert.deepEqual(hasResult([tool("first"), answer("first-result"), user("next"), failed]), [true, false])

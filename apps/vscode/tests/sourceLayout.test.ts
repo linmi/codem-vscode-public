@@ -15,23 +15,25 @@ async function put(root: string, path: string): Promise<void> {
 async function fixture(t: TestContext): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "codem-layout-"))
   t.after(() => rm(root, { recursive: true, force: true }))
-  for (const path of ["src/extension.ts", "src/chat/chatController.ts", "src/shared/messages.ts", "webview/main.ts", "webview/styles.css", "webview/tsconfig.json", "webview/composer/composerView.ts", "webview/components/ui/button.tsx", "webview/components/componentStyles.ts"]) await put(root, path)
+  for (const path of ["src/extension.ts", "src/chat/chatController.ts", "src/shared/messages.ts", "webview/main.ts", "webview/styles.css", "webview/tsconfig.json", "webview/host/vscodeHostBridge.ts"]) await put(root, path)
   return root
 }
 
 it("directory gate: active application uses documented feature directories", async () => { await checkSourceLayout(workspace) })
-it("directory gate: accepts entrypoints, config, feature code and UI primitives", async t => { await checkSourceLayout(await fixture(t)) })
-for (const path of ["src/pluginManagement.ts", "src/chatController.ts", "webview/composerState.ts", "webview/components/composerMode.tsx", "webview/panels.css"]) {
+it("directory gate: accepts entrypoints, config, feature code and the Host bridge", async t => { await checkSourceLayout(await fixture(t)) })
+for (const path of ["src/pluginManagement.ts", "src/chatController.ts", "webview/composerState.ts", "webview/panels.css"]) {
   it(`directory gate: rejects flat implementation at ${path}`, async t => {
     const root = await fixture(t)
     await put(root, path)
     await assert.rejects(checkSourceLayout(root), /implementation must live in its feature directory/)
   })
 }
-it("directory gate: rejects an undocumented catch-all directory", async t => {
-  const root = await fixture(t)
-  await put(root, "src/managers/everything.ts")
-  await assert.rejects(checkSourceLayout(root), /undocumented feature directory/)
-})
+for (const path of ["src/managers/everything.ts", "webview/components/ui/button.tsx", "webview/composer/composerView.ts", "webview/styles/shadcnStyles.css"]) {
+  it(`directory gate: rejects an undocumented directory at ${path}`, async t => {
+    const root = await fixture(t)
+    await put(root, path)
+    await assert.rejects(checkSourceLayout(root), /undocumented feature directory/)
+  })
+}
 
 it("directory gate: accepts the named plugin lifecycle boundary", async t => { const root = await fixture(t); await put(root, "src/plugins/pluginManagement.ts"); await checkSourceLayout(root) })

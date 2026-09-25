@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { initialSnapshot } from "../src/shared/messages.ts"
-import { commandUnavailable, inputUnavailable, sessionCommands, slashQuery } from "../src/shared/sessionCommands.ts"
+import { initialSnapshot } from "../src/contract.ts"
+import { builtinSlashCommands, commandUnavailable, inputUnavailable, slashQuery } from "../src/chat/slashCommands.ts"
 it("only allows steering during a live run and rejects destructive commands until idle", () => {
   const running = { ...initialSnapshot(), threadId: "thread", phase: "running" as const }
   assert.equal(commandUnavailable("steer", running), null)
@@ -18,7 +18,7 @@ it("new conversations require identity for session operations, but expose read-o
   assert.equal(commandUnavailable("ask", { ...state, phase: "sideQuestion", sessionTools: { ...state.sessionTools, sideQuestion: { question: "q", answer: "", status: "running" } } }), null)
 })
 it("all command IDs are unique and slash detection never interprets normal prose as a command", () => {
-  assert.equal(new Set(sessionCommands.map(command => command.id)).size, sessionCommands.length)
+  assert.equal(new Set(builtinSlashCommands.map(command => command.id)).size, builtinSlashCommands.length)
   assert.equal(slashQuery("/"), "")
   assert.equal(slashQuery("/compact"), "compact")
   assert.equal(slashQuery("/unknown"), "unknown")

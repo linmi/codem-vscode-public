@@ -8,12 +8,7 @@
     "types": [
       "node",
       "vscode"
-    ],
-    "paths": {
-      "@/*": [
-        "./webview/*"
-      ]
-    }
+    ]
   },
   "include": [
     "src/**/*.ts",

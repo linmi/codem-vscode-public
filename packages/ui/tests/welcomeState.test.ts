@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { welcomeState } from "../webview/status/welcomeState.ts"
+import { welcomeState } from "../src/chat/welcomeState.ts"
 
 it("keeps initial and restored welcome static until a real connection begins", () => {
   for (const phase of ["disconnected", "ready"] as const)
