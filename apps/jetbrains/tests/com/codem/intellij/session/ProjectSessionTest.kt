@@ -7,6 +7,7 @@ import com.codem.intellij.account.Space
 import com.codem.intellij.account.SpaceGateway
 import com.codem.intellij.account.SpaceList
 import com.codem.intellij.account.SpacePreparation
+import com.codem.intellij.contracts.ContractFixtures
 import com.codem.intellij.core.CodemError
 import com.codem.intellij.core.JsonValue
 import com.codem.intellij.core.ResolvedRuntime
@@ -23,6 +24,7 @@ import com.codem.intellij.ide.RecordingDiffPresenter
 import com.codem.intellij.ide.SelectionReader
 import com.codem.intellij.ide.SelectionSnapshot
 import com.codem.intellij.webview.ViewAction
+import com.codem.intellij.webview.encodeChatSnapshot
 import com.codem.intellij.webview.initialSnapshot
 import com.codem.intellij.webview.parseViewAction
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -713,7 +715,7 @@ class ProjectSessionTest {
         assertEquals("val kept = 1\nval after = 2", openedTexts.after)
 
         session.applyViewAction(ViewAction.RefreshBackground)
-        assertEquals("12", session.snapshot().background.single().id)
+        assertEquals("4242", session.snapshot().background.single().id)
         completeTurn(process, "thread-1", "turn-control")
         awaitSnapshot(session) { it.phase == "ready" }
         val oldDiffId = session.snapshot().diffs.single().id
@@ -1239,7 +1241,7 @@ class ProjectSessionTest {
             bumps("setModes") { session.setModes(session.snapshot().modeRevision ?: 0, workMode = "normal") }
             bumps("listLiveTurns") { session.listLiveTurns() }
             bumps("listBackgroundTerminals") { session.listBackgroundTerminals() }
-            bumps("terminateBackground") { session.terminateBackground("12") }
+            bumps("terminateBackground") { session.terminateBackground("4242") }
             bumps("cleanBackground") { session.cleanBackground() }
             bumps("clearThread") { session.clearThread("op-1") }
             bumps("compactThread") { session.compactThread() }
@@ -1268,49 +1270,95 @@ class ProjectSessionTest {
     }
 
     /**
-     * 与 host.ts backgroundTerminal 一致：terminals 必须是数组，processId 必须是正整数。
-     * 旧实现在缺 processId 时用列表序号冒充进程号，终止时会把这个序号发给 Core。
+     * `core/backgroundTerminals.json` 也由 contracts.test.ts 交给 parseAppServerBackgroundTerminalList：
+     * 接受的列表按 Core 顺序投影 processId 与 `alive`；被拒的列表以 InvalidFrame 失败，错误点名出错字段，
+     * 并保留上一份有效列表。旧实现读不存在的 `inProgress`，把运行中的终端当成已退出，也接受缺 `alive` 的行；
+     * 更早还在缺 processId 时用列表序号冒充进程号，终止时会把这个序号发给 Core。
      */
     @Test
-    fun backgroundTerminalsRequireAPositiveProcessId() {
+    fun backgroundTerminalListingsFollowTheSharedContract() {
         val terminals = java.util.concurrent.atomic.AtomicReference<JsonValue>()
         val process = ScriptedProcess()
         val session = session {
             startResponder(process, handshakeCapabilities(), results = { method, _ -> if (method == "thread/backgroundTerminals/list") terminals.get() else null })
             process
         }
-        fun listing(vararg terminal: JsonValue) = JsonValue.obj("terminals" to JsonValue.ArrayValue(terminal.toList()))
-        fun terminal(processId: JsonValue?) = JsonValue.ObjectValue(
-            listOfNotNull(processId?.let { "processId" to it }, "inProgress" to JsonValue.Bool(true)).toMap(),
-        )
+        val cases = backgroundCases()
+        assertTrue(cases.any { it.requiredObject("expected", "case").requiredString("kind", "expected") == "accepted" })
+        assertTrue(cases.any { it.requiredObject("expected", "case").requiredString("kind", "expected") == "protocol-error" })
         try {
             session.connect()
             session.resumeThread("thread-1")
-            terminals.set(listing(terminal(JsonValue.NumberValue(12.0, "12"))))
-            assertEquals(listOf("12"), session.listBackgroundTerminals().map { it.id })
-
-            val invalid = listOf(
-                listing(terminal(null)),
-                listing(terminal(JsonValue.NumberValue(0.0, "0"))),
-                listing(terminal(JsonValue.NumberValue(-3.0, "-3"))),
-                listing(terminal(JsonValue.NumberValue(1.5, "1.5"))),
-                listing(terminal(JsonValue.Text("12"))),
-                listing(terminal(JsonValue.Null)),
-                listing(JsonValue.Text("terminal")),
-                JsonValue.obj("terminals" to JsonValue.Null),
-                JsonValue.obj(),
-            )
-            for (result in invalid) {
-                terminals.set(result)
-                val error = org.junit.jupiter.api.Assertions.assertThrows(CodemError.Protocol::class.java, { session.listBackgroundTerminals() }, result.toString())
-                assertEquals(CodemError.Class.InvalidFrame, error.errorClass, result.toString())
-                assertEquals(listOf("12"), session.snapshot().background.map { it.id }, "a rejected listing keeps the last good one")
+            for (case in cases) {
+                val name = case.requiredString("name", "case")
+                val expected = case.requiredObject("expected", name)
+                if (expected.requiredString("kind", name) == "accepted") {
+                    val projected = expected.requiredArray("terminals", name).map {
+                        val terminal = it.asObject(name)
+                        terminal.requiredInt("processId", name).toString() to terminal.requiredBoolean("running", name)
+                    }
+                    terminals.set(case.required("result"))
+                    assertEquals(projected, session.listBackgroundTerminals().map { it.id to it.inProgress }, name)
+                    assertEquals(projected, session.snapshot().background.map { it.id to it.inProgress }, name)
+                    continue
+                }
+                assertEquals("protocol-error", expected.requiredString("kind", name), name)
+                assertEquals("invalid-frame", expected.requiredString("class", name), name)
+                terminals.set(backgroundListing("running-terminal"))
+                val lastGood = session.listBackgroundTerminals().map { it.id to it.inProgress }
+                terminals.set(case.required("result"))
+                val error = org.junit.jupiter.api.Assertions.assertThrows(CodemError.Protocol::class.java, { session.listBackgroundTerminals() }, name)
+                assertEquals(CodemError.Class.InvalidFrame, error.errorClass, name)
+                val field = expected.requiredString("field", name)
+                assertTrue(error.message.orEmpty().contains(field), "$name must name $field: ${error.message}")
+                assertEquals(lastGood, session.snapshot().background.map { it.id to it.inProgress }, "$name: a rejected listing keeps the last good one")
             }
 
             // Without a processId the old list offered "1"; terminating it must not reach Core.
-            terminals.set(listing(terminal(null)))
+            terminals.set(backgroundListing("process-id-missing"))
             org.junit.jupiter.api.Assertions.assertThrows(CodemError.Protocol::class.java) { session.terminateBackground("1") }
             assertTrue(process.writes.none { it.contains("thread/backgroundTerminals/terminate") })
+        } finally { session.close().join() }
+    }
+
+    /**
+     * 运行中的终端要显示为运行中，并能从界面终止。界面只在行的 inProgress 为真时给出“终止”，
+     * 所以旧实现读 `inProgress` 时，Core 报告 `alive: true` 的终端显示“已退出”且无法终止。
+     */
+    @Test
+    fun aRunningTerminalShowsAsRunningAndCanBeStopped() {
+        val terminated = java.util.concurrent.atomic.AtomicBoolean(false)
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, _ ->
+                when (method) {
+                    "thread/backgroundTerminals/list" -> backgroundListing(if (terminated.get()) "exited-terminal" else "running-terminal")
+                    "thread/backgroundTerminals/terminate" -> JsonValue.ObjectValue(emptyMap()).also { terminated.set(true) }
+                    else -> null
+                }
+            })
+            process
+        }
+        try {
+            session.connect()
+            session.resumeThread("thread-1")
+            session.applyViewAction(ViewAction.RefreshBackground)
+            val shown = session.snapshot().background.single()
+            assertEquals("4242", shown.id)
+            assertTrue(shown.inProgress, "a terminal Core reports alive must show as running")
+            val row = encodeChatSnapshot(session.snapshot()).requiredArray("background", "snapshot").single().asObject("snapshot.background[0]")
+            assertEquals(JsonValue.Bool(true), row.required("inProgress"), "the view offers 终止 only for an inProgress row")
+
+            session.applyViewAction(parseViewAction(JsonValue.obj("type" to JsonValue.Text("terminateBackground"), "id" to JsonValue.Text(shown.id))))
+            val terminate = process.writes.map { JsonValue.parse(it).asObject() }.filter { it.stringOrNull("method") == "thread/backgroundTerminals/terminate" }
+            assertEquals(1, terminate.size)
+            assertEquals(
+                JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "processId" to JsonValue.NumberValue(4242.0, "4242")),
+                terminate.single().required("params"),
+            )
+            val stopped = session.snapshot().background.single()
+            assertEquals("4242", stopped.id)
+            assertEquals(false, stopped.inProgress, "the listing after terminate reports the terminal as exited")
         } finally { session.close().join() }
     }
 
@@ -1805,11 +1853,7 @@ class ProjectSessionTest {
                     "modelProvider/capabilities/read" -> JsonValue.obj("name" to JsonValue.Text("router"))
                     "tools/list" -> JsonValue.obj("tools" to JsonValue.ArrayValue(listOf(JsonValue.obj("name" to JsonValue.Text("bash"), "description" to JsonValue.Text("shell")))))
                     "thread/turns/list" -> JsonValue.obj("turns" to JsonValue.ArrayValue(emptyList()), "nextCursor" to JsonValue.Null)
-                    "thread/backgroundTerminals/list" -> JsonValue.obj(
-                        "terminals" to JsonValue.ArrayValue(
-                            listOf(JsonValue.obj("processId" to JsonValue.NumberValue(12.0, "12"), "inProgress" to JsonValue.Bool(true))),
-                        ),
-                    )
+                    "thread/backgroundTerminals/list" -> backgroundListing("running-terminal")
                     "thread/backgroundTerminals/terminate", "thread/backgroundTerminals/clean" -> JsonValue.ObjectValue(emptyMap())
                     "thread/fork" -> JsonValue.obj("thread" to JsonValue.obj("id" to JsonValue.Text("thread-fork")))
                     "thread/name/set", "thread/archive", "thread/unarchive", "thread/delete" -> JsonValue.ObjectValue(emptyMap())
@@ -1827,6 +1871,12 @@ class ProjectSessionTest {
             }
         }.apply { isDaemon = true; name = "codem-test-responder"; start() }
     }
+
+    /** A complete thread/backgroundTerminals/list result from the sample the TypeScript contract test also reads. */
+    private fun backgroundListing(name: String): JsonValue =
+        backgroundCases().single { it.requiredString("name", "core/backgroundTerminals.json case") == name }.required("result")
+
+    private fun backgroundCases(): List<JsonValue.ObjectValue> = ContractFixtures.cases("core/backgroundTerminals.json")
 
     private fun handshakeCapabilities(): JsonValue.ObjectValue {
         val handshake = java.nio.file.Path.of("packages/contracts/core/initializeHandshake.json")

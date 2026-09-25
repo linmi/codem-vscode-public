@@ -1072,7 +1072,9 @@ class ProjectSession(
             val terminal = item.asObject(label)
             val pid = terminal.requiredInt("processId", label).takeIf { it > 0 }
                 ?: throw CodemError.Protocol(CodemError.Class.InvalidFrame, "$label.processId must be a positive integer")
-            BackgroundView(pid.toString(), "terminal $pid", terminal.booleanOrNull("inProgress") == true)
+            // Core reports liveness as `alive`; inProgress is only the view's name for it. Without a boolean the row is
+            // invalid, never an exited terminal, since the view offers terminate only for running rows.
+            BackgroundView(pid.toString(), "terminal $pid", terminal.requiredBoolean("alive", label))
         }
         mutate { background = listed }
         return listed
