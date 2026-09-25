@@ -100,4 +100,22 @@ class FileDiffProjectionTest {
             assertThrows(CodemError.Protocol::class.java, { FileDiffAssembler().accept(with(key, value)) }, "$key=$value")
         }
     }
+
+    /**
+     * As host.ts handleFileDiff (nullableNonBlankString): backgroundTaskId is absent, null or a non-blank string, and a
+     * blank one fails the first frame. The old code buffered a blank id, and accepted it when the body repeated it.
+     */
+    @Test
+    fun aBlankBackgroundTaskIdIsRejectedOnTheFirstFrame() {
+        fun tagged(id: String, delta: String = body.replace("\"background_task_id\":null", "\"background_task_id\":${JsonValue.Text(id).let(::encodeJson)}"), complete: Boolean = true) =
+            JsonValue.ObjectValue(frame(delta, complete = complete).fields + ("backgroundTaskId" to JsonValue.Text(id)))
+        assertEquals("sample.txt", FileDiffAssembler().accept(tagged("task-1"))!!.path)
+        for (blank in listOf("", " ", "\t\n")) {
+            for (frame in listOf(tagged(blank, body.take(10), complete = false), tagged(blank))) {
+                val error = assertThrows(CodemError.Protocol::class.java, { FileDiffAssembler().accept(frame) }, "backgroundTaskId=${encodeJson(JsonValue.Text(blank))}")
+                assertEquals(CodemError.Class.InvalidFrame, error.errorClass)
+                assertTrue(error.message.orEmpty().contains("backgroundTaskId"), error.message)
+            }
+        }
+    }
 }

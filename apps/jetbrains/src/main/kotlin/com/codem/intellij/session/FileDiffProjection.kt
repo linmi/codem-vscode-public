@@ -42,7 +42,9 @@ class FileDiffAssembler(private val maxBytes: Int = 8 * 1024 * 1024) {
         val itemId = text(params, "itemId", DELTA)
         if (itemId in completed) throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM file diff $itemId continued after completion")
         val callId = text(params, "callId", DELTA)
+        // As host.ts nullableNonBlankString: absent or null means no background task; a blank id is invalid, not a task.
         val backgroundId = params.optionalString("backgroundTaskId", DELTA)
+            ?.also { if (it.isBlank()) throw invalid("$DELTA.backgroundTaskId must not be blank") }
         if (params.stringOrNull("encoding") != "json") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM item/fileChange/delta encoding must be json")
         }
