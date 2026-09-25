@@ -52,3 +52,24 @@ it("published snapshots are frozen and keep what they showed after later deltas"
   assert.equal(second.capabilities, first.capabilities)
   assert.equal(conversation.controller.snapshot().messages.at(-1)?.text, "第一段第二段")
 })
+
+it("reading the phase or thread builds no snapshot; snapshots are built only to publish", async t => {
+  let published = 0
+  const conversation = await streamingConversation(50, () => { published++ })
+  t.after(() => conversation.controller.dispose())
+  const controller = conversation.controller
+  conversation.emit({ type: "turn-completed", threadId: "thread-1", turnId: "turn-1", outcome: "completed", stopReason: "end", error: null })
+  assert.deepEqual([controller.phase(), controller.currentThreadId()], [controller.snapshot().phase, controller.snapshot().threadId])
+  assert.deepEqual([controller.phase(), controller.currentThreadId()], ["ready", "thread-1"])
+  const build = controller.snapshot.bind(controller)
+  let built = 0
+  controller.snapshot = () => { built++; return build() }
+  published = 0
+  // Each of these ends by checking the phase it set; that check used to clone the whole state.
+  await controller.addAttachments(async () => [])
+  await controller.configure(async () => null)
+  await controller.refreshSpaces()
+  assert.equal(controller.phase(), "ready")
+  assert.equal(published > 0, true)
+  assert.equal(built, published, "Every snapshot built was published")
+})

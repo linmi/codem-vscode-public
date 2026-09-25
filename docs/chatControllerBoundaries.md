@@ -59,3 +59,5 @@
 测量：`node --experimental-strip-types apps/vscode/scripts/benchmarkSnapshots.ts` 在无 Core、无 VS Code 的 fixture 上逐段计时（Host、模拟 postMessage 的 JSON 往返、Webview bridge、ChatApp `asSnapshot`）并计数。501 条消息（每份状态约 597 KiB）× 200 个增量：Host 每增量中位数 0.36 ms → 0.05 ms，整状态克隆 1 → 0 次，重新创建的未变消息约 498 → 0 条。
 
 验收：`snapshotPublishing.test.ts` 在 10 条与 500 条消息下断言每个增量整状态克隆 0 次、未变消息重建 0 条，已发布快照深度冻结且不随后续增量变化，未变的消息、历史列表与能力区在前后快照间是同一对象；两项在原实现上均失败。
+
+字段读取：控制器 12 处收尾判断用 `this.snapshot().phase`（为绕开 TypeScript 对 `this.state.phase` 的收窄），扩展入口 6 处 `chat.snapshot().threadId` 与 1 处 `chat.snapshot().phase` 只为读一个字段。原实现每次读取克隆整份状态（501 条消息约 0.37 ms），去掉克隆后仍需构建并冻结一份快照（约 1.1 µs）。改为 `phase()` 与 `currentThreadId()` 直接读取（约 0.03 µs）；`phase()` 是方法调用，不受先前收窄影响。测试断言这些操作构建的快照数等于发布数，把收尾判断改回 `snapshot().phase` 时失败（构建 11 次、发布 8 次）。

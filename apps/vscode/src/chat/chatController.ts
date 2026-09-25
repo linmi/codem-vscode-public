@@ -25,7 +25,7 @@ import { changedFilePath } from "../resources/filePresentation.ts"
 import { terminalReplyLast } from "../shared/timelineOrder.ts"
 import { randomUUID } from "node:crypto"
 import { APP_SERVER_BUILTIN_INTELLIGENCE_TIERS, type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, DEFAULT_APP_SERVER_THREAD_SETTINGS, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
-import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatMessage, type ChatSnapshot } from "../shared/messages.ts"
+import { initialSnapshot, isBusy, type ToolDetails, type AttachmentView, type ActivityMessage, type ActivityStatus, type ChatMessage, type ChatPhase, type ChatSnapshot } from "../shared/messages.ts"
 
 import { HistoryListController } from "../sessionHistory/historyList.ts"
 import { historyTurnTimings, historyPlan } from "../sessionHistory/historyMessages.ts"
@@ -154,6 +154,12 @@ export class ChatController {
       ? [...this.state.messages, pending] : this.state.messages
     return freezeSnapshot({ ...this.state, composerCatalog: this.session && this.state.phase !== "disconnected" ? this.composerCatalog.snapshot(this.settings.model, this.session.space.key) : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
   }
+
+  /** The current phase without building a snapshot. A call, so an earlier narrowing of `this.state.phase` does not apply. */
+  phase(): ChatPhase { return this.state.phase }
+
+  /** The current Core thread without building a snapshot. */
+  currentThreadId(): string | null { return this.threadId }
 
   async assertContextWorkspace(path: string): Promise<void> {
     if (this.session) await changedFilePath(this.session.cwd, path)
@@ -323,7 +329,7 @@ export class ChatController {
       this.options.report("selectSpace", error)
       if (!this.disposed && this.session === previous) this.update({ notice: "空间切换失败，请重试或查看 CodeM 日志。" })
     } finally {
-      if (!this.disposed && this.snapshot().phase === "configuring") this.update({ phase: this.session ? "ready" : "disconnected" })
+      if (!this.disposed && this.phase() === "configuring") this.update({ phase: this.session ? "ready" : "disconnected" })
     }
   }
 
@@ -410,7 +416,7 @@ export class ChatController {
       this.update({ phase: "sending", notice: null })
       const refusal = await this.yieldEditorForTurn(session)
       if (refusal !== null) {
-        if (this.session === session && !this.disposed) this.update({ ...(this.snapshot().phase === "sending" ? { phase: "ready" as const } : {}), notice: refusal })
+        if (this.session === session && !this.disposed) this.update({ ...(this.phase() === "sending" ? { phase: "ready" as const } : {}), notice: refusal })
         return false
       }
     }
@@ -483,7 +489,7 @@ export class ChatController {
           this.updateTools({ selectedSkill: null, skills: rows, catalog: null })
         },
       })
-    } finally { if (this.session === session && !this.disposed && this.snapshot().phase === "configuring") this.update({ phase: "ready" }) }
+    } finally { if (this.session === session && !this.disposed && this.phase() === "configuring") this.update({ phase: "ready" }) }
   }
 
   async loadCatalog(kind: CatalogKind): Promise<void> {
@@ -717,7 +723,7 @@ export class ChatController {
       this.updateTools({ busy: kind, result: null }); this.update({ phase: "sending", notice: null })
       const refusal = await this.yieldEditorForTurn(session)
       if (refusal !== null) {
-        if (this.session === session && !this.disposed) { this.updateTools({ busy: null, result: { requestId, accepted: false } }); this.update({ ...(this.snapshot().phase === "sending" ? { phase: "ready" as const } : {}), notice: refusal }) }
+        if (this.session === session && !this.disposed) { this.updateTools({ busy: null, result: { requestId, accepted: false } }); this.update({ ...(this.phase() === "sending" ? { phase: "ready" as const } : {}), notice: refusal }) }
         return
       }
     }
@@ -786,7 +792,7 @@ export class ChatController {
       }
     } finally {
       this.mutatingThread = false
-      if (this.session === session) { this.updateTools({ busy: null }); if (this.snapshot().phase === "configuring") this.update({ phase: "ready" }) }
+      if (this.session === session) { this.updateTools({ busy: null }); if (this.phase() === "configuring") this.update({ phase: "ready" }) }
     }
   }
 
@@ -807,7 +813,7 @@ export class ChatController {
       this.options.report("shellCommand", error)
       if (this.session === session && this.threadId === threadId) { this.updateTools({ result: { requestId, accepted: false } }); this.update({ notice: error instanceof UserVisibleError ? error.message : "命令未能确认，请核对执行结果后再重试。" }) }
     } finally {
-      if (this.session === session && this.threadId === threadId) { this.updateTools({ busy: null }); if (this.snapshot().phase === "configuring") this.update({ phase: "ready" }) }
+      if (this.session === session && this.threadId === threadId) { this.updateTools({ busy: null }); if (this.phase() === "configuring") this.update({ phase: "ready" }) }
     }
   }
 
@@ -946,7 +952,7 @@ export class ChatController {
         this.update({ notice: error.cause instanceof UserVisibleError ? error.cause.message : initializing ? "上次会话未能恢复，记录未被清除。请从历史会话中重试或新建会话。" : "会话恢复失败，当前记录已保留。请刷新历史后重试。" })
       }
     } finally {
-      if (this.session === session && !this.disposed && this.snapshot().phase === "loadingHistory") this.update({ phase: "ready" })
+      if (this.session === session && !this.disposed && this.phase() === "loadingHistory") this.update({ phase: "ready" })
     }
   }
 
@@ -990,7 +996,7 @@ export class ChatController {
       if (hit) this.conversationSearch.failed()
       this.update({ hasOlderMessages: false, historyNeedsRefresh: true, notice: "历史记录无法继续读取。当前内容已保留，请点击「重新加载记录」重试。" })
     } finally {
-      if (this.session === session && !this.disposed && this.snapshot().phase === "loadingHistory") this.update({ phase: "ready" })
+      if (this.session === session && !this.disposed && this.phase() === "loadingHistory") this.update({ phase: "ready" })
     }
   }
 
@@ -1289,7 +1295,7 @@ export class ChatController {
       this.options.report("refreshSpaces", error)
       if (!this.disposed && this.session === session) this.update({ notice: "空间列表刷新失败，现有列表保留，请重试。" })
     } finally {
-      if (!this.disposed && this.session === session && this.snapshot().phase === "configuring") this.update({ phase: "ready" })
+      if (!this.disposed && this.session === session && this.phase() === "configuring") this.update({ phase: "ready" })
     }
   }
 
@@ -1396,7 +1402,7 @@ export class ChatController {
         await this.retire()
       }
     } finally {
-      if (this.session === session && !this.disposed && this.snapshot().phase === "configuring") this.update({ phase: "ready" })
+      if (this.session === session && !this.disposed && this.phase() === "configuring") this.update({ phase: "ready" })
     }
   }
 
@@ -1464,7 +1470,7 @@ export class ChatController {
       this.options.report("pasteImages", error)
       return error instanceof UserVisibleError ? error.message : "图片粘贴失败，请重新复制后重试。"
     } finally {
-      if (this.session === session && this.generation === generation && !this.disposed && this.snapshot().phase === "configuring") this.update({ phase: session ? "ready" : "disconnected" })
+      if (this.session === session && this.generation === generation && !this.disposed && this.phase() === "configuring") this.update({ phase: session ? "ready" : "disconnected" })
     }
   }
 
@@ -1488,7 +1494,7 @@ export class ChatController {
       this.options.report("attachment", error)
       if (this.session === session) this.update({ notice: error instanceof UserVisibleError ? error.message : "附件不可用，请检查文件是否存在；图片不能超过 20 MiB。" })
     } finally {
-      if (this.session === session && this.snapshot().phase === "configuring") this.update({ phase: session ? "ready" : "disconnected" })
+      if (this.session === session && this.phase() === "configuring") this.update({ phase: session ? "ready" : "disconnected" })
     }
   }
 

@@ -164,13 +164,13 @@ export function activate(context: vscode.ExtensionContext): void {
       case "loadMoreLiveSnapshot": await chat.loadMoreLiveSnapshot(action.snapshotId, action.kind); break
       case "cancelLiveSnapshot": chat.cancelLiveSnapshot(action.snapshotId); break
       case "selectSkill": chat.selectSkill(action.id); break
-      case "steer": if (action.threadId === chat.snapshot().threadId) await chat.steer(action.text, action.requestId); break
-      case "askSideQuestion": if (action.threadId === chat.snapshot().threadId) await chat.askSideQuestion(action.text, action.requestId); break
+      case "steer": if (action.threadId === chat.currentThreadId()) await chat.steer(action.text, action.requestId); break
+      case "askSideQuestion": if (action.threadId === chat.currentThreadId()) await chat.askSideQuestion(action.text, action.requestId); break
       case "cancelSideQuestion": await chat.cancelSideQuestion(); break
-      case "shellCommand": if (action.threadId === chat.snapshot().threadId) await chat.shellCommand(action.text, action.requestId); break
-      case "compactThread": if (action.threadId === chat.snapshot().threadId) await chat.startControl("compact", action.requestId); break
-      case "rewindThread": if (action.threadId === chat.snapshot().threadId) await chat.startControl("rewind", action.requestId); break
-      case "clearThread": if (action.threadId === chat.snapshot().threadId) await chat.manageThread("clear", action.threadId, "", action.requestId); break
+      case "shellCommand": if (action.threadId === chat.currentThreadId()) await chat.shellCommand(action.text, action.requestId); break
+      case "compactThread": if (action.threadId === chat.currentThreadId()) await chat.startControl("compact", action.requestId); break
+      case "rewindThread": if (action.threadId === chat.currentThreadId()) await chat.startControl("rewind", action.requestId); break
+      case "clearThread": if (action.threadId === chat.currentThreadId()) await chat.manageThread("clear", action.threadId, "", action.requestId); break
       case "manageThread": await chat.manageThread(action.operation, action.threadId, action.name, action.requestId); break
       case "addDirectory": await chat.addDirectory(() => features.pickDirectories()); break
       case "removeDirectory": await chat.removeDirectory(action.id); break
@@ -235,7 +235,7 @@ export function activate(context: vscode.ExtensionContext): void {
     await surfaces!.addContext(text)
     selection!.state.consume(selectionIds)
   }
-  review = new EditorReview({ contextKey: () => chat.contextKey(), ready: () => chat.snapshot().phase === "ready", checkFile: path => chat.assertContextWorkspace(path), generate: (text, signal, scope) => chat.generateText(text, signal, scope) }, message => output.appendLine(message))
+  review = new EditorReview({ contextKey: () => chat.contextKey(), ready: () => chat.phase() === "ready", checkFile: path => chat.assertContextWorkspace(path), generate: (text, signal, scope) => chat.generateText(text, signal, scope) }, message => output.appendLine(message))
   nextEdit = new NextEdit({ contextKey: () => chat.contextKey(), completionContext: () => chat.completionContext(), assertContextWorkspace: path => chat.assertContextWorkspace(path), generateText: (prompt, signal, scope) => chat.generateText(prompt, signal, scope) }, message => output.appendLine(message))
   context.subscriptions.push(nextEdit)
   context.subscriptions.push(output, surfaces, review, registerGitActions(chat, message => output.appendLine(message)), registerInlineCompletion(chat, message => output.appendLine(message)), registerEditorActions(addContext, (action, document, range, diagnostics) => review!.generate(action, document, range, diagnostics)), registerTerminalActions(text => addContext(text)), vscode.workspace.onDidChangeConfiguration(event => {
