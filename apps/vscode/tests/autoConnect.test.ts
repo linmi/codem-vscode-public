@@ -17,8 +17,8 @@ it("initializes on opening chat by default, once per activation, with explicit r
     contents: `export { activate, deactivate } from './apps/vscode/src/extension.ts'; export { control } from 'vscode';`, resolveDir: root,
   }, plugins: [{ name: "fixture", setup(b) {
     b.onResolve({ filter: /^vscode$/ }, () => ({ path: "vscode", namespace: "fixture" }))
-    // The account, auto-connect and chat-log owners run for real; the rest of the entry's collaborators are stubbed.
-    const real = ["accountController.ts", "autoConnect.ts", "chatLog.ts"]
+    // The account, auto-connect, chat-log and action-routing owners run for real; the rest of the entry's collaborators are stubbed.
+    const real = ["accountController.ts", "autoConnect.ts", "chatLog.ts", "viewActionRouter.ts"]
     b.onResolve({ filter: /^\.\// }, args => args.importer.endsWith("/src/extension.ts") && !real.some(name => args.path.endsWith(`/${name}`)) ? { path: "dependencies", namespace: "fixture" } : undefined)
     b.onLoad({ filter: /.*/, namespace: "fixture" }, args => ({ contents: args.path === "vscode" ? `
       const disposable = {dispose(){}};

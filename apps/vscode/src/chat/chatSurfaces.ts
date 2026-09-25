@@ -184,6 +184,10 @@ export class ChatSurfaces implements vscode.Disposable {
     surface.webview.html = chatHtml({ script: resource("dist/webview.js"), style: resource("dist/webview.css"), logo: resource("assets/codemMark.svg"), cspSource: surface.webview.cspSource, surface: surface === this.editor ? "editor" : "sidebar" })
   }
   postSettings(): void { this.post({ type: "editorSettings", sendKey: vscode.workspace.getConfiguration("codem").get<string>("chat.sendKey", "enter") }) }
+  /** Saves the send key for this workspace, or globally without a folder; the setting listener reposts it. */
+  async saveSendKey(sendKey: "enter" | "ctrlEnter"): Promise<void> {
+    await vscode.workspace.getConfiguration("codem").update("chat.sendKey", sendKey, vscode.workspace.workspaceFolders?.length ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global)
+  }
   dispose(): void {
     this.disposed = true
     for (const done of this.restoredWaiters) done(new Error("聊天界面已关闭。"))

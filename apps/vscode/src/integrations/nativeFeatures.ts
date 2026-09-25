@@ -90,6 +90,11 @@ export class NativeFeatures implements vscode.Disposable {
     return (selected ?? []).filter(uri => uri.scheme === "file").map(uri => uri.fsPath)
   }
 
+  /** The folder picker for a local plugin; `plugins/pluginSource.ts` decides what the choice means. */
+  async pickPluginFolder(): Promise<readonly vscode.Uri[] | undefined> {
+    return vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false, openLabel: "安装此文件夹中的插件", title: "选择含 .codem-plugin/plugin.json 的插件文件夹" })
+  }
+
   async pickAttachments(kind: "file" | "directory"): Promise<readonly AppServerPromptAttachment[]> {
     const selected = await vscode.window.showOpenDialog({ title: "选择要发送给 CodeM 的附件", canSelectFiles: kind === "file", canSelectFolders: kind === "directory", canSelectMany: true })
     return (selected ?? []).filter((uri) => uri.scheme === "file").map((uri) => ({ kind: kind === "directory" ? "directory" : [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(extname(uri.fsPath).toLowerCase()) ? "image" : "file", path: uri.fsPath }))
