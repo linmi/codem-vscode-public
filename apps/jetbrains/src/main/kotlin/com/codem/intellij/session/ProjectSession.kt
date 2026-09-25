@@ -551,7 +551,10 @@ class ProjectSession(
         }
     }
 
-    /** 打开历史只列当前工作区的会话标题，不把 cwd 画进界面。 */
+    /**
+     * 打开历史只列当前工作区的会话标题，不把 cwd 画进界面。
+     * 读取失败时结束 loading，并在历史面板给出可读错误；面板的“刷新”随即可用，已列出的条目保留。
+     */
     fun showHistory() {
         val connected = mutate {
             val ready = phase == ConnectionPhase.Ready
@@ -560,17 +563,23 @@ class ProjectSession(
             ready
         }
         if (!connected) return
-        val page = listThreads(null)
-        val entries = historyEntries(page)
-        mutate {
-            threadListCursor = page.nextCursor
-            historyList = com.codem.intellij.webview.HistoryListView(
-                open = true,
-                loading = false,
-                entries = entries,
-                hasMore = page.nextCursor != null,
-                error = null,
-            )
+        try {
+            val page = listThreads(null)
+            val entries = historyEntries(page)
+            mutate {
+                threadListCursor = page.nextCursor
+                historyList = com.codem.intellij.webview.HistoryListView(
+                    open = true,
+                    loading = false,
+                    entries = entries,
+                    hasMore = page.nextCursor != null,
+                    error = null,
+                )
+            }
+        } catch (error: Throwable) {
+            mutate {
+                historyList = historyList.copy(loading = false, error = SafeNotice.from(error, HISTORY_LOAD_FAILED))
+            }
         }
     }
 
@@ -1837,6 +1846,7 @@ class ProjectSession(
 
     companion object {
         private const val AUTH_INVALIDATED = "CodeM authentication is no longer valid"
+        private const val HISTORY_LOAD_FAILED = "无法加载会话列表，请刷新重试。"
         private val CATALOG_COLLECTIONS = setOf(
             "skills", "hooks", "plugins", "profiles", "spaces", "items", "turns", "tools", "permissionProfiles",
         )

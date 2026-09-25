@@ -1228,6 +1228,37 @@ class ProjectSessionTest {
         } finally { session.close().join() }
     }
 
+    /** 历史列表读取失败：loading 必须结束并推给界面，面板给出可读错误；刷新成功后恢复条目并清掉错误。 */
+    @Test
+    fun failedHistoryLoadClearsLoadingAndRefreshRecovers() {
+        val published = java.util.concurrent.CopyOnWriteArrayList<com.codem.intellij.webview.ChatSnapshot>()
+        val failList = java.util.concurrent.atomic.AtomicBoolean(true)
+        val process = ScriptedProcess()
+        val session = session(onSnapshot = { published += it }) {
+            startResponder(process, handshakeCapabilities(), shouldFail = { it == "thread/list" && failList.get() })
+            process
+        }
+        try {
+            session.connect()
+            session.showHistory()
+            val failed = session.snapshot().history
+            assertEquals(true, failed.open)
+            assertEquals(false, failed.loading)
+            assertEquals("无法加载会话列表，请刷新重试。", failed.error)
+            assertTrue(published.any { it.history.loading }, "loading must be shown while the list is read")
+            assertEquals(failed, published.last().history)
+            assertEquals("ready", session.snapshot().phase)
+
+            failList.set(false)
+            session.refreshHistory()
+            val recovered = session.snapshot().history
+            assertEquals(false, recovered.loading)
+            assertEquals(null, recovered.error)
+            assertEquals("昨天的问题", recovered.entries.single().title)
+            assertEquals(recovered, published.last().history)
+        } finally { session.close().join() }
+    }
+
     /** 一条完整的 item/fileChange/delta：分两片送达，complete 后才产出内容。 */
     private fun enqueueFileDiff(process: ScriptedProcess, path: String) {
         val payload = encodeJson(
@@ -1376,6 +1407,7 @@ class ProjectSessionTest {
         failMethod: String? = null,
         emptyUnsubscribe: Boolean = false,
         beforeReply: (String) -> Unit = {},
+        shouldFail: (String) -> Boolean = { it == failMethod },
     ) {
         Thread {
             val seen = AtomicInteger(0)
@@ -1395,7 +1427,7 @@ class ProjectSessionTest {
                 val method = (obj.fields["method"] as? JsonValue.Text)?.value ?: continue
                 val params = obj.fields["params"] as? JsonValue.ObjectValue ?: JsonValue.ObjectValue(emptyMap())
                 beforeReply(method)
-                if (method == failMethod) {
+                if (shouldFail(method)) {
                     process.enqueue(encodeJson(JsonValue.obj(
                         "jsonrpc" to JsonValue.Text("2.0"), "id" to id,
                         "error" to JsonValue.obj("code" to JsonValue.NumberValue(-32000.0, "-32000"), "message" to JsonValue.Text("fixture rejected $method")),
