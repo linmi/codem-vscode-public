@@ -101,6 +101,13 @@ class HistoryReplayTest {
             "\"submission_id\":\"s0\"" to "\"submission_id\":42",
             "\"record_seq\":2" to "\"record_seq\":2.5",
             "\"schema_version\":13" to "\"schema_version\":13.5",
+            "\"schema_version\":13" to "\"schema_version\":\"13\"",
+            "\"type\":\"turn_end\"" to "\"type\":7",
+            "\"session_id\":\"thread-1\"" to "\"session_id\":1",
+            "\"input\":{\"kind\":\"message\",\"content\":\"question 0\"}" to "\"input\":\"question 0\"",
+            "\"kind\":\"message\",\"content\":\"question 0\"" to "\"kind\":1,\"content\":\"question 0\"",
+            "\"kind\":\"message\",\"content\":\"question 0\"" to "\"kind\":\"skill\",\"name\":\"review\",\"arguments\":7",
+            "\"id\":\"call-0\",\"status\"" to "\"id\":0,\"status\"",
         )) {
             write(root, "/workspace", "thread-1", base.replace(original, replacement))
             org.junit.jupiter.api.Assertions.assertThrows(CodemError.History::class.java) {
@@ -117,6 +124,21 @@ class HistoryReplayTest {
             "\"kind\":\"skill\",\"name\":\"review\",\"arguments\":\"working tree\"",
         ))
         assertEquals(listOf("/review working tree"), HistoryReplay.read(root, "/workspace", "thread-1").turns.first().userTexts)
+        write(root, "/workspace", "thread-1", base.replace(
+            "\"kind\":\"message\",\"content\":\"question 0\"",
+            "\"kind\":\"skill\",\"name\":\"review\",\"arguments\":null",
+        ))
+        assertEquals(listOf("/review"), HistoryReplay.read(root, "/workspace", "thread-1").turns.first().userTexts)
+    }
+
+    /** 这两个字段历来按宽松读取：非字符串的工具结果内容当作没有内容，非字符串的 origin 不让重放失败。 */
+    @Test
+    fun readsOriginAndToolResultContentLeniently(@TempDir root: Path) {
+        val base = fixture("multiTurn.jsonl").replace("\${cwd}", "/workspace") + "\n"
+        write(root, "/workspace", "thread-1", base.replace("\"content\":\"accepted\"", "\"content\":{\"ok\":true}"))
+        assertEquals(listOf("call-0" to null), HistoryReplay.read(root, "/workspace", "thread-1").turns.first().tools)
+        write(root, "/workspace", "thread-1", base.replace("\"origin\":\"synthetic\"", "\"origin\":1"))
+        assertEquals(listOf("s0", "s1"), HistoryReplay.read(root, "/workspace", "thread-1").turns.map { it.submissionId })
     }
 
     /** 契约新增或删除类型时这里失败：每个 schema 13 记录类型都必须明确投影或隐藏，且不重复归类。 */

@@ -168,7 +168,7 @@ object HistoryReplay {
                 throw CodemError.History("CodeM history $threadId contains a malformed record")
             }
             lastSequence = acceptRecordSequence(record, lastSequence, threadId)
-            val type = (record.fields["type"] as? JsonValue.Text)?.value
+            val type = record.stringOrNull("type")
                 ?: throw CodemError.History("CodeM history $threadId contains a malformed record")
             if (type !in HistoryRecordTypes.projected) {
                 if (type !in HistoryRecordTypes.hidden) unknown += type
@@ -177,33 +177,33 @@ object HistoryReplay {
             when (type) {
                 "header" -> {
                     header = true
-                    val schema = integerField(record.fields["schema_version"], threadId, "header.schema_version")
+                    val schema = integerField(record, "schema_version", threadId, "header.schema_version")
                     if (schema != 13) throw CodemError.History("schema_version $schema is not supported")
-                    val session = (record.fields["session_id"] as? JsonValue.Text)?.value
+                    val session = record.stringOrNull("session_id")
                     if (session != threadId) throw CodemError.History("header session_id $session does not match file name $threadId")
-                    val persisted = (record.fields["cwd"] as? JsonValue.Text)?.value
+                    val persisted = record.stringOrNull("cwd")
                     if (persisted != cwd) throw CodemError.History("header cwd $persisted does not match requested cwd $cwd")
                 }
                 "user_invocation" -> {
-                    val submission = when (val value = record.fields["submission_id"]) {
+                    val submission = when (record.optional("submission_id")) {
                         null, JsonValue.Null -> null
-                        else -> textField(value, threadId, "user_invocation.submission_id", nonEmpty = true).also {
+                        else -> textField(record, "submission_id", threadId, "user_invocation.submission_id", nonEmpty = true).also {
                             if (it != it.trim()) throw CodemError.History("CodeM history $threadId submission_id has surrounding whitespace")
                         }
                     }
                     if (submission != null && !submissions.add(submission)) {
                         throw CodemError.History("Invalid CodeM session $threadId: duplicate submission $submission")
                     }
-                    val input = record.fields["input"] as? JsonValue.ObjectValue
+                    val input = record.objectOrNull("input")
                         ?: throw CodemError.History("CodeM history $threadId user_invocation.input must be an object")
-                    val text = when (textField(input.fields["kind"], threadId, "user_invocation.input.kind")) {
-                        "message" -> textField(input.fields["content"], threadId, "user_invocation.input.content")
+                    val text = when (textField(input, "kind", threadId, "user_invocation.input.kind")) {
+                        "message" -> textField(input, "content", threadId, "user_invocation.input.content")
                         "skill" -> {
-                            val name = textField(input.fields["name"], threadId, "user_invocation.input.name", nonEmpty = true)
+                            val name = textField(input, "name", threadId, "user_invocation.input.name", nonEmpty = true)
                             if (name != name.trim()) throw CodemError.History("CodeM history $threadId input.name has surrounding whitespace")
-                            when (val arguments = input.fields["arguments"]) {
+                            when (input.optional("arguments")) {
                                 null, JsonValue.Null -> "/$name"
-                                else -> "/$name " + textField(arguments, threadId, "user_invocation.input.arguments")
+                                else -> "/$name " + textField(input, "arguments", threadId, "user_invocation.input.arguments")
                             }
                         }
                         else -> throw CodemError.History("CodeM history $threadId user_invocation.input.kind must be message or skill")
@@ -211,22 +211,22 @@ object HistoryReplay {
                     turns += MutableTurn(submission, mutableListOf(text), mutableListOf(), mutableListOf())
                 }
                 "user_message" -> {
-                    val origin = (record.fields["origin"] as? JsonValue.Text)?.value
+                    val origin = record.stringOrNull("origin")
                     if (origin == "synthetic" || origin == "ask_user_input" || origin == "hook_feedback") {
                         return@readCommittedLines
                     }
                 }
                 "assistant_text" -> {
-                    val text = textField(record.fields["text"], threadId, "assistant_text.text", nonEmpty = true)
+                    val text = textField(record, "text", threadId, "assistant_text.text", nonEmpty = true)
                     current(turns).assistant += text
                 }
                 "tool_call" -> {
-                    val id = textField(record.fields["id"], threadId, "tool_call.id", nonEmpty = true)
+                    val id = textField(record, "id", threadId, "tool_call.id", nonEmpty = true)
                     current(turns).tools += (id to null)
                 }
                 "tool_result" -> {
-                    val id = (record.fields["id"] as? JsonValue.Text)?.value
-                    val content = (record.fields["content"] as? JsonValue.Text)?.value
+                    val id = record.stringOrNull("id")
+                    val content = record.stringOrNull("content")
                     val tool = current(turns).tools.indexOfFirst { it.first == id && it.second == null }
                     if (id == null || tool < 0) throw CodemError.History("tool result is not paired")
                     current(turns).tools[tool] = id to content
@@ -241,8 +241,8 @@ object HistoryReplay {
                 // rewind_mark 是检查点控制元数据，不是对话内容：会话回退由 Core 物理截断文件表达，
                 // 在这里清空会把 Core 明确保留的轮次删掉。校验后丢弃。
                 "rewind_mark" -> {
-                    val checkpoint = (record.fields["checkpoint_id"] as? JsonValue.Text)?.value
-                    val mode = (record.fields["mode"] as? JsonValue.Text)?.value
+                    val checkpoint = record.stringOrNull("checkpoint_id")
+                    val mode = record.stringOrNull("mode")
                     if (checkpoint.isNullOrBlank() || mode.isNullOrBlank()) {
                         throw CodemError.History("CodeM history $threadId rewind_mark is missing its checkpoint identity")
                     }
@@ -288,22 +288,23 @@ object HistoryReplay {
     }
 
     private fun acceptRecordSequence(record: JsonValue.ObjectValue, last: Int?, threadId: String): Int {
-        val sequence = integerField(record.fields["record_seq"], threadId, "record_seq")
+        val sequence = integerField(record, "record_seq", threadId, "record_seq")
         if (sequence < 1) throw CodemError.History("CodeM history $threadId record_seq must be positive")
         if (last == null && sequence != 1) throw CodemError.History("CodeM history $threadId record_seq must start at 1")
         if (last != null && sequence != last + 1) throw CodemError.History("CodeM history $threadId record_seq $sequence does not follow $last")
         return sequence
     }
 
-    private fun textField(value: JsonValue?, threadId: String, field: String, nonEmpty: Boolean = false): String {
-        val text = (value as? JsonValue.Text)?.value
+    /** Record fields fail as History, not InvalidFrame: a bad JSONL line is a history problem, not a Core frame. */
+    private fun textField(record: JsonValue.ObjectValue, key: String, threadId: String, field: String, nonEmpty: Boolean = false): String {
+        val text = record.stringOrNull(key)
             ?: throw CodemError.History("CodeM history $threadId $field must be a string")
         if (nonEmpty && text.isBlank()) throw CodemError.History("CodeM history $threadId $field must be non-empty")
         return text
     }
 
-    private fun integerField(value: JsonValue?, threadId: String, field: String): Int {
-        val number = (value as? JsonValue.NumberValue)?.value
+    private fun integerField(record: JsonValue.ObjectValue, key: String, threadId: String, field: String): Int {
+        val number = record.numberOrNull(key)
             ?: throw CodemError.History("CodeM history $threadId $field must be an integer")
         if (!number.isFinite() || number != number.toInt().toDouble()) {
             throw CodemError.History("CodeM history $threadId $field must be an integer")
