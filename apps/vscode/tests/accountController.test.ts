@@ -6,6 +6,20 @@ const authenticated: AccountIdentity = { avatar: { kind: "image", url: "https://
 const signedOut = { ...authenticated, loggedIn: false, routerCredential: false }
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r }); return { promise, resolve } }
 
+it("admits chat operations only for a signed-in account", async () => {
+  let identity: AccountIdentity = signedOut
+  const account = new AccountController({ logout: async () => signedOut, read: async () => identity, login: async () => authenticated }, () => {})
+  assert.throws(() => account.assertSignedIn(), (error: Error) => error.message === "请先登录 CodeM。", "Unknown account state is not signed in")
+  await account.initialize()
+  assert.throws(() => account.assertSignedIn(), /请先登录 CodeM/)
+  identity = authenticated
+  await account.refresh()
+  account.assertSignedIn()
+  account.invalidate()
+  assert.throws(() => account.assertSignedIn(), /请先登录 CodeM/, "An invalidated session is refused at once")
+  await account.dispose()
+})
+
 it("account display initializes once, shares pending reads and projects only approved profile fields", async () => {
   const result = deferred<AccountIdentity>(); let reads = 0
   const account = new AccountController({ logout: async () => signedOut, read: () => { reads++; return result.promise }, login: async () => { throw Error("unexpected login") } }, () => {})

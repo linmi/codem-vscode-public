@@ -40,6 +40,17 @@ export class EditorSelection implements vscode.Disposable {
     }
     await vscode.window.showTextDocument(document, { selection, preview: true })
   }
+  /**
+   * Adds editor or terminal text to the chat draft. Selections the text already carries are retired only after
+   * the draft accepted it; a file outside the connected workspace is refused first.
+   */
+  async addContext(text: string, uri: vscode.Uri | undefined, append: (text: string) => Promise<void>, validate: (path: string) => Promise<void>): Promise<void> {
+    assertTrusted()
+    const ids = uri ? this.state.matchingIds(uri.toString(), text) : []
+    if (uri?.scheme === "file") await validate(uri.fsPath)
+    await append(text)
+    this.state.consume(ids)
+  }
   async send(text: string, ids: readonly string[] | undefined, send: (text: string) => Promise<boolean>, validate: (path: string) => Promise<void>): Promise<boolean> {
     if (!ids?.length) return send(text)
     assertTrusted()

@@ -1,17 +1,18 @@
 import assert from "node:assert/strict"
-import { it } from "node:test"
+import { it, type TestContext } from "node:test"
 import { build } from "esbuild"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { codePrompt } from "../src/shared/editorContext.ts"
 
-it("observes selections locally, preserves chat focus, and sends exactly the displayed source", async t => {
+async function load(t: TestContext) {
   const directory = await mkdtemp(join(tmpdir(), "codem-selection-"))
   t.after(() => rm(directory, { recursive: true, force: true }))
   const outfile = join(directory, "fixture.mjs")
   await build({ outfile, bundle: true, platform: "node", format: "esm", logLevel: "silent", stdin: {
-    contents: `export { EditorSelection } from './apps/vscode/src/integrations/editorSelection.ts'; export { control, window } from 'vscode';`, resolveDir: fileURLToPath(new URL("../../..", import.meta.url)),
+    contents: `export { EditorSelection } from './apps/vscode/src/integrations/editorSelection.ts'; export { control, window, Uri } from 'vscode';`, resolveDir: fileURLToPath(new URL("../../..", import.meta.url)),
   }, plugins: [{ name: "selectionFixture", setup(b) {
     b.onResolve({ filter: /^vscode$/ }, () => ({ path: "vscode", namespace: "fixture" }))
     b.onResolve({ filter: /runtimeSession\.ts$/ }, () => ({ path: "trust", namespace: "fixture" }))
@@ -25,7 +26,34 @@ it("observes selections locally, preserves chat focus, and sends exactly the dis
       export const workspace = {get isTrusted(){return control.trusted},getWorkspaceFolder(){return {}},asRelativePath(){return 'src/code.ts'},onDidChangeTextDocument:listen('change'),onDidCloseTextDocument:listen('close'),async openTextDocument(){return document}};
     ` }))
   } }] })
-  const { EditorSelection, control, window } = await import(pathToFileURL(outfile).href)
+  return import(pathToFileURL(outfile).href)
+}
+
+it("adds editor text to the draft and retires only the selections it carries, after the draft accepted it", async t => {
+  const { EditorSelection, control, window, Uri } = await load(t)
+  const selection = new EditorSelection(() => {})
+  t.after(() => selection.dispose())
+  const current = selection.state.snapshot().current
+  const text = codePrompt("addToContext", selection.state.read(current.id).context)
+  const steps: string[] = []
+  const validate = async (path: string) => { steps.push(`validate ${path}`) }
+  await assert.rejects(selection.addContext(text, window.activeTextEditor.document.uri, async () => { throw Error("草稿已满") }, validate), /草稿已满/)
+  assert.equal(selection.state.snapshot().current.id, current.id, "A refused draft keeps the selection")
+  await assert.rejects(selection.addContext(text, window.activeTextEditor.document.uri, async () => { steps.push("append") }, async () => { throw Error("outside workspace") }), /outside workspace/)
+  assert.equal(selection.state.snapshot().current.id, current.id)
+  await selection.addContext("unrelated terminal output", undefined, async () => { steps.push("append terminal") }, validate)
+  assert.equal(selection.state.snapshot().current.id, current.id, "Text without the selection does not consume it")
+  await selection.addContext(text, Uri.parse("untitled:Untitled-1"), async () => { steps.push("append untitled") }, validate)
+  assert.equal(selection.state.snapshot().current.id, current.id, "Another document does not consume it")
+  await selection.addContext(text, window.activeTextEditor.document.uri, async () => { steps.push("append file") }, validate)
+  assert.equal(selection.state.snapshot().current, null, "The carried selection is retired once added")
+  assert.deepEqual(steps, ["validate /workspace/code.ts", "append terminal", "append untitled", "validate /workspace/code.ts", "append file"], "Only file sources are checked against the workspace")
+  control.trusted = false
+  await assert.rejects(selection.addContext("text", undefined, async () => { throw Error("must not append") }, validate), /untrusted/)
+})
+
+it("observes selections locally, preserves chat focus, and sends exactly the displayed source", async t => {
+  const { EditorSelection, control, window } = await load(t)
   const views: unknown[] = []
   const selection = new EditorSelection((view: unknown) => views.push(view))
   t.after(() => selection.dispose())

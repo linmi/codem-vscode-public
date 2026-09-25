@@ -1,5 +1,6 @@
 import type { AppServerAuthStatus } from "@codem/app-server"
 import type { AccountAvatar, AccountState } from "../shared/accountTypes.ts"
+import { UserVisibleError } from "../shared/userVisibleError.ts"
 
 export interface AccountIdentity extends AppServerAuthStatus { avatar: AccountAvatar }
 
@@ -25,6 +26,8 @@ export class AccountController {
   snapshot(): AccountState { return structuredClone(this.state) }
   publish(): void { if (!this.disposed) this.changed(this.snapshot()) }
   get signedIn(): boolean { return this.state.status === "signedIn" }
+  /** Early admission for chat operations; each protected runtime operation still validates its own auth. */
+  assertSignedIn(): void { if (!this.signedIn) throw new UserVisibleError("请先登录 CodeM。") }
 
   initialize(): Promise<void> {
     if (this.operation) return this.operation.promise
