@@ -97,7 +97,7 @@ The default tests include real child-process fixtures that withhold unsubscribe,
 
 | Process | Policy | Tree | Sequence |
 | --- | --- | --- | --- |
-| Core App Server | graceful | no | stdin EOF, `SIGTERM`, `SIGKILL`, waiting up to `closeTimeoutMs` (2 s) after each; an error if Core outlives all three |
+| Core App Server | graceful | no | stdin EOF, `SIGTERM`, `SIGKILL`, waiting up to `closeTimeoutMs` (2 s) after each; if Core outlives all three, `close()` rejects, while a failed start still rejects with its own error and reports the cleanup failure through `onProtocolError` |
 | `auth login` | graceful | no | `SIGTERM`, `SIGKILL`, waiting up to `closeTimeoutMs` (2 s) after each; an error if it outlives both |
 | `auth status`, `auth logout` | immediate | no | `SIGKILL` on the 30 s deadline, cancellation or oversized output; the call returns once the process has closed |
 | Space broker (`__host-serve`) | immediate | no | `SIGKILL` after every run and on the 180 s deadline, cancellation or protocol failure; the call returns once the broker has closed |

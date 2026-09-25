@@ -7,6 +7,7 @@ import { PassThrough } from "node:stream"
 import { afterEach, describe, it } from "node:test"
 import {
   APP_SERVER_CORE_VERSION,
+  AppServerRpcError,
   AppServerRpcPeer,
   REQUIRED_APP_SERVER_BOOLEAN_CAPABILITIES,
   REQUIRED_APP_SERVER_ITEM_STATUSES,
@@ -15,9 +16,13 @@ import {
   type AppServerNotification,
 } from "../src/index.ts"
 
+const STARTUP_CLEANUP_FAILURE =
+  "CodeM App Server startup cleanup failed: CodeM App Server did not exit after stdin close, SIGTERM, and SIGKILL"
 const temporaryDirectories: string[] = []
+const strayProcessIds: number[] = []
 
 afterEach(() => {
+  for (const pid of strayProcessIds.splice(0)) killIfAlive(pid)
   for (const directory of temporaryDirectories.splice(0)) {
     rmSync(directory, { recursive: true, force: true })
   }
@@ -195,6 +200,7 @@ process.stdin.resume()
 `,
     )
     const exits: Array<{ readonly expected: boolean }> = []
+    const protocolErrors: Error[] = []
 
     await assert.rejects(
       startAppServerConnection({
@@ -215,11 +221,72 @@ process.stdin.resume()
         environment: { PATH: process.env.PATH },
         initializeTimeoutMs: 25,
         closeTimeoutMs: 25,
+        onProtocolError: (error) => protocolErrors.push(error),
         onExit: (exit) => exits.push(exit),
       }),
       /initialize timed out/u,
     )
-    assert.equal(exits.length, 1)
+    // The initialize timeout is the rejection either way. A loaded runner (seen on windows-latest) can
+    // need more than the 25 ms steps to observe the killed child close; that is reported, not thrown.
+    if (protocolErrors.length === 0) {
+      assert.equal(exits.length, 1, "a child reaped inside the budget has reported its exit before the rejection")
+    } else {
+      assert.deepEqual(protocolErrors.map((error) => error.message), [STARTUP_CLEANUP_FAILURE])
+      await waitFor(() => exits.length === 1, 10_000)
+    }
+    assert.equal(exits[0]?.expected, true)
+  })
+
+  it("keeps the startup failure when Core outlives its cleanup, and reports the cleanup failure", async () => {
+    const root = createTemporaryDirectory()
+    const executablePath = join(root, "pipe-holding-codem-core")
+    writeFileSync(executablePath, pipeHoldingCoreSource())
+    const exits: Array<{ readonly expected: boolean }> = []
+    const protocolErrors: Error[] = []
+    let stderr = ""
+    let holderPid = 0
+
+    await assert.rejects(
+      startAppServerConnection({
+        runtime: {
+          target: "darwin-arm64",
+          packageName: "fixture",
+          coreVersion: APP_SERVER_CORE_VERSION,
+          executablePath: process.execPath,
+          licensePath: join(root, "LICENSE"),
+          authPackageName: "fixture-auth",
+          cliVersion: "0.1.208",
+          authExecutablePath: executablePath,
+          authLicensePath: join(root, "LICENSE.auth"),
+        },
+        arguments: [executablePath],
+        workingDirectory: root,
+        clientInfo: { name: "codem-vscode", version: "0.1.0" },
+        environment: { PATH: process.env.PATH },
+        // Core answers as soon as the holder is up; this only bounds a broken fixture.
+        initializeTimeoutMs: 30_000,
+        closeTimeoutMs: 25,
+        onProtocolError: (error) => protocolErrors.push(error),
+        onStderr: (text) => {
+          stderr += text
+          const reported = /holder (\d+)\n/u.exec(stderr)
+          if (!reported || holderPid) return
+          holderPid = Number(reported[1])
+          strayProcessIds.push(holderPid)
+        },
+        onExit: (exit) => exits.push(exit),
+      }),
+      (error: unknown) => error instanceof AppServerRpcError && error.code === -32001,
+    )
+    // The holder keeps Core's stdout and stderr open, so no budget can observe the close.
+    assert.equal(exits.length, 0, "startup must return on its cleanup budget, not wait for the close")
+    assert.equal(protocolErrors.length, 1)
+    assert.equal(protocolErrors[0]?.message, STARTUP_CLEANUP_FAILURE)
+    assert.match(String((protocolErrors[0]?.cause as Error | undefined)?.message), /^CodeM App Server did not exit/u)
+
+    await waitFor(() => holderPid > 0)
+    killIfAlive(holderPid)
+    await waitFor(() => exits.length === 1, 10_000)
     assert.equal(exits[0]?.expected, true)
   })
 })
@@ -288,6 +355,29 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
 `
 }
 
+/** Refuses initialize once a holder process shares its stdout and stderr, so its close outlasts any kill. */
+function pipeHoldingCoreSource(): string {
+  return `#!/usr/bin/env node
+const { spawn } = require("node:child_process")
+const readline = require("node:readline")
+setInterval(() => undefined, 1_000)
+process.on("SIGTERM", () => undefined)
+readline.createInterface({ input: process.stdin }).on("line", (line) => {
+  const frame = JSON.parse(line)
+  if (frame.method !== "initialize") return
+  const holder = spawn(process.execPath, ["-e", "setTimeout(() => undefined, 30_000)"], {
+    cwd: require("node:os").tmpdir(),
+    stdio: ["ignore", "inherit", "inherit"],
+    windowsHide: true,
+  })
+  holder.once("spawn", () => {
+    process.stderr.write("holder " + holder.pid + "\\n")
+    process.stdout.write(JSON.stringify({ id: frame.id, error: { code: -32001, message: "fixture refuses initialize" } }) + "\\n")
+  })
+})
+`
+}
+
 function completeCapabilities(): Record<string, unknown> {
   const capabilities: Record<string, unknown> = {}
   for (const path of REQUIRED_APP_SERVER_BOOLEAN_CAPABILITIES) assignNested(capabilities, path, true)
@@ -316,11 +406,21 @@ function onceLine(interface_: ReturnType<typeof createInterface>): Promise<strin
   return new Promise((resolve) => interface_.once("line", resolve))
 }
 
-async function waitFor(predicate: () => boolean): Promise<void> {
-  const deadline = Date.now() + 1_000
+async function waitFor(predicate: () => boolean, timeoutMs = 1_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
   while (!predicate()) {
     if (Date.now() >= deadline) throw new Error("Timed out waiting for test condition")
     await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+}
+
+function killIfAlive(pid: number): void {
+  // A missing pid must never become a signal to the test's own process group.
+  if (!Number.isInteger(pid) || pid <= 0) return
+  try {
+    process.kill(pid, "SIGKILL")
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error
   }
 }
 

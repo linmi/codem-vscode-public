@@ -29,6 +29,10 @@ export interface StartAppServerConnectionOptions {
   readonly closeTimeoutMs?: number
   readonly onNotification?: (notification: AppServerNotification) => void
   readonly onRequest?: (request: AppServerRequest, peer: AppServerRpcPeer) => void
+  /**
+   * Failures no call can return: protocol violations, process errors after start, callback
+   * failures, and a Core that outlives the cleanup after a failed start.
+   */
   readonly onProtocolError?: (error: Error) => void
   readonly onStderr?: (text: string) => void
   readonly onExit?: (exit: AppServerProcessExit) => void
@@ -166,11 +170,19 @@ export async function startAppServerConnection(options: StartAppServerConnection
   } catch (error: unknown) {
     expectedClose = true
     const peerClose = peer.close().catch(() => undefined)
-    await terminateChildProcess(child, completion, {
+    // The startup failure stays the rejection, unchanged. A Core that outlives its cleanup is reported, not thrown in its place.
+    const reaped = await terminateChildProcess(child, completion, {
       ...CORE_APP_SERVER_TERMINATION,
       stepTimeoutMs: options.closeTimeoutMs ?? CORE_APP_SERVER_TERMINATION.stepTimeoutMs,
-    })
-    await peerClose
+    }).then(
+      () => true,
+      (cleanupError: unknown) => {
+        reportProtocolError(options.onProtocolError, startupCleanupError(cleanupError))
+        return false
+      },
+    )
+    // A surviving process can keep stdout open, so only a reaped child's reader is awaited.
+    if (reaped) await peerClose
     throw error
   }
 }
@@ -232,4 +244,9 @@ function reportProtocolError(callback: ((error: Error) => void) | undefined, err
 function callbackError(name: string, value: unknown): Error {
   const cause = value instanceof Error ? value : new Error(String(value))
   return new Error(`CodeM App Server ${name} callback failed: ${cause.message}`, { cause })
+}
+
+function startupCleanupError(value: unknown): Error {
+  const cause = value instanceof Error ? value : new Error(String(value))
+  return new Error(`CodeM App Server startup cleanup failed: ${cause.message}`, { cause })
 }
