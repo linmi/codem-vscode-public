@@ -97,14 +97,26 @@ class LoginOperation(
                         return@onStdoutLine
                     }
                     presented = true
-                    onProgress(LoginProgress.AuthorizationReady)
-                    presentAuthorization(url)
+                    if (!callback("progress") { onProgress(LoginProgress.AuthorizationReady) }) return@onStdoutLine
+                    callback("authorization presenter") { presentAuthorization(url) }
                 }
-                "login_binding" -> onProgress(LoginProgress.Binding)
-                "login_success" -> onProgress(LoginProgress.Authenticated)
+                "login_binding" -> callback("progress") { onProgress(LoginProgress.Binding) }
+                "login_success" -> callback("progress") { onProgress(LoginProgress.Authenticated) }
                 "login_error" -> fail(CodemError.Authentication(event.message ?: event.code ?: "CodeM login failed"))
             }
         }
+    }
+
+    /**
+     * 对照 TS reportProgress/presentAuthorization：宿主回调抛出只让本次登录失败并回收子进程，
+     * 不能带走 stdout 读取线程，否则 CLI 继续等授权，awaitSuccess 要到 authLoginMs 才返回。
+     */
+    private fun callback(label: String, action: () -> Unit): Boolean = try {
+        action()
+        true
+    } catch (thrown: Exception) {
+        fail(thrown as? CodemError ?: CodemError.Authentication("CodeM login $label failed", thrown))
+        false
     }
 
     fun cancel() {
