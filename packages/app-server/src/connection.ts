@@ -2,11 +2,11 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
 import { createInterface } from "node:readline"
 import { isAbsolute } from "node:path"
 import { validateAppServerInitializeResult, type AppServerInitialization } from "./preflight.ts"
+import { CORE_APP_SERVER_TERMINATION, requirePositiveTimeout, terminateChildProcess } from "./processLifecycle.ts"
 import { AppServerRpcPeer, type AppServerNotification, type AppServerRequest, type JsonObject } from "./rpc.ts"
 import type { AppServerRuntime } from "./runtime.ts"
 
 const DEFAULT_INITIALIZE_TIMEOUT_MS = 5_000
-const DEFAULT_CLOSE_TIMEOUT_MS = 2_000
 
 export interface AppServerClientInfo {
   readonly name: string
@@ -84,7 +84,7 @@ export class AppServerConnection {
 
   private async closeProcess(): Promise<void> {
     const peerClose = this.peer.close()
-    await terminateProcess(this.child, this.completion, this.closeTimeoutMs)
+    await terminateChildProcess(this.child, this.completion, { ...CORE_APP_SERVER_TERMINATION, stepTimeoutMs: this.closeTimeoutMs })
     await peerClose
   }
 }
@@ -160,13 +160,16 @@ export async function startAppServerConnection(options: StartAppServerConnection
       peer,
       child,
       completion,
-      options.closeTimeoutMs ?? DEFAULT_CLOSE_TIMEOUT_MS,
+      options.closeTimeoutMs ?? CORE_APP_SERVER_TERMINATION.stepTimeoutMs,
     )
     return connection
   } catch (error: unknown) {
     expectedClose = true
     const peerClose = peer.close().catch(() => undefined)
-    await terminateProcess(child, completion, options.closeTimeoutMs ?? DEFAULT_CLOSE_TIMEOUT_MS)
+    await terminateChildProcess(child, completion, {
+      ...CORE_APP_SERVER_TERMINATION,
+      stepTimeoutMs: options.closeTimeoutMs ?? CORE_APP_SERVER_TERMINATION.stepTimeoutMs,
+    })
     await peerClose
     throw error
   }
@@ -179,15 +182,8 @@ function validateOptions(options: StartAppServerConnectionOptions): void {
   if (!options.clientInfo.name.trim() || !options.clientInfo.version.trim()) {
     throw new Error("CodeM App Server clientInfo name and version must be non-empty")
   }
-  requirePositiveTimeout(options.initializeTimeoutMs, "initialize")
-  requirePositiveTimeout(options.closeTimeoutMs, "close")
-}
-
-function requirePositiveTimeout(value: number | undefined, label: string): void {
-  if (value === undefined) return
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`CodeM App Server ${label} timeout must be positive: ${String(value)}`)
-  }
+  requirePositiveTimeout(options.initializeTimeoutMs, "App Server initialize")
+  requirePositiveTimeout(options.closeTimeoutMs, "App Server close")
 }
 
 function waitForSpawn(child: ChildProcessWithoutNullStreams): Promise<void> {
@@ -223,33 +219,6 @@ async function withTimeout<T>(
   } finally {
     if (timer !== undefined) clearTimeout(timer)
   }
-}
-
-async function waitForCompletion(completion: Promise<unknown>, timeoutMs: number): Promise<boolean> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  try {
-    return await Promise.race([
-      completion.then(() => true),
-      new Promise<false>((resolve) => {
-        timer = setTimeout(() => resolve(false), timeoutMs)
-      }),
-    ])
-  } finally {
-    if (timer !== undefined) clearTimeout(timer)
-  }
-}
-
-async function terminateProcess(
-  child: ChildProcessWithoutNullStreams,
-  completion: Promise<unknown>,
-  timeoutMs: number,
-): Promise<void> {
-  if (await waitForCompletion(completion, timeoutMs)) return
-  if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM")
-  if (await waitForCompletion(completion, timeoutMs)) return
-  if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL")
-  if (await waitForCompletion(completion, timeoutMs)) return
-  throw new Error(`CodeM App Server did not exit after stdin close, SIGTERM, and SIGKILL`)
 }
 
 function reportProtocolError(callback: ((error: Error) => void) | undefined, error: Error): void {
