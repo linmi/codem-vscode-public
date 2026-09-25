@@ -72,6 +72,7 @@ export async function connectRuntime(extensionRoot: string, version: string, sig
   const host = new AppServerHost({
     runtime,
     clientInfo: { name: "codem-vscode", version },
+    sessionSource: "vscode",
     assertAuthenticated: async () => { assertTrusted(); signal.throwIfAborted(); if (starting) assertAppServerAuthenticated(status); else await authorize() },
     prepareSpace: () => {
       // Consume launch material once, within the startup transaction that verified it.

@@ -11,6 +11,8 @@ export function createHost(packageRoot: string) {
   return new AppServerHost({
     runtime,
     clientInfo: { name: "my-codem-client", version: "0.1.0" },
+    // Core 写入会话记录的来源标识（session_source），由应用自己命名。
+    sessionSource: "my-editor",
     assertAuthenticated: async workingDirectory => {
       const status = await readAppServerAuthStatus({
         runtime, workingDirectory,

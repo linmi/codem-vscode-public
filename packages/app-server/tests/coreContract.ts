@@ -8,7 +8,7 @@ import { AppServerHost, DEFAULT_APP_SERVER_THREAD_SETTINGS } from "../src/host.t
 import { resolveAppServerRuntime } from "../src/runtime.ts"
 const cwd = await realpath(await mkdtemp(join(tmpdir(), "codem-core-contract-")))
 const runtime = resolveAppServerRuntime({ packageRoot: fileURLToPath(new URL("..", import.meta.url)) })
-const host = new AppServerHost({ runtime, clientInfo: { name: "codem-contract", version: "1" }, assertAuthenticated() {} })
+const host = new AppServerHost({ runtime, clientInfo: { name: "codem-contract", version: "1" }, sessionSource: "contract", assertAuthenticated() {} })
 const threads = new Set<string>()
 const errors: string[] = []
 let notifications = 0

@@ -379,6 +379,8 @@ export type AppServerHostEvent =
 export interface AppServerHostOptions {
   readonly runtime: AppServerRuntime
   readonly clientInfo: { readonly name: string; readonly version: string }
+  /** Names the host application; Core records it as each session's `session_source` (VS Code passes `vscode`). */
+  readonly sessionSource: string
   readonly assertAuthenticated: (cwd: string) => void | Promise<void>
   readonly prepareSpace?: (cwd: string) => Promise<AppServerPreparedSpace>
   readonly environment?: NodeJS.ProcessEnv
@@ -1127,7 +1129,7 @@ export class AppServerHost {
       // the answer, displacing it with audit prose in the chat timeline.
       arguments: ["--no-self-check", ...(space?.arguments ?? [])],
       environment: {
-        ...appServerHostEnvironment(this.options.runtime, this.options.environment),
+        ...appServerHostEnvironment(this.options.runtime, this.options.sessionSource, this.options.environment),
         ...space?.environment,
       },
       onNotification: (notification) => {
@@ -1647,8 +1649,10 @@ export class AppServerHost {
 
 export function appServerHostEnvironment(
   runtime: AppServerRuntime,
+  sessionSource: string,
   base: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
+  if (!sessionSource.trim()) throw new Error("CodeM App Server sessionSource must be non-empty")
   const environment = { ...base }
   const owned = [
     ROUTER_CREDENTIAL_HOST_COMMAND_ENV,
@@ -1663,7 +1667,7 @@ export function appServerHostEnvironment(
   return {
     ...environment,
     [ROUTER_CREDENTIAL_HOST_COMMAND_ENV]: JSON.stringify([runtime.authExecutablePath, "__host-serve"]),
-    [SESSION_SOURCE_ENV]: "vscode",
+    [SESSION_SOURCE_ENV]: sessionSource,
     CODEM_HOST_CHANNEL_CMD: JSON.stringify([runtime.authExecutablePath, "__host-serve"]),
     CODEM_MANAGED_DIR: "",
   }

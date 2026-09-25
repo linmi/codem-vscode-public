@@ -131,7 +131,7 @@ export async function runLiveCapabilities(extensionRoot: string, workspace: stri
     if (failures.length) throw new AggregateError(failures, "Core capability success paths remain incomplete")
   } finally {
     await controller.dispose()
-    const cleanup = new AppServerHost({ runtime: resolveBundledAppServerRuntime({ extensionRoot }), clientInfo: { name: "codem-fixture-cleanup", version: "1" }, assertAuthenticated() {} })
+    const cleanup = new AppServerHost({ runtime: resolveBundledAppServerRuntime({ extensionRoot }), clientInfo: { name: "codem-fixture-cleanup", version: "1" }, sessionSource: "vscode", assertAuthenticated() {} })
     try { for (const threadId of created) await cleanup.control(workspace, "thread/delete", { threadId }) }
     finally { await cleanup.close() }
   }

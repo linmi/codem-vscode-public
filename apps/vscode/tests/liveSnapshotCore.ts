@@ -12,7 +12,7 @@ import type { LiveCatalogView } from "../src/shared/capabilityTypes.ts"
 const cwd = await realpath(await mkdtemp(join(tmpdir(), "codem-live-pagination-")))
 const sessionsRoot = join(cwd, "sessions"), threadId = "pagination-fixture", at = "2026-09-20T00:00:00Z"
 const runtime = resolveAppServerRuntime({ packageRoot: fileURLToPath(new URL("../../../packages/app-server", import.meta.url)) })
-const host = new AppServerHost({ runtime, environment: { ...process.env, LINCO_SESSIONS_ROOT: sessionsRoot }, clientInfo: { name: "codem-pagination-check", version: "1" }, assertAuthenticated() {} })
+const host = new AppServerHost({ runtime, environment: { ...process.env, LINCO_SESSIONS_ROOT: sessionsRoot }, clientInfo: { name: "codem-pagination-check", version: "1" }, sessionSource: "vscode", assertAuthenticated() {} })
 const failures: unknown[] = []
 let view: LiveCatalogView | null = null
 const current = (): LiveCatalogView => { assert.ok(view); return view }

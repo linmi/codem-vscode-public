@@ -73,6 +73,15 @@ it("startup gate: consumes prepared launch material without a second broker and 
   await Promise.all([first.host.close(), second.host.close()])
 })
 
+it("identifies VS Code to Core through the shared host's caller-supplied options", async t => {
+  const f = await setup(t)
+  const session = await f.connectRuntime(root, "0.2.0", new AbortController().signal)
+  const options = (session.host as unknown as { options: { clientInfo: unknown; sessionSource: unknown } }).options
+  assert.deepEqual(options.clientInfo, { name: "codem-vscode", version: "0.2.0" })
+  assert.equal(options.sessionSource, "vscode")
+  await session.host.close()
+})
+
 it("startup gate: cached directory keeps selection fast but cannot reuse previous launch authorization", async t => {
   const f = await setup(t)
   const abort = new AbortController()

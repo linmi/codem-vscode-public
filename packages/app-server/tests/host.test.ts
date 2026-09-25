@@ -26,7 +26,7 @@ describe("AppServerHost", () => {
   for (const mismatch of [false, true]) {
     it(`normalizes side question outer whitespace and ${mismatch ? "rejects changed" : "accepts matching"} Core echoes`, { timeout: 5000 }, async () => {
       const fixture = createFixture(undefined, [])
-      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "question-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, QUESTION_MISMATCH: mismatch ? "1" : "" } })
+      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "question-test", version: "1" }, sessionSource: "fixture", assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, QUESTION_MISMATCH: mismatch ? "1" : "" } })
       const events: AppServerHostEvent[] = []
       const settled = new Promise<void>(resolve => host.onEvent(event => { events.push(event); if (event.type === "protocol-error" || event.type === "side-question-completed") resolve() }))
       try {
@@ -53,7 +53,7 @@ describe("AppServerHost", () => {
       { method: "turn/activity", params: { turnId: "stale", source: "provider_stream" } },
       { method: "item/agentMessage/delta", params: { delta: "Still connected" } },
     ])
-    const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "activity-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath } })
+    const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "activity-test", version: "1" }, sessionSource: "fixture", assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath } })
     const events: AppServerHostEvent[] = []
     const finished = new Promise<void>((resolve, reject) => host.onEvent(event => {
       events.push(event)
@@ -76,7 +76,7 @@ describe("AppServerHost", () => {
   for (const params of [{}, { source: null }, { source: 42 }, { source: " " }, { source: "provider_stream", turnId: null }]) {
     it(`rejects invalid activity ${JSON.stringify(params)}`, { timeout: 5000 }, async () => {
       const fixture = createFixture(undefined, [{ method: "turn/activity", params }])
-      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "activity-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath } })
+      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "activity-test", version: "1" }, sessionSource: "fixture", assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath } })
       const events: AppServerHostEvent[] = []
       const failed = new Promise<string>(resolve => host.onEvent(event => { events.push(event); if (event.type === "protocol-error") resolve(event.message) }))
       try {
@@ -90,7 +90,7 @@ describe("AppServerHost", () => {
 
   it("uses native structured skill input and rejects blank skill names", { timeout: 5000 }, async () => {
     const fixture = createFixture()
-    const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "skill-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath } })
+    const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "skill-test", version: "1" }, sessionSource: "fixture", assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath } })
     try {
       const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
       await assert.rejects(host.startTurn({ cwd: fixture.root, threadId, submissionId: "invalid", text: "args", skillName: " " }), /skill name/)
@@ -105,7 +105,7 @@ describe("AppServerHost", () => {
   for (const invalid of ["operation", "source", "same-id", "cwd", "status"]) {
     it(`rejects an invalid clear target (${invalid}) without registering it`, { timeout: 5000 }, async () => {
       const fixture = createFixture()
-      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "clear-test", version: "1" }, assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, INVALID_CLEAR: invalid } })
+      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "clear-test", version: "1" }, sessionSource: "fixture", assertAuthenticated() {}, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, INVALID_CLEAR: invalid } })
       try {
         const threadId = await host.startThread(fixture.root, DEFAULT_APP_SERVER_THREAD_SETTINGS)
         await assert.rejects(host.clearThread(fixture.root, threadId, "operation"), /clear/)
@@ -122,7 +122,7 @@ describe("AppServerHost", () => {
   ]) {
     it(`shutdown gate: reaps Core when ${scenario.method} hangs${scenario.stubborn ? " and EOF/SIGTERM are ignored" : ""}`, { timeout: 12_000 }, async () => {
       const fixture = createFixture(undefined, [])
-      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "shutdown-test", version: "1" }, assertAuthenticated() {}, environment: {
+      const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "shutdown-test", version: "1" }, sessionSource: "fixture", assertAuthenticated() {}, environment: {
         PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath,
         SHUTDOWN_HANG: scenario.method, SHUTDOWN_HOLD: scenario.hold, ...(scenario.stubborn ? { IGNORE_SHUTDOWN: "1" } : {}),
       } })
@@ -154,7 +154,7 @@ describe("AppServerHost", () => {
 
   it("delivers idle background wakes and Core-owned turns without reviving completed turns", { timeout: 5000 }, async () => {
     const fixture = createFixture()
-    const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "background-test", version: "1" }, environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, BACKGROUND_AFTER_TURN: "1" }, assertAuthenticated: () => {} })
+    const host = new AppServerHost({ runtime: fixture.runtime, clientInfo: { name: "background-test", version: "1" }, sessionSource: "fixture", environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, BACKGROUND_AFTER_TURN: "1" }, assertAuthenticated: () => {} })
     const events: AppServerHostEvent[] = []
     const finished = new Promise<void>((resolve, reject) => host.onEvent((event) => {
       events.push(event)
@@ -185,6 +185,7 @@ describe("AppServerHost", () => {
         const host = new AppServerHost({
           runtime: fixture.runtime,
           clientInfo: { name: "text-delta-test", version: "1" },
+          sessionSource: "fixture",
           environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
           assertAuthenticated: () => {},
         })
@@ -243,6 +244,7 @@ describe("AppServerHost", () => {
       const host = new AppServerHost({
         runtime: fixture.runtime,
         clientInfo: { name: "text-delta-test", version: "1" },
+        sessionSource: "fixture",
         environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
         assertAuthenticated: () => {},
       })
@@ -290,6 +292,7 @@ describe("AppServerHost", () => {
       const host = new AppServerHost({
         runtime: fixture.runtime,
         clientInfo: { name: "hook-test", version: "1" },
+        sessionSource: "fixture",
         environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
         assertAuthenticated: () => {},
       })
@@ -325,6 +328,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "host-test", version: "1.0.0" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
       assertAuthenticated: () => {
         authenticationChecks += 1
@@ -463,6 +467,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "mode-test", version: "1" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
       assertAuthenticated: () => {},
     })
@@ -505,6 +510,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "mode-cache", version: "1" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, DELAY_MODE_READ: "1" },
       assertAuthenticated: () => {},
     })
@@ -542,6 +548,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "mode-retry", version: "1" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, FAIL_FIRST_MODE_READ: "1" },
       assertAuthenticated: () => {},
     })
@@ -559,6 +566,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "mode-test", version: "1" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, OLD_UNSUBSCRIBE_RESULT: "1" },
       assertAuthenticated: () => {},
     })
@@ -575,6 +583,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "mode-test", version: "1" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, DELAY_MODE_READ: "1" },
       assertAuthenticated: () => {},
     })
@@ -591,7 +600,7 @@ describe("AppServerHost", () => {
 
   it("removes inherited broker commands before installing the bundled broker", () => {
     const fixture = createFixture()
-    const environment = appServerHostEnvironment(fixture.runtime, {
+    const environment = appServerHostEnvironment(fixture.runtime, "vscode", {
       PATH: process.env.PATH,
       codem_router_credential_host_cmd: "untrusted",
       CODEM_SESSION_SOURCE: "untrusted",
@@ -606,6 +615,29 @@ describe("AppServerHost", () => {
     assert.equal(environment.CODEM_PROJECT_LIST, undefined)
     assert.equal(environment.CODEM_MANAGED_DIR, "")
     assert.deepEqual(JSON.parse(environment.CODEM_HOST_CHANNEL_CMD!), ["/bin/true", "__host-serve"])
+    assert.throws(() => appServerHostEnvironment(fixture.runtime, "  "), /sessionSource must be non-empty/)
+  })
+
+  it("passes a non-VS Code host's client name and session source through to Core", async () => {
+    const fixture = createFixture()
+    const host = new AppServerHost({
+      runtime: fixture.runtime,
+      clientInfo: { name: "codem-intellij", version: "0.1.0" },
+      sessionSource: "intellij",
+      environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, CODEM_SESSION_SOURCE: "vscode" },
+      assertAuthenticated: () => {},
+    })
+    try {
+      await host.prepareConnection(fixture.root)
+    } finally {
+      await host.close()
+    }
+    const captured = readFileSync(fixture.capturePath, "utf8").trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>)
+    const launch = captured[0]
+    assert.ok(launch, "Core launch must be captured")
+    assert.equal((launch.environment as Record<string, unknown>).source, "intellij")
+    const initialize = captured.find((entry) => entry.method === "initialize")?.params as Record<string, unknown>
+    assert.deepEqual(initialize.clientInfo, { name: "codem-intellij", version: "0.1.0" })
   })
 
   it("launches Core in the prepared space and refuses a failed preparation", async () => {
@@ -613,6 +645,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "space-test", version: "1" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath },
       assertAuthenticated: () => {},
       prepareSpace: async () => ({ projectKey: "proj_test", displayName: "Test", managedDirectory: fixture.root }),
@@ -628,6 +661,7 @@ describe("AppServerHost", () => {
     const rejected = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "space-test", version: "1" },
+      sessionSource: "fixture",
       assertAuthenticated: () => {},
       prepareSpace: async () => {
         throw new Error("space access denied")
@@ -645,6 +679,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "control-plane", version: "1" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, HAS_TERMINAL: "1" },
       assertAuthenticated: () => {},
     })
@@ -720,6 +755,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "hitl-label", version: "1" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, HITL_EMPTY_LABEL: "1" },
       assertAuthenticated: () => {},
     })
@@ -774,6 +810,7 @@ describe("AppServerHost", () => {
     const host = new AppServerHost({
       runtime: fixture.runtime,
       clientInfo: { name: "unknown-note", version: "1" },
+      sessionSource: "fixture",
       environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, UNKNOWN_NOTIFICATION: "1" },
       assertAuthenticated: () => {},
     })
@@ -972,6 +1009,7 @@ async function openInteraction(request: HitlRequest, environment: Record<string,
   const host = new AppServerHost({
     runtime: fixture.runtime,
     clientInfo: { name: "interaction-test", version: "1" },
+    sessionSource: "fixture",
     assertAuthenticated() {},
     environment: { PATH: process.env.PATH, CAPTURE_PATH: fixture.capturePath, HITL_REQUEST: JSON.stringify(request), ...environment },
   })

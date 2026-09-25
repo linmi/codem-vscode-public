@@ -22,7 +22,7 @@ export async function liveRuntime(extensionRoot: string, workspace: string, sign
     return listAppServerSpaces({ ...options, signal: refreshSignal })
   })
   let starting = true
-  const host = new AppServerHost({ runtime, clientInfo: { name: "codem-vscode-acceptance", version: "0.2.0" }, assertAuthenticated: () => starting ? assertAppServerAuthenticated(status) : authorize(), prepareSpace: () => prepareAppServerSpace(options, spaces.current!) })
+  const host = new AppServerHost({ runtime, clientInfo: { name: "codem-vscode-acceptance", version: "0.2.0" }, sessionSource: "vscode", assertAuthenticated: () => starting ? assertAppServerAuthenticated(status) : authorize(), prepareSpace: () => prepareAppServerSpace(options, spaces.current!) })
   try {
     await host.prepareConnection(cwd)
     const catalog = await host.listModels(cwd)
