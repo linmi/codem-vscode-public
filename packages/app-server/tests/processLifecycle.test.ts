@@ -100,7 +100,8 @@ describe("graceful termination escalation", () => {
     const started = performance.now()
     await terminateChildProcess(child.process, child.exited, graceful())
     assert.deepEqual(child.signals, ["SIGTERM", "SIGKILL"])
-    assert.ok(performance.now() - started >= STEP_MS - 5, "SIGKILL must wait for the SIGTERM step")
+    // Timers start from libuv's cached loop time and can fire a little early against performance.now().
+    assert.ok(performance.now() - started >= STEP_MS / 2, "SIGKILL must wait for the SIGTERM step")
   })
 
   it("reports a child that outlives every step, naming the steps it went through", async () => {
@@ -195,7 +196,9 @@ describe("process tree signalling", () => {
 
 describe("real child processes", () => {
   it("lets a child exit on stdin close without any signal", async () => {
-    const child = spawnNode("process.stdin.resume(); process.stdin.on('end', () => process.exit(0)); setInterval(() => {}, 1000)")
+    const child = spawnNode("process.stdin.resume(); process.stdin.on('end', () => process.exit(0)); setInterval(() => {}, 1000); console.log('ready')")
+    // Close stdin only once the child listens, so a slow start never counts against the EOF step.
+    await child.line(line => line === "ready")
     child.process.stdin?.end()
     await terminateChildProcess(child.process, child.closed, CORE_APP_SERVER_TERMINATION)
     assert.deepEqual(await child.closed, { code: 0, signal: null })
