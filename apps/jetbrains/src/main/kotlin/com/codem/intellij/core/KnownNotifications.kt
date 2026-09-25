@@ -1,6 +1,9 @@
 package com.codem.intellij.core
 
-/** 与 Node `APP_SERVER_KNOWN_NOTIFICATIONS` 对齐。未知通知必须协议失败，不能当传输噪声。 */
+/**
+ * 与 `packages/contracts/core/knownNotifications.json` 逐项一致（Node `APP_SERVER_KNOWN_NOTIFICATIONS` 同样以它为准），
+ * 由 KnownNotificationsContractTest 校验。未知通知必须协议失败，不能当传输噪声。
+ */
 object KnownNotifications {
     val methods: Set<String> = setOf(
         "warning",

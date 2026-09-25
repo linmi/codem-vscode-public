@@ -1,5 +1,6 @@
 package com.codem.intellij.history
 
+import com.codem.intellij.contracts.ContractFixtures
 import com.codem.intellij.core.CodemError
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -123,13 +124,5 @@ class HistoryReplayTest {
         Files.writeString(directory.resolve("$threadId.jsonl"), body)
     }
 
-    private fun fixture(name: String): String {
-        val candidates = listOf(
-            Path.of("packages/contracts/history", name),
-            Path.of("../../packages/contracts/history", name),
-            Path.of(System.getProperty("codem.contractsHistory", "packages/contracts/history"), name),
-        )
-        val path = candidates.first { Files.isRegularFile(it) }
-        return Files.readString(path)
-    }
+    private fun fixture(name: String): String = ContractFixtures.text("history/$name")
 }

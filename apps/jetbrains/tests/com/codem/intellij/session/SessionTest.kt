@@ -7,33 +7,12 @@ import com.codem.intellij.core.RpcId
 import com.codem.intellij.core.RpcNotification
 import com.codem.intellij.core.RpcPeer
 import com.codem.intellij.core.RpcRequest
-import com.codem.intellij.webview.encodeChatSnapshot
-import com.codem.intellij.webview.hiddenUntilReady
-import com.codem.intellij.webview.initialSnapshot
 import com.codem.intellij.webview.parseViewAction
-import com.codem.intellij.webview.visibleControls
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class SessionTest {
-    @Test
-    fun firstPaintHidesConditionalEntries() {
-        val snapshot = initialSnapshot()
-        assertEquals("disconnected", snapshot.phase)
-        assertNull(snapshot.threadId)
-        assertEquals(false, snapshot.canRetry)
-        assertEquals(listOf("olderMessages", "retryConnect", "resumeThread"), hiddenUntilReady())
-        assertEquals(false, visibleControls(snapshot).retry)
-        assertEquals(false, visibleControls(snapshot).resume)
-        assertEquals(false, visibleControls(snapshot).older)
-        val encoded = encodeChatSnapshot(snapshot)
-        assertEquals("state", encoded.required("type").asText())
-        assertEquals("disconnected", encoded.required("phase").asText())
-        assertEquals(false, encoded.required("canRetry").asBoolean())
-    }
-
     @Test
     fun projectsThinkingAndToolItemsWithoutUsingThemAsTerminal() {
         val turns = TurnAccumulator()
@@ -176,27 +155,11 @@ class SessionTest {
         assertTrue(failed)
     }
 
+    /** 样本外的 Host 专有动作；样本内的 send/panelReply 由 ViewContractTest 读取共用契约验证。 */
     @Test
-    fun sendAndPanelContractsMatchSamples() {
-        parseViewAction(JsonValue.obj("type" to JsonValue.Text("send"), "text" to JsonValue.Text("hello"), "requestId" to JsonValue.Text("req-1")))
-        parseViewAction(JsonValue.obj("type" to JsonValue.Text("ready")))
+    fun hostOnlyActionsWithoutSamplesParse() {
         parseViewAction(JsonValue.obj("type" to JsonValue.Text("showHistory")))
-        parseViewAction(JsonValue.obj("type" to JsonValue.Text("signIn")))
         parseViewAction(JsonValue.obj("type" to JsonValue.Text("refreshAccount")))
-        var rejected = false
-        try {
-            parseViewAction(JsonValue.obj("type" to JsonValue.Text("send"), "text" to JsonValue.Text("   "), "requestId" to JsonValue.Text("req-1")))
-        } catch (_: CodemError) {
-            rejected = true
-        }
-        assertTrue(rejected)
-        rejected = false
-        try {
-            parseViewAction(JsonValue.obj("type" to JsonValue.Text("panelReply"), "id" to JsonValue.Text("approval-1"), "choiceIds" to JsonValue.ArrayValue(listOf(JsonValue.Text("approve"))), "text" to JsonValue.Text(""), "cancelled" to JsonValue.Bool(true)))
-        } catch (_: CodemError) {
-            rejected = true
-        }
-        assertTrue(rejected)
     }
 
     @Test

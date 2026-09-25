@@ -52,10 +52,17 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
+// Kotlin 测试直接读取 TypeScript 侧共用的契约样本。声明为输入，样本变化时测试必须重跑，不能 UP-TO-DATE 跳过。
+val contractsRoot = repoRoot.resolve("packages/contracts")
+
 tasks.test {
     useJUnitPlatform { excludeTags("nativeRuntime", "liveCore") }
     workingDir = repoRoot
-    systemProperty("codem.contractsHistory", repoRoot.resolve("packages/contracts/history").path)
+    systemProperty("codem.contracts", contractsRoot.path)
+    inputs.file(contractsRoot.resolve("manifest.json")).withPropertyName("contractsManifest").withPathSensitivity(PathSensitivity.RELATIVE)
+    for (directory in listOf("core", "webview", "history")) {
+        inputs.dir(contractsRoot.resolve(directory)).withPropertyName("contracts-$directory").withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     testLogging {
         events("passed", "skipped", "failed")
     }
