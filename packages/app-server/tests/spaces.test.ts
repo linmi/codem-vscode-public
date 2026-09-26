@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test"
 import { existsSync, chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { resolveAppServerRuntime } from "../src/runtime.ts"
+import { APP_SERVER_CLI_VERSION, resolveAppServerRuntime } from "../src/runtime.ts"
 import {
   appServerSpaceLaunch,
   commitAppServerSpace,
@@ -36,7 +36,7 @@ lines.on('line', line => {
  if (${JSON.stringify(mode)} === 'hang') return;
  if (${JSON.stringify(mode)} === 'crash') process.exit(3);
  if (${JSON.stringify(mode)} === 'malformed') { process.stdout.write('bad frame\\n'); return; }
- if(f.method==='initialize') return send(f.id,{protocolVersion:'2025-03-26',serverInfo:{name:'codem__host',version:${JSON.stringify(mode === "version" ? "0.0.0" : "0.1.208")}},capabilities:{tools:{}}});
+ if(f.method==='initialize') return send(f.id,{protocolVersion:'2025-03-26',serverInfo:{name:'codem__host',version:${JSON.stringify(mode === "version" ? "0.0.0" : APP_SERVER_CLI_VERSION)}},capabilities:{tools:{}}});
  if (${JSON.stringify(mode)} === 'secret') return process.stdout.write(JSON.stringify({id:f.id,error:{code:-1,message:'secret-fixture-token',data:{token:'secret-fixture-token'}}})+'\\n');
  const name=f.params.name;
  if (${JSON.stringify(mode)} === 'prepareHang' && name === 'space_prepare') return;

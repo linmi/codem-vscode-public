@@ -6,7 +6,7 @@ import type { AppServerAuthStatus } from "@codem/app-server"
 import type { AccountAvatar } from "../shared/accountTypes.ts"
 import { parseAccountAvatarUrl } from "../shared/accountAvatar.ts"
 
-/** Pinned CLI 0.1.208 CONFIG_PATH: CODEM_HOME + optional BOE profile, not CODEM_STATE_HOME. */
+/** CLI CONFIG_PATH as verified on 0.1.208: CODEM_HOME + optional BOE profile, not CODEM_STATE_HOME. */
 export function accountProfilePath(environment: NodeJS.ProcessEnv, cwd: string, home = homedir()): string {
   const configured = environment.CODEM_HOME || join(home, ".codem")
   let directory = isAbsolute(configured) ? configured : resolve(cwd, configured)

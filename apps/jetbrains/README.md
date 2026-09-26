@@ -15,7 +15,7 @@
 | Gradle Wrapper | 8.13 | 2.5.x 插件可用的 8.x |
 | Platform Gradle Plugin | 2.5.0 | 2.x，未采用后来要求 Gradle 9 的版本 |
 
-Core `0.8.47` / CLI `0.1.208` / 历史 schema 13 与 `packages/contracts/manifest.json`、`packages/app-server/src/runtime.ts` 对齐。
+Core `0.8.50` / CLI `0.1.218` / 历史 schema 13 与 `packages/contracts/manifest.json`、`packages/app-server/src/runtime.ts` 对齐。
 
 ## 怎么启动（本机只用已开的 2026.2.3）
 

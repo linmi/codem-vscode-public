@@ -125,7 +125,7 @@ export const pages: readonly DocPage[] = [
       { title: "明确不支持", body: "当前契约未提供配置写入与 MCP HTTP；网页不会为它们提供可执行入口。",
         items: ["Skill 结构化输入不能同时携带附件。", "当前 Host 不支持主轮次与旁问同时运行。", "浏览器不能直接启动 stdio Core，需要具备 Node 能力的应用 Host。"] },
       { title: "需要注意的回执", body: "turn/start、停止和 Shell 的 RPC 回执都不能作为任务成功证据。主轮次只认 turn/completed，旁问只认 sideQuestion/completed。" },
-      { title: "版本与验收证据", body: "本页版本来自当前包配置，示例按当前类型检查。接口封装存在不等于所有真实操作均已验收。仓库 2026-09-22 复验记录确认 Core 0.8.47 压缩仍返回 failed/error，提示 Core settled without a terminal event。恢复 ready 不等于压缩成功；该缺陷仍需上游 Core 修复。",
+      { title: "版本与验收证据", body: "本页版本来自当前包配置，示例按当前类型检查。接口封装存在不等于所有真实操作均已验收。仓库 2026-09-22 复验记录确认 Core 0.8.47 压缩仍返回 failed/error，提示 Core settled without a terminal event。恢复 ready 不等于压缩成功；该缺陷仍需上游 Core 修复；2026-09-26 在当前固定的 0.8.50 上复测仍失败。",
         items: ["本文依据当前公开导出、Host 实现及仓库能力文档整理，不枚举隐藏接口。", "网页与默认检查不执行真实模型、登录、Shell 命令或用户数据写入。", "真实模型验收通过应用的显式 test:live 流程运行。"] },
     ] },
 ]

@@ -70,6 +70,8 @@
 
 ### Core 0.8.44–0.8.47 压缩终态缺陷
 
+2026-09-26 已固定 Core 0.8.50，最小与完整场景复测仍返回同一错误，见[升级记录](connectionActivity.md#2026-09-26-升级-core-0850--cli-01218)。
+
 2026-09-22 修复复验：Core 0.8.47 在最小、完整以及原生按钮场景中恢复 ready，但终态为 `failed/error`，message=`Core settled without a terminal event`，不是压缩成功。此前 ready-only 检查的通过结论无效。现已断言关联的 start/completed turnId、`outcome=completed`、error=null、历史读取及无失败提示；两个 live 分支继续非零失败。VS Code 保留控制轮次失败提示，不让随后历史刷新清空它。该缺陷仍需上游 Core 源码修复，当前仓库不含该源码。
 
 历史 0.8.45 复测：`--compact-only` 最小场景通过，但完整 `test:live --capabilities` 在技能、steer 和 conversation 回退之后仍 20 秒未收到正常完成事件，显式停止后收尾。完整命令继续非零退出；不能标记该限制已修复。详见 [本轮原生与 Core 验收](vscodeNativeAcceptance.md)。

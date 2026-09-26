@@ -16,7 +16,7 @@ export const hostReference = {
   startThread: entry("sessions", "startThread(cwd, settings) → Promise<string>", "创建会话，返回 Core threadId", "settings 包含模型、强度、权限、工作模式和目录。", "conversation"),
   resumeThread: entry("sessions", "resumeThread(cwd, threadId, settings) → Promise<void>", "恢复并订阅既有会话", "先验证工作区；历史正文另读 JSONL。", "sessions"),
   startTurn: entry("execution", "startTurn({ cwd, threadId, submissionId, text, skillName?, attachments? }) → Promise<string>", "提交轮次，返回 turnId", "回执不等于完成；Skill 与附件不能组合。", "conversation"),
-  compactThread: entry("sessions", "compactThread(cwd, threadId) → Promise<string>", "发起压缩控制轮次", "Core 0.8.47 有终态缺陷；不能将 ready 当成功。"),
+  compactThread: entry("sessions", "compactThread(cwd, threadId) → Promise<string>", "发起压缩控制轮次", "Core 0.8.44–0.8.50 实测有终态缺陷；不能将 ready 当成功。"),
   rewindThread: entry("sessions", "rewindThread(cwd, threadId) → Promise<string>", "发起回退控制轮次", "通过 rewind 交互选择检查点；等待 turn-completed。"),
   steerTurn: entry("execution", "steerTurn({ cwd, threadId, submissionId, text }) → Promise<void>", "为活跃轮次追加纯文本指令", "Host 绑定 expectedTurnId；失败保留用户草稿。", "control"),
   interruptTurn: entry("execution", "interruptTurn(cwd, threadId) → Promise<void>", "请求停止当前轮次", "需要活跃 turnId；回执后仍等待 turn-completed。", "sideQuestion"),
