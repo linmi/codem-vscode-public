@@ -18,6 +18,7 @@ const allowedUiDependencies = new Set([
   "tailwind-merge",
   "class-variance-authority",
   "cmdk",
+  "highlight.js",
   "marked",
   "dompurify",
 ])

@@ -4,7 +4,7 @@
  * VS Code 主题桥接。界面样式全部来自 @codem/ui，这里只放 VS Code 独有的两点：
  * 1. VS Code 把当前主题的 --vscode-* 内联写在 <html> 上。共享令牌在 .codem-light 上给没有宿主色的环境写了固定兜底，
  *    而共享界面把 .codem-light 放在 .app 上，浅色主题里会遮住宿主色；这里让这些变量继续继承 VS Code 的值。
- * 2. 高对比主题没有对应的 Synara 调色，改用 VS Code 注入的高对比色。body 覆盖弹层，.app 需要压过共享的明暗类。
+ * 2. 高对比主题没有对应的 Synara 调色，改用 VS Code 注入的高对比色；代码高亮取调试器的表达式配色。body 覆盖弹层，.app 需要压过共享的明暗类。
  */
 body:is(.vscode-light, .vscode-dark, .vscode-high-contrast, .vscode-high-contrast-light) .codem-light {
   --vscode-focusBorder: inherit;
@@ -30,6 +30,14 @@ body:is(.vscode-high-contrast, .vscode-high-contrast-light), body:is(.vscode-hig
   --hover: var(--vscode-toolbar-hoverBackground);
   --primary: var(--vscode-button-background);
   --onPrimary: var(--vscode-button-foreground);
+  --codeKeyword: var(--vscode-debugTokenExpression-name, var(--vscode-foreground));
+  --codeString: var(--vscode-debugTokenExpression-string, var(--vscode-foreground));
+  --codeComment: var(--vscode-foreground);
+  --codeNumber: var(--vscode-debugTokenExpression-number, var(--vscode-foreground));
+  --codeTitle: var(--vscode-debugTokenExpression-name, var(--vscode-foreground));
+  --codeAttribute: var(--vscode-debugTokenExpression-value, var(--vscode-foreground));
+  --codeAddition: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-foreground));
+  --codeDeletion: var(--vscode-gitDecoration-deletedResourceForeground, var(--vscode-foreground));
 }
 body.vscode-high-contrast, body.vscode-high-contrast .app { color-scheme: dark; }
 body.vscode-high-contrast-light, body.vscode-high-contrast-light .app { color-scheme: light; }

@@ -13,6 +13,14 @@
   --primary: #0d0d0d;
   --onPrimary: #ffffff;
   --codeSurface: rgba(13, 13, 13, 0.03);
+  --codeKeyword: #cf222e;
+  --codeString: #0a3069;
+  --codeComment: #6e7781;
+  --codeNumber: #0550ae;
+  --codeTitle: #8250df;
+  --codeAttribute: #953800;
+  --codeAddition: #116329;
+  --codeDeletion: #82071e;
   --accent: #6554ee;
   --button: #6554ee;
   --buttonInk: #fff;
@@ -42,6 +50,14 @@
   --primary: #fcfcfc;
   --onPrimary: #111111;
   --codeSurface: rgba(252, 252, 252, 0.026);
+  --codeKeyword: #ff7b72;
+  --codeString: #a5d6ff;
+  --codeComment: #8b949e;
+  --codeNumber: #79c0ff;
+  --codeTitle: #d2a8ff;
+  --codeAttribute: #ffa657;
+  --codeAddition: #7ee787;
+  --codeDeletion: #ffa198;
   --composerShadow: 0 6px 24px -10px rgba(0, 0, 0, 0.3);
   --surfaceBorder: color-mix(in srgb, var(--line) 55%, transparent);
 }

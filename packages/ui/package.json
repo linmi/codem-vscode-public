@@ -17,6 +17,7 @@
   "dependencies": {
     "@codem/protocol": "workspace:*",
     "dompurify": "catalog:",
+    "highlight.js": "11.12.0",
     "marked": "catalog:",
     "class-variance-authority": "catalog:",
     "cmdk": "catalog:",
