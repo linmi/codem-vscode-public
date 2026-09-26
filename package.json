@@ -16,7 +16,7 @@
     "test:windows": "node --test --experimental-strip-types packages/app-server/tests/runtime.test.ts packages/app-server/tests/rpc.test.ts packages/app-server/tests/processLifecycle.test.ts packages/app-server/tests/threadWorkspace.test.ts apps/vscode/tests/vscodeExecutable.test.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "check:jetbrains": "pnpm --filter @codem/jetbrains check",
-    "test:architecture": "pnpm --filter codem exec node --test --experimental-strip-types tests/architecture.test.ts tests/sourceLayout.test.ts tests/fileNaming.test.ts",
+    "test:architecture": "pnpm --filter codem exec node --test --experimental-strip-types tests/architecture.test.ts tests/sourceLayout.test.ts tests/fileNaming.test.ts tests/workspaceHygiene.test.ts",
     "test:shutdown": "node --test --experimental-strip-types --test-name-pattern=\"shutdown gate\" apps/vscode/tests/chatController.test.ts packages/app-server/tests/host.test.ts",
     "package:vscode": "pnpm --filter codem package:vsix",
     "test:packaging": "pnpm --filter codem exec node --test --experimental-strip-types tests/vsixPackage.test.ts tests/bundleNotices.test.ts"

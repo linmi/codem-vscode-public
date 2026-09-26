@@ -63,6 +63,12 @@ VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.tes
 
 正例覆盖 camelCase/PascalCase、`.test.ts` 与 `.d.ts` 后缀、Gradle 脚本、非代码文件、被忽略的构建与依赖目录、归档、上游复制目录，以及已从磁盘删除但仍在索引中的文件；反例覆盖每种扩展名、测试与声明文件、JetBrains Kotlin、例外目录的同级目录与前缀相近目录，以及未暂存的新文件。2026-09-25 在改名前的 main 上运行，该检查列出 `packages/app-server` 的 `control-plane.ts`、`rpc-abandoned.ts`、`control-plane.test.ts`、`protocol-alias.test.ts` 并失败。进入 `pnpm check` 与 `pnpm test:architecture`。
 
+## 工作区卫生门禁
+
+`apps/vscode/tests/workspaceHygiene.test.ts` 检查仓库本身的两类整洁度，进入 `pnpm check` 与 `pnpm test:architecture`。
+
+被忽略的文件不能被跟踪：`git ls-files --cached --ignored --exclude-standard` 必须为空，拦截 `git add -f` 强行加入的文件，以及新增忽略规则后仍留在索引里的旧文件。`output/` 整个目录是本地临时输出，2026-09-26 起整体忽略；把该目录下的文件强行加入索引时该检查实际失败。反例覆盖强行加入与规则后加；正例覆盖取反例外（`!.vscode/settings.json`）和未跟踪的被忽略文件。
+
 ## 预览场景挂载门禁
 
 Webview 预览（`tests/webviewPreview.ts`）操作的是生产 `@codem/ui`。预览运行时依赖的界面元素集中在 `tests/previewHooks.ts`。`previewHooks.test.ts` 用 esbuild 打包真实 `ChatApp`，对每个预览场景先经生产 `VscodeHostBridge` 投影 fixture，再以 `react-dom/server` 渲染，用 `markupQuery.ts` 查询：
