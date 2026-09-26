@@ -1,8 +1,8 @@
 {
   "id": "core.initialize.handshake.v1",
   "capabilityId": "A02",
-  "coreVersion": "0.8.47",
-  "cliVersion": "0.1.208",
+  "coreVersion": "0.8.50",
+  "cliVersion": "0.1.218",
   "protocolVersion": 1,
   "provenance": {
     "kind": "source",
@@ -33,7 +33,7 @@
         "id": 1,
         "result": {
           "protocolVersion": 1,
-          "agentInfo": { "version": "0.8.47" },
+          "agentInfo": { "version": "0.8.50" },
           "capabilities": {
             "threads": {
               "list": true,
@@ -73,6 +73,7 @@
             "clientRequests": {
               "commandExecutionApproval": true,
               "fileChangeApproval": true,
+              "permissionAutoSwitchChoice": true,
               "permissionsApproval": true,
               "planApproval": true,
               "rewindSelection": true,
@@ -102,7 +103,7 @@
   "expected": {
     "kind": "ready",
     "protocolVersion": 1,
-    "agentVersion": "0.8.47",
+    "agentVersion": "0.8.50",
     "responseJsonrpc": "2.0"
   }
 }

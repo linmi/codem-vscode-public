@@ -66,7 +66,7 @@ describe("App Server runtime", () => {
     const fixture = createRuntimeFixture({ authPlatformVersion: "0.1.207" })
     assert.throws(
       () => resolveAppServerRuntime({ packageRoot: fixture.root, platform: "darwin", arch: "arm64" }),
-      /requires @lark-codem\/codem-cli-darwin-arm64@0\.1\.208, resolved 0\.1\.207/u,
+      { message: `CodeM App Server requires @lark-codem/codem-cli-darwin-arm64@${APP_SERVER_CLI_VERSION}, resolved 0.1.207` },
     )
   })
 })

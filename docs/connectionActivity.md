@@ -56,3 +56,22 @@
 结论：此前停止后继续发送的真实 Core 回归在 0.8.47 通过。验证范围为上述两种文本停止时机，不扩展为所有工具执行期间的取消都已验收，也没有重新验收 compact。
 
 旧版本搜索：生产运行时与锁文件不再固定 0.8.45；测试中的 0.8.45 保留为版本拒绝输入及历史协议样本；文档和能力说明中的旧版本用于记录当时观测，不代表当前运行时版本。未迁移原有持久历史，不新增兼容分支。
+
+## 2026-09-26 升级 Core 0.8.50 / CLI 0.1.218
+
+npm 元数据中 Core `latest` 为 0.8.48、`alpha` 为 0.8.50（2026-09-24 发布）；CLI `latest` 为 0.1.216、`alpha` 为 0.1.218。CLI 包精确依赖一个 Core 版本：原 0.1.208 依赖 Core 0.8.37，导致工作区同时安装两份 Core；0.1.218 依赖的正是 0.8.50。因此本次成对固定 Core 0.8.50 / CLI 0.1.218，锁文件只剩一份 Core。同步更新 Node / JetBrains 运行时约束、共享契约基线、握手样本、发布时间例外、依赖及锁文件；测试中写死的 CLI 版本改为取运行时常量。
+
+协议差异（两版二进制的 initialize 对照，并在已登录的 M4-Max 上用真实 Core 实测）：
+
+- 握手新增 `clientRequests.permissionAutoSwitchChoice=true`，其余能力位与 0.8.47 一致；configWrite、MCP HTTP 仍为 false。
+- Core 终端界面在 Default 模式下从第 3 次审批起多出「同意并开启「帮我批准」」选项。选中后 `permission_decided.decision` 写成字符串 `allow_once_and_enable_auto`；`permission_requested.request` 多出 `offer_auto_mode_choice`；每次决定后另写 `permission_auto_suggestion_state` 元数据记录。二进制的 Decision 枚举另有外部标记的 `selected`（`choice_id`、`presentation_id`、`auto_choice_presented`），实测未见写出。
+- App Server 不提供这个选项：同一线程 6 次 Default 模式审批，`options` 始终只有 allow_once / allow_always / reject_once，参数也不带 `offer_auto_mode_choice`。因此 VS Code 与 JetBrains 在 0.8.50 上选不到它，需要上游开放后才能接入。
+- 持久读取按字段名取值，忽略新增字段；未知记录类型按既有规则不投影。唯一不兼容处是严格的决策 schema 会拒绝新决策值，含该选择的会话（例如在终端界面里产生的）在插件中无法重新打开。已接受 `allow_once_and_enable_auto` 与 `selected`，回归测试使用真实记录形状，修复前失败、修复后通过。
+
+验证：
+
+- 单元 / 集成：`pnpm check` 在 M4-Max 通过（含 JetBrains 编译与域测试），CI 的 Quality gate 与两个 Windows 作业通过。云容器另跑各包默认测试，其中 App Server 两例进程回收用例失败，与 `main` 相同，属于[环境前提](exitCriteria.md#本地运行的环境前提)所述问题。
+- 构建 / 真实运行时：`pnpm build:vscode` 通过；`test:runtime` 在 linux-x64 与 darwin-arm64 均确认 Core 0.8.50 / CLI 0.1.218。CLI `__host-serve` 握手返回 `codem__host` 0.1.218，工具仍为 project_list、space_prepare、space_commit（另有 router_credential_refresh）。
+- 真实 Core，无模型：`coreContract.ts` 返回 `CORE_CONTRACT_OK 0.8.50+2834.g7478954.dirty`；`liveSnapshotCore.ts` 返回 `LIVE_SNAPSHOT_CORE_OK`（刷新 2.35ms，后续页 0.84–1.12ms）。
+- 真实 Core，有模型：审批允许 / 拒绝、问答提交 / 取消、计划两轮通过（`CODEM_LIVE_INTERACTIONS_OK`，29.3s，经 liveRuntime 适配器运行，未开 VS Code 窗口）。`test:live --capabilities` 中技能 2716ms、旁问 1384ms、补充指令 5666ms、回退 101ms 通过；**压缩仍失败**，`--compact-only` 同样返回 `failed/error`「Core settled without a terminal event」，与 0.8.44–0.8.47 相同。含 `allow_once_and_enable_auto` 的真实会话在修复后能重新打开（8ms）。
+- 模拟界面、真实 VS Code / IDEA 操作：本轮未执行，未修改 UI。

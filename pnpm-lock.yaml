@@ -397,11 +397,11 @@ importers:
         specifier: workspace:*
         version: link:../protocol
       '@lark-codem/codem-cli':
-        specifier: 0.1.208
-        version: 0.1.208
+        specifier: 0.1.218
+        version: 0.1.218
       '@lark-codem/codem-core':
-        specifier: 0.8.47
-        version: 0.8.47
+        specifier: 0.8.50
+        version: 0.8.50
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -766,114 +766,77 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@lark-codem/codem-cli-darwin-arm64@0.1.208':
-    resolution: {integrity: sha512-IHEjR2bfZmssjGh1darGoQ1b771UdOMQPeX1vLf5A6p+S0po+KvzXJCmM1p9BISdNb9oExUI5hq6HQWTkyRJqA==}
+  '@lark-codem/codem-cli-darwin-arm64@0.1.218':
+    resolution: {integrity: sha512-zNERbBp2NVYsvbpRGNY81c4pf8NDYrbisQJ2DrPH0OHHgVzvjpwt/rpQjzwr8uI8oGDjiIDLYVPdM7OzfqeF8A==}
     cpu: [arm64]
     os: [darwin]
 
-  '@lark-codem/codem-cli-darwin-x64@0.1.208':
-    resolution: {integrity: sha512-/j/JYfGlilrbq5a4qgPwnngPvL9gr5FX8kOG+UVAKqvVzzkCh6sfyxXuNtiww8G7taUxiN5cGdEtyFRLdK8XNw==}
+  '@lark-codem/codem-cli-darwin-x64@0.1.218':
+    resolution: {integrity: sha512-SGVuzlKgQ7TpnfviCCuRi7sxM6PnWZ6Xdv11/5Tn9gYqx1hoQVK2Ruq7kXn73QbdvWyuKqpjO9LiERyJc2mGGg==}
     cpu: [x64]
     os: [darwin]
 
-  '@lark-codem/codem-cli-linux-arm64@0.1.208':
-    resolution: {integrity: sha512-CJq4ejiOhmGlRT7dx2Npj2pvy+l9UUDSSyzM2kJBsm2sxudgfFFm15fUGetgxYz9xuxPkQwYJKisq5kVxo9Yvw==}
+  '@lark-codem/codem-cli-linux-arm64@0.1.218':
+    resolution: {integrity: sha512-awEl0QBmdhY5nw5yR16EX/cQ7StHRb7T05nCgEbYy4WUeCMP0ofyKxIGuAkr4rIr35Oraq0dQtYZkE68xTIEng==}
     cpu: [arm64]
     os: [linux]
 
-  '@lark-codem/codem-cli-linux-x64@0.1.208':
-    resolution: {integrity: sha512-GwqCYr55s8lTzlM0cQ1tNeThiG25u882eDIZ9syb6c72MkFp1inDXufU0y+IG8M5ibLIbaRPdpux4I/8DpWyow==}
+  '@lark-codem/codem-cli-linux-x64@0.1.218':
+    resolution: {integrity: sha512-RizLHjCDDo2UfAEh3hvTf5FdR82+7KbNfbUl5MKrdzBdoOSAkGF/IjieSZBjxlqNKrdcw/an1TKKGyWz8NPH9Q==}
     cpu: [x64]
     os: [linux]
 
-  '@lark-codem/codem-cli-win32-arm64@0.1.208':
-    resolution: {integrity: sha512-BjAq4QJ3kufMBgR6vjp6WJ/++PMCcNqX7mLYMDTWJ4ryRWtcolOdI9tIo5tVBrEqFee/0AKGfs7I9zVENsrmAA==}
+  '@lark-codem/codem-cli-win32-arm64@0.1.218':
+    resolution: {integrity: sha512-ci2sZ1wg9xNAW+FUBF4W2FvGbNSYztW9oUpLjGO5YfZTwWWxVvSGXisMjqwTR10Y/+8o3IUFx++rtkij1BBxjQ==}
     cpu: [arm64]
     os: [win32]
 
-  '@lark-codem/codem-cli-win32-x64@0.1.208':
-    resolution: {integrity: sha512-hVlLN/wbak7B+XuhWO9M17Jdakd+2xq9ykhPpK2GZ7dgprKIrfa1PBVxzsLdqQT2LXroqpK3+fEi8u7HT5Afkw==}
+  '@lark-codem/codem-cli-win32-x64@0.1.218':
+    resolution: {integrity: sha512-z8d9/dPuCbEjTP0iO2OQk9z6KPGM3tFahYVZXCUGzVyy8VWC2JCz0aYRKA+tuVcTopbFy6fMh2N0d4C2srvP9g==}
     cpu: [x64]
     os: [win32]
 
-  '@lark-codem/codem-cli@0.1.208':
-    resolution: {integrity: sha512-Sj3IyJf5BYJiWS/Zy+QpF+dijgs/WRIRqgnEra0e2KMXsOMg54R7wIrr8lWawHi7zjhYzzq7PqPKXn5gpGa6VQ==}
+  '@lark-codem/codem-cli@0.1.218':
+    resolution: {integrity: sha512-unlN56hPiO+myuLSDkogPH6YWTBk4wNJcUDcINTtE5RYqlLB168+LdZ0dVmQwnR/lm75XSu85MF3DHYKTHIO5Q==}
     engines: {node: '>=18'}
     cpu: [arm64, x64]
     os: [darwin, linux, win32]
     hasBin: true
 
-  '@lark-codem/codem-core-darwin-arm64@0.8.37':
-    resolution: {integrity: sha512-JooXa/rxsjadTqSQ4dQYih06Eq9mE5gPQFr4uQqFWCBMV6oFzMY+tV0EsLqqdduyGP79SW1EsYICO6mhBKNDkA==}
+  '@lark-codem/codem-core-darwin-arm64@0.8.50':
+    resolution: {integrity: sha512-YHej23MvBZajKltgYqKDeqvbKcl8JWfpHkyapR8zZVhfULGHnjHcU16NmmcOyhfQsgaen5Ev09sDvjaPJ8EGFQ==}
     cpu: [arm64]
     os: [darwin]
 
-  '@lark-codem/codem-core-darwin-arm64@0.8.47':
-    resolution: {integrity: sha512-v3ununJbP4FebbJ1/sDnBhm0jutsLtYOG2LcFvKwwrCnktV2XbwiQwsXR9Ex9WSVJw9bdcoPB5RXd10c9XqiHw==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@lark-codem/codem-core-darwin-x64@0.8.37':
-    resolution: {integrity: sha512-GjWWEZlMyfi14zJSYa0+I7v24Jhjqzhyms3yCg7wdiWBDqTg51RcSxIs0Z7Xr5Q28nf8LEZsIlB8dW8TfK3TTA==}
+  '@lark-codem/codem-core-darwin-x64@0.8.50':
+    resolution: {integrity: sha512-QhrNRqI8C0rJrfeF40UEvYvVDxVMf+RB6SZLJT4EVux8B3QXlDOgYj4h6ZTC9uyeEJ3AP+3VTi+Z7DXZKkAjcg==}
     cpu: [x64]
     os: [darwin]
 
-  '@lark-codem/codem-core-darwin-x64@0.8.47':
-    resolution: {integrity: sha512-+aPB3rBHivn7X9Pk5a5KxeY6YGawo1wRfF6FXUreV3BOhwD/zbsnGJ/VsiLhYjuqC9eGENyXymIJ8GAIIJcrVQ==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@lark-codem/codem-core-linux-arm64-gnu@0.8.37':
-    resolution: {integrity: sha512-U5e4i7rRW+LvBwwvo/VijeDv6w3NIPD0FUy/ol8L96PIOz5+/zXLP/EdkAfiIrZP7uCZjOd1ymGuNjMltbPDNA==}
+  '@lark-codem/codem-core-linux-arm64-gnu@0.8.50':
+    resolution: {integrity: sha512-0WVq6UWtyYD9yNGaWW/O63kwrHAi47tvM/NBF7gDZLQPg13cSR/qHqQIipRRCV1LsBec8GclA52s8ggN+0z5SQ==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@lark-codem/codem-core-linux-arm64-gnu@0.8.47':
-    resolution: {integrity: sha512-cZ8qW7BQ6CMbm5+TWpI8sm24NP+qpErt3Sj/Sxtezus+t3miltNZS3/r4SCsKliXomS/ZPXcJQJcTiV/V1YnKA==}
-    cpu: [arm64]
-    os: [linux]
-    libc: [glibc]
-
-  '@lark-codem/codem-core-linux-x64-gnu@0.8.37':
-    resolution: {integrity: sha512-EQijC0nbKX9gbhV4BhffoxlDx6f8mYLmSxNue5ZDZDjV0dLCqODo7S5ivD17LywmutcHsmUVUzM17wL0KRAmjA==}
+  '@lark-codem/codem-core-linux-x64-gnu@0.8.50':
+    resolution: {integrity: sha512-Q+833OBVaObhi7z13x1UhK5L9uw35jsvsCb+XDVOPppM1d6gu5msk5exbiEuoj+TsE58O2398rRQGqEYkdLNlw==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@lark-codem/codem-core-linux-x64-gnu@0.8.47':
-    resolution: {integrity: sha512-k7MGxfW9GeVboKdaazPx16MdPkQugakylsHYFoUS10slZRX8yoPwQok2/m7rJ7CPap5caMREgowu31g74B+wCg==}
-    cpu: [x64]
-    os: [linux]
-    libc: [glibc]
-
-  '@lark-codem/codem-core-win32-arm64-gnu@0.8.37':
-    resolution: {integrity: sha512-N2VTgvsXnhusWm/3TyVDhW4Lq1c5fXUGUaWgGl6+I3vPLcttyAsE3extBxyuYV9e+O3l+q4TBXlfzJ71pnsxxQ==}
+  '@lark-codem/codem-core-win32-arm64-gnu@0.8.50':
+    resolution: {integrity: sha512-zWrPVOIUKue039P+nfdbvXj59/nQ2eb2Fx95f/TzaX95mVi6bhFuWPXKCuXe0AhVXozz6IWOXSsKSMbkesmDUw==}
     cpu: [arm64]
     os: [win32]
 
-  '@lark-codem/codem-core-win32-arm64-gnu@0.8.47':
-    resolution: {integrity: sha512-ekD2QLQuVSWKi7IjlMIOcgCDo0n3ina5bg7SYnPfqojRSDRfZJ5yt2jXq87IL+PVcLrV/qTZUYw4EyCn6YZ72Q==}
-    cpu: [arm64]
-    os: [win32]
-
-  '@lark-codem/codem-core-win32-x64-msvc@0.8.37':
-    resolution: {integrity: sha512-sCIIC2mr7Rrut/UHOczcu97ybAC4axJM9kKhmlmGScbJxTwFbhwnns0GVfahYytveB+5D8EHgnHkTIJmezOAWQ==}
+  '@lark-codem/codem-core-win32-x64-msvc@0.8.50':
+    resolution: {integrity: sha512-YmoMnXm5e3eNE5/P7tHz9WefXQp5KRvIeaYZod5CKL35LCOXSBY2ccZnWBONTxA5v8s/mLGBhrfE8Qubi0Ui+w==}
     cpu: [x64]
     os: [win32]
 
-  '@lark-codem/codem-core-win32-x64-msvc@0.8.47':
-    resolution: {integrity: sha512-EBAI5uYfJDy9KSConr6s8T4QfmtTFtM8MwsxNscKFG0c/WbbX00xPauiCWIcVMeCHNIJ43nMgUntGsTtZg/7CQ==}
-    cpu: [x64]
-    os: [win32]
-
-  '@lark-codem/codem-core@0.8.37':
-    resolution: {integrity: sha512-kfGJjQ8pbEzr5T75VN2IJV153OrSeF5pAg//d3wTIMbIisuBmNmSsL12y/Zq82G3rhmi2/O8mD12Uvk9TIqkJg==}
-    engines: {node: '>=18'}
-    hasBin: true
-
-  '@lark-codem/codem-core@0.8.47':
-    resolution: {integrity: sha512-3sE/w9t47eCR91dZDbu/43oHG1jqmApJnSr5p0N+S6PnoBb48LksQ8et/k9fGOsFbxCOB+4DkhGIKGJIdyI5Bw==}
+  '@lark-codem/codem-core@0.8.50':
+    resolution: {integrity: sha512-xPgigKnmZzuqk/UU5TLQ94/YP3b5m7CjwGtzYMS2Gif4eCHYRNY3IHpn14epTSkCJuIzVom2JH8gVc+Nl69yzA==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -2939,88 +2902,61 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@lark-codem/codem-cli-darwin-arm64@0.1.208':
+  '@lark-codem/codem-cli-darwin-arm64@0.1.218':
     optional: true
 
-  '@lark-codem/codem-cli-darwin-x64@0.1.208':
+  '@lark-codem/codem-cli-darwin-x64@0.1.218':
     optional: true
 
-  '@lark-codem/codem-cli-linux-arm64@0.1.208':
+  '@lark-codem/codem-cli-linux-arm64@0.1.218':
     optional: true
 
-  '@lark-codem/codem-cli-linux-x64@0.1.208':
+  '@lark-codem/codem-cli-linux-x64@0.1.218':
     optional: true
 
-  '@lark-codem/codem-cli-win32-arm64@0.1.208':
+  '@lark-codem/codem-cli-win32-arm64@0.1.218':
     optional: true
 
-  '@lark-codem/codem-cli-win32-x64@0.1.208':
+  '@lark-codem/codem-cli-win32-x64@0.1.218':
     optional: true
 
-  '@lark-codem/codem-cli@0.1.208':
+  '@lark-codem/codem-cli@0.1.218':
     dependencies:
-      '@lark-codem/codem-core': 0.8.37
+      '@lark-codem/codem-core': 0.8.50
     optionalDependencies:
-      '@lark-codem/codem-cli-darwin-arm64': 0.1.208
-      '@lark-codem/codem-cli-darwin-x64': 0.1.208
-      '@lark-codem/codem-cli-linux-arm64': 0.1.208
-      '@lark-codem/codem-cli-linux-x64': 0.1.208
-      '@lark-codem/codem-cli-win32-arm64': 0.1.208
-      '@lark-codem/codem-cli-win32-x64': 0.1.208
+      '@lark-codem/codem-cli-darwin-arm64': 0.1.218
+      '@lark-codem/codem-cli-darwin-x64': 0.1.218
+      '@lark-codem/codem-cli-linux-arm64': 0.1.218
+      '@lark-codem/codem-cli-linux-x64': 0.1.218
+      '@lark-codem/codem-cli-win32-arm64': 0.1.218
+      '@lark-codem/codem-cli-win32-x64': 0.1.218
 
-  '@lark-codem/codem-core-darwin-arm64@0.8.37':
+  '@lark-codem/codem-core-darwin-arm64@0.8.50':
     optional: true
 
-  '@lark-codem/codem-core-darwin-arm64@0.8.47':
+  '@lark-codem/codem-core-darwin-x64@0.8.50':
     optional: true
 
-  '@lark-codem/codem-core-darwin-x64@0.8.37':
+  '@lark-codem/codem-core-linux-arm64-gnu@0.8.50':
     optional: true
 
-  '@lark-codem/codem-core-darwin-x64@0.8.47':
+  '@lark-codem/codem-core-linux-x64-gnu@0.8.50':
     optional: true
 
-  '@lark-codem/codem-core-linux-arm64-gnu@0.8.37':
+  '@lark-codem/codem-core-win32-arm64-gnu@0.8.50':
     optional: true
 
-  '@lark-codem/codem-core-linux-arm64-gnu@0.8.47':
+  '@lark-codem/codem-core-win32-x64-msvc@0.8.50':
     optional: true
 
-  '@lark-codem/codem-core-linux-x64-gnu@0.8.37':
-    optional: true
-
-  '@lark-codem/codem-core-linux-x64-gnu@0.8.47':
-    optional: true
-
-  '@lark-codem/codem-core-win32-arm64-gnu@0.8.37':
-    optional: true
-
-  '@lark-codem/codem-core-win32-arm64-gnu@0.8.47':
-    optional: true
-
-  '@lark-codem/codem-core-win32-x64-msvc@0.8.37':
-    optional: true
-
-  '@lark-codem/codem-core-win32-x64-msvc@0.8.47':
-    optional: true
-
-  '@lark-codem/codem-core@0.8.37':
+  '@lark-codem/codem-core@0.8.50':
     optionalDependencies:
-      '@lark-codem/codem-core-darwin-arm64': 0.8.37
-      '@lark-codem/codem-core-darwin-x64': 0.8.37
-      '@lark-codem/codem-core-linux-arm64-gnu': 0.8.37
-      '@lark-codem/codem-core-linux-x64-gnu': 0.8.37
-      '@lark-codem/codem-core-win32-arm64-gnu': 0.8.37
-      '@lark-codem/codem-core-win32-x64-msvc': 0.8.37
-
-  '@lark-codem/codem-core@0.8.47':
-    optionalDependencies:
-      '@lark-codem/codem-core-darwin-arm64': 0.8.47
-      '@lark-codem/codem-core-darwin-x64': 0.8.47
-      '@lark-codem/codem-core-linux-arm64-gnu': 0.8.47
-      '@lark-codem/codem-core-linux-x64-gnu': 0.8.47
-      '@lark-codem/codem-core-win32-arm64-gnu': 0.8.47
-      '@lark-codem/codem-core-win32-x64-msvc': 0.8.47
+      '@lark-codem/codem-core-darwin-arm64': 0.8.50
+      '@lark-codem/codem-core-darwin-x64': 0.8.50
+      '@lark-codem/codem-core-linux-arm64-gnu': 0.8.50
+      '@lark-codem/codem-core-linux-x64-gnu': 0.8.50
+      '@lark-codem/codem-core-win32-arm64-gnu': 0.8.50
+      '@lark-codem/codem-core-win32-x64-msvc': 0.8.50
 
   '@napi-rs/keyring-darwin-arm64@1.3.0':
     optional: true

@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "coreVersion": "0.8.47",
-  "cliVersion": "0.1.208",
+  "coreVersion": "0.8.50",
+  "cliVersion": "0.1.218",
   "protocolVersion": 1,
   "historySchema": 13,
   "spaceBrokerProtocol": "2025-03-26",

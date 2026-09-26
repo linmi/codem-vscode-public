@@ -14,8 +14,8 @@
   },
   "dependencies": {
     "@codem/protocol": "workspace:*",
-    "@lark-codem/codem-cli": "0.1.208",
-    "@lark-codem/codem-core": "0.8.47"
+    "@lark-codem/codem-cli": "0.1.218",
+    "@lark-codem/codem-core": "0.8.50"
   },
   "devDependencies": {
     "@types/node": "catalog:",

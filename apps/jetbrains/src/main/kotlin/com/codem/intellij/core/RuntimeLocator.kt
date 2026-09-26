@@ -28,8 +28,8 @@ data class ResolvedRuntime(
  * 版本只接受锁定事实来源，不默认 latest。
  */
 object RuntimeLocator {
-    const val CORE_VERSION = "0.8.47"
-    const val CLI_VERSION = "0.1.208"
+    const val CORE_VERSION = "0.8.50"
+    const val CLI_VERSION = "0.1.218"
 
     val targets: Map<String, RuntimeTarget> = mapOf(
         "darwin-arm64" to RuntimeTarget("darwin-arm64", "@lark-codem/codem-core-darwin-arm64", "codem-core", "@lark-codem/codem-cli-darwin-arm64", "bin/codem"),

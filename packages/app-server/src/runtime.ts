@@ -2,8 +2,8 @@ import { accessSync, constants, readFileSync, statSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join } from "node:path"
 
-export const APP_SERVER_CORE_VERSION = "0.8.47"
-export const APP_SERVER_CLI_VERSION = "0.1.208"
+export const APP_SERVER_CORE_VERSION = "0.8.50"
+export const APP_SERVER_CLI_VERSION = "0.1.218"
 
 const CORE_PACKAGE = "@lark-codem/codem-core"
 const CLI_PACKAGE = "@lark-codem/codem-cli"
