@@ -1,10 +1,11 @@
 /**
  * 共享消息列表的安全 Markdown：只渲染 Host 下发的正文，不接收原始协议帧。
  * 手法沿用旧 VS Code Webview 的 Markdown 渲染（Marked + DOMPurify 白名单），
- * 整理进 @codem/ui；此处不是 transcript 数据模型，也不做语法高亮或复制按钮。
+ * 整理进 @codem/ui；此处不是 transcript 数据模型，也不做复制按钮。代码块语法高亮见 codeHighlight.ts。
  */
 import { marked, Renderer } from "marked"
 import DOMPurify from "dompurify"
+import { highlightCode, isHighlightClass } from "./codeHighlight.ts"
 
 const allowedTags = [
   "p",
@@ -33,9 +34,11 @@ const allowedTags = [
   "th",
   "td",
   "input",
+  "span",
 ] as const
 
-const allowedAttrs = ["href", "title", "start", "type", "checked", "disabled"] as const
+// class 只为高亮 span 放行，净化后由 applyMarkdownSafety 再按 hljs 作用域过滤。
+const allowedAttrs = ["href", "title", "start", "type", "checked", "disabled", "class"] as const
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -48,10 +51,11 @@ function escapeHtml(value: string): string {
 }
 
 const renderer = new Renderer()
-// 代码块先转义，避免围栏内的 <script> 被当成 HTML。
+// 代码块先转义（或由 highlight.js 转义后加高亮 span），避免围栏内的 <script> 被当成 HTML。
 renderer.code = ({ text, lang }) => {
   const language = lang?.match(/^[\w+#.-]+/u)?.[0] ?? ""
-  return `<pre title="${escapeHtml(language)}"><code>${escapeHtml(text)}</code></pre>`
+  const code = highlightCode(text, language.toLowerCase()) ?? escapeHtml(text)
+  return `<pre title="${escapeHtml(language)}"><code>${code}</code></pre>`
 }
 // 模型或用户写入的原始 HTML 没有权限变成 DOM。
 renderer.html = ({ text }) => escapeHtml(text)
@@ -70,6 +74,14 @@ export function parseMarkdown(text: string): string {
 }
 
 function applyMarkdownSafety(fragment: DocumentFragment): void {
+  // 只有代码块里的高亮 span 可以带 class；其它位置的 span 拆掉，其它 class 删除。
+  for (const element of fragment.querySelectorAll("[class]")) {
+    const highlight = element.localName === "span" && element.closest("pre > code") !== null
+    if (!highlight || !isHighlightClass(element.getAttribute("class") ?? "")) element.removeAttribute("class")
+  }
+  for (const span of fragment.querySelectorAll("span")) {
+    if (!span.closest("pre > code")) span.replaceWith(...span.childNodes)
+  }
   for (const link of fragment.querySelectorAll("a")) {
     const href = link.getAttribute("href") ?? ""
     if (!isSafeHref(href)) link.removeAttribute("href")

@@ -131,3 +131,29 @@
   background: transparent;
   font: 400 var(--codeFontSize) / 1.5 var(--codeFont);
 }
+/* highlight.js 作用域配色；颜色令牌随深浅主题切换，见 synaraTokens.css。 */
+.codeBlock .hljs-keyword,
+.codeBlock .hljs-built_in,
+.codeBlock .hljs-type,
+.codeBlock .hljs-literal,
+.codeBlock .hljs-meta { color: var(--codeKeyword); }
+.codeBlock .hljs-string,
+.codeBlock .hljs-regexp,
+.codeBlock .hljs-symbol { color: var(--codeString); }
+.codeBlock .hljs-comment,
+.codeBlock .hljs-quote { color: var(--codeComment); font-style: italic; }
+.codeBlock .hljs-number,
+.codeBlock .hljs-variable,
+.codeBlock .hljs-template-variable,
+.codeBlock .hljs-selector-class,
+.codeBlock .hljs-selector-id { color: var(--codeNumber); }
+.codeBlock .hljs-title,
+.codeBlock .hljs-section,
+.codeBlock .hljs-name,
+.codeBlock .hljs-selector-tag { color: var(--codeTitle); }
+.codeBlock .hljs-attr,
+.codeBlock .hljs-attribute,
+.codeBlock .hljs-property,
+.codeBlock .hljs-params { color: var(--codeAttribute); }
+.codeBlock .hljs-addition { color: var(--codeAddition); }
+.codeBlock .hljs-deletion { color: var(--codeDeletion); }

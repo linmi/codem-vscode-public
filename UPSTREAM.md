@@ -76,6 +76,7 @@
 
 - Same pinned Synara reference. Added native TypeScript work-group disclosures, loading states, effort slider, question navigation, safe attachment cards, local composer commands and message motion.
 - Added Highlight.js 11.12.0 (BSD-3-Clause) for eight explicitly registered grammars; existing Marked and DOMPurify do not provide syntax highlighting. Highlighted output is sanitized separately and never grants model HTML new attributes. API verified against https://github.com/highlightjs/highlight.js/blob/11.12.0/docs/api.rst.
+- 2026-09-26: the move to `@codem/ui` had dropped highlighting (`markdownSafety.ts` rendered plain code). It is restored in `packages/ui/src/chat/codeHighlight.ts` with the same 11.12.0 core and nine registered grammars (bash, css, diff, javascript, json, kotlin, python, typescript, xml); the dependency moved from `apps/vscode` to `@codem/ui`, the package that imports it. Only `hljs-*` scope classes on spans inside code blocks survive sanitization.
 
 ## 2026-09-20：历史图片读取边界
 
