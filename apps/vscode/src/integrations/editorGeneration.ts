@@ -1,4 +1,4 @@
-export function generatedText(raw: string, key: "message"): string {
+export function generatedText(raw: string, key: "message" | "command"): string {
   let value: unknown
   try { value = JSON.parse(raw) } catch { throw new Error("模型未返回预期格式，请重试。") }
   const text = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>)[key] : undefined
