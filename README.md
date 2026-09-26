@@ -6,6 +6,7 @@
 apps/
   vscode/                   VS Code 插件：Host、Webview、品牌素材与测试
   jetbrains/                IntelliJ IDEA 插件：Kotlin 宿主、JCEF、域测试
+  docs/                     App Server 文档网站（静态页面）
 packages/
   app-server/               Core 运行时、认证代理、stdio RPC 与会话管理
   protocol/                 Host 与界面共享的类型、常量和校验
@@ -15,7 +16,7 @@ packages/
 history/                    完整旧项目归档，仅作参考
 ```
 
-`app-server` 是连接已发布 Core 的 Node 客户端包，不是 Core 服务端源码。当前固定 CLI `0.1.208` / Core `0.8.45`，历史格式为 JSONL schema 13。应用通过包公开导出复用服务，不直接引用其他包的内部源码。共享服务不依赖具体应用或界面框架。
+`app-server` 是连接已发布 Core 的 Node 客户端包，不是 Core 服务端源码。当前固定 CLI `0.1.208` / Core `0.8.47`，历史格式为 JSONL schema 13。应用通过包公开导出复用服务，不直接引用其他包的内部源码。共享服务不依赖具体应用或界面框架。
 
 ## 客户端规划
 
