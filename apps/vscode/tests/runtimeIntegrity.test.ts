@@ -48,7 +48,7 @@ it("one activation owns one runtime verifier, shared by the account read and eve
       export function assertTrusted(){}
       export function showInteraction(){}
       export function registerGitActions(){return {dispose(){}}}
-      export const registerInlineCompletion=registerGitActions, registerTerminalActions=registerGitActions, registerEditorActions=registerGitActions;
+      export const registerInlineCompletion=registerGitActions, registerTerminalActions=registerGitActions, registerEditorActions=registerGitActions, registerKeepAwake=registerGitActions;
     ` }))
   } }] })
   const { activate, deactivate, control } = await import(pathToFileURL(outfile).href)

@@ -135,6 +135,11 @@
         "category": "CodeM"
       },
       {
+        "command": "codem.toggleKeepAwake",
+        "title": "开关防休眠",
+        "category": "CodeM"
+      },
+      {
         "command": "codem.generateCommitMessage",
         "title": "生成暂存变更的提交说明",
         "category": "CodeM",
