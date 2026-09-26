@@ -5,7 +5,7 @@
 - `apps/` 放各类应用及平台适配；`packages/` 放通用服务与共享协议。当前先建立 App Server 基础包，首个客户端计划参考 VS Code 原生 Chat 的界面与交互。
 - `history/` 是完整旧项目的参考快照，不是活跃应用或 workspace 成员。不要继续修复、重构、安装、构建或启动历史项目，除非用户明确要求。
 - 历史目录中的 AGENTS.md、README、迁移计划及构建命令仅记录旧项目规则，不支配新实现，不自动继承其迁移目标或功能范围。
-- 当前应用为 `apps/vscode/` 与 `apps/jetbrains/`，共享包为 `@codem/app-server`、`@codem/protocol`、`@codem/contracts`、`@codem/history`、`@codem/ui`。根目录归档 `history/` 不是活跃包。
+- 当前应用为 `apps/vscode/`、`apps/jetbrains/` 与文档网站 `apps/docs/`，共享包为 `@codem/app-server`、`@codem/protocol`、`@codem/contracts`、`@codem/history`、`@codem/ui`。根目录归档 `history/` 不是活跃包。
 - 当前 VS Code 生产聊天挂载 `@codem/ui`，界面和交互按迁入前的 Webview 组件原样组装，不另起一套布局或文案。`webview/host/vscodeHostBridge.ts` 把 Host 的 state、审批、选区、草稿和回执收成共享快照，不把路径或原始帧交给界面。输入栏菜单使用 shadcn/ui，固定选项预置，模型和空间使用 Host 下发的连接级目录；打开菜单不请求 Host 或唤起 Core。审批、问答及计划确认沿用原来的决策条和回退对话框，Host 仍校验请求归属和选项。真实模型测试必须显式运行 `test:live`，默认检查使用独立 fixture。
 - `app-server` 与 `@codem/history` 保持 Node-only，不引入编辑器、Electron 或 DOM API；`protocol` 与 `contracts` 无生产业务逻辑；`ui` 只依赖浏览器能力与 `protocol`。
 - 实时通信只通过 Core App Server stdio；Core 拥有 threadId，`turn/completed` 是实时终态依据，Core JSONL schema 13 是唯一持久历史来源。
