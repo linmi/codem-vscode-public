@@ -15,6 +15,7 @@ import { registerEditorActions } from "./integrations/editorActions.ts"
 import { EditorReview } from "./integrations/editorReview.ts"
 import { EditorSelection } from "./integrations/editorSelection.ts"
 import { registerGitActions } from "./integrations/gitActions.ts"
+import { registerKeepAwake } from "./integrations/keepAwakeActions.ts"
 import { registerInlineCompletion } from "./integrations/inlineCompletion.ts"
 import { NativeFeatures } from "./integrations/nativeFeatures.ts"
 import { NextEdit } from "./integrations/nextEdit/nextEdit.ts"
@@ -93,6 +94,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerInlineCompletion(chat, log),
     registerEditorActions(addContext, (action, document, range, diagnostics) => review.generate(action, document, range, diagnostics)),
     registerTerminalActions(text => addContext(text)),
+    registerKeepAwake(log),
     registerChatCommands({ surfaces, chat, account, selection: selection.state, showOutput: () => output.show() }),
     { dispose: () => { panels.cancel(); void account.dispose(); void chat.dispose().catch(() => undefined) } },
   )
