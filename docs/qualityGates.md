@@ -65,9 +65,11 @@ VS Code 应用按[目录职责](sourceOrganization.md)组织。`sourceLayout.tes
 
 ## 工作区卫生门禁
 
-`apps/vscode/tests/workspaceHygiene.test.ts` 检查仓库本身的两类整洁度，进入 `pnpm check` 与 `pnpm test:architecture`。
+`apps/vscode/tests/workspaceHygiene.test.ts` 检查仓库本身的整洁度，进入 `pnpm check` 与 `pnpm test:architecture`。
 
 被忽略的文件不能被跟踪：`git ls-files --cached --ignored --exclude-standard` 必须为空，拦截 `git add -f` 强行加入的文件，以及新增忽略规则后仍留在索引里的旧文件。`output/` 整个目录是本地临时输出，2026-09-26 起整体忽略；把该目录下的文件强行加入索引时该检查实际失败。反例覆盖强行加入与规则后加；正例覆盖取反例外（`!.vscode/settings.json`）和未跟踪的被忽略文件。
+
+共享依赖版本只来自 pnpm catalog：任一 `package.json`（根目录、`apps/*`、`packages/*`）声明了 catalog 里有的依赖时必须写 `catalog:`；同一外部依赖被两个及以上包声明时必须先进入 catalog，版本相同也不例外。`workspace:` 内部依赖不计入。检查只读 `pnpm-workspace.yaml` 的默认 `catalog:` 块，遇到具名 `catalogs:` 直接报错，不静默跳过。整理前 `apps/vscode` 与 `packages/ui` 有 30 处违规（28 处写死版本，`cmdk`、`tw-animate-css` 两处未进 catalog），在该检查下失败。反例覆盖三种依赖字段里的写死版本、两包同版本声明与具名 catalog；正例覆盖引号写法、行尾注释、单包独有依赖与 workspace 链接。
 
 ## 预览场景挂载门禁
 
