@@ -263,3 +263,55 @@ it("bounds search results while validating the entire history", async () => {
   assert.equal(result.truncated, true)
   assert.equal(result.hits[0]!.role, "user")
 })
+it("restores Core 0.8.50 permission records, including the choice that switches to Auto", async () => {
+  const f = await fixture(1)
+  const request = {
+    request_id: "perm-1",
+    tool_call_id: "call-0",
+    tool_name: "bash",
+    input_summary: "touch marker.txt",
+    permission_class: "exec",
+    allow_session: true,
+    offer_auto_mode_choice: true,
+    preview: { kind: "bash_command", cwd: "/workspace", command: "touch marker.txt", risk: { kind: "normal" }, suggested_rules: [] },
+  }
+  // Shape recorded by a real Core 0.8.50 session after picking "allow and enable Auto".
+  const decided: Record<string, unknown> = {
+    type: "permission_decided",
+    at,
+    request_id: "perm-1",
+    tool_call_id: "call-0",
+    decision: "allow_once_and_enable_auto",
+  }
+  const suggestionState = {
+    type: "permission_auto_suggestion_state",
+    consecutive_misses: 0,
+    owner_session_id: "thread-1",
+    recent_presentation_ids: ["presentation-1"],
+    revision: 1,
+    visible_presentations: 1,
+  }
+  const toolCall = f.records.findIndex((r) => r.type === "tool_call")
+  f.records.splice(toolCall + 1, 0, { type: "permission_requested", at, request }, decided, suggestionState)
+  const decision = async () => {
+    await f.save()
+    const permission = (await readSessionHistory(f.options)).turns[0]!.turn.items.find(
+      (item) => item.kind === "activity" && item.activityType === "permission",
+    )
+    assert.ok(permission?.kind === "activity" && permission.activityType === "permission")
+    return permission.decision
+  }
+  assert.deepEqual(await decision(), { kind: "allow_once_and_enable_auto" })
+
+  // Core's Decision enum also declares an externally tagged `selected` choice.
+  decided.decision = { selected: { choice_id: "switch_to_auto", presentation_id: "presentation-1", auto_choice_presented: true } }
+  assert.deepEqual(await decision(), {
+    kind: "selected",
+    choiceId: "switch_to_auto",
+    presentationId: "presentation-1",
+    autoChoicePresented: true,
+  })
+
+  decided.decision = { selected: { choice_id: "switch_to_auto", presentation_id: "presentation-1" } }
+  await assert.rejects(decision(), /invalid durable permission decision/u)
+})

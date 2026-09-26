@@ -91,11 +91,20 @@ function externallyTaggedPermissionDecision(
 ): unknown {
   const decision = requireRecord(value, path, lineNumber, 'decision')
   const fields = Object.keys(decision)
+  if (fields.length === 1 && fields[0] === 'selected') {
+    const selected = requireRecord(decision.selected, path, lineNumber, 'decision.selected')
+    return {
+      kind: 'selected',
+      choiceId: selected.choice_id,
+      presentationId: selected.presentation_id,
+      autoChoicePresented: selected.auto_choice_presented,
+    }
+  }
   if (fields.length !== 1 || fields[0] !== 'allow_session_scoped') {
     throw sessionFileError(
       path,
       lineNumber,
-      'decision must be a string or externally tagged allow_session_scoped value',
+      'decision must be a string or externally tagged allow_session_scoped or selected value',
     )
   }
   const scoped = requireRecord(

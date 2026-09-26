@@ -81,10 +81,21 @@ export const SessionScopedPermissionDecisionSchema = z.strictObject({
   kind: z.literal('allow_session_scoped'),
   scope: PermissionAllowScopeSchema,
 })
+// Core 0.8.50's Decision enum also has a `selected` choice variant. Real
+// sessions record the Default-mode "allow and switch to Auto" choice as the
+// plain string `allow_once_and_enable_auto`; `selected` has not been observed.
+export const SelectedPermissionDecisionSchema = z.strictObject({
+  kind: z.literal('selected'),
+  choiceId: nonEmptyPermissionString('CodeM CLI permission choiceId must be a non-empty string'),
+  presentationId: nonEmptyPermissionString('CodeM CLI permission presentationId must be a non-empty string'),
+  autoChoicePresented: z.boolean(),
+})
 export const PermissionDecisionSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('allow') }),
   z.strictObject({ kind: z.literal('allow_session') }),
+  z.strictObject({ kind: z.literal('allow_once_and_enable_auto') }),
   SessionScopedPermissionDecisionSchema,
+  SelectedPermissionDecisionSchema,
   z.strictObject({ kind: z.literal('deny') }),
 ])
 export const PermissionRequestSchema = z.strictObject({
