@@ -35,7 +35,7 @@
 - 内部依赖使用 `workspace:*`，共享依赖版本放入 pnpm catalog。测试放在各包根目录的 `tests/` 中。
 - 新建代码文件使用 camelCase（如 `chatController.ts`），类和类型使用 PascalCase；代码文件不使用 `xx-xx` 命名。
 - 使用 TypeScript 7.0（当前固定 7.0.2）进行类型检查，Oxlint 进行静态检查。`pnpm check` 依次运行 lint、类型检查和测试；检查范围仅限活跃应用和包。
-- 按风险运行必要验证，如实说明未完成或受阻的检查。
+- 按风险运行必要验证，如实说明未完成或受阻的检查。合并与发布的准出条件见 `docs/exitCriteria.md`。
 - 每个完成并验证的独立变更创建只包含本次工作的 commit；只有用户明确授权才 push。
 - 分支命名为 `<type>/<短横线描述>`，type 取 `feat`、`fix`、`refactor`、`optimize` 之一（性能改进用 `optimize`，如 `fix/jetbrains-utf8-framing`）；在首次提交前改掉工具自动生成的分支名。
 - commit 标题和 PR 标题使用 `type(scope): 描述`，必须带 scope（如 `fix(jetbrains): …`、`refactor(app-server): …`），不写裸 `fix: …`。

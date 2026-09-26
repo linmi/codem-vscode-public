@@ -35,7 +35,7 @@ pnpm check
 
 `pnpm check` 依次运行活跃代码的 lint、类型检查与测试，也可分别执行 `pnpm lint`、`pnpm typecheck`、`pnpm test`。`pnpm lint:fix` 执行 Oxlint 自动修复。
 
-默认测试包含架构边界门禁和退出故障场景；可分别运行 `pnpm test:architecture`、`pnpm test:shutdown`。PR 工作流还会构建插件。覆盖范围、故障注入与远端启用条件见 [代码质量门禁](docs/qualityGates.md)。
+默认测试包含架构边界门禁和退出故障场景；可分别运行 `pnpm test:architecture`、`pnpm test:shutdown`。PR 工作流还会构建插件。覆盖范围、故障注入与远端启用条件见 [代码质量门禁](docs/qualityGates.md)；PR 合并与发布须满足的条件见 [准出标准](docs/exitCriteria.md)。
 
 运行 `pnpm build:vscode` 构建插件；在 VS Code 中打开仓库，选择 **CodeM VS Code** 调试配置并按 F5 启动开发宿主。在新窗口打开工作区，然后从活动栏进入 CodeM 并连接。
 
