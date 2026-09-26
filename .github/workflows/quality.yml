@@ -37,6 +37,14 @@ jobs:
         run: pnpm check
       - name: Build VS Code extension
         run: pnpm build:vscode
+      - name: Working tree stays clean
+        run: |
+          changes="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$changes" ]; then
+            echo "::error::Checks or the build changed tracked files or left unignored output:"
+            echo "$changes"
+            exit 1
+          fi
 
   windows:
     name: Windows (${{ matrix.runner }})

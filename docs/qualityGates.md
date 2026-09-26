@@ -12,7 +12,7 @@ pnpm build:vscode          # 验证插件可以构建
 pnpm check:jetbrains       # JDK 21 + Gradle 域测试；JDK 缺失必须失败
 ```
 
-`.github/workflows/quality.yml` 在 PR 和 main 推送时运行检查与构建。使用 Node 22.23.2、pnpm 12.4.1 和冻结锁文件；只读仓库权限，不调用模型。工作流仅在推送后才会执行；要禁止绕过失败检查合并，需要仓库管理员将 `Quality gate` 配为必需检查，本轮未修改远端设置。
+`.github/workflows/quality.yml` 在 PR 和 main 推送时运行检查与构建。使用 Node 22.23.2、pnpm 12.4.1 和冻结锁文件；只读仓库权限，不调用模型。检查与构建之后 `git status --porcelain --untracked-files=all` 必须为空：测试改写受跟踪文件，或构建留下未被忽略的产物（如此前 Kotlin 编译生成的 `apps/jetbrains/.kotlin/`）时该作业失败。工作流仅在推送后才会执行；要禁止绕过失败检查合并，需要仓库管理员将 `Quality gate` 配为必需检查，本轮未修改远端设置。
 
 Actions 的选型和参数依据 [checkout 官方文档](https://github.com/actions/checkout) 与 [setup-node 官方文档](https://github.com/actions/setup-node)，均固定到已核对的 v7 提交。静态类型导入限制使用现有 Oxlint 1.83.0 的 [no-restricted-imports](https://oxc.rs/docs/guide/usage/linter/rules/eslint/no-restricted-imports)，并通过实际执行该版本的反例验证。
 
