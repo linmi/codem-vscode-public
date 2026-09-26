@@ -24,7 +24,7 @@ AccountController 只持有本次扩展生命周期的账户展示状态和当�
 
 ## 头像资料边界（2026-09-20）
 
-本轮问题：CLI 状态输出只含身份摘要，但本地 OAuth userInfo 已包含 avatar_url，之前只看状态输出而遗漏了这份展示资料。当前机器已只读核实字段存在，真实图片 HEAD 返回 200 / image/jpeg。方案参考桌面端 `/Users/linmi/Developer/codem/src/main/codem/authentication.ts` 的 readDisplayUser（提交 321c540c2910655e90a2ff3d75ff40e22fa1f38f），未复制其 token provider、兼容字段或状态管理。Webview Avatar 基础组件采用 shadcn/ui 官方 new-york-v4 Avatar 的 Root/Image/Fallback，保留 MIT 许可，来源 https://ui.shadcn.com/r/styles/new-york-v4/avatar.json；复用现有 radix-ui，不新增依赖。
+本轮问题：CLI 状态输出只含身份摘要，但本地 OAuth userInfo 已包含 avatar_url，之前只看状态输出而遗漏了这份展示资料。当前机器已只读核实字段存在，真实图片 HEAD 返回 200 / image/jpeg。方案参考 CodeM 桌面端 `src/main/codem/authentication.ts` 的 readDisplayUser（提交 321c540c2910655e90a2ff3d75ff40e22fa1f38f），未复制其 token provider、兼容字段或状态管理。Webview Avatar 基础组件采用 shadcn/ui 官方 new-york-v4 Avatar 的 Root/Image/Fallback，保留 MIT 许可，来源 https://ui.shadcn.com/r/styles/new-york-v4/avatar.json；复用现有 radix-ui，不新增依赖。
 
 Host 的 accountAvatar.ts 负责限量只读展示资料，白名单字段为 avatar_url；认证仍完全通过 CLI。路径遵循已核实的 CLI 0.1.208 CONFIG_PATH 规则（CODEM_HOME，BOE 子目录），不把 CODEM_STATE_HOME 当作认证目录。仅当已验证状态的 serverUrl、tenantId、userId 与 OAuth 资料一致时下发头像；不写配置，不返回 token、整份 userInfo、邮箱或本地路径。缺失头像为 none，损坏、超限、身份不匹配或非法地址为 unavailable；后者显示可刷新提示，不改变登录状态。
 
