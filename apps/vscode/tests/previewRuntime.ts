@@ -155,6 +155,8 @@ export function createPreviewRuntime(initial: PreviewSearch) {
     if (changed) reset()
   }
   function postMessage(action: ViewAction) {
+    // 焦点上报只驱动 Host 的快捷键上下文，不是界面请求；不计入 viewActions，免得“打开菜单不联系 Host”类检查被点击焦点干扰。
+    if (action.type === "chatFocus") return
     viewActions.push(action)
     if (action.type === "composerRestore") { emit({ type: "composerDraft", value: action.value, focus: false, pendingRequestId: null }); return }
     if (action.type === "composerChanged" || action.type === "contextAdded") return

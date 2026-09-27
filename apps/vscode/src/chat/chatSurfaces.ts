@@ -32,6 +32,8 @@ export class ChatSurfaces implements vscode.Disposable {
   private surfaceSubscriptions: vscode.Disposable[] = []
   private readonly subscriptions: vscode.Disposable[] = []
   private handlers: SurfaceHandlers | null = null
+  /** Mirrors `codem.chatFocused`, which scopes chat keybindings; `focusedView` is false inside the sidebar Webview. */
+  private chatFocused = false
   private disposed = false
   /** Created before the features that post to it; nothing mounts until `serve` provides the handlers. */
   constructor(private readonly context: vscode.ExtensionContext, private readonly panels: PanelBroker) {
@@ -131,6 +133,12 @@ export class ChatSurfaces implements vscode.Disposable {
     for (const subscription of this.surfaceSubscriptions) subscription.dispose()
     this.surfaceSubscriptions = []
     this.active = undefined; this.ready = false; this.restored = false
+    this.setChatFocused(false)
+  }
+  private setChatFocused(focused: boolean): void {
+    if (this.chatFocused === focused) return
+    this.chatFocused = focused
+    void vscode.commands.executeCommand("setContext", "codem.chatFocused", focused)
   }
   private synchronize(): void {
     if (this.disposed || !this.ready || !this.active) return
@@ -152,6 +160,7 @@ export class ChatSurfaces implements vscode.Disposable {
       const revealed = !visible && surface.visible
       visible = surface.visible
       if (revealed && this.active === surface) this.synchronize()
+      if (!visible && this.active === surface) this.setChatFocused(false)
     }
     this.surfaceSubscriptions.push("onDidChangeVisibility" in surface
       ? surface.onDidChangeVisibility(visibilityChanged)
@@ -165,6 +174,7 @@ export class ChatSurfaces implements vscode.Disposable {
           if (pending) { if (action.accepted) { this.draft = action.value; this.draftRevision++ }; pending.finish(action.accepted) }
           return
         }
+        if (action.type === "chatFocus") { this.setChatFocused(action.focused); return }
         if (action.type === "composerChanged") { this.draft = action.value; this.draftRevision++; return }
         if (action.type === "composerRestore") {
           this.draft ??= action.value

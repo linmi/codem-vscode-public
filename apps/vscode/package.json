@@ -417,13 +417,13 @@
         "command": "codem.newChat",
         "key": "ctrl+alt+n",
         "mac": "cmd+alt+n",
-        "when": "focusedView == codem.chat || activeWebviewPanelId == codem.editor"
+        "when": "codem.chatFocused || focusedView == codem.chat || activeWebviewPanelId == codem.editor"
       },
       {
         "command": "codem.cycleAgentMode",
         "key": "ctrl+.",
         "mac": "cmd+.",
-        "when": "focusedView == codem.chat || activeWebviewPanelId == codem.editor"
+        "when": "codem.chatFocused || focusedView == codem.chat || activeWebviewPanelId == codem.editor"
       },
       {
         "command": "codem.selectPermissionMode",

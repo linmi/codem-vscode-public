@@ -24,12 +24,12 @@ async function fixture(t: TestContext) {
         }
       }
       function make(){const s=surface();s.webview.owner=s;return s}
-      export const control={sidebar:make(),editors:[],provider:null,providerOptions:null,serializer:null,configuration:null,settings:{}};
+      export const control={contexts:[],sidebar:make(),editors:[],provider:null,providerOptions:null,serializer:null,configuration:null,settings:{}};
       export const Uri={joinPath(){return {}}};
       export const ViewColumn={Active:1};
       export const workspace={isTrusted:true,getConfiguration(){return {get:(k,d)=>control.settings[k]??d}},onDidChangeConfiguration(fn){control.configuration=fn;return disposable}};
       export const window={registerWebviewViewProvider(id,p,options){control.provider=p;control.providerOptions=options;return disposable},registerWebviewPanelSerializer(id,serializer){control.serializer=serializer;return disposable},createWebviewPanel(id,title,column,options){const s=make();delete s.onDidChangeVisibility;s.options=options;control.editors.push(s);return s},showErrorMessage(){}};
-      export const commands={async executeCommand(){if(!control.sidebar.webview.html)control.provider.resolveWebviewView(control.sidebar)}};
+      export const commands={async executeCommand(name,key,value){if(name==='setContext'){control.contexts.push([key,value]);return}if(!control.sidebar.webview.html)control.provider.resolveWebviewView(control.sidebar)}};
     ` }))
   } }] })
   return import(pathToFileURL(outfile).href)
@@ -240,6 +240,24 @@ it("opens the permission menu after readiness with keyboard focus, once, and let
   assert.deepEqual(editor.messages.map((message: { type: string }) => message.type).filter((type: string) => type === "showAccount" || type === "openPermissionMenu"), ["showAccount"], "The latest request replaces a pending menu")
   await surfaces.openPermissionMenu(); await surfaces.focus()
   assert.equal(editor.messages.at(-1).type, "focusComposer")
+})
+
+it("scopes chat keybindings to page focus, which focusedView misses inside the sidebar Webview", async t => {
+  const { ChatSurfaces, PanelBroker, control } = await fixture(t)
+  const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async () => {}, () => {})
+  await surfaces.focus(); control.sidebar.receive({ type: "ready" })
+  control.sidebar.receive({ type: "chatFocus", focused: true }); control.sidebar.receive({ type: "chatFocus", focused: true })
+  assert.deepEqual(control.contexts, [["codem.chatFocused", true]], "Repeated focus reports set the context once")
+  control.sidebar.setVisible(false)
+  assert.deepEqual(control.contexts.at(-1), ["codem.chatFocused", false], "Hiding the view clears it")
+  control.sidebar.setVisible(true); control.sidebar.receive({ type: "chatFocus", focused: true })
+  surfaces.openInTab()
+  assert.deepEqual(control.contexts.at(-1), ["codem.chatFocused", false], "Moving the chat clears the old page's focus")
+  control.sidebar.receive({ type: "chatFocus", focused: true })
+  assert.deepEqual(control.contexts.at(-1), ["codem.chatFocused", false], "A detached page cannot claim focus")
+  control.editors[0].receive({ type: "chatFocus", focused: true })
+  surfaces.dispose()
+  assert.deepEqual(control.contexts.at(-1), ["codem.chatFocused", false])
 })
 
 it("opens account after readiness, once, without stealing focus when the draft restores", async t => {
