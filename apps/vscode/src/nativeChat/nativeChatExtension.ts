@@ -2,7 +2,7 @@ import { accountOperations } from "../connection/runtimeAccount.ts"
 import * as vscode from "vscode"
 import { createBundledAppServerRuntimeResolver } from "@codem/app-server"
 import { NativeChatService } from "./nativeChatService.ts"
-import { nativeSessionType, nativeThreadId, type NativeChatApi, type NativeHistoryApi, type NativeSessionController } from "./nativeChatApi.ts"
+import { isVerifiedNativeHost, nativeSessionType, nativeThreadId, verifiedNativeHosts, type NativeChatApi, type NativeHistoryApi, type NativeSessionController } from "./nativeChatApi.ts"
 import { NativeChatPanels } from "./nativeChatPanels.ts"
 import { assertTrusted, connectRuntime } from "../connection/runtimeSession.ts"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
@@ -40,7 +40,7 @@ function projectHistory(messages: readonly ChatMessage[], api: NativeHistoryApi)
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  if (!vscode.version.startsWith("1.138.")) throw new Error("CodeM 原生实验仅针对 VS Code 1.138.x；请勿在其他版本静默启用。")
+  if (!isVerifiedNativeHost(vscode.version)) throw new Error(`CodeM 原生实验仅针对已核对提案的 VS Code ${verifiedNativeHosts}（当前 ${vscode.version}）；请勿在其他版本静默启用。`)
   const api = vscode.chat as typeof vscode.chat & NativeChatApi
   const historyApi = vscode as unknown as NativeHistoryApi
   if (typeof api.createChatSessionItemController !== "function" || typeof api.registerChatSessionContentProvider !== "function" || typeof historyApi.ChatResponseTurn2 !== "function") throw new Error("请启用 chatSessionsProvider 提案后启动 CodeM 原生实验。")
@@ -96,7 +96,7 @@ export function activate(context: vscode.ExtensionContext): void {
       return {}
     } catch (error) {
       report("request", error)
-      // 1.138's session dispatcher ignores the handler's ChatResult. Throw so the
+      // The 1.138/1.139 session dispatcher ignores the handler's ChatResult. Throw so the
       // native request is marked failed instead of displaying a successful empty reply.
       throw new UserVisibleError(error instanceof UserVisibleError ? error.message : "CodeM 原生任务未完成，请查看实验日志并从历史核对结果。")
     } finally { output.appendLine(`Request settled: ${Math.round(performance.now() - started)}ms`) }

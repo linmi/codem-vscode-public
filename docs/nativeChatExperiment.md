@@ -8,6 +8,8 @@
 
 接口基线：本机 VS Code 1.138.0，提交 `7debcd0e2acdea1c52de81bf9ee1620444407dda`。使用 `chatSessionsProvider` 提案；接口结构从该提交的 `src/vscode-dts/vscode.proposed.chatSessionsProvider.d.ts` 核实，最小本地类型位于 `nativeChatApi.ts`。不把当前接口冒充 1.105 稳定 API。不面向 Marketplace 发布。
 
+已核对版本：1.139.0（`2242ebbb54efeeb0129e08e919e7e8d43033cd83`）与 1.139.1（`04c0d99f4fb0d8afe6ce4f0c58e31e183ac3e4b1`）的会话提案、`extHostChatSessions.ts` 与会话声明同基线逐行比对，提案只多一个与会话无关的可选字段 `maxContextWindowTokens`，派发器与会话声明不变。激活只接受 `nativeChatApi.ts` 中列出的已核对小版本（1.138.x、1.139.x），其他版本（含 Insiders）拒绝激活并报出当前版本；新版本须先比对上述文件再加入列表。
+
 官方依据：[会话接口](https://github.com/microsoft/vscode/blob/7debcd0e2acdea1c52de81bf9ee1620444407dda/src/vscode-dts/vscode.proposed.chatSessionsProvider.d.ts)、[会话声明](https://github.com/microsoft/vscode/blob/7debcd0e2acdea1c52de81bf9ee1620444407dda/src/vs/workbench/contrib/chat/browser/chatSessions/chatSessions.contribution.ts)、[提案使用限制](https://code.visualstudio.com/api/advanced-topics/using-proposed-api)。
 
 ## 操作与状态约定（实施前）
@@ -34,12 +36,12 @@
 
 ## 本地试用
 
-1. 使用 VS Code 1.138.x，在仓库根目录运行 `pnpm --filter codem build:native-chat`。
-2. 在运行和调试中选择 `CodeM Native Chat (Experimental 1.138)`，按 F5。此配置已携带实验扩展路径和 `--enable-proposed-api=codem.codem-native-experiment`。
+1. 使用 VS Code 1.138.x 或 1.139.x，在仓库根目录运行 `pnpm --filter codem build:native-chat`。
+2. 在运行和调试中选择 `CodeM Native Chat (Experimental)`，按 F5。此配置已携带实验扩展路径和 `--enable-proposed-api=codem.codem-native-experiment`。
 3. 在开发宿主打开可信的本地工作区，执行 `CodeM Native: 连接并加载会话`；尚未登录时执行 `CodeM Native: 登录并连接`。
 4. 在原生 Chat 的会话类型菜单选择 CodeM，输入纯文本任务。入口在会话类型菜单，不是模型菜单；无需输入 `@codem`。
 
-**当前平台前置条件**：原生 Chat 需要存在并选中一个可用模型。VS Code 1.138 在调用第三方 session requestHandler 前，会通过 `getModelForRequest` 解析原生模型；无可用模型会直接抛出 `Language model unavailable`，请求到不了 CodeM。`supportsAutoModel` 仅解决菜单显示，不能消除此派发要求。实际任务仍由 CodeM Core 当前模型执行，不调用 `request.model.sendRequest`；原生模型菜单的选择不会修改 Core 模型。首版因此尚不能宣称脱离原生模型提供方独立可用。
+**当前平台前置条件**：原生 Chat 需要存在并选中一个可用模型。VS Code 1.138/1.139 在调用第三方 session requestHandler 前，会通过 `getModelForRequest` 解析原生模型；无可用模型会直接抛出 `Language model unavailable`，请求到不了 CodeM。`supportsAutoModel` 仅解决菜单显示，不能消除此派发要求。实际任务仍由 CodeM Core 当前模型执行，不调用 `request.model.sendRequest`；原生模型菜单的选择不会修改 Core 模型。首版因此尚不能宣称脱离原生模型提供方独立可用。
 
 依据：[请求派发与模型前置检查](https://github.com/microsoft/vscode/blob/7debcd0e2acdea1c52de81bf9ee1620444407dda/src/vs/workbench/api/common/extHostChatSessions.ts#L780)、[默认模型解析](https://github.com/microsoft/vscode/blob/7debcd0e2acdea1c52de81bf9ee1620444407dda/src/vs/workbench/api/common/extHostLanguageModels.ts#L361)。实验未注册虚假的模型或修改 VS Code 本体来绕过此限制。
 
@@ -52,4 +54,12 @@
 - 模拟界面：未执行；本 Cycle 不修改 Webview。
 - 原生界面操作：**未通过端到端验收**。界面自动化只能绑定原有开发宿主，未能定位独立实验窗口；没有改动或重载原有宿主。模型前置条件也未满足。菜单展开、首次派发、原生审批面板、重载后恢复仍需在满足前置条件的宿主操作验收。
 
-临时实验宿主及验收进程已退出。正常插件和原有开发宿主未关闭。当前机器的 pnpm 12.4.1 启动器存在 ENOEXEC，验证改为用 Node 直接运行同版本 CLI；`check` 的 lint/typecheck/test 分别执行，未修改机器或仓库配置来规避问题。
+临时实验宿主及验收进程已退出。
+
+## 验证记录（2026-09-26，VS Code 1.139）
+
+稳定版已更新到 1.139.1，原版本门禁使实验扩展在激活时直接抛出“仅针对 VS Code 1.138.x”，原生会话类型不会出现。
+
+- 单元：`nativeChatService.test.ts` 新增版本门禁正反例（1.138.0、1.139.0/1.139.1 接受；1.137、1.140、Insiders 与位数相近的版本拒绝）。
+- 真实 VS Code：云端 Linux 容器用 xvfb 启动官方 1.139.1，加载 `dist/nativeChat` 并运行 `nativeChatExtensionSmoke.ts`。修改前激活失败并报出上述错误；修改后激活成功，三个命令注册；该宿主无原生模型（`NATIVE_CHAT_MODELS=0`）。未登录、未连接 Core、未发送任务。
+- 原生界面操作：仍**未通过端到端验收**。模型前置条件在 1.139.1 与上游 main 的派发器中都未改变，需在装有原生模型提供方的宿主上操作验收。正常插件和原有开发宿主未关闭。当前机器的 pnpm 12.4.1 启动器存在 ENOEXEC，验证改为用 Node 直接运行同版本 CLI；`check` 的 lint/typecheck/test 分别执行，未修改机器或仓库配置来规避问题。
