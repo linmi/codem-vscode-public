@@ -13,6 +13,14 @@ export interface HistoryContext {
   assertCurrent: () => void
   connected: () => boolean
 }
+export interface RestoreTarget {
+  threadId: string
+  settings: AppServerThreadSettings
+  /** Already subscribed by another owner (a parked running turn): a failed restore leaves the subscription alone. */
+  detached: boolean
+  /** Read just before release: the thread to unsubscribe once the target is ready, or null to keep it. */
+  previous: () => string | null
+}
 export interface RestoredConversation {
   page: SessionHistoryPage
   modes: Awaited<ReturnType<HistoryHost["readModes"]>>
@@ -50,8 +58,10 @@ export class ConversationHistory {
     if (threadId === this.operation?.restoringThreadId && threadId !== currentThreadId) this.operation.abort.abort()
   }
 
-  async restore(context: HistoryContext, threadId: string, previousThreadId: string | null, settings: AppServerThreadSettings, accept: (result: RestoredConversation) => void): Promise<void> {
-    const operation = this.begin(threadId)
+  async restore(context: HistoryContext, target: RestoreTarget, accept: (result: RestoredConversation) => void): Promise<void> {
+    const { threadId, settings, detached } = target
+    // A detached target is already running; its turns belong to it, not to a competing start.
+    const operation = this.begin(detached ? null : threadId)
     let attached = false
     let releasingPrevious = false
     try {
@@ -68,6 +78,7 @@ export class ConversationHistory {
       this.assertCurrent(context, operation)
       const page = await context.readHistory(threadId, undefined, operation.abort.signal)
       this.assertCurrent(context, operation)
+      const previousThreadId = target.previous()
       if (previousThreadId) {
         releasingPrevious = true
         await context.host.unsubscribeThread(context.cwd, previousThreadId)
@@ -78,7 +89,7 @@ export class ConversationHistory {
     } catch (error) {
       if (!context.connected()) return
       let cleanupFailed = false
-      if (attached) {
+      if (attached && !detached) {
         try { await context.host.unsubscribeThread(context.cwd, threadId) }
         catch (cleanupError) { cleanupFailed = true; this.report("historyCleanup", cleanupError) }
       }

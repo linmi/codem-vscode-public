@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { Button } from "../components/ui/button.tsx"
-import { isBusy, visibleControls, type ChatSnapshot } from "../contract.ts"
+import { isBusy, visibleControls, type ChatSnapshot, type LiveSessionStatus } from "../contract.ts"
+import { sessionSwitchable } from "./chatPhase.ts"
 import { uiIcon } from "./uiIcons.ts"
+
+const liveStatusLabels: Record<LiveSessionStatus, string> = { running: "运行中", awaitingApproval: "等待审批", completed: "已完成", stopped: "已停止", failed: "失败" }
 
 /**
  * 对照 VS Code historyView：搜索、按天分组、加载更多和更早消息。
@@ -18,7 +21,7 @@ export function HistoryButton({ snapshot, post }: { snapshot: ChatSnapshot; post
       title={history.open ? "关闭历史会话" : "浏览当前工作区的历史会话"}
       aria-expanded={history.open}
       aria-controls="historyPanel"
-      disabled={isBusy(snapshot.phase) && !history.open}
+      disabled={isBusy(snapshot.phase) && snapshot.phase !== "running" && !history.open}
       onClick={() => post({ type: history.open ? "closeHistory" : "showHistory" })}
       dangerouslySetInnerHTML={{ __html: uiIcon("history") }}
     />
@@ -36,8 +39,9 @@ export function HistoryPanel({
   const [query, setQuery] = useState("")
   const search = useRef<HTMLInputElement>(null)
   const wasOpen = useRef(false)
-  const disabled = isBusy(snapshot.phase) || snapshot.phase === "disconnected"
-  const switchingDisabled = disabled || snapshot.backgroundBusy
+  const disabled = (isBusy(snapshot.phase) && snapshot.phase !== "running") || snapshot.phase === "disconnected"
+  const switchingDisabled = !sessionSwitchable(snapshot)
+  const live = new Map(snapshot.liveSessions.map(session => [session.id, session.status]))
   useEffect(() => {
     if (history.open && !wasOpen.current) search.current?.focus()
     if (!history.open && wasOpen.current) document.querySelector<HTMLButtonElement>("[aria-controls='historyPanel']")?.focus()
@@ -61,7 +65,7 @@ export function HistoryPanel({
           onClick={() => post({ type: "resumeThread", threadId: entry.id })}
         >
           <span>{entry.title}</span>
-          <small>{`${entry.startedAt && !Number.isNaN(date.getTime()) ? date.toLocaleString() : ""} · ${entry.turnCount ?? 0} 轮${entry.archived ? " · 已归档" : ""}`}</small>
+          <small>{`${entry.startedAt && !Number.isNaN(date.getTime()) ? date.toLocaleString() : ""} · ${entry.turnCount ?? 0} 轮${entry.archived ? " · 已归档" : ""}${live.has(entry.id) ? ` · 后台${liveStatusLabels[live.get(entry.id)!]}` : ""}`}</small>
         </button>
       </li>,
     ]
@@ -81,7 +85,7 @@ export function HistoryPanel({
           </div>
           <button type="button" className="textButton" disabled={disabled || history.loading} onClick={() => post({ type: "refreshHistory" })}>刷新</button>
           <button type="button" className="textButton" onClick={() => post({ type: "closeHistory" })}>关闭</button>
-          <button type="button" className="textButton" hidden={!snapshot.threadId} disabled={switchingDisabled} onClick={() => post({ type: "reloadHistory" })}>重新加载记录</button>
+          <button type="button" className="textButton" hidden={!snapshot.threadId} disabled={isBusy(snapshot.phase) || snapshot.backgroundBusy} onClick={() => post({ type: "reloadHistory" })}>重新加载记录</button>
         </div>
         <input ref={search} type="search" className="historySearch" placeholder="搜索已加载的会话…" aria-label="搜索已加载的会话" value={query} onChange={(event) => setQuery(event.target.value)} />
         <p className="historyStatus" role="status" hidden={!status}>{status}</p>
@@ -117,5 +121,33 @@ export function HistoryResume({ snapshot, post }: { snapshot: ChatSnapshot; post
       <p>上一个会话仍可继续。</p>
       <div><button type="button" className="primaryButton" disabled={isBusy(snapshot.phase) || snapshot.backgroundBusy} onClick={() => post({ type: "resumeThread", threadId })}>恢复上次会话</button></div>
     </div>
+  )
+}
+
+/**
+ * 切到别的会话后仍在后台运行、等待审批或已结束未查看的会话。Host 列出时才出现，点一行切回该会话。
+ * 与重试连接同用底部卡片；当前会话不在列表中。
+ */
+export function LiveSessions({ snapshot, post }: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) {
+  const sessions = snapshot.liveSessions
+  if (!sessions.length) return null
+  const running = sessions.filter(session => session.status === "running" || session.status === "awaitingApproval").length
+  const waiting = sessions.filter(session => session.status === "awaitingApproval").length
+  const summary = [running ? `${running} 个运行中` : "", waiting ? `其中 ${waiting} 个等待审批` : "", sessions.length - running ? `${sessions.length - running} 个已结束` : ""].filter(Boolean).join("，")
+  const disabled = !sessionSwitchable(snapshot)
+  return (
+    <section className="connection liveSessions" aria-label="后台会话">
+      <p>{`后台会话：${summary}`}</p>
+      <ul>
+        {sessions.map(session => (
+          <li key={session.id}>
+            <button type="button" className="liveSession" disabled={disabled} title={`切换到「${session.title}」`} onClick={() => post({ type: "resumeThread", threadId: session.id })}>
+              <span>{session.title}</span>
+              <small data-status={session.status}>{liveStatusLabels[session.status]}</small>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

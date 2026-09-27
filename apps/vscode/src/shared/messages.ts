@@ -5,7 +5,7 @@ import { CODEM_DEFAULT_INTELLIGENCE, parseCodemIntelligence, parseCodemPermissio
 import { parseWorkMode, type ComposerSettingAction, type ComposerCatalog } from "./composerSettings.ts"
 import { emptySessionTools, parseCapabilityAction, type CapabilityAction, type SessionToolsState, emptyCapabilities, type CapabilityState } from "./capabilityTypes.ts"
 import { parsePanelReply, type PanelReply } from "./panelTypes.ts"
-import { emptyHistoryList, type HistoryAction, type HistoryList } from "./historyTypes.ts"
+import { emptyHistoryList, type HistoryAction, type HistoryList, type LiveSessionView } from "./historyTypes.ts"
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
 const simpleActions = ["showPluginManagement", "closePluginManagement", "cancelPluginOperation", "installLocalPlugin", "showConversationSearch", "closeConversationSearch", "showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground", "pinSelection", "resumeQueue"] as const
@@ -146,11 +146,13 @@ export interface ChatSnapshot {
   notice: string | null
   threadId: string | null
   history: HistoryList
+  /** Conversations running or ended in the background; the current thread is never listed. */
+  liveSessions: readonly LiveSessionView[]
   hasOlderMessages: boolean
   historyNeedsRefresh: boolean
 }
 export function initialSnapshot(): ChatSnapshot {
-  return { messageQueue: { items: [], paused: false }, pluginManagement: { open: false, loaded: false, status: "idle", entries: [], skills: [], error: null, notice: null }, conversationSearch: { open: false, status: "idle", query: "", hits: [], truncated: false, error: null, target: null, historical: false }, composerCatalog: { models: [], spaces: [] }, capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
+  return { messageQueue: { items: [], paused: false }, pluginManagement: { open: false, loaded: false, status: "idle", entries: [], skills: [], error: null, notice: null }, conversationSearch: { open: false, status: "idle", query: "", hits: [], truncated: false, error: null, target: null, historical: false }, composerCatalog: { models: [], spaces: [] }, capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), liveSessions: [], hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
 }
 export function isBusy(phase: ChatPhase): boolean {
   return phase !== "ready" && phase !== "disconnected"

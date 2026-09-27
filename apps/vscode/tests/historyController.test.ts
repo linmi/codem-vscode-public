@@ -6,13 +6,13 @@ import assert from "node:assert/strict"
 import { it } from "node:test"
 import type { AppServerHostEvent } from "@codem/app-server"
 import type { SessionHistoryPage } from "@codem/history"
-import { ChatController, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
+import { ChatController, type ChatControllerOptions, type ChatHost, type ChatSession } from "../src/chat/chatController.ts"
 
 const at = "2026-09-19T00:00:00Z"
 function page(index: number, nextCursor: string | null): SessionHistoryPage {
   return { todoSnapshot: null, nextCursor, turns: [{ submissionId: `old-${index}`, turn: { id: `old-turn-${index}`, index, engineTurnIndexes: [index], model: "model", provider: "fixture", startedAt: at, completedAt: at, state: "completed", usage: null, items: [{ id: `user-${index}`, at, kind: "message", role: "user", text: `question ${index}`, attachments: [] }, { id: `answer-${index}`, at, kind: "message", role: "assistant", text: `answer ${index}`, delivery: null }] } }] }
 }
-function setup(activeConversation?: ActiveConversation) {
+function setup(activeConversation?: ActiveConversation, interact: ChatControllerOptions["interact"] = async () => null) {
   let listener: (event: AppServerHostEvent) => void = () => {}
   let trusted = true
   const resumed: string[] = []
@@ -40,7 +40,7 @@ function setup(activeConversation?: ActiveConversation) {
   }
   const session: ChatSession = { host, cwd: "/workspace", workspace: "project", space: { key: "testSpace", name: "测试空间" }, spaceDirectory: fixtureSpaceDirectory(), model: "model", models: [{ id: "model", source: "fixture", contextWindowTokens: 10000, supportsVision: true }], mcpServers: [], authorize: async () => { assert.ok(trusted) }, pluginCommands: fixturePluginCommands(), searchHistory: async () => ({ hits: [], truncated: false }), readHistory: async (_id, cursor) => { read.push(cursor); return cursor ? page(0, null) : page(1, "older") } }
   const snapshots: ReturnType<ChatController["snapshot"]>[] = []
-  const chat = new ChatController({ activeConversation, connect: async () => session, assertTrusted() { assert.ok(trusted) }, publish(state) { snapshots.push(state) }, interact: async () => null, report() {} })
+  const chat = new ChatController({ activeConversation, connect: async () => session, assertTrusted() { assert.ok(trusted) }, publish(state) { snapshots.push(state) }, interact, report() {} })
   return { chat, host, session, snapshots, resumed, released, sent, read, starts: () => starts, untrust: () => { trusted = false }, emit: (event: AppServerHostEvent) => listener(event) }
 }
 
@@ -116,13 +116,13 @@ it("restores a listed thread, prepends older turns and continues the same Core i
   } finally { await f.chat.dispose() }
 })
 
-it("denies unlisted IDs, traversal and history operations during a live turn", async () => {
+it("denies unlisted IDs, traversal and history reads during a live turn", async () => {
   const f = setup()
   try {
     await f.chat.connect(); await f.chat.resumeThread("history-1"); await f.chat.resumeThread("../history-1")
     assert.deepEqual(f.resumed, [])
     await f.chat.showHistory(); await f.chat.resumeThread("history-1"); await f.chat.send("continue")
-    await f.chat.resumeThread("history-2"); await f.chat.loadOlderMessages(); await f.chat.reloadHistory()
+    await f.chat.loadOlderMessages(); await f.chat.reloadHistory()
     assert.deepEqual(f.resumed, ["history-1"])
     assert.deepEqual(f.read, [undefined])
     assert.equal(f.chat.snapshot().threadId, "history-1")
@@ -574,5 +574,151 @@ it("failed search and stale hit keep the displayed history and allow retry", asy
     assert.deepEqual(f.chat.snapshot().messages, before)
     assert.equal(f.chat.snapshot().conversationSearch.status, "error")
     assert.equal(f.chat.snapshot().phase, "ready")
+  } finally { await f.chat.dispose() }
+})
+
+/** An approval panel that stays open until the chat withdraws it. */
+function pendingApprovals() {
+  const asked: string[] = []
+  const interact: ChatControllerOptions["interact"] = (request, signal) => {
+    asked.push(request.requestId)
+    return new Promise(resolve => signal.addEventListener("abort", () => resolve(null), { once: true }))
+  }
+  return { asked, interact }
+}
+const settle = () => new Promise(resolve => setImmediate(resolve))
+
+it("switching away from a running conversation parks it; switching back resumes its turn and asks its approval again", async () => {
+  const approvals = pendingApprovals()
+  const f = setup(undefined, approvals.interact)
+  let interrupts = 0
+  f.host.interruptTurn = async () => { interrupts++ }
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    await f.chat.send("long task")
+    f.emit({ type: "interaction", interaction: { kind: "plan-mode", requestId: "approval-1", threadId: "history-1", turnId: "live-turn" } })
+    await settle()
+    assert.deepEqual(approvals.asked, ["approval-1"])
+
+    await f.chat.resumeThread("history-2")
+    assert.equal(f.chat.snapshot().threadId, "history-2")
+    assert.equal(f.chat.snapshot().phase, "ready")
+    assert.deepEqual(f.released, [], "the running thread keeps its subscription")
+    assert.equal(interrupts, 0)
+    assert.deepEqual(f.chat.snapshot().liveSessions, [{ id: "history-1", title: "history-1", status: "awaitingApproval" }])
+    f.emit({ type: "text-delta", threadId: "history-1", turnId: "live-turn", itemId: "answer", delta: "background output" })
+    assert.ok(!f.chat.snapshot().messages.some(message => message.text === "background output"), "a parked turn never writes into the visible conversation")
+
+    await f.chat.send("second task")
+    assert.deepEqual(f.sent, ["history-1", "history-2"], "both conversations run at once")
+    assert.equal(f.chat.snapshot().phase, "running")
+
+    await f.chat.resumeThread("history-1")
+    assert.equal(f.chat.snapshot().threadId, "history-1")
+    assert.equal(f.chat.snapshot().phase, "running")
+    assert.deepEqual(f.chat.snapshot().liveSessions, [{ id: "history-2", title: "history-2", status: "running" }])
+    await settle()
+    assert.deepEqual(approvals.asked, ["approval-1", "approval-1"], "the open approval is asked again on return")
+    f.emit({ type: "text-delta", threadId: "history-1", turnId: "live-turn", itemId: "late", delta: "live again" })
+    assert.equal(f.chat.snapshot().messages.at(-1)?.text, "live again")
+
+    f.emit({ type: "turn-completed", threadId: "history-2", turnId: "live-turn", outcome: "completed", stopReason: "end", error: null })
+    await settle()
+    assert.deepEqual(f.released, ["history-2"], "an ended background turn gives its subscription back")
+    assert.deepEqual(f.chat.snapshot().liveSessions, [{ id: "history-2", title: "history-2", status: "completed" }])
+    assert.equal(f.chat.snapshot().phase, "running", "another thread's completion leaves the visible turn alone")
+    assert.equal(interrupts, 0)
+  } finally { await f.chat.dispose() }
+})
+
+it("new chat parks a running turn, and space switching waits for background turns", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    await f.chat.send("long task")
+    await f.chat.newChat()
+    assert.equal(f.chat.snapshot().threadId, null)
+    assert.equal(f.chat.snapshot().phase, "ready")
+    assert.deepEqual(f.chat.snapshot().messages, [])
+    assert.deepEqual(f.released, [])
+    assert.deepEqual(f.chat.snapshot().liveSessions.map(session => session.status), ["running"])
+    let picked = 0
+    await f.chat.selectSpace(async () => { picked++; return null })
+    assert.equal(picked, 0)
+    assert.match(f.chat.snapshot().notice ?? "", /后台仍有会话在运行/)
+
+    f.emit({ type: "turn-completed", threadId: "history-1", turnId: "live-turn", outcome: "failed", stopReason: "error", error: null })
+    await settle()
+    assert.deepEqual(f.released, ["history-1"])
+    assert.deepEqual(f.chat.snapshot().liveSessions.map(session => session.status), ["failed"])
+    await f.chat.selectSpace(async () => { picked++; return null })
+    assert.equal(picked, 1)
+
+    await f.chat.resumeThread("history-1")
+    assert.equal(f.chat.snapshot().threadId, "history-1")
+    assert.equal(f.chat.snapshot().phase, "ready")
+    assert.deepEqual(f.chat.snapshot().liveSessions, [], "a viewed ended conversation leaves the list")
+    assert.deepEqual(f.resumed, ["history-1", "history-1"], "an ended conversation resubscribes like any history entry")
+  } finally { await f.chat.dispose() }
+})
+
+it("a failed return to a running conversation keeps it running in the background", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    await f.chat.send("long task")
+    await f.chat.resumeThread("history-2")
+    f.session.readHistory = async () => { throw new Error("invalid JSONL") }
+    await f.chat.resumeThread("history-1")
+    assert.equal(f.chat.snapshot().threadId, "history-2")
+    assert.deepEqual(f.released, [], "the parked thread is never released by a failed restore")
+    assert.deepEqual(f.chat.snapshot().liveSessions.map(session => [session.id, session.status]), [["history-1", "running"]])
+    f.emit({ type: "turn-completed", threadId: "history-1", turnId: "live-turn", outcome: "completed", stopReason: "end", error: null })
+    await settle()
+    assert.deepEqual(f.released, ["history-1"])
+  } finally { await f.chat.dispose() }
+})
+
+it("a turn ending while its conversation is being restored is read again once shown", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    await f.chat.send("long task")
+    await f.chat.newChat()
+    let finish: (page: SessionHistoryPage) => void = () => {}
+    f.session.readHistory = () => new Promise(resolve => { finish = resolve })
+    const restoring = f.chat.resumeThread("history-1")
+    await settle()
+    f.emit({ type: "turn-completed", threadId: "history-1", turnId: "live-turn", outcome: "completed", stopReason: "end", error: null })
+    await settle()
+    assert.deepEqual(f.released, [], "a claimed thread is not released under the restore")
+    f.session.readHistory = async () => page(2, null)
+    finish(page(1, null))
+    await restoring
+    assert.equal(f.chat.snapshot().threadId, "history-1")
+    assert.equal(f.chat.snapshot().phase, "ready")
+    assert.deepEqual(f.chat.snapshot().messages.map(message => message.text), ["question 2", "answer 2"])
+    assert.deepEqual(f.released, [])
+  } finally { await f.chat.dispose() }
+})
+
+it("a visible turn ending while another conversation restores keeps the loading state and is released like an idle thread", async () => {
+  const f = setup()
+  try {
+    await f.chat.connect(); await f.chat.showHistory(); await f.chat.resumeThread("history-1")
+    await f.chat.send("long task")
+    let finish: (page: SessionHistoryPage) => void = () => {}
+    f.session.readHistory = () => new Promise(resolve => { finish = resolve })
+    const restoring = f.chat.resumeThread("history-2")
+    await settle()
+    assert.equal(f.chat.snapshot().phase, "loadingHistory")
+    f.emit({ type: "turn-completed", threadId: "history-1", turnId: "live-turn", outcome: "completed", stopReason: "end", error: null })
+    assert.equal(f.chat.snapshot().phase, "loadingHistory", "the restore still owns the phase")
+    assert.equal(await f.chat.send("must wait"), false)
+    finish(page(2, null)); await restoring
+    assert.equal(f.chat.snapshot().threadId, "history-2")
+    assert.equal(f.chat.snapshot().phase, "ready")
+    assert.deepEqual(f.released, ["history-1"])
+    assert.deepEqual(f.chat.snapshot().liveSessions, [])
   } finally { await f.chat.dispose() }
 })

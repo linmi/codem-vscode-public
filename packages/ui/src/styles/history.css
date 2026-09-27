@@ -23,3 +23,9 @@
 .conversationSearchResults button > span:first-child { color: var(--muted); }
 .conversationSearchResults mark { background: var(--vscode-editor-findMatchHighlightBackground, #e5b90055); color: inherit; }
 .message.searchTarget { outline: 2px solid var(--vscode-focusBorder, #0169cc); outline-offset: 4px; border-radius: 6px; }
+.liveSessions ul { list-style: none; margin: 0; padding: 0; max-height: 96px; overflow: auto; overscroll-behavior: contain; }
+.liveSession { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 4px 6px; border-radius: 8px; color: var(--ink); }
+.liveSession:hover:not(:disabled) { background: var(--soft); }
+.liveSession span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--detailFontSize); }
+.liveSession small { flex-shrink: 0; color: var(--muted); font-size: var(--captionFontSize); }
+.liveSession small[data-status="awaitingApproval"], .liveSession small[data-status="failed"] { color: var(--vscode-editorWarning-foreground, #d97706); }

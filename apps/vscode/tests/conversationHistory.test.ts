@@ -24,7 +24,7 @@ function fixture() {
 
 it("history restore owns the cursor and releases the previous subscription only after successful replay", async () => {
   const f = fixture()
-  await f.history.restore(f.context, "new", "old", DEFAULT_APP_SERVER_THREAD_SETTINGS, ({ page }) => {
+  await f.history.restore(f.context, { threadId: "new", settings: DEFAULT_APP_SERVER_THREAD_SETTINGS, detached: false, previous: () => "old" }, ({ page }) => {
     assert.equal(page, f.page)
     assert.equal(f.history.busy, true)
     assert.equal(f.history.hasOlder, true)
@@ -41,7 +41,7 @@ it("candidate turn interrupts restoration and retains exclusion through cleanup"
   const reading = new Promise<void>(resolve => { started = resolve })
   f.context.readHistory = () => { started(); return new Promise(resolve => { release = resolve }) }
   let committed = false
-  const pending = f.history.restore(f.context, "new", "old", DEFAULT_APP_SERVER_THREAD_SETTINGS, () => { committed = true })
+  const pending = f.history.restore(f.context, { threadId: "new", settings: DEFAULT_APP_SERVER_THREAD_SETTINGS, detached: false, previous: () => "old" }, () => { committed = true })
   await reading
   f.history.turnStarted("new", "old")
   assert.equal(f.history.busy, true)
@@ -57,7 +57,7 @@ it("cleanup uncertainty requires disconnect while a recoverable failure preserve
     const f = fixture()
     f.context.readHistory = async () => { throw new Error("cannot read") }
     f.context.host.unsubscribeThread = async (_cwd, id) => { f.calls.push(`release:${id}`); if (cleanupFails) throw new Error("cannot release") }
-    await assert.rejects(f.history.restore(f.context, "new", "old", DEFAULT_APP_SERVER_THREAD_SETTINGS, () => assert.fail("unexpected commit")), error => error instanceof HistoryRestoreFailure && error.disconnect === cleanupFails)
+    await assert.rejects(f.history.restore(f.context, { threadId: "new", settings: DEFAULT_APP_SERVER_THREAD_SETTINGS, detached: false, previous: () => "old" }, () => assert.fail("unexpected commit")), error => error instanceof HistoryRestoreFailure && error.disconnect === cleanupFails)
     assert.deepEqual(f.calls.filter(call => call.startsWith("release:")), ["release:new"])
     assert.equal(f.history.busy, false)
   }
@@ -80,7 +80,7 @@ it("reset and late read completion cannot clear a replacement read lease or comm
 
 it("failed page validation clears pagination and requires an explicit fresh read", async () => {
   const f = fixture()
-  await f.history.restore(f.context, "thread", null, DEFAULT_APP_SERVER_THREAD_SETTINGS, () => {})
+  await f.history.restore(f.context, { threadId: "thread", settings: DEFAULT_APP_SERVER_THREAD_SETTINGS, detached: false, previous: () => null }, () => {})
   await assert.rejects(f.history.load(f.context, "thread", true, () => assert.fail("repeated cursor must be rejected")), /did not advance/)
   assert.equal(f.history.hasOlder, false)
   await assert.rejects(f.history.load(f.context, "thread", false, () => { throw new Error("overlap") }), /overlap/)
