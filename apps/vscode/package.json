@@ -175,6 +175,11 @@
         "category": "CodeM"
       },
       {
+        "command": "codem.updateFromBase",
+        "title": "从默认分支更新当前分支",
+        "category": "CodeM"
+      },
+      {
         "command": "codem.generateCommitMessage",
         "title": "生成暂存变更的提交说明",
         "category": "CodeM",
