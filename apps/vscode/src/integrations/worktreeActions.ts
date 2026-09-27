@@ -12,6 +12,8 @@ interface Repository {
   rootUri: vscode.Uri
   state: { HEAD: Branch | undefined; remotes: readonly { name: string; fetchUrl?: string; pushUrl?: string }[] }
   push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>
+  fetch(remote?: string, ref?: string): Promise<void>
+  merge(ref: string): Promise<void>
 }
 interface GitApi { git: { path: string }; repositories: Repository[] }
 interface GitExtension { enabled: boolean; getAPI(version: 1): GitApi }
@@ -160,16 +162,26 @@ export function registerWorktreeActions(log: (message: string) => void): vscode.
     else void vscode.window.showInformationMessage(result.branchDeleted ? `已删除 worktree 和分支 ${entry.branch}。` : `已删除 worktree ${describe(entry)}。`)
   }
 
+  /** Defaults to the remote the branch tracks; the default branch is looked up on whichever remote is chosen. */
+  const currentBranch = (repository: Repository) => {
+    const head = repository.state.HEAD
+    const branch = head?.name
+    if (!head || !branch) throw new Error("当前不在任何分支上，请先检出分支。")
+    return { head, branch }
+  }
+
+  const defaultBase = async (api: GitApi, repository: Repository, remoteName: string, branch: string) => {
+    const base = await new Worktrees(runner(api.git.path)).defaultBranch(repository.rootUri.fsPath, remoteName)
+    if (branch === base) throw new Error(`当前分支就是默认分支 ${base}，请先切换到功能分支。`)
+    return base
+  }
+
   /** Opens the host's new-PR page for the current branch; pushing first is the person's explicit choice. */
   const pullRequest = async () => {
     const api = await gitApi()
     const repository = await pickRepository(api, "选择仓库")
     if (!repository) return
-    const git = runner(api.git.path)
-    const root = repository.rootUri.fsPath
-    const head = repository.state.HEAD
-    const branch = head?.name
-    if (!branch) throw new Error("当前不在任何分支上，请先检出分支。")
+    const { head, branch } = currentBranch(repository)
     const remotes = repository.state.remotes
     if (!remotes.length) throw new Error("当前仓库没有远程仓库。")
     const hostedRemotes = remotes.flatMap(remote => {
@@ -187,9 +199,7 @@ export function registerWorktreeActions(log: (message: string) => void): vscode.
     if (!hostedRemotes.length) throw new Error("暂只支持 github.com 与 gitlab.com 远程，当前仓库的远程都不在其中。")
     if (!chosen) return
     const { name: remoteName, hosted } = chosen
-    const base = (await git(["symbolic-ref", "--short", `refs/remotes/${remoteName}/HEAD`], root).catch(() => "")).trim().replace(`${remoteName}/`, "")
-      || ((await git(["show-ref", "--verify", "--quiet", `refs/remotes/${remoteName}/main`], root).then(() => true, () => false)) ? "main" : "master")
-    if (branch === base) throw new Error(`当前分支就是默认分支 ${base}，请先切换到功能分支。`)
+    const base = await defaultBase(api, repository, remoteName, branch)
     const unpushed = !head.upstream ? "该分支还没有推送到远程。" : (head.ahead ?? 0) > 0 ? `有 ${head.ahead} 个提交尚未推送。` : null
     if (unpushed) {
       const choice = await vscode.window.showWarningMessage(unpushed, { modal: true, detail: `推送会把分支 ${branch} 发布到 ${remoteName}（${hosted.host}/${hosted.path}）。` }, `推送到 ${remoteName} 并打开`, "只打开页面")
@@ -199,10 +209,44 @@ export function registerWorktreeActions(log: (message: string) => void): vscode.
     await vscode.env.openExternal(vscode.Uri.parse(pullRequestUrl(hosted, base, branch)))
   }
 
+  /**
+   * Fetches the remote's default branch and merges it into the current branch. A merge, never a rebase, so no
+   * pushed commit is rewritten; it refuses a dirty tree so a conflict never mixes with uncommitted work.
+   */
+  const updateFromBase = async () => {
+    const api = await gitApi()
+    const repository = await pickRepository(api, "选择仓库")
+    if (!repository) return
+    const { head, branch } = currentBranch(repository)
+    const remoteName = head.upstream?.remote ?? (repository.state.remotes.some(remote => remote.name === "origin") ? "origin" : repository.state.remotes[0]?.name)
+    if (!remoteName) throw new Error("当前仓库没有远程仓库。")
+    const base = await defaultBase(api, repository, remoteName, branch)
+    const worktrees = new Worktrees(runner(api.git.path))
+    if ((await worktrees.changes(repository.rootUri.fsPath)).length) throw new Error("当前有未提交的修改，请先提交或储藏后再更新。")
+    const target = `${remoteName}/${base}`
+    const started = performance.now()
+    try {
+      await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `正在把 ${target} 合并到 ${branch}` }, async () => {
+        await repository.fetch(remoteName, base)
+        await repository.merge(target)
+      })
+    } catch (error) {
+      // Conflicts leave the merge in progress; the Source Control view is where they are resolved or aborted.
+      if ((await worktrees.changes(repository.rootUri.fsPath).catch(() => [])).length) {
+        void vscode.commands.executeCommand("workbench.view.scm")
+        throw new Error(`合并 ${target} 时出现冲突，请在源代码管理视图中解决，或执行 git merge --abort 放弃。`)
+      }
+      throw error
+    }
+    log(`Updated from base: ${Math.round(performance.now() - started)}ms`)
+    void vscode.window.showInformationMessage(`已将 ${target} 合并到 ${branch}，尚未推送。`)
+  }
+
   return vscode.Disposable.from(
     guarded("codem.newWorktree", create),
     guarded("codem.openWorktree", open),
     guarded("codem.closeWorktree", close),
     guarded("codem.openPullRequest", pullRequest),
+    guarded("codem.updateFromBase", updateFromBase),
   )
 }
