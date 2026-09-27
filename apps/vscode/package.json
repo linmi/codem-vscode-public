@@ -95,6 +95,16 @@
         "category": "CodeM"
       },
       {
+        "command": "codem.cycleAgentMode",
+        "title": "切换工作模式（Agent / Plan）",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.selectPermissionMode",
+        "title": "选择权限模式",
+        "category": "CodeM"
+      },
+      {
         "command": "codem.addToContext",
         "title": "将选区加入上下文",
         "category": "CodeM"
@@ -408,6 +418,17 @@
         "key": "ctrl+alt+n",
         "mac": "cmd+alt+n",
         "when": "focusedView == codem.chat || activeWebviewPanelId == codem.editor"
+      },
+      {
+        "command": "codem.cycleAgentMode",
+        "key": "ctrl+.",
+        "mac": "cmd+.",
+        "when": "focusedView == codem.chat || activeWebviewPanelId == codem.editor"
+      },
+      {
+        "command": "codem.selectPermissionMode",
+        "key": "ctrl+alt+a",
+        "mac": "cmd+alt+a"
       },
       {
         "command": "codem.generateCompletion",

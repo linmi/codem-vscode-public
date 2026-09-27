@@ -55,6 +55,14 @@ describe("VS Code host bridge", () => {
     assert.equal(snapshot.version > 0, true)
   })
 
+  it("turns every Host openPermissionMenu into a new menu request without owning the menu", () => {
+    const bridge = new VscodeHostBridge()
+    assert.equal(bridge.snapshot().permissionMenuRequest, 0)
+    assert.equal(bridge.receive({ type: "openPermissionMenu" })!.snapshot.permissionMenuRequest, 1)
+    assert.equal(bridge.receive({ type: "state", phase: "ready" })!.snapshot.permissionMenuRequest, 1, "State updates must not replay a request")
+    assert.equal(bridge.receive({ type: "openPermissionMenu" })!.snapshot.permissionMenuRequest, 2)
+  })
+
   it("turns every Host showAccount into a new account request without owning the page", () => {
     const bridge = new VscodeHostBridge()
     const signedIn = { status: "signedIn", profile: { avatar: { kind: "none" }, displayName: "林晓", userId: "user", tenantId: null, authMethod: "browser" }, refreshing: false, notice: null }

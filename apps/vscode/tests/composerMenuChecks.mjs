@@ -1,6 +1,7 @@
 export default async function composerMenuChecks(page) {
   await catalogStyleChecks(page)
   await fixedMenuStyleChecks(page)
+  await permissionCommandChecks(page)
   await page.goto('http://127.0.0.1:4318/?scenario=disconnected')
   for (const [id, menu] of [['addAttachment', '.composerChoiceMenu'], ['selectPermission', '.composerChoiceMenu'], ['selectWorkMode', '.composerChoiceMenu'], ['selectModel', '.composerCatalogMenu'], ['selectSpace', '.composerCatalogMenu']]) {
     const before = await page.evaluate(() => window.viewActions.length)
@@ -132,4 +133,34 @@ async function fixedMenuStyleChecks(page) {
       if (await page.evaluate(() => window.viewActions.length) !== before) throw new Error(`${id} sent Host action on close`)
     }
   }
+}
+
+/** codem.selectPermissionMode 只发 openPermissionMenu；界面在空闲时展开真实菜单，忙碌时作废这次请求。 */
+async function permissionCommandChecks(page) {
+  const request = () => page.evaluate(() => window.dispatchEvent(new MessageEvent('message', { data: { type: 'openPermissionMenu' } })))
+  await page.goto('http://127.0.0.1:4318/?scenario=tools')
+  await page.locator('#selectPermission').waitFor()
+  await request()
+  await page.waitForTimeout(200)
+  if (await page.locator('.composerChoiceMenu').count()) throw new Error('Busy turn opened the permission menu')
+  await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', { data: { ...window.demo, type: 'state', phase: 'ready' } })))
+  await page.waitForFunction(() => !document.querySelector('#selectPermission')?.disabled)
+  await page.waitForTimeout(200)
+  if (await page.locator('.composerChoiceMenu').count()) throw new Error('A request made while busy opened the menu once the turn ended')
+  await page.goto('http://127.0.0.1:4318/?scenario=disconnected')
+  await page.locator('#selectPermission').waitFor()
+  const before = await page.evaluate(() => window.viewActions.length)
+  await request()
+  const menu = page.locator('.composerChoiceMenu')
+  await menu.waitFor()
+  if (!(await menu.textContent())?.includes('权限模式')) throw new Error('Command opened the wrong menu')
+  await page.waitForFunction(() => document.activeElement?.closest('.composerChoiceMenu'))
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Escape')
+  await menu.waitFor({ state: 'hidden' })
+  await page.waitForFunction(() => document.activeElement?.id === 'selectPermission')
+  if (await page.evaluate(() => window.viewActions.length) !== before) throw new Error('Opening the menu by command contacted Host')
+  await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', { data: { ...window.demo, type: 'state' } })))
+  await page.waitForTimeout(100)
+  if (await menu.count()) throw new Error('A later snapshot replayed the menu request')
 }

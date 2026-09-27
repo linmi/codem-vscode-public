@@ -1339,6 +1339,25 @@ it("chooses effort offline without connecting and sends the chosen value on firs
   await f.controller.dispose()
 })
 
+it("cycles the work mode through the settings transaction and ignores it while a turn runs", async () => {
+  const f = setup()
+  let submitted = ""
+  const start = f.host.startThread
+  f.host.startThread = async (cwd, settings) => { submitted = settings.workMode; return start(cwd, settings) }
+  assert.equal(f.controller.snapshot().workMode, "default")
+  await f.controller.cycleWorkMode()
+  assert.equal(f.controller.snapshot().workMode, "plan")
+  await f.controller.cycleWorkMode()
+  assert.equal(f.controller.snapshot().workMode, "default", "Two modes wrap around")
+  await f.controller.cycleWorkMode()
+  assert.deepEqual(f.counts(), { connections: 0, starts: 0, turns: 0, closed: 0 }, "Cycling offline never connects")
+  await f.controller.send("plan first")
+  assert.equal(submitted, "plan")
+  await f.controller.cycleWorkMode()
+  assert.equal(f.controller.snapshot().workMode, "plan", "running turns deny changes")
+  await f.controller.dispose()
+})
+
 it("restores offline effort, consumes it into the first space and isolates later space settings", async () => {
   const data = new Map<string, unknown>()
   const preferences = new ConnectionPreferences({ get: <T>(key: string) => data.get(key) as T | undefined, update: async (key, value) => { data.set(key, value) } })

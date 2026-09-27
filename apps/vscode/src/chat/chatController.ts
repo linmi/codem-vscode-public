@@ -8,7 +8,7 @@ import { ConversationHistory, HistoryRestoreFailure, type HistoryContext } from 
 import { BackgroundTasks, type BackgroundContext } from "./backgroundTasks.ts"
 import { UserVisibleError } from "../shared/userVisibleError.ts"
 import { ChatSettings, type ApprovalRequest, type RestoredSettings } from "./chatSettings.ts"
-import { settingPatch, type ComposerSettingAction } from "../shared/composerSettings.ts"
+import { settingPatch, workModes, type ComposerSettingAction } from "../shared/composerSettings.ts"
 import type { FileDiffContent } from "../resources/filePresentation.ts"
 import { realpath, stat } from "node:fs/promises"
 import { basename, relative, isAbsolute, sep } from "node:path"
@@ -1293,6 +1293,12 @@ export class ChatController {
     this.update({ phase: "configuring", notice: null, ...this.settings.chooseOffline(patch) })
     const notice = await this.settings.savePending()
     if (!this.disposed) this.update({ phase: "disconnected", ...(notice ? { notice } : {}) })
+  }
+
+  /** Moves to the next work mode through the same guarded transaction as the menu; busy phases ignore it the same way. */
+  async cycleWorkMode(): Promise<void> {
+    const index = workModes.findIndex(mode => mode.value === this.settings.choices().workMode)
+    await this.setComposerSetting({ type: "setWorkMode", workMode: workModes[(index + 1) % workModes.length]!.value })
   }
 
   /** Host owns the settings transaction. Holding this phase prevents sends racing a selection. */
