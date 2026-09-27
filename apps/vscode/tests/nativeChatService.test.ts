@@ -5,7 +5,7 @@ import { setImmediate } from "node:timers/promises"
 import type { AppServerHostEvent, AppServerInteractionResponse } from "@codem/app-server"
 import type { ChatHost, ChatSession } from "../src/chat/chatController.ts"
 import { NativeChatService, NativeChatProjection } from "../src/nativeChat/nativeChatService.ts"
-import { nativeThreadId } from "../src/nativeChat/nativeChatApi.ts"
+import { isVerifiedNativeHost, nativeThreadId } from "../src/nativeChat/nativeChatApi.ts"
 import { initialSnapshot } from "../src/shared/messages.ts"
 import { capabilityHostFixture } from "./capabilityHostFixture.ts"
 import { fixtureSpaceDirectory } from "./spaceFixtures.ts"
@@ -219,6 +219,11 @@ it("native resources reject traversal, foreign schemes, drafts and query payload
   const base = { scheme: "codem-native", authority: "", path: "/thread-1", query: "", fragment: "" }
   assert.equal(nativeThreadId(base), "thread-1")
   for (const patch of [{ path: "/../thread" }, { path: "/untitled-123" }, { scheme: "file" }, { authority: "remote" }, { query: "path=/secret" }, { fragment: "a" }]) assert.throws(() => nativeThreadId({ ...base, ...patch }))
+})
+
+it("native activation accepts only VS Code releases whose session proposal was diffed", () => {
+  for (const version of ["1.138.0", "1.139.0", "1.139.1"]) assert.equal(isVerifiedNativeHost(version), true, version)
+  for (const version of ["1.137.0", "1.140.0", "1.139.0-insider", "1.13.9", "11.139.0", "1.1390.0", ""]) assert.equal(isVerifiedNativeHost(version), false, version)
 })
 
 it("snapshot projection emits only new text and does not duplicate completed snapshots", () => {

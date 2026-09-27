@@ -1,7 +1,7 @@
 {
   "version": "0.2.0",
   "configurations": [{
-    "name": "CodeM Native Chat (Experimental 1.138)",
+    "name": "CodeM Native Chat (Experimental)",
     "type": "extensionHost",
     "request": "launch",
     "args": ["--extensionDevelopmentPath=${workspaceFolder}/apps/vscode/dist/nativeChat", "--enable-proposed-api=codem.codem-native-experiment"],

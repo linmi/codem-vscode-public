@@ -2,8 +2,17 @@ import type * as vscode from "vscode"
 
 // Minimal structural boundary, verified against VS Code 1.138.0 commit
 // 7debcd0e2acdea1c52de81bf9ee1620444407dda (chatSessionsProvider + extHostTypes).
+// 1.139.0 (2242ebbb54efeeb0129e08e919e7e8d43033cd83) and 1.139.1 (04c0d99f4fb0d8afe6ce4f0c58e31e183ac3e4b1)
+// were diffed against that baseline: the session provider surface and dispatcher are unchanged.
 // This deliberately does not augment the stable 1.105 API used by the normal extension.
 export const nativeSessionType = "codem-native"
+const verifiedMinors = ["1.138", "1.139"]
+export const verifiedNativeHosts = verifiedMinors.map(minor => `${minor}.x`).join("、")
+/** Proposed APIs change without notice; only releases whose proposal was diffed may activate. */
+export function isVerifiedNativeHost(version: string): boolean {
+  const match = /^(\d+\.\d+)\.\d+$/.exec(version)
+  return match !== null && verifiedMinors.includes(match[1]!)
+}
 export interface NativeSessionItem {
   readonly resource: vscode.Uri
   label: string
