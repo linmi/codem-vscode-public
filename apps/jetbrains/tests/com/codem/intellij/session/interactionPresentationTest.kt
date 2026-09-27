@@ -20,7 +20,7 @@ class InteractionPresentationTest {
             val rejection = router.handle(RpcRequest(RpcId.TextId("question"), "item/tool/requestUserInput", JsonValue.obj(
                 "questions" to JsonValue.ArrayValue(listOf(invalid)),
             )), RpcPeer(writes::add, {}, {}, {}), 1, "thread")
-            assertNull(router.panelView())
+            assertNull(router.panelView("thread"))
             assertTrue(writes.isEmpty(), "the router decides; the session writes after releasing its lock")
             rejection!!.send()
             assertTrue(JsonValue.parse(writes.single()).asObject().fields.containsKey("error"))
@@ -35,23 +35,23 @@ class InteractionPresentationTest {
             "requestId" to JsonValue.Text("raw_core_request"),
             "questions" to JsonValue.ArrayValue(listOf(question("第一题"), question("第二题", true))),
         )), RpcPeer(writes::add, {}, {}, {}), 1, "thread"))
-        val first = router.panelView()!!
+        val first = router.panelView("thread")!!
         assertNotEquals("raw_core_request", first.id)
         assertEquals("下一步", first.confirmLabel)
         assertEquals(listOf("choice-0", "choice-1"), first.choices.map { it.id })
         assertNull(router.reply(first.id, 1, "thread", listOf("choice-1"), "补充", false).reply)
-        val second = router.panelView()!!
+        val second = router.panelView("thread")!!
         assertNotEquals(first.id, second.id)
         assertTrue(writes.isEmpty())
         assertEquals("previous", second.backChoiceId)
         assertThrows(CodemError.Conflict::class.java) { router.reply(first.id, 1, "thread", listOf("choice-0"), "", false) }
         router.reply(second.id, 1, "thread", listOf("previous"), "", false)
-        val back = router.panelView()!!
+        val back = router.panelView("thread")!!
         assertEquals("补充", back.initialText)
         assertTrue(back.choices[1].selected)
         router.reply(back.id, 1, "thread", listOf("choice-0"), "更正", false)
-        val submitted = router.reply(router.panelView()!!.id, 1, "thread", listOf("choice-0", "choice-1"), "", false)
-        assertNull(router.panelView())
+        val submitted = router.reply(router.panelView("thread")!!.id, 1, "thread", listOf("choice-0", "choice-1"), "", false)
+        assertNull(router.panelView("thread"))
         submitted.reply!!.send()
         val answers = JsonValue.parse(writes.single()).asObject().required("result").asObject().required("answers").asArray().items
         assertEquals(2, answers.size)
@@ -67,11 +67,11 @@ class InteractionPresentationTest {
         router.handle(RpcRequest(RpcId.TextId("rpc"), "item/tool/requestApproval", JsonValue.obj(
             "options" to JsonValue.ArrayValue(listOf(JsonValue.obj("id" to JsonValue.Text("allow_once"), "label" to JsonValue.Text("允许一次")))),
         )), RpcPeer(writes::add, {}, {}, {}), 1, "thread")
-        val first = router.panelView()!!
+        val first = router.panelView("thread")!!
         assertThrows(CodemError.Validation::class.java) { router.reply(first.id, 1, "thread", listOf("allow_once"), "", false) }
-        assertNotEquals(first.id, router.panelView()!!.id)
+        assertNotEquals(first.id, router.panelView("thread")!!.id)
         assertTrue(writes.isEmpty())
-        router.reply(router.panelView()!!.id, 1, "thread", listOf("choice-0"), "", false).reply!!.send()
+        router.reply(router.panelView("thread")!!.id, 1, "thread", listOf("choice-0"), "", false).reply!!.send()
         assertEquals("allow_once", JsonValue.parse(writes.single()).asObject().required("result").asObject().required("outcome").asObject().required("optionId").asText())
     }
 
@@ -82,11 +82,11 @@ class InteractionPresentationTest {
         router.handle(RpcRequest(RpcId.TextId("rpc"), "item/tool/requestUserInput", JsonValue.obj(
             "questions" to JsonValue.ArrayValue(listOf(question("第一题"), question("第二题"))),
         )), RpcPeer(writes::add, {}, {}, {}), 1, "thread")
-        router.reply(router.panelView()!!.id, 1, "thread", emptyList(), "自由回答", false)
-        val view = router.panelView()!!
-        assertEquals(view, router.panelView())
+        router.reply(router.panelView("thread")!!.id, 1, "thread", emptyList(), "自由回答", false)
+        val view = router.panelView("thread")!!
+        assertEquals(view, router.panelView("thread"))
         router.revokeThread(1, "thread").forEach(CoreReply::send)
-        assertNull(router.panelView())
+        assertNull(router.panelView("thread"))
         assertThrows(CodemError.Conflict::class.java) { router.reply(view.id, 1, "thread", listOf("choice-0"), "", false) }
         assertTrue(writes.single().contains("-32000"))
     }
@@ -115,7 +115,7 @@ class InteractionPresentationTest {
                 JsonValue.obj("optionId" to JsonValue.Text("reject"), "label" to JsonValue.Text("拒绝")),
             )),
         )), peer, 1, "thread"))
-        val approval = router.panelView()!!
+        val approval = router.panelView("thread")!!
         assertEquals(listOf("allow_once", "拒绝"), approval.choices.map { it.label })
         assertEquals("", approval.description)
         assertEquals("App.kt\npnpm check", approval.detail)
@@ -128,8 +128,8 @@ class InteractionPresentationTest {
                 "options" to JsonValue.ArrayValue(listOf(JsonValue.Text("甲"), JsonValue.obj("label" to JsonValue.Text(" ")), JsonValue.obj("label" to JsonValue.Text("乙")))),
             ))),
         )), peer, 1, "thread"))
-        assertEquals(listOf("乙"), router.panelView()!!.choices.map { it.label })
-        assertEquals("question-1", router.current()!!.questions.single().id)
+        assertEquals(listOf("乙"), router.panelView("thread")!!.choices.map { it.label })
+        assertEquals("question-1", router.current("thread")!!.questions.single().id)
         router.revokeThread(1, "thread")
 
         val checkpoint = JsonValue.obj("id" to JsonValue.Text("cp-1"), "label" to JsonValue.NumberValue(1.0, "1"))
@@ -137,7 +137,7 @@ class InteractionPresentationTest {
             "checkpoints" to JsonValue.ArrayValue(listOf(checkpoint)),
             "modes" to JsonValue.ArrayValue(listOf(JsonValue.NumberValue(1.0, "1"), JsonValue.Text("everything"), JsonValue.Text("code"))),
         )), peer, 1, "thread"))
-        assertEquals(listOf("cp-1", "code"), router.panelView()!!.choices.map { it.label })
+        assertEquals(listOf("cp-1", "code"), router.panelView("thread")!!.choices.map { it.label })
         router.revokeThread(1, "thread")
 
         for (params in listOf(
@@ -150,7 +150,7 @@ class InteractionPresentationTest {
         assertNotNull(router.handle(RpcRequest(RpcId.TextId("question"), "item/tool/requestUserInput", JsonValue.obj(
             "questions" to JsonValue.ArrayValue(listOf(JsonValue.Text("哪个？"))),
         )), peer, 1, "thread"))
-        assertNull(router.panelView())
+        assertNull(router.panelView("thread"))
     }
 
     @Test
@@ -161,8 +161,8 @@ class InteractionPresentationTest {
         val peer = RpcPeer(writes::add, {}, {}, {})
         assertNotNull(router.handle(RpcRequest(RpcId.TextId("foreign"), "item/tool/requestUserInput", params), peer, 1, "other"))
         assertNull(router.handle(RpcRequest(RpcId.TextId("first"), "item/tool/requestUserInput", params), peer, 1, "thread"))
-        val first = router.panelView()
+        val first = router.panelView("thread")
         assertNotNull(router.handle(RpcRequest(RpcId.TextId("duplicate"), "item/tool/requestUserInput", params), peer, 1, "thread"))
-        assertEquals(first, router.panelView())
+        assertEquals(first, router.panelView("thread"))
     }
 }

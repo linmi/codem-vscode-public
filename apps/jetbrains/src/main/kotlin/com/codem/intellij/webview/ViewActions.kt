@@ -177,6 +177,9 @@ data class QueuedMessageView(val id: String, val text: String)
 /** Paused after a stopped or failed turn: nothing is sent until the user resumes. */
 data class MessageQueueView(val items: List<QueuedMessageView> = emptyList(), val paused: Boolean = false)
 
+/** A conversation left running (or ended, not yet viewed) after switching away: running, awaitingApproval, completed, stopped or failed. */
+data class LiveSessionView(val id: String, val title: String, val status: String)
+
 data class SubmissionReceiptView(val requestId: String, val accepted: Boolean)
 
 fun ViewAction.submissionRequestId(): String? = when (this) {
@@ -234,6 +237,8 @@ data class ChatSnapshot(
     val submission: SubmissionReceiptView? = null,
     /** 宿主持有的排队消息；首屏为 null，界面据此在运行中改发补充指令。 */
     val messageQueue: MessageQueueView? = null,
+    /** 切走后仍在后台运行或结束未查看的会话；当前会话不在其中。 */
+    val liveSessions: List<LiveSessionView> = emptyList(),
 )
 
 /** 挂载前的首屏：canRetry/canResume/canLoadOlder 全为 false，界面的 visibleControls 据此隐藏条件入口。 */
@@ -487,6 +492,7 @@ fun encodeChatSnapshot(snapshot: ChatSnapshot): JsonValue.ObjectValue {
                 "paused" to JsonValue.Bool(queue.paused),
             )
         } ?: JsonValue.Null),
+        "liveSessions" to JsonValue.ArrayValue(snapshot.liveSessions.map { JsonValue.obj("id" to JsonValue.Text(it.id), "title" to JsonValue.Text(it.title), "status" to JsonValue.Text(it.status)) }),
         "diffs" to JsonValue.ArrayValue(snapshot.diffs.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "added" to JsonValue.NumberValue(it.added.toDouble(), it.added.toString()), "removed" to JsonValue.NumberValue(it.removed.toDouble(), it.removed.toString()), "preview" to JsonValue.Text(it.preview), "available" to JsonValue.Bool(it.available)) }),
         "background" to JsonValue.ArrayValue(snapshot.background.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "inProgress" to JsonValue.Bool(it.inProgress)) }),
         "backgroundTasks" to JsonValue.ArrayValue(snapshot.backgroundTasks.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "phase" to JsonValue.Text(it.phase)) }),

@@ -124,7 +124,7 @@ class SessionTest {
         )
         var failed = false
         try {
-            router.reply(router.panelView()!!.id, 2, "thread-2", listOf("choice-0"), "", false)
+            router.reply(router.panelView("thread-1")!!.id, 2, "thread-2", listOf("choice-0"), "", false)
         } catch (error: CodemError) {
             failed = error.errorClass == CodemError.Class.Conflict
         }
@@ -243,7 +243,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-0"), "", false).reply!!.send()
+        router.reply(router.panelView("thread-1")!!.id, 1, "thread-1", listOf("choice-0"), "", false).reply!!.send()
         val body = JsonValue.parse(writes.single()).asObject()
         assertEquals("allow-once", body.required("result").asObject().required("outcome").asObject().required("optionId").asText())
         assertEquals(7.0, (body.required("id") as JsonValue.NumberValue).value)
@@ -274,7 +274,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-0"), "", false).reply!!.send()
+        router.reply(router.panelView("thread-1")!!.id, 1, "thread-1", listOf("choice-0"), "", false).reply!!.send()
         val question = JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject()
         val answer = question.required("answers").asArray().items.single().asObject()
         assertEquals("Which files?", answer.required("question").asText())
@@ -290,7 +290,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply(router.panelView()!!.id, 1, "thread-1", emptyList(), "", true).reply!!.send()
+        router.reply(router.panelView("thread-1")!!.id, 1, "thread-1", emptyList(), "", true).reply!!.send()
         assertEquals(true, JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject().required("cancelled").asBoolean())
 
         router.handle(
@@ -299,7 +299,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-0"), "", false).reply!!.send()
+        router.reply(router.panelView("thread-1")!!.id, 1, "thread-1", listOf("choice-0"), "", false).reply!!.send()
         val approved = JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject()
         assertEquals(true, approved.required("approved").asBoolean())
         assertEquals(null, approved.fields["feedback"])
@@ -310,7 +310,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-1"), "need a smaller change", false).reply!!.send()
+        router.reply(router.panelView("thread-1")!!.id, 1, "thread-1", listOf("choice-1"), "need a smaller change", false).reply!!.send()
         val rejected = JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject()
         assertEquals(false, rejected.required("approved").asBoolean())
         assertEquals("need a smaller change", rejected.required("feedback").asText())
@@ -329,7 +329,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply(router.panelView()!!.id, 1, "thread-1", listOf("choice-0", "choice-2"), "", false).reply!!.send()
+        router.reply(router.panelView("thread-1")!!.id, 1, "thread-1", listOf("choice-0", "choice-2"), "", false).reply!!.send()
         val rewind = JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject()
         assertEquals("selected", rewind.required("status").asText())
         assertEquals("cp-1", rewind.required("checkpointId").asText())
@@ -349,7 +349,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        router.reply(router.panelView()!!.id, 1, "thread-1", emptyList(), "", true).reply!!.send()
+        router.reply(router.panelView("thread-1")!!.id, 1, "thread-1", emptyList(), "", true).reply!!.send()
         assertEquals("cancelled", JsonValue.parse(writes.removeAt(0)).asObject().required("result").asObject().required("status").asText())
         assertTrue(writes.none { it.contains("choiceIds") })
     }
@@ -369,7 +369,7 @@ class SessionTest {
             1,
             "thread-1",
         )
-        val decision = router.reply(router.panelView()!!.id, 1, "thread-1", emptyList(), "", true)
+        val decision = router.reply(router.panelView("thread-1")!!.id, 1, "thread-1", emptyList(), "", true)
         assertTrue(decision.interruptTurn)
         assertNull(decision.reply)
         assertTrue(writes.isEmpty())
