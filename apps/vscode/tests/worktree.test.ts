@@ -117,14 +117,18 @@ it("removes only linked worktrees, needs force for changes and keeps an unmerged
 it("finds the remote's default branch from its HEAD, else main, else master", async t => {
   const root = await repository(t)
   const worktrees = new Worktrees(git)
+  // An unreachable remote with nothing fetched falls back to master, then to main once main is known.
+  await git(["remote", "add", "gone", join(root, "..", "missing.git")], root)
+  assert.equal(await worktrees.defaultBranch(root, "gone"), "master")
+  await git(["update-ref", "refs/remotes/gone/main", "HEAD"], root)
+  assert.equal(await worktrees.defaultBranch(root, "gone"), "main")
+  // A remote never fetched from is asked for its HEAD.
   const remote = join(root, "..", "remote.git")
   await git(["init", "-q", "--bare", "-b", "trunk", remote], root)
   await git(["remote", "add", "origin", remote], root)
-  assert.equal(await worktrees.defaultBranch(root, "origin"), "master")
-  await git(["push", "-q", "origin", "main"], root)
-  await git(["fetch", "-q", "origin"], root)
-  assert.equal(await worktrees.defaultBranch(root, "origin"), "main")
-  await git(["push", "-q", "origin", "main:trunk"], root)
-  await git(["remote", "set-head", "origin", "trunk"], root)
+  await git(["push", "-q", "origin", "main", "main:trunk"], root)
   assert.equal(await worktrees.defaultBranch(root, "origin"), "trunk")
+  // The locally recorded HEAD wins without asking the remote.
+  await git(["remote", "set-head", "origin", "main"], root)
+  assert.equal(await worktrees.defaultBranch(root, "origin"), "main")
 })

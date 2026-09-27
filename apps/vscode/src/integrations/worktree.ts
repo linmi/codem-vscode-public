@@ -126,10 +126,17 @@ export class Worktrees {
     catch (error) { return { branchDeleted: false, branchError: error instanceof Error ? error.message : String(error) } }
   }
 
-  /** The remote's default branch from `refs/remotes/<remote>/HEAD`; without it, `main` when the remote has one, else `master`. */
+  /**
+   * The remote's default branch: `refs/remotes/<remote>/HEAD` when known locally, else the remote's own HEAD (one
+   * `ls-remote`, only when the local ref is missing, e.g. a remote added but never cloned from), else `main` when
+   * the remote has one, else `master`.
+   */
   async defaultBranch(repository: string, remote: string, signal?: AbortSignal): Promise<string> {
     const head = (await this.git(["symbolic-ref", "--short", `refs/remotes/${remote}/HEAD`], repository, signal).catch(() => "")).trim()
     if (head.startsWith(`${remote}/`)) return head.slice(remote.length + 1)
+    const advertised = (await this.git(["ls-remote", "--symref", "--", remote, "HEAD"], repository, signal).catch(() => ""))
+      .match(/^ref: refs\/heads\/(\S+)\tHEAD$/m)?.[1]
+    if (advertised) return advertised
     const hasMain = await this.git(["show-ref", "--verify", "--quiet", `refs/remotes/${remote}/main`], repository, signal).then(() => true, () => false)
     return hasMain ? "main" : "master"
   }

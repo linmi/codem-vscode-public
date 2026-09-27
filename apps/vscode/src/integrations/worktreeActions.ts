@@ -20,7 +20,8 @@ interface GitExtension { enabled: boolean; getAPI(version: 1): GitApi }
 
 function runner(gitPath: string): GitRunner {
   return (args, cwd, signal) => new Promise((resolve, reject) => {
-    execFile(gitPath, [...args], { cwd, signal, maxBuffer: 4 * 1024 * 1024, windowsHide: true }, (error, stdout, stderr) => {
+    // Never prompt for credentials: nothing here can answer, and a hidden prompt would hang the command.
+    execFile(gitPath, [...args], { cwd, signal, maxBuffer: 4 * 1024 * 1024, windowsHide: true, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } }, (error, stdout, stderr) => {
       if (error) reject(new Error(gitErrorMessage(String(stderr)) ?? error.message))
       else resolve(String(stdout))
     })
