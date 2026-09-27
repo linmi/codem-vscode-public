@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { it, type TestContext } from "node:test"
-import { parseWorktreeList, suggestedBranch, worktreeLocation, Worktrees, type GitRunner } from "../src/integrations/worktree.ts"
+import { asOpenedPath, gitErrorMessage, parseWorktreeList, suggestedBranch, worktreeLocation, Worktrees, type GitRunner } from "../src/integrations/worktree.ts"
 
 const git: GitRunner = (args, cwd) => new Promise((resolve, reject) => {
   execFile("git", [...args], { cwd, env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" } }, (error, stdout, stderr) => error ? reject(new Error(String(stderr).trim() || error.message)) : resolve(String(stdout)))
@@ -34,6 +34,23 @@ it("turns free text into a branch-like name and places worktrees beside the main
   assert.equal(suggestedBranch("-/x.lock/"), "x-lock")
   assert.equal(suggestedBranch("..."), "")
   assert.equal(worktreeLocation("/code/app", "fix/login"), join("/code", "app.worktrees", "fix-login"))
+})
+
+it("keeps git's reason instead of the hints that follow it", () => {
+  assert.equal(gitErrorMessage("error: the branch 'x' is not fully merged\nhint: If you are sure you want to delete it, run\nhint:   git branch -D x\n"), "the branch 'x' is not fully merged")
+  assert.equal(gitErrorMessage("fatal: 'a' is a missing but locked worktree;\r\n"), "'a' is a missing but locked worktree;")
+  assert.equal(gitErrorMessage("warning: something\nPreparing worktree\n"), "Preparing worktree")
+  assert.equal(gitErrorMessage("hint: only a hint\n"), null)
+  assert.equal(gitErrorMessage(""), null)
+})
+
+it("spells a git path the way this window's folder was opened", () => {
+  assert.equal(asOpenedPath("/private/tmp/a/app", "/tmp/a/app.worktrees/x", "/private/tmp/a/app.worktrees/x"), "/tmp/a/app")
+  assert.equal(asOpenedPath("/private/tmp/a/app.worktrees/y", "/tmp/a/app", "/private/tmp/a/app"), "/tmp/a/app.worktrees/y")
+  // Same spelling, or a target outside the symlinked prefix, is left alone.
+  assert.equal(asOpenedPath("/code/app.worktrees/y", "/code/app", "/code/app"), "/code/app.worktrees/y")
+  assert.equal(asOpenedPath("/elsewhere/app", "/tmp/a/app", "/private/tmp/a/app"), "/elsewhere/app")
+  assert.equal(asOpenedPath("C:\\real\\app.worktrees\\y", "D:\\link\\app", "C:\\real\\app", "\\"), "D:\\link\\app.worktrees\\y")
 })
 
 it("creates a new branch from the base beside the repository and refuses a branch already checked out", async t => {
