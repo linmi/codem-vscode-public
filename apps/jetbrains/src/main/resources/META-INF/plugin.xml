@@ -52,6 +52,27 @@
                     class="com.codem.intellij.ide.GenerateTerminalCommandAction"
                     text="生成终端命令"
                     description="描述要做的事，生成一条终端命令；预览后插入终端，不会自动执行"/>
+            <separator/>
+            <action id="codem.newWorktree"
+                    class="com.codem.intellij.ide.NewWorktreeAction"
+                    text="新建 worktree"
+                    description="在主工作区旁新建一个 Git worktree，可在新窗口打开"/>
+            <action id="codem.openWorktree"
+                    class="com.codem.intellij.ide.OpenWorktreeAction"
+                    text="在新窗口打开 worktree"
+                    description="选择这个仓库的另一个 worktree，在新窗口打开"/>
+            <action id="codem.closeWorktree"
+                    class="com.codem.intellij.ide.RemoveWorktreeAction"
+                    text="删除 worktree"
+                    description="在主工作区窗口删除一个 worktree，可同时删除已合并的分支"/>
+            <action id="codem.openPullRequest"
+                    class="com.codem.intellij.ide.OpenPullRequestAction"
+                    text="为当前分支打开 PR 页面"
+                    description="在 GitHub 或 GitLab 打开当前分支的新建 PR/MR 页面；推送需确认"/>
+            <action id="codem.updateFromBase"
+                    class="com.codem.intellij.ide.UpdateFromBaseAction"
+                    text="从默认分支更新当前分支"
+                    description="拉取远程默认分支并合并到当前分支，不变基、不推送"/>
         </group>
     </actions>
 </idea-plugin>
