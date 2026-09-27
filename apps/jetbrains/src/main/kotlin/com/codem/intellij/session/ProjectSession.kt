@@ -1234,7 +1234,7 @@ class ProjectSession(
             ViewAction.MoreThreads -> moreThreads()
             ViewAction.CloseHistory -> closeHistory()
             is ViewAction.SetSendKey -> rememberSendKey(action.sendKey)
-            is ViewAction.SearchFiles, is ViewAction.SelectFile, is ViewAction.PasteImages -> Unit
+            is ViewAction.SearchFiles, is ViewAction.SelectFile, is ViewAction.PasteImages, is ViewAction.DropAttachments -> Unit
             is ViewAction.Send -> send(action.text, action.requestId, action.skillName, action.attachmentIds, action.selectionIds)
             is ViewAction.PanelReply -> replyToInteraction(action.id, action.choiceIds, action.text, action.cancelled)
             is ViewAction.ResumeThread -> resumeThread(action.threadId)

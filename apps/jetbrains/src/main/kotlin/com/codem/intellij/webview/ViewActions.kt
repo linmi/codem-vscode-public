@@ -32,6 +32,8 @@ sealed class ViewAction {
     data class SelectFile(val id: String, val requestId: String) : ViewAction()
     data class SetSendKey(val sendKey: String) : ViewAction()
     data class PasteImages(val requestId: String, val images: List<PastedImage>) : ViewAction()
+    /** file: URIs dragged onto the chat; whether each is inside the workspace is decided by the Host. */
+    data class DropAttachments(val uris: List<String>) : ViewAction()
     data class Send(
         val text: String,
         val requestId: String,
@@ -278,6 +280,7 @@ fun parseViewAction(value: JsonValue): ViewAction {
             ViewAction.SetSendKey(key)
         }
         "pasteImages" -> parsePaste(obj)
+        "dropAttachments" -> if (keys.size == 2) ViewAction.DropAttachments(droppedUris(obj.required("uris"))) else reject()
         "send" -> parseSend(obj)
         "panelReply" -> {
             val id = requestId(obj.required("id").asText())
@@ -536,6 +539,16 @@ private fun parsePaste(obj: JsonValue.ObjectValue): ViewAction.PasteImages {
             PastedImage(media, data)
         },
     )
+}
+
+/** As contract.ts parseDroppedUris: 1–20 file: URIs without control characters. */
+private fun droppedUris(value: JsonValue): List<String> {
+    val items = value.asArray().items.map { it.asText() }
+    if (items.isEmpty() || items.size > 20) reject()
+    for (uri in items) {
+        if (uri.length > 4096 || !uri.startsWith("file://", ignoreCase = true) || uri.any { it.code < 32 }) reject()
+    }
+    return items
 }
 
 private fun parseSend(obj: JsonValue.ObjectValue): ViewAction.Send {

@@ -130,6 +130,7 @@ class ToolWindowHost(
             is ViewAction.SearchFiles -> runBackground { searchFiles(action) }
             is ViewAction.SelectFile -> runBackground { selectSearchedFile(action) }
             is ViewAction.PasteImages -> runBackground { pasteImages(action) }
+            is ViewAction.DropAttachments -> runBackground { dropAttachments(action.uris) }
             is ViewAction.SetSendKey -> rememberSendKey(action.sendKey)
             is ViewAction.PickAttachment -> pickAttachment(action.kind)
             is ViewAction.SetTheme -> applyTheme(action.theme)
@@ -636,6 +637,28 @@ class ToolWindowHost(
         } catch (error: Throwable) {
             publisher.show { it.copy(notice = SafeNotice.from(error, "图片粘贴失败，请重新复制后重试。")) }
             log.warn("CodeM image paste failed", error)
+        }
+    }
+
+    /**
+     * 拖入的工作区文件与“添加附件”走同一条添加流程。先逐个核对全部条目，任一不在工作区内就整批拒绝，
+     * 不留下半批附件；工作区外的文件仍须经系统选择框。
+     */
+    private fun dropAttachments(uris: List<String>) {
+        val session = sessionRef.get()
+        val root = workingDirectory()
+        if (session == null || root == null) {
+            notify("请先连接工作区，再拖入其中的文件。")
+            return
+        }
+        try {
+            if (session.snapshot().attachments.size + uris.size > 20) throw CodemError.Validation("CodeM 每条消息最多添加 20 个附件")
+            val resolved = uris.map { com.codem.intellij.ide.DroppedAttachments.resolve(root, it) }
+            resolved.forEach { (path, kind) -> session.attach(path, kind) }
+            publisher.refresh()
+        } catch (error: Throwable) {
+            publisher.show { it.copy(notice = SafeNotice.from(error, "无法添加拖入的文件")) }
+            log.warn("CodeM dropped attachment rejected")
         }
     }
 
