@@ -13,6 +13,7 @@ import type { FileDiffContent } from "../resources/filePresentation.ts"
 import { realpath, stat } from "node:fs/promises"
 import { basename, relative, isAbsolute, sep } from "node:path"
 import { LiveSnapshotCatalog } from "./liveSnapshotCatalog.ts"
+import { ParkedConversations, type ReclaimedTurn } from "./parkedConversations.ts"
 import { projectCatalog } from "./capabilityCatalog.ts"
 import { emptySessionTools, type LiveSnapshotPageKind, type ThreadOperation, type SessionToolsState, emptyCapabilities } from "../shared/capabilityTypes.ts"
 import type { SpaceDirectory } from "../connection/spaceDirectory.ts"
@@ -58,7 +59,12 @@ interface ActiveTurn {
   turnId: string | null
   abort: AbortController
   requests: Map<string, AbortController>
+  /** Unanswered Core requests; a parked turn takes them along and asks again when it returns. */
+  pending: Map<string, AppServerInteraction>
   approvals: Promise<void>
+}
+function activeTurn(submissionId: string, turnId: string | null = null): ActiveTurn {
+  return { submissionId, turnId, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), pending: new Map(), approvals: Promise.resolve() }
 }
 type ActiveSideQuestion = {
   operationId: string
@@ -106,6 +112,8 @@ export class ChatController {
   private side: ActiveSideQuestion | null = null
   private controlTurn: ActiveTurn | null = null
   private mutatingThread = false
+  /** A restore replacing the view owns the phase until it lands or fails; live turn events leave it alone. */
+  private restoring: { threadId: string } | null = null
   private readonly skillNames = new Map<string, string>()
   private readonly directoryPaths = new Map<string, string>()
   private readonly options: ChatControllerOptions
@@ -126,6 +134,7 @@ export class ChatController {
   private readonly queue = new MessageQueue()
   private readonly liveSnapshot: LiveSnapshotCatalog
   private readonly background: BackgroundTasks
+  private readonly parked: ParkedConversations
 
   private readonly pluginManagement: PluginManagement
   private readonly conversationSearch: ConversationSearch
@@ -142,6 +151,7 @@ export class ChatController {
     this.settings = new ChatSettings({ preferences: options.preferences, requestApproval: options.requestApproval, report: options.report })
     this.state = { ...this.state, ...this.settings.choices() }
     this.historyList = new HistoryListController(() => this.publish(), options.report)
+    this.parked = new ParkedConversations(() => this.publish(), threadId => this.releaseParked(threadId), options.report)
   }
 
   /**
@@ -152,7 +162,7 @@ export class ChatController {
     const pending = this.pendingSend?.message
     const messages = pending && !this.state.messages.some(message => message.id === pending.id)
       ? [...this.state.messages, pending] : this.state.messages
-    return freezeSnapshot({ ...this.state, composerCatalog: this.state.phase !== "disconnected" ? this.settings.catalog() : { models: [], spaces: [] }, messages, threadId: this.threadId, messageQueue: this.queue.view(this.threadId), history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
+    return freezeSnapshot({ ...this.state, composerCatalog: this.state.phase !== "disconnected" ? this.settings.catalog() : { models: [], spaces: [] }, messages, threadId: this.threadId, messageQueue: this.queue.view(this.threadId), history: this.historyList.snapshot(), liveSessions: this.parked.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
   }
 
   /** The current phase without building a snapshot. A call, so an earlier narrowing of `this.state.phase` does not apply. */
@@ -288,6 +298,8 @@ export class ChatController {
     if (this.state.phase === "disconnected") await this.connect()
     const previous = this.session
     if (!previous || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    // Closing this connection would interrupt every conversation still running in the background.
+    if (this.parked.running()) { this.update({ notice: "后台仍有会话在运行，请等待它们结束或切回后停止，再切换空间。" }); return }
     this.update({ phase: "configuring", notice: null })
     let next: ChatSession | null = null
     try {
@@ -391,7 +403,7 @@ export class ChatController {
     if (this.disposed || this.state.phase !== "ready" || !this.session || this.state.sessionTools.busy) return false
     if (!text.trim() || text.length > 32_000) return false
     const session = this.session
-    const active: ActiveTurn = { submissionId: message.id, turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
+    const active = activeTurn(message.id)
     const attachmentIds = composerInputs ? this.resources.selectedIds() : []
     const consumeAttachments = () => {
       if (!composerInputs || this.session !== session || this.disposed) return
@@ -744,7 +756,7 @@ export class ChatController {
   async startControl(kind: "compact" | "rewind", requestId: string): Promise<void> {
     const session = this.session, threadId = this.threadId
     if (!session || !threadId || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
-    const active: ActiveTurn = { submissionId: requestId, turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
+    const active = activeTurn(requestId)
     if (this.editorGeneration) {
       this.updateTools({ busy: kind, result: null }); this.update({ phase: "sending", notice: null })
       const refusal = await this.yieldEditorForTurn(session)
@@ -888,9 +900,10 @@ export class ChatController {
   }
 
   async newChat(): Promise<void> {
-    if (this.disposed || isBusy(this.state.phase) || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    if (this.disposed || (isBusy(this.state.phase) && !this.parkable()) || this.state.backgroundBusy || this.state.sessionTools.busy) return
     this.pendingSend = null
-    if (this.session && (this.threadId || this.editorGeneration)) {
+    if (this.parkable()) this.park()
+    else if (this.session && (this.threadId || this.editorGeneration)) {
       const session = this.session
       this.update({ phase: "sending" })
       try {
@@ -922,24 +935,26 @@ export class ChatController {
 
   async showHistory(): Promise<void> {
     if (this.state.phase === "disconnected") await this.connect()
-    if (this.disposed || this.state.phase !== "ready") return
+    if (this.disposed || (this.state.phase !== "ready" && !this.parkable())) return
     await this.historyList.open()
   }
 
   closeHistory(): void { this.historyList.close() }
-  async refreshHistory(): Promise<void> { if (this.state.phase === "ready") await this.historyList.refresh() }
-  async loadMoreThreads(): Promise<void> { if (this.state.phase === "ready") await this.historyList.more() }
+  async refreshHistory(): Promise<void> { if (this.state.phase === "ready" || this.parkable()) await this.historyList.refresh() }
+  async loadMoreThreads(): Promise<void> { if (this.state.phase === "ready" || this.parkable()) await this.historyList.more() }
 
   async resumeThread(threadId: string): Promise<void> {
     const session = this.session
-    if (!session || this.disposed || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    if (!session || this.disposed || (this.state.phase !== "ready" && !this.parkable()) || this.state.backgroundBusy || this.state.sessionTools.busy) return
     if (this.conversationHistory.busy) { this.update({ notice: "正在结束上一次历史读取，请稍后重试。" }); return }
     const entry = this.historyList.snapshot().entries.find((thread) => thread.id === threadId)
-    if (!entry || entry.archived) {
+    if (!this.parked.has(threadId) && (!entry || entry.archived)) {
       this.update({ notice: "请选择当前工作区列表中可恢复的会话。" })
       return
     }
     if (threadId === this.threadId) {
+      // A running conversation is already live; only an idle one rereads its record.
+      if (this.state.phase !== "ready") { this.historyList.close(); return }
       await this.reloadHistory()
       if (!this.state.notice) this.historyList.close()
       return
@@ -951,21 +966,37 @@ export class ChatController {
     this.update({ phase: initializing ? "connecting" : "loadingHistory", notice: null })
     let saved = Promise.resolve()
     let restored = false
+    let reclaimed = null as ReclaimedTurn | null
+    const restoring = { threadId }
+    this.restoring = restoring
     try {
       await this.reclaimThread()
-      await this.conversationHistory.restore(this.historyContext(session), threadId, this.threadId, this.settingsForCore(), ({ page, modes }) => {
+      // A parked thread still running is subscribed with its own settings and must not be released if the restore fails.
+      const claim = await this.parked.claim(threadId)
+      if (this.session !== session || this.disposed) return
+      const running = claim?.settings ?? null
+      await this.conversationHistory.restore(this.historyContext(session, true), {
+        threadId, settings: running ?? this.settingsForCore(), detached: running !== null,
+        // The previous thread is parked instead of released when its turn is still running.
+        previous: () => this.active ? null : this.threadId,
+      }, ({ page, modes }) => {
+        this.park()
+        reclaimed = this.parked.take(threadId)
         this.resetResources()
         const messages = this.resources.projectHistory(threadId, page, session.cwd)
         const diffs = this.resources.restoreDiffs(session.cwd, page, true, this.state.diffs)
-        const settings = this.settings.acceptModes(modes)
+        const settings = { ...(running ? this.settings.acceptResumed(running) : {}), ...this.settings.acceptModes(modes) }
         this.threadId = threadId
         restored = true
         saved = this.rememberActiveConversation(session, threadId)
         this.update({ phase: "ready", capabilities: { ...this.state.capabilities, plan: historyPlan(page) }, messages, turnTimings: historyTurnTimings(page), ...settings, attachments: [], diffs, background: [], backgroundTasks: [], tools: [], hasOlderMessages: page.nextCursor !== null, historyNeedsRefresh: false, notice: null })
+        if (reclaimed?.turn) this.resumeTurn(reclaimed.turn)
         this.historyList.close()
       })
       await saved
       if (initializing && !restored && this.session === session && !this.disposed) this.update({ notice: "上次会话恢复已中止，请从历史会话中重试。" })
+      // The turn ended while its record was being read; read it again for the final items.
+      if (reclaimed?.endedDuringClaim && this.session === session && this.threadId === threadId && !this.active) await this.loadHistoryPage(false)
     } catch (error) {
       if (this.session !== session || this.disposed) return
       if (error instanceof UserVisibleError) { this.update({ notice: error.message }); return }
@@ -977,8 +1008,51 @@ export class ChatController {
         this.update({ notice: error.cause instanceof UserVisibleError ? error.cause.message : initializing ? "上次会话未能恢复，记录未被清除。请从历史会话中重试或新建会话。" : "会话恢复失败，当前记录已保留。请刷新历史后重试。" })
       }
     } finally {
-      if (this.session === session && !this.disposed && this.phase() === "loadingHistory") this.update({ phase: "ready" })
+      if (!restored) this.parked.unclaim(threadId)
+      if (this.restoring === restoring) this.restoring = null
+      if (this.session === session && !this.disposed && this.phase() === "loadingHistory") this.update({ phase: this.active ? "running" : "ready" })
     }
+  }
+
+  /** A turn can leave the view only while it runs and nothing else holds the thread. */
+  private parkable(): boolean {
+    return this.state.phase === "running" && !!this.session && !!this.threadId && !!this.active?.turnId && this.controlTurn === null && !this.state.sessionTools.busy
+  }
+
+  /** Leaves the running turn to Core and keeps its subscription; the caller replaces the view. */
+  private park(): void {
+    const active = this.active, threadId = this.threadId
+    if (!active?.turnId || !threadId) return
+    this.active = null
+    // Withdraws open approval panels; Core keeps the requests pending until the turn returns.
+    active.abort.abort()
+    const title = (this.historyList.snapshot().entries.find(entry => entry.id === threadId)?.title ?? this.state.messages.find(message => message.role === "user")?.text ?? "").trim().slice(0, 160) || "未命名会话"
+    this.parked.park({ threadId, title, settings: this.settingsForCore(), turnId: active.turnId, submissionId: active.submissionId, pending: [...active.pending.values()] })
+  }
+
+  /** Continues a reclaimed turn in the restored view: live events from now on, open requests asked again. */
+  private resumeTurn(turn: NonNullable<ReclaimedTurn["turn"]>): void {
+    const active = activeTurn(turn.submissionId, turn.turnId)
+    this.active = active
+    this.invalidateHistory()
+    this.startTiming(turn.turnId, turn.submissionId)
+    this.update({ phase: "running" })
+    for (const request of turn.pending) this.queueInteraction(active, request)
+  }
+
+  /** An ended parked turn gives its subscription back, as switching away from an idle thread does. */
+  private async releaseParked(threadId: string): Promise<void> {
+    const session = this.session
+    if (!session || this.disposed || this.threadId === threadId) return
+    await session.host.unsubscribeThread(session.cwd, threadId)
+  }
+
+  private queueInteraction(active: ActiveTurn, request: AppServerInteraction): void {
+    if (active.requests.has(request.requestId)) return
+    const abort = new AbortController()
+    active.requests.set(request.requestId, abort)
+    active.pending.set(request.requestId, request)
+    active.approvals = active.approvals.then(() => this.respond(request, active, abort))
   }
 
   async loadOlderMessages(): Promise<void> { if (this.conversationHistory.hasOlder) await this.loadHistoryPage(true) }
@@ -1025,14 +1099,15 @@ export class ChatController {
     }
   }
 
-  private historyContext(session: ChatSession): HistoryContext {
+  /** A page read needs an idle view; a restore may replace a running one, which is parked when it lands. */
+  private historyContext(session: ChatSession, replacing = false): HistoryContext {
     return {
       host: session.host, cwd: session.cwd, authorize: () => session.authorize(),
       readHistory: (...args) => session.readHistory(...args),
       connected: () => this.session === session && !this.disposed,
       assertCurrent: () => {
         this.options.assertTrusted()
-        if (this.session !== session || this.disposed || this.active) throw new Error("History operation no longer belongs to an idle connection")
+        if (this.session !== session || this.disposed || (this.active && !replacing)) throw new Error("History operation no longer belongs to an idle connection")
       },
     }
   }
@@ -1085,6 +1160,7 @@ export class ChatController {
     this.conversationHistory.reset()
     this.historyList.bind(null)
     this.background.stopPolling()
+    this.parked.clear()
     const plugins = this.pluginManagement.reset()
     const retiring = Promise.all([plugins, Promise.resolve().then(() => session?.host.close())]).then(() => undefined)
     this.resetResources(false, retiring)
@@ -1157,6 +1233,7 @@ export class ChatController {
       void this.retire().catch((error) => this.options.report("close", error))
       return
     }
+    if (this.parked.handle(event)) return
     if (event.type === "turn-started") this.conversationHistory.turnStarted(event.threadId, this.threadId)
     if ("threadId" in event && event.threadId === this.threadId) {
       if (event.type === "thread-modes-updated") {
@@ -1169,9 +1246,10 @@ export class ChatController {
       }
       if (event.type === "turn-started" && event.submissionId === null && !this.active) {
         this.invalidateHistory()
-        this.active = { submissionId: randomUUID(), turnId: event.turnId, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
+        this.active = activeTurn(randomUUID(), event.turnId)
         this.startTiming(event.turnId, this.active.submissionId)
-        this.update({ phase: "running" })
+        // A restore in progress settles the phase when it replaces or keeps this view.
+        if (!this.restoring) this.update({ phase: "running" })
       }
     }
     if (event.type === "warning" && (event.threadId === null || event.threadId === this.threadId)) {
@@ -1210,11 +1288,7 @@ export class ChatController {
     if (!active) return
     if (event.type === "interaction") {
       const request = event.interaction
-      if (request.threadId === this.threadId && request.turnId === active.turnId && !active.requests.has(request.requestId)) {
-        const abort = new AbortController()
-        active.requests.set(request.requestId, abort)
-        active.approvals = active.approvals.then(() => this.respond(request, active, abort))
-      }
+      if (request.threadId === this.threadId && request.turnId === active.turnId) this.queueInteraction(active, request)
       return
     }
     if (!("threadId" in event) || event.threadId !== this.threadId) return
@@ -1222,7 +1296,7 @@ export class ChatController {
       if ((event.submissionId !== null && event.submissionId !== active.submissionId) || (active.turnId && active.turnId !== event.turnId)) return
       active.turnId = event.turnId
       this.startTiming(event.turnId, active.submissionId)
-      this.update({ phase: "running" })
+      if (!this.restoring) this.update({ phase: "running" })
       return
     }
     if (!("turnId" in event) || event.turnId !== active.turnId) return
@@ -1245,6 +1319,7 @@ export class ChatController {
       const id = this.toolMessageId(event.turnId, event.itemId, event.toolCallId)
       this.upsertActivity(id, "tool", null, "running", event.delta, "", true)
     } else if (event.type === "interaction-resolved") {
+      active.pending.delete(event.requestId)
       active.requests.get(event.requestId)?.abort()
     } else if (event.type === "text-delta" || event.type === "reasoning-delta") {
       const id = `${event.turnId}:${event.itemId}`
@@ -1290,7 +1365,7 @@ export class ChatController {
       const terminalNotice = event.outcome === "failed" ? reload ? "上下文操作失败，请重试或继续发送消息。" : "本轮任务失败，可以继续发送消息。" : null
       // Only a completed turn carries the queue on; after a stop or failure the user decides.
       if (event.outcome !== "completed") this.queue.pause()
-      this.update({ phase: "ready", notice: terminalNotice, ...(event.outcome === "stopped" ? { messages: [...this.state.messages, stoppedTurnMessage(event.turnId)] } : {}) })
+      this.update({ ...(this.restoring ? {} : { phase: "ready" as const }), notice: terminalNotice, ...(event.outcome === "stopped" ? { messages: [...this.state.messages, stoppedTurnMessage(event.turnId)] } : {}) })
       // A context operation reloads the transcript first, so the queued turn lands after it.
       const reloaded = reload ? this.loadHistoryPage(false, terminalNotice) : Promise.resolve()
       if (event.outcome === "completed") void reloaded.then(() => this.dispatchQueued()).catch(error => this.options.report("queue", error))
@@ -1572,7 +1647,7 @@ export class ChatController {
       const response = await this.options.interact(request, abort.signal, session.cwd)
       if (this.active !== active || this.session !== session || abort.signal.aborted) return
       this.options.assertTrusted()
-      if (response) await session.host.respondToInteraction(request.requestId, response)
+      if (response) { await session.host.respondToInteraction(request.requestId, response); active.pending.delete(request.requestId) }
       else await this.stop()
     } catch (error) {
       this.options.report("interaction", error)

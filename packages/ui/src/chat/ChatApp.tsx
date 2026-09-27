@@ -22,9 +22,9 @@ import { DecisionPanel } from "./decisionPanel.tsx"
 import { draftRetention } from "./draftRetention.ts"
 import { draftSessionKey, emptySessionDrafts, enterSession, parseSessionDrafts, settleStashedSend, type SessionPendingSend } from "./sessionDrafts.ts"
 import { FileMentions, useFileMentions } from "./FileMentions.tsx"
-import { HistoryButton, HistoryPaging, HistoryPanel, HistoryResume } from "./HistoryPanel.tsx"
+import { HistoryButton, HistoryPaging, HistoryPanel, HistoryResume, LiveSessions } from "./HistoryPanel.tsx"
 import { composerMessageAction, inputModeText, queueInputText, sendOnEnter } from "./composerInput.ts"
-import { phaseFlags, sessionIdle } from "./chatPhase.ts"
+import { phaseFlags, sessionIdle, sessionSwitchable } from "./chatPhase.ts"
 import { LoadingState } from "./LoadingState.tsx"
 import { QueuedMessages } from "./messageQueue.tsx"
 import { MessageList } from "./MessageList.tsx"
@@ -397,7 +397,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
           {editorSurface ? (
             <div className="headerActions" id="standaloneActions">
               <HistoryButton snapshot={snapshot} post={post} />
-              <Button type="button" variant="toolbar" size="toolbarIcon" id="newChat" title="新建会话" aria-label="新建会话" disabled={!idle} onClick={() => post({ type: "newChat" })} dangerouslySetInnerHTML={{ __html: uiIcon("plus") }} />
+              <Button type="button" variant="toolbar" size="toolbarIcon" id="newChat" title="新建会话" aria-label="新建会话" disabled={!sessionSwitchable(snapshot)} onClick={() => post({ type: "newChat" })} dangerouslySetInnerHTML={{ __html: uiIcon("plus") }} />
               <Button type="button" variant="toolbar" size="toolbarIcon" id="showOutput" title="查看 CodeM 日志" aria-label="查看 CodeM 日志" onClick={() => post({ type: "showOutput" })} dangerouslySetInnerHTML={{ __html: uiIcon("terminal") }} />
             </div>
           ) : null}
@@ -428,6 +428,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
           <div><button id="connect" type="button" className="primaryButton" onClick={() => post({ type: "connect" })}>连接工作区</button></div>
         </div>
         <HistoryResume snapshot={snapshot} post={post} />
+        <LiveSessions snapshot={snapshot} post={post} />
         <p id="notice" className="notice" role="status" hidden={!snapshot.notice}>{snapshot.notice ?? ""}</p>
         <p id="dropNotice" className="notice" role="status" hidden={!dropNotice}>{dropNotice ?? ""}</p>
         <DecisionPanel panel={snapshot.pendingPanel} post={post} />

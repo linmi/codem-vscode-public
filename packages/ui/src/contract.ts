@@ -156,6 +156,14 @@ export interface HistoryList {
   error: string | null
 }
 
+/** 切到别的会话后仍在后台运行或已结束未查看的会话；当前会话不在其中。 */
+export type LiveSessionStatus = "running" | "awaitingApproval" | "completed" | "stopped" | "failed"
+export interface LiveSessionView {
+  id: string
+  title: string
+  status: LiveSessionStatus
+}
+
 export interface FileHit {
   id: string
   label: string
@@ -344,6 +352,7 @@ export interface ChatSnapshot {
   tools: readonly string[]
   mcpNames: readonly string[]
   history: HistoryList
+  liveSessions: readonly LiveSessionView[]
   fileSearch: FileSearch | null
   sendKey: SendKey
 }
@@ -421,6 +430,7 @@ export function initialSnapshot(): ChatSnapshot {
     tools: [],
     mcpNames: [],
     history: { open: false, loading: false, entries: [], hasMore: false, error: null },
+    liveSessions: [],
     fileSearch: null,
     sendKey: "enter",
   }
@@ -836,6 +846,20 @@ function parsePastedImages(value: unknown): { mediaType: string; data: string }[
     if (typeof image.mediaType !== "string" || !pasteTypes.has(image.mediaType)) throw new Error("Invalid CodeM action")
     if (typeof image.data !== "string" || !image.data || image.data.length > 28_000_000) throw new Error("Invalid CodeM action")
     return { mediaType: image.mediaType, data: image.data }
+  })
+}
+
+const liveSessionStatuses: readonly LiveSessionStatus[] = ["running", "awaitingApproval", "completed", "stopped", "failed"]
+function normalizeLiveSessions(value: unknown, current: string | null): LiveSessionView[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  return value.slice(0, 32).flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const entry = item as LiveSessionView
+    if (typeof entry.id !== "string" || !threadIdPattern.test(entry.id) || entry.id === current || seen.has(entry.id)) return []
+    if (typeof entry.title !== "string" || !entry.title.trim() || !liveSessionStatuses.includes(entry.status)) return []
+    seen.add(entry.id)
+    return [{ id: entry.id, title: entry.title.slice(0, 160), status: entry.status }]
   })
 }
 
@@ -1309,6 +1333,7 @@ export function asSnapshot(value: unknown): ChatSnapshot | null {
     tools: normalizeNames(record.tools),
     mcpNames: normalizeNames(record.mcpNames),
     history: normalizeHistory(record.history),
+    liveSessions: normalizeLiveSessions(record.liveSessions, thread),
     fileSearch: normalizeFileSearch(record.fileSearch),
     sendKey: record.sendKey === "modEnter" ? "modEnter" : "enter",
   }

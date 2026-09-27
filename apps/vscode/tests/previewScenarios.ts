@@ -12,7 +12,7 @@ export const previewScenarios = [
   ["waitingForHost", "状态", "首屏 · 宿主尚未响应"],
   ["thinking", "状态", "思考中"], ["tools", "状态", "工具执行中"],
   ["failed", "状态", "工具失败"], ["stopping", "状态", "正在停止"],
-  ["historyLoading", "状态", "历史恢复中"], ["history", "对话", "历史会话列表"],
+  ["historyLoading", "状态", "历史恢复中"], ["history", "对话", "历史会话列表"], ["liveSessions", "对话", "后台会话"],
   ["space", "菜单", "空间选择"], ["model", "菜单", "模型选择"],
   ["effort", "菜单", "思考强度"], ["workMode", "菜单", "工作模式"],
   ["permissionDefault", "菜单", "权限 · 默认"], ["permissionAuto", "菜单", "权限 · 自动审批"], ["permissionYolo", "菜单", "权限 · 完全访问"],
@@ -37,6 +37,11 @@ export function applyPreviewScenario(state: ChatSnapshot, scenario: string): str
   if (scenario === "disconnected" || scenario === "connecting") { empty(); state.phase = scenario; state.space = null; state.workspace = null; state.model = null }
   if (scenario === "firstSend") { empty(); state.phase = "disconnected"; state.space = null; state.workspace = null; state.model = null }
   if (scenario === "historyLoading") state.phase = "loadingHistory"
+  if (scenario === "liveSessions") state.liveSessions = [
+    { id: "previewLive0", title: "重构登录流程并补齐单元测试", status: "awaitingApproval" },
+    { id: "previewLive1", title: "检查工作区文件", status: "running" },
+    { id: "previewLive2", title: "优化聊天交互", status: "completed" },
+  ]
   if (scenario === "history") state.history = { open: true, loading: false, hasMore: true, error: null, entries: ["整理登录页面", "检查工作区文件", "优化聊天交互"].map((title, i) => ({ id: `preview${i}`, title, startedAt: new Date(Date.now() - i * 86400000).toISOString(), turnCount: i + 1, archived: false })) }
   if (["thinking", "tools", "failed", "stopping"].includes(scenario)) {
     state.messages = state.messages.slice(0, scenario === "thinking" ? 2 : 3)

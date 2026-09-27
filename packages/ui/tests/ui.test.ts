@@ -401,3 +401,16 @@ it("validates queue actions and bounds the queue the Host reports", () => {
   assert.equal(queue.paused, true)
   assert.equal(asSnapshot({ type: "state", messageQueue: { items: [], paused: true } })!.messageQueue!.paused, false)
 })
+
+it("keeps only well-formed background sessions other than the current thread", () => {
+  const snapshot = asSnapshot({ type: "state", threadId: "current", liveSessions: [
+    { id: "current", title: "当前", status: "running" },
+    { id: "other", title: "后台任务", status: "awaitingApproval" },
+    { id: "other", title: "重复", status: "running" },
+    { id: "../path", title: "路径", status: "running" },
+    { id: "bad-status", title: "状态", status: "queued" },
+    { id: "untitled", title: " ", status: "completed" },
+  ] })
+  assert.deepEqual(snapshot?.liveSessions, [{ id: "other", title: "后台任务", status: "awaitingApproval" }])
+  assert.deepEqual(asSnapshot({ type: "state" })?.liveSessions, [])
+})

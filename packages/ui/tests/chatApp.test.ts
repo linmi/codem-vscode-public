@@ -15,6 +15,7 @@ interface Views {
   DecisionPanel: (props: { panel: PendingPanel | null; post: (action: Record<string, unknown>) => void }) => unknown
   HistoryPaging: (props: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) => unknown
   HistoryResume: (props: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) => unknown
+  LiveSessions: (props: { snapshot: ChatSnapshot; post: (action: Record<string, unknown>) => void }) => unknown
   createElement: (type: unknown, props: Record<string, unknown>) => unknown
   renderToStaticMarkup: (element: unknown) => string
 }
@@ -30,7 +31,7 @@ before(async () => {
     contents: [
       "export { ChatApp } from './src/chat/ChatApp.tsx'",
       "export { DecisionPanel } from './src/chat/decisionPanel.tsx'",
-      "export { HistoryPaging, HistoryResume } from './src/chat/HistoryPanel.tsx'",
+      "export { HistoryPaging, HistoryResume, LiveSessions } from './src/chat/HistoryPanel.tsx'",
       "export { createElement } from 'react'",
       "export { renderToStaticMarkup } from 'react-dom/server'",
     ].join("\n"),
@@ -115,10 +116,15 @@ describe("composer controls", () => {
     const ready = { ...initialSnapshot(), account: signedIn, phase: "ready" as const, workspace: "demo", space: "研发空间" }
     const idle = render(ready)
     for (const id of controls) assert.equal(disabled(idle, id), false, `${id} while idle`)
-    for (const busy of [{ phase: "running" as const }, { backgroundBusy: true }, { sessionTools: { ...ready.sessionTools, busy: "compact" } }]) {
+    for (const busy of [{ phase: "sending" as const }, { phase: "stopping" as const }, { backgroundBusy: true }, { sessionTools: { ...ready.sessionTools, busy: "compact" } }]) {
       const html = render({ ...ready, ...busy })
       for (const id of controls) assert.equal(disabled(html, id), true, `${id} with ${JSON.stringify(busy)}`)
     }
+  })
+
+  it("keeps new chat available while a turn runs, which moves that turn to the background", () => {
+    const running = render({ ...initialSnapshot(), account: signedIn, phase: "running", workspace: "demo", space: "研发空间" })
+    for (const id of controls) assert.equal(disabled(running, id), id !== "newChat", `${id} while running`)
   })
 
   it("labels the message field and send button from the input mode text", () => {
@@ -209,6 +215,28 @@ describe("conditional entries on first paint", () => {
     const older = renderApp({ ...ready, threadId: "thread-1", canLoadOlder: true, messages: [{ id: "m1", role: "user", text: "你好" }] })
     assert.equal(entries.olderMessages!(older), true)
     assert.equal(entries.resumeThread!(older), false)
+  })
+
+  it("lists background sessions only when the Host reports them and switches on click", () => {
+    const actions: Record<string, unknown>[] = []
+    const post = (action: Record<string, unknown>) => actions.push(action)
+    const ready = { ...initialSnapshot(), account: signedIn, phase: "ready" as const }
+    assert.equal(views.LiveSessions({ snapshot: ready, post }), null)
+    const snapshot = { ...ready, liveSessions: [{ id: "thread-a", title: "重构登录", status: "awaitingApproval" as const }, { id: "thread-b", title: "补测试", status: "completed" as const }] }
+    const html = views.renderToStaticMarkup(views.createElement(views.LiveSessions, { snapshot, post }))
+    assert.match(html, /后台会话：1 个运行中，其中 1 个等待审批，1 个已结束/u)
+    assert.match(html, /重构登录<\/span><small data-status="awaitingApproval">等待审批/u)
+    const press = (node: unknown, title: string): boolean => {
+      if (Array.isArray(node)) return node.some(child => press(child, title))
+      const props = (node as { props?: { children?: unknown; title?: string; onClick?: () => void } } | null)?.props
+      if (!props) return false
+      if (props.onClick && props.title === title) { props.onClick(); return true }
+      return press(props.children, title)
+    }
+    assert.ok(press(views.LiveSessions({ snapshot, post }), "切换到「补测试」"))
+    assert.deepEqual(actions, [{ type: "resumeThread", threadId: "thread-b" }])
+    const sending = views.renderToStaticMarkup(views.createElement(views.LiveSessions, { snapshot: { ...snapshot, phase: "sending" }, post }))
+    assert.equal(sending.match(/disabled=""/gu)?.length, 2, "switching waits while a message is being sent")
   })
 
   it("posts the Host-provided thread for resume and a plain request for older messages", () => {

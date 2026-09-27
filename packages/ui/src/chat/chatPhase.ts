@@ -31,3 +31,11 @@ export function phaseFlags(phase: ChatPhase): PhaseFlags {
 export function sessionIdle(snapshot: Pick<ChatSnapshot, "phase" | "backgroundBusy" | "sessionTools">): boolean {
   return !isBusy(snapshot.phase) && !snapshot.backgroundBusy && !snapshot.sessionTools.busy
 }
+
+/**
+ * 新建会话、切换会话：空闲时可以，运行中也可以（当前回合转到后台继续）。
+ * 发送、停止、旁路提问、压缩或回退进行中，以及后台进程或会话工具在处理时不可切换。
+ */
+export function sessionSwitchable(snapshot: Pick<ChatSnapshot, "phase" | "backgroundBusy" | "sessionTools">): boolean {
+  return (snapshot.phase === "ready" || snapshot.phase === "running") && !snapshot.backgroundBusy && !snapshot.sessionTools.busy
+}

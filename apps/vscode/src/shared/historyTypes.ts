@@ -21,3 +21,11 @@ export interface HistoryList {
 export function emptyHistoryList(): HistoryList {
   return { open: false, loading: false, entries: [], hasMore: false, error: null }
 }
+
+/** A conversation left running in the background when the chat switched away; ended ones stay until viewed. */
+export type LiveSessionStatus = "running" | "awaitingApproval" | "completed" | "stopped" | "failed"
+export interface LiveSessionView {
+  id: string
+  title: string
+  status: LiveSessionStatus
+}
