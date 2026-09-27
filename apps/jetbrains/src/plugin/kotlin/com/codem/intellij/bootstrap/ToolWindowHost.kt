@@ -21,6 +21,7 @@ import com.codem.intellij.session.HostLoadingFeedback
 import com.codem.intellij.session.ModeCommands
 import com.codem.intellij.session.ProjectSession
 import com.codem.intellij.session.SafeNotice
+import com.codem.intellij.session.SideGenerations
 import com.codem.intellij.webview.ChatSnapshot
 import com.codem.intellij.webview.FileHitView
 import com.codem.intellij.webview.FileSearchView
@@ -155,6 +156,12 @@ class ToolWindowHost(
     /** 选择权限模式命令：只请求界面打开真实的权限菜单，完全访问仍由界面确认；界面忙碌时丢弃这次请求。 */
     fun openPermissionMenu() {
         publisher.update { it.copy(permissionMenuRequest = it.permissionMenuRequest + 1) }
+    }
+
+    /** IDE 文本生成（终端命令）：借用已连接聊天的旁路提问；未连接时明确失败，不替用户连接。 */
+    fun generateText(prompt: String, cancelled: () -> Boolean): String {
+        val session = sessionRef.get() ?: throw CodemError.Conflict(SideGenerations.NOT_READY)
+        return session.generateText(prompt, cancelled)
     }
 
     fun dispose() {

@@ -163,6 +163,7 @@ class ProjectSession(
     private var threadStatus: String? = null
     private var theme = "light"
     private var sideQuestionId: String? = null
+    private val generations = SideGenerations()
     private var historyMessages = mutableListOf<ChatMessageView>()
     private var turnTimings = mutableListOf<TurnTimingView>()
     private var notice: SessionNotice? = null
@@ -360,6 +361,7 @@ class ProjectSession(
             if (turnPhase == TurnPhase.Submitting || turnPhase == TurnPhase.Running || turnPhase == TurnPhase.Interrupting) {
                 throw CodemError.Conflict("CodeM submission is already in progress")
             }
+            if (generations.busy) throw CodemError.Conflict(SideGenerations.BUSY)
             turns.beginSubmit(requestId)
             notice = null
             historyMessages += ChatMessageView(requestId, "user", trimmed, turnId = requestId)
@@ -545,7 +547,7 @@ class ProjectSession(
         WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.CONTROL_THREAD)
         val (coreProcess, currentGeneration) = mutate {
             requireReadyLocked()
-            if (threadChangeGeneration != null || turns.current?.phase == TurnPhase.Submitting || (!allowRunning && !idleTurnLocked())) {
+            if (threadChangeGeneration != null || generations.busy || turns.current?.phase == TurnPhase.Submitting || (!allowRunning && !idleTurnLocked())) {
                 throw CodemError.Conflict("CodeM cannot switch conversations during another operation")
             }
             val current = generation.get()
@@ -823,6 +825,75 @@ class ProjectSession(
         val result = requestResult(coreProcess, method, params, currentGeneration)
         if (result.stringOrNull("sideQuestionId") != sideQuestionId || result.stringOrNull("status") != "cancelled") {
             throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM side question cancellation returned an invalid status")
+        }
+    }
+
+    /**
+     * One text generation for an IDE command, on the current thread's side-question slot; it never starts an Agent
+     * turn. A blank chat's first thread is created here, as in VS Code, and becomes the chat's own. [cancelled] is
+     * polled: cancelling, or waiting past [timeoutMs], sends thread/sideQuestion/cancel and still gives Core a moment
+     * to settle the slot before the next generation may start.
+     */
+    fun generateText(prompt: String, cancelled: () -> Boolean, timeoutMs: Long = GENERATION_TIMEOUT_MS): String {
+        WorkspaceTrustPolicy.requireTrusted(trusted, WorkspaceTrustPolicy.SEND_TURN)
+        val question = prompt.trim()
+        if (question.isEmpty() || prompt.length > 32_000) throw CodemError.Validation("CodeM 生成请求为空或过长。")
+        val (coreProcess, existing, currentGeneration, active) = mutate {
+            if (phase != ConnectionPhase.Ready || core == null) throw CodemError.Conflict(SideGenerations.NOT_READY)
+            if (threadChangeGeneration != null || !idleTurnLocked()) throw CodemError.Conflict(SideGenerations.NOT_READY)
+            Quadruple(core!!, threadId, generation.get(), generations.begin(question))
+        }
+        try {
+            val thread = existing ?: startThread(coreProcess).also { created ->
+                mutate {
+                    assertGeneration(currentGeneration)
+                    bindThreadLocked(created)
+                }
+            }
+            val (method, params) = ThreadCommands.sideQuestion(thread, question)
+            val result = requestResult(coreProcess, method, params, currentGeneration)
+            val accepted = result.requiredObject("sideQuestion", "$method result")
+            if (accepted.stringOrNull("status") != "accepted") {
+                throw CodemError.Protocol(CodemError.Class.InvalidFrame, "CodeM side question returned invalid status")
+            }
+            lock.withLock { generations.accept(active, thread, accepted.requiredString("id", "$method result.sideQuestion")) }
+            return awaitGeneration(active, coreProcess, currentGeneration, cancelled, timeoutMs)
+        } finally {
+            mutate { generations.release(active) }
+        }
+    }
+
+    private fun awaitGeneration(
+        active: SideGenerations.Active,
+        coreProcess: CoreProcess,
+        currentGeneration: Long,
+        cancelled: () -> Boolean,
+        timeoutMs: Long,
+    ): String {
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
+        while (true) {
+            try {
+                return active.outcome.get(GENERATION_POLL_MS, TimeUnit.MILLISECONDS)
+            } catch (_: java.util.concurrent.TimeoutException) {
+            } catch (error: java.util.concurrent.ExecutionException) {
+                throw error.cause ?: error
+            }
+            val reason = when {
+                cancelled() -> SideGenerations.CANCELLED
+                System.nanoTime() > deadline -> SideGenerations.TIMED_OUT
+                else -> continue
+            }
+            // A cancel receipt is not terminal: Core settles the slot with sideQuestion/completed, which is awaited briefly.
+            val target = lock.withLock { generations.sideQuestionOf(active) }
+            if (target != null) {
+                try {
+                    val (method, params) = ThreadCommands.cancelSideQuestion(target.first, target.second)
+                    requestResult(coreProcess, method, params, currentGeneration)
+                    active.outcome.get(GENERATION_SETTLE_MS, TimeUnit.MILLISECONDS)
+                } catch (_: Exception) {
+                }
+            }
+            throw CodemError.Cancelled(reason)
         }
     }
 
@@ -1340,6 +1411,7 @@ class ProjectSession(
         background = emptyList()
         backgroundTasks.clear()
         sideQuestionId = null
+        generations.clear()
     }
 
     private fun threadDirectories(): List<String> = lock.withLock {
@@ -1409,6 +1481,7 @@ class ProjectSession(
         generation.set(connectionIds.incrementAndGet())
         val revoked = interactions.revoke(generation.get())
         abandonTurnLocked()
+        generations.clear()
         lastThreadId = threadId ?: lastThreadId
         threadId = null
         modesValid = false
@@ -1538,6 +1611,7 @@ class ProjectSession(
     private fun requireIdleTurn(method: String) {
         lock.withLock {
             if (threadChangeGeneration != null) throw CodemError.Conflict("CodeM is switching conversations")
+            if (generations.busy) throw CodemError.Conflict(SideGenerations.BUSY)
             val turnPhase = turns.current?.phase
             if (turnPhase == TurnPhase.Submitting || turnPhase == TurnPhase.Running || turnPhase == TurnPhase.Interrupting) {
                 throw CodemError.Conflict("Cannot $method active CodeM thread")
@@ -1714,6 +1788,9 @@ class ProjectSession(
                 lastThreadId = threadId ?: lastThreadId
                 threadId = null
                 modesValid = false
+            }
+            "thread/sideQuestion/started", "thread/sideQuestion/delta", "thread/sideQuestion/completed" -> {
+                generations.apply(notification.method, notification.params)
             }
             "turn/diff/updated" -> {
                 turns.apply(notification, threadId)
@@ -1894,6 +1971,9 @@ class ProjectSession(
         private const val AUTH_INVALIDATED = "CodeM authentication is no longer valid"
         private const val HISTORY_LOAD_FAILED = "无法加载会话列表，请刷新重试。"
         private const val MODE_RESPONSE = "mode response"
+        private const val GENERATION_TIMEOUT_MS = 45_000L
+        private const val GENERATION_POLL_MS = 200L
+        private const val GENERATION_SETTLE_MS = 5_000L
         private val CATALOG_COLLECTIONS = setOf(
             "skills", "hooks", "plugins", "profiles", "spaces", "items", "turns", "tools", "permissionProfiles",
         )

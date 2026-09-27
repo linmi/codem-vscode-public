@@ -1776,6 +1776,109 @@ class ProjectSessionTest {
             }
     }
 
+    @Test
+    fun textGenerationBorrowsTheSideQuestionSlotAndReturnsTheAnswer() {
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, params ->
+                if (method != "thread/sideQuestion/start") return@startResponder null
+                assertEquals("生成一条命令", params.requiredString("question", "side question"))
+                sideQuestionStream(process, "thread-1", "side-1", "生成一条命令", listOf("{\"command\":", "\"ls -la\"}"))
+                JsonValue.obj("sideQuestion" to JsonValue.obj("id" to JsonValue.Text("side-1"), "status" to JsonValue.Text("accepted")))
+            })
+            process
+        }
+        try {
+            session.connect()
+            // A side question the chat asked itself is not the generation's and changes nothing.
+            enqueueNotification(process, "thread/sideQuestion/delta", JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "sideQuestionId" to JsonValue.Text("other"), "delta" to JsonValue.Text("x")))
+            assertEquals("{\"command\":\"ls -la\"}", session.generateText("  生成一条命令 ", { false }))
+            val methods = process.writes.mapNotNull { JsonValue.parse(it).asObject().stringOrNull("method") }
+            assertEquals(listOf("thread/start", "thread/sideQuestion/start"), methods.filter { it.startsWith("thread/") }, "A blank chat gets its first thread")
+            assertTrue("turn/start" !in methods, "Generation never starts an Agent turn")
+            assertEquals("thread-1", session.snapshot().threadId)
+            assertEquals("turn-1", session.send("afterwards", "req-after"), "The slot is released once the answer arrives")
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun cancellingATextGenerationCancelsTheSideQuestionAndBlocksNothingAfterwards() {
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, params ->
+                when (method) {
+                    "thread/sideQuestion/start" -> JsonValue.obj("sideQuestion" to JsonValue.obj("id" to JsonValue.Text("side-1"), "status" to JsonValue.Text("accepted")))
+                    "thread/sideQuestion/cancel" -> {
+                        enqueueNotification(process, "thread/sideQuestion/completed", JsonValue.obj(
+                            "threadId" to JsonValue.Text("thread-1"),
+                            "sideQuestion" to JsonValue.obj("id" to params.required("sideQuestionId"), "status" to JsonValue.Text("interrupted")),
+                        ))
+                        JsonValue.obj("sideQuestionId" to params.required("sideQuestionId"), "status" to JsonValue.Text("cancelled"))
+                    }
+                    else -> null
+                }
+            })
+            process
+        }
+        try {
+            session.connect()
+            val cancel = java.util.concurrent.atomic.AtomicBoolean(false)
+            val running = java.util.concurrent.CompletableFuture.supplyAsync { session.generateText("生成", { cancel.get() }) }
+            awaitCondition { process.writes.any { it.contains("thread/sideQuestion/start") } }
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.send("while generating", "req-busy") }
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.generateText("second", { false }) }
+            cancel.set(true)
+            val failure = org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.ExecutionException::class.java) { running.get(5, java.util.concurrent.TimeUnit.SECONDS) }
+            assertEquals(SideGenerations.CANCELLED, failure.cause?.message)
+            val cancelParams = process.writes.map { JsonValue.parse(it).asObject() }
+                .single { it.stringOrNull("method") == "thread/sideQuestion/cancel" }.required("params").asObject()
+            assertEquals("side-1", cancelParams.requiredString("sideQuestionId", "cancel"))
+            assertEquals("turn-1", session.send("afterwards", "req-after"))
+            // A running turn owns the thread: generation waits for it instead of competing.
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.generateText("during turn", { false }) }
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun aTextGenerationWithoutAnAnswerTimesOutAndCancels() {
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, params ->
+                when (method) {
+                    "thread/sideQuestion/start" -> JsonValue.obj("sideQuestion" to JsonValue.obj("id" to JsonValue.Text("side-9"), "status" to JsonValue.Text("accepted")))
+                    "thread/sideQuestion/cancel" -> JsonValue.obj("sideQuestionId" to params.required("sideQuestionId"), "status" to JsonValue.Text("cancelled"))
+                    else -> null
+                }
+            })
+            process
+        }
+        try {
+            session.connect()
+            val failure = org.junit.jupiter.api.Assertions.assertThrows(CodemError.Cancelled::class.java) {
+                session.generateText("生成", { false }, timeoutMs = 300)
+            }
+            assertEquals(SideGenerations.TIMED_OUT, failure.message)
+            assertTrue(process.writes.any { it.contains("thread/sideQuestion/cancel") })
+        } finally { session.close().join() }
+    }
+
+    /** started → deltas → completed for one side question, as Core streams it. */
+    private fun sideQuestionStream(process: ScriptedProcess, threadId: String, id: String, question: String, deltas: List<String>) {
+        enqueueNotification(process, "thread/sideQuestion/started", JsonValue.obj(
+            "threadId" to JsonValue.Text(threadId),
+            "sideQuestion" to JsonValue.obj("id" to JsonValue.Text(id), "question" to JsonValue.Text(question), "status" to JsonValue.Text("inProgress")),
+        ))
+        for (delta in deltas) {
+            enqueueNotification(process, "thread/sideQuestion/delta", JsonValue.obj(
+                "threadId" to JsonValue.Text(threadId), "sideQuestionId" to JsonValue.Text(id), "delta" to JsonValue.Text(delta),
+            ))
+        }
+        enqueueNotification(process, "thread/sideQuestion/completed", JsonValue.obj(
+            "threadId" to JsonValue.Text(threadId),
+            "sideQuestion" to JsonValue.obj("id" to JsonValue.Text(id), "status" to JsonValue.Text("completed")),
+        ))
+    }
+
     /** 只认推送给界面的快照，不看域内部状态，才能证明界面确实被通知到。 */
     private fun awaitPublished(
         published: List<com.codem.intellij.webview.ChatSnapshot>,
