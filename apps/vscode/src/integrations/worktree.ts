@@ -44,6 +44,30 @@ export function worktreeLocation(mainWorktree: string, branch: string): string {
   return join(dirname(mainWorktree), `${basename(mainWorktree)}.worktrees`, branch.replace(/\//g, "-"))
 }
 
+/**
+ * The line of git's stderr that says what went wrong: the first `error:` or `fatal:` line, else the last line that
+ * is not a `hint:`. Hints come last and would otherwise replace the reason.
+ */
+export function gitErrorMessage(stderr: string): string | null {
+  const lines = stderr.replace(/\r\n/g, "\n").split("\n").map(line => line.trim()).filter(Boolean)
+  const reason = lines.find(line => /^(error|fatal):/.test(line)) ?? lines.filter(line => !line.startsWith("hint:")).at(-1)
+  return reason?.replace(/^(error|fatal):\s*/, "") ?? null
+}
+
+/**
+ * `target` spelled the way this window's folder was opened. Git reports real paths, so a checkout opened through a
+ * symlink (macOS `/tmp` → `/private/tmp`) would otherwise open a second window instead of focusing the existing one.
+ */
+export function asOpenedPath(target: string, opened: string, openedReal: string, separator = "/"): string {
+  const a = opened.split(separator), b = openedReal.split(separator)
+  let shared = 0
+  while (shared < a.length && shared < b.length && a[a.length - 1 - shared] === b[b.length - 1 - shared]) shared++
+  const openedPrefix = a.slice(0, a.length - shared).join(separator)
+  const realPrefix = b.slice(0, b.length - shared).join(separator)
+  if (openedPrefix === realPrefix || !realPrefix || !target.startsWith(realPrefix + separator)) return target
+  return openedPrefix + target.slice(realPrefix.length)
+}
+
 export class Worktrees {
   private readonly git: GitRunner
   constructor(git: GitRunner) { this.git = git }

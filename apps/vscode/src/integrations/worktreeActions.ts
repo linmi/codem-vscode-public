@@ -1,8 +1,8 @@
 import * as vscode from "vscode"
 import { execFile } from "node:child_process"
 import { realpath } from "node:fs/promises"
-import { basename } from "node:path"
-import { suggestedBranch, Worktrees, type GitRunner, type WorktreeEntry } from "./worktree.ts"
+import { basename, sep } from "node:path"
+import { asOpenedPath, gitErrorMessage, suggestedBranch, Worktrees, type GitRunner, type WorktreeEntry } from "./worktree.ts"
 import { assertTrusted } from "../connection/runtimeSession.ts"
 
 // Narrow structural contract of the built-in vscode.git API v1 (VS Code 1.105.1).
@@ -13,7 +13,7 @@ interface GitExtension { enabled: boolean; getAPI(version: 1): GitApi }
 function runner(gitPath: string): GitRunner {
   return (args, cwd, signal) => new Promise((resolve, reject) => {
     execFile(gitPath, [...args], { cwd, signal, maxBuffer: 4 * 1024 * 1024, windowsHide: true }, (error, stdout, stderr) => {
-      if (error) reject(new Error(String(stderr).trim().split("\n").at(-1)?.replace(/^fatal:\s*/, "") || error.message))
+      if (error) reject(new Error(gitErrorMessage(String(stderr)) ?? error.message))
       else resolve(String(stdout))
     })
   })
@@ -34,9 +34,14 @@ async function pickRepository(api: GitApi, title: string): Promise<Repository | 
   return (await vscode.window.showQuickPick(repositories.map(repo => ({ label: vscode.workspace.asRelativePath(repo.rootUri, true), repository: repo })), { title }))?.repository
 }
 
-/** Opening always uses a new window: each window owns one workspace, one Core connection and its own sessions. */
-async function openWindow(path: string): Promise<void> {
-  await vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(path), { forceNewWindow: true })
+/**
+ * Opening always uses a new window: each window owns one workspace, one Core connection and its own sessions. The
+ * path is respelled like this window's folder so a window already showing it is focused rather than duplicated.
+ */
+async function openWindow(path: string, repository: Repository): Promise<void> {
+  const opened = vscode.workspace.getWorkspaceFolder(repository.rootUri)?.uri.fsPath ?? repository.rootUri.fsPath
+  const target = asOpenedPath(path, opened, await realpath(opened).catch(() => opened), sep)
+  await vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(target), { forceNewWindow: true })
 }
 
 function describe(entry: WorktreeEntry): string {
@@ -80,8 +85,10 @@ export function registerWorktreeActions(log: (message: string) => void): vscode.
     // Not cancellable: stopping git midway can leave a half-created worktree directory behind.
     const path = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `正在创建 worktree ${branch}` }, () => worktrees.create(root, branch, base))
     log(`Worktree created: ${Math.round(performance.now() - started)}ms`)
-    const choice = await vscode.window.showInformationMessage(`已创建 worktree ${branch}。`, { detail: path }, "在新窗口打开")
-    if (choice === "在新窗口打开") await openWindow(path)
+    // Not awaited: an unanswered toast must not hold the one-operation guard for every later command.
+    void vscode.window.showInformationMessage(`已创建 worktree ${branch}：${path}`, "在新窗口打开").then(choice => {
+      if (choice === "在新窗口打开") return openWindow(path, repository)
+    }).then(undefined, (error: unknown) => { void vscode.window.showErrorMessage(error instanceof Error ? error.message : "无法打开 worktree。") })
   }
 
   const open = async () => {
@@ -102,7 +109,7 @@ export function registerWorktreeActions(log: (message: string) => void): vscode.
       return
     }
     const picked = await vscode.window.showQuickPick(others, { title: "在新窗口打开 worktree", matchOnDetail: true })
-    if (picked) await openWindow(picked.path)
+    if (picked) await openWindow(picked.path, repository)
   }
 
   return vscode.Disposable.from(guarded("codem.newWorktree", create), guarded("codem.openWorktree", open))
