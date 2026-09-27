@@ -155,6 +155,16 @@
         "category": "CodeM"
       },
       {
+        "command": "codem.newWorktree",
+        "title": "新建 worktree",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.openWorktree",
+        "title": "在新窗口打开 worktree",
+        "category": "CodeM"
+      },
+      {
         "command": "codem.generateCommitMessage",
         "title": "生成暂存变更的提交说明",
         "category": "CodeM",
