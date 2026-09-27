@@ -18,6 +18,7 @@ import com.codem.intellij.history.HistoryReplay
 import com.codem.intellij.history.SessionsRoot
 import com.codem.intellij.ide.HistorySource
 import com.codem.intellij.session.HostLoadingFeedback
+import com.codem.intellij.session.ModeCommands
 import com.codem.intellij.session.ProjectSession
 import com.codem.intellij.session.SafeNotice
 import com.codem.intellij.webview.ChatSnapshot
@@ -92,6 +93,7 @@ class ToolWindowHost(
     private val runtimeVerifier = pluginRoot?.let(::RuntimeVerifier)
 
     init {
+        project.putUserData(HOST_KEY, this)
         ApplicationManager.getApplication().messageBus.connect(project)
             .subscribe(LafManagerListener.TOPIC, LafManagerListener {
                 if (!project.isDisposed) publisher.refresh()
@@ -137,7 +139,26 @@ class ToolWindowHost(
         }
     }
 
+    /**
+     * 切换工作模式命令：与输入栏菜单同走会话的模式事务。只在空闲且已连接时生效，忙碌时忽略；
+     * 未连接时提示先连接，不替用户启动 Core。
+     */
+    fun cycleWorkMode() {
+        val view = publisher.current()
+        if (sessionRef.get() == null || !ModeCommands.canChangeModes(view)) {
+            if (view.phase == "disconnected" || view.phase == "failed") notify(CONNECT_BEFORE_MODE)
+            return
+        }
+        applyOnSession(ViewAction.SetWorkMode(ModeCommands.nextWorkMode(view.workMode)))
+    }
+
+    /** 选择权限模式命令：只请求界面打开真实的权限菜单，完全访问仍由界面确认；界面忙碌时丢弃这次请求。 */
+    fun openPermissionMenu() {
+        publisher.update { it.copy(permissionMenuRequest = it.permissionMenuRequest + 1) }
+    }
+
     fun dispose() {
+        if (project.getUserData(HOST_KEY) === this) project.putUserData(HOST_KEY, null)
         accountRefresh.close()
         connectGeneration.incrementAndGet()
         cancelLogin()
@@ -639,8 +660,13 @@ class ToolWindowHost(
 
     /** 页面视图：有会话时取会话快照，否则取 Host 状态；账户与品牌标记始终来自 Host。 */
     private fun compose(local: ChatSnapshot): ChatSnapshot {
-        val view = sessionRef.get()?.snapshot()?.let { it.copy(account = local.account, brandMark = local.brandMark ?: it.brandMark) }
-            ?: local
+        val view = sessionRef.get()?.snapshot()?.let {
+            it.copy(
+                account = local.account,
+                brandMark = local.brandMark ?: it.brandMark,
+                permissionMenuRequest = local.permissionMenuRequest,
+            )
+        } ?: local
         return themed(view)
     }
 
@@ -683,6 +709,12 @@ class ToolWindowHost(
     }
 
     companion object {
+        private val HOST_KEY = com.intellij.openapi.util.Key.create<ToolWindowHost>("codem.toolWindowHost")
+
+        /** The chat host of this project's CodeM tool window, once its content has been created. */
+        fun of(project: Project): ToolWindowHost? = project.getUserData(HOST_KEY)
+
+        private const val CONNECT_BEFORE_MODE = "请先连接 CodeM 再切换工作模式"
         private val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp")
         private const val CONNECT_BEFORE_SELECTION = "请先连接后再引用选区"
         private const val CONNECT_BEFORE_ATTACHMENT = "请先连接后再添加附件"
