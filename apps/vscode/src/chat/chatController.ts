@@ -20,7 +20,7 @@ import type { SettingsPersistence } from "../connection/connectionPreferences.ts
 import { projectToolDetails } from "./toolDetails.ts"
 import type { ArtifactSource } from "../resources/artifacts.ts"
 import { ConversationResources } from "../resources/conversationResources.ts"
-import { changedFilePath } from "../resources/filePresentation.ts"
+import { changedFilePath, droppedAttachment } from "../resources/filePresentation.ts"
 import { terminalReplyLast } from "../shared/timelineOrder.ts"
 import { randomUUID } from "node:crypto"
 import { type AppServerItem, type AppServerThreadSettings, type AppServerModelSummary, type AppServerPromptAttachment, type AppServerHost, type AppServerHostEvent, type AppServerInteraction, type AppServerInteractionResponse } from "@codem/app-server"
@@ -1394,6 +1394,17 @@ export class ChatController {
     if (this.session !== session) return false
     await this.addAttachments(async () => [item])
     return this.session === session && this.resources.selected().some(value => value.path === item.path)
+  }
+
+  /** 拖入的工作区文件与“添加附件”走同一条添加流程；工作区核对见 droppedAttachment。 */
+  async dropAttachments(uris: readonly string[]): Promise<void> {
+    const cwd = this.session?.cwd ?? null
+    await this.addAttachments(async () => {
+      if (cwd === null) throw new UserVisibleError("请先连接工作区，再拖入其中的文件。")
+      const chosen: AppServerPromptAttachment[] = []
+      for (const uri of uris) chosen.push(await droppedAttachment(cwd, uri))
+      return chosen
+    })
   }
 
   async pasteImages(action: PasteImagesAction): Promise<string | null> {

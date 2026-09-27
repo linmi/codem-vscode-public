@@ -1,9 +1,11 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises"
+import { mkdtemp, mkdir, writeFile, symlink, rm, realpath } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { changedFilePath, diffText, displayCommand, displayPath, validateAttachment } from "../src/resources/filePresentation.ts"
+import { pathToFileURL } from "node:url"
+import { changedFilePath, droppedAttachment, diffText, displayCommand, displayPath, validateAttachment } from "../src/resources/filePresentation.ts"
+import { UserVisibleError } from "../src/shared/userVisibleError.ts"
 import { parseMcpConfiguration } from "../src/connection/mcpConfiguration.ts"
 import type { AppServerFileDiff } from "@codem/app-server"
 
@@ -21,6 +23,22 @@ it("permits workspace files but rejects traversal, directories, missing files an
     await validateAttachment({ kind: "directory", path: workspace })
     await assert.rejects(validateAttachment({ kind: "file", path: workspace }))
     await assert.rejects(validateAttachment({ kind: "file", path: "relative.ts" }))
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+it("accepts dropped workspace files and folders but rejects outside paths, symlink escapes and non-file URIs", async () => {
+  const root = await mkdtemp(join(tmpdir(), "codemDrop"))
+  try {
+    const workspace = join(root, "workspace")
+    await mkdir(join(workspace, "src"), { recursive: true }); await writeFile(join(workspace, "src", "a.ts"), "hello"); await writeFile(join(workspace, "shot.PNG"), "png"); await writeFile(join(root, "secret"), "private")
+    await symlink(join(root, "secret"), join(workspace, "link"))
+    const uri = (path: string) => pathToFileURL(path).href
+    assert.deepEqual(await droppedAttachment(workspace, uri(join(workspace, "src", "a.ts"))), { kind: "file", path: join(await realpath(workspace), "src", "a.ts") })
+    assert.equal((await droppedAttachment(workspace, uri(join(workspace, "src")))).kind, "directory")
+    assert.equal((await droppedAttachment(workspace, uri(join(workspace, "shot.PNG")))).kind, "image")
+    for (const target of [uri(join(root, "secret")), uri(join(workspace, "link")), uri(join(workspace, "missing.ts")), "https://example.com/a.ts", "file://server/share/a.ts"]) {
+      await assert.rejects(droppedAttachment(workspace, target), UserVisibleError, target)
+    }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 

@@ -23,7 +23,7 @@ type RoutedChat = Pick<ChatController,
   | "loadCatalog" | "loadMoreLiveSnapshot" | "cancelLiveSnapshot" | "selectSkill"
   | "steer" | "askSideQuestion" | "cancelSideQuestion" | "shellCommand" | "startControl" | "manageThread"
   | "addDirectory" | "removeDirectory" | "chooseModel" | "chooseSpace" | "refreshSpaces" | "setComposerSetting" | "configure"
-  | "searchFiles" | "selectFile" | "pasteImages" | "addAttachments" | "openArtifact" | "loadImage" | "removeAttachment" | "showDiff"
+  | "searchFiles" | "selectFile" | "pasteImages" | "addAttachments" | "dropAttachments" | "openArtifact" | "loadImage" | "removeAttachment" | "showDiff"
   | "refreshTools" | "refreshBackground" | "cleanBackground" | "terminateBackground" | "cancelTask" | "showBackgroundLog">
 
 /** Exactly what the router calls; no module receives the whole of another. */
@@ -128,6 +128,7 @@ export class ViewActionRouter {
       }
       case "pasteImages": reply({ type: "pasteImagesResult", requestId: action.requestId, error: await chat.pasteImages(action) }); break
       case "pickAttachment": await chat.addAttachments(() => features.pickAttachments(action.kind)); break
+      case "dropAttachments": await chat.dropAttachments(action.uris); break
       case "openArtifact": await chat.openArtifact(action.id, source => features.showArtifact(source)); break
       case "loadImage": reply({ type: "imageResult", id: action.id, preview: await chat.loadImage(action.id) }); break
       case "removeAttachment": chat.removeAttachment(action.id); break

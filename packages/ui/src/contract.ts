@@ -622,6 +622,7 @@ export function parseUiAction(value: unknown): Record<string, unknown> {
   if (record.type === "setSendKey" && keys.length === 2 && (record.sendKey === "enter" || record.sendKey === "modEnter")) {
     return { type: "setSendKey", sendKey: record.sendKey }
   }
+  if (record.type === "dropAttachments" && keys.length === 2) return { type: "dropAttachments", uris: parseDroppedUris(record.uris) }
   if (record.type === "pasteImages" && keys.length === 3) {
     return { type: "pasteImages", requestId: requestId(record.requestId), images: parsePastedImages(record.images) }
   }
@@ -792,6 +793,17 @@ function normalizeTimings(value: unknown): TurnTiming[] {
     if (typeof record.startedAt !== "number" || !Number.isFinite(record.startedAt)) return []
     return [{ turnId: record.turnId, startedAt: record.startedAt, finishedAt: typeof record.finishedAt === "number" ? record.finishedAt : null }]
   })
+}
+
+/** 拖入的只有 file: 地址；是否存在、是否在工作区内由 Host 再判断。 */
+function parseDroppedUris(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 20) throw new Error("Invalid CodeM action")
+  for (const uri of value) {
+    if (typeof uri !== "string" || uri.length > 4096 || !/^file:\/\//i.test(uri) || [...uri].some((character) => character.charCodeAt(0) < 32)) {
+      throw new Error("Invalid CodeM action")
+    }
+  }
+  return [...value]
 }
 
 const pasteTypes = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"])

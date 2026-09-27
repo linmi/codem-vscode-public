@@ -1,6 +1,6 @@
 import { PluginManagement } from "./pluginManagement.tsx"
 import { ConversationSearch } from "./conversationSearch.tsx"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type DragEvent } from "react"
 import { MessageSquarePlusIcon, TerminalIcon, XIcon } from "lucide-react"
 import { Button } from "../components/ui/button.tsx"
 import {
@@ -15,6 +15,7 @@ import {
 import type { CodemUiHost } from "../host.ts"
 import { AccountPage, AccountTrigger } from "./AccountPage.tsx"
 import { AttachmentCard } from "./attachments.tsx"
+import { carriesAttachments, IMAGE_TYPES, MAX_IMAGE_BYTES, readDroppedAttachments, readImageFiles } from "./attachmentDrop.ts"
 import { CodeSelectionList } from "./codeSelection.tsx"
 import { ComposerMenus, type MenuName } from "./composerMenus.tsx"
 import { DecisionPanel } from "./decisionPanel.tsx"
@@ -60,6 +61,8 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const prompt = useRef<HTMLTextAreaElement>(null)
   const composer = useRef<HTMLFormElement>(null)
   const scroller = useRef<HTMLElement>(null)
+  const [dropping, setDropping] = useState(false)
+  const [dropNotice, setDropNotice] = useState<string | null>(null)
   const accountStatus = useRef(initial.account.status)
   const accountRequest = useRef(initial.accountRequest)
   const permissionMenuRequest = useRef(initial.permissionMenuRequest)
@@ -140,6 +143,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     setOpenMenu(null)
     setSlashOpen(false)
     setInputMode("message")
+    setDropNotice(null)
   }, [snapshot.workspace, snapshot.space, snapshot.threadId])
 
   useEffect(() => {
@@ -189,6 +193,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   }
 
   const saveDraft = (text: string) => {
+    setDropNotice(null)
     setDraft(text)
     host.setState({ draft: text })
   }
@@ -274,27 +279,49 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     setInputMode("message")
   }
 
+  const canAttach = inputMode === "message" && !turnActive && !snapshot.pendingPanel
+
+  const attachImages = (files: readonly File[]) => {
+    void readImageFiles(files).then((images) => post({ type: "pasteImages", requestId: nextRequestId("req"), images }))
+  }
+
   const pasteImages = (clipboard: DataTransfer | null) => {
     const files = Array.from(clipboard?.files ?? []).filter((file) => file.type.startsWith("image/"))
     if (files.length === 0) return
-    if (inputMode !== "message" || turnActive) return
-    const allowed = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"])
-    if (files.some((file) => !allowed.has(file.type) || file.size === 0)) return
-    if (files.reduce((size, file) => size + file.size, 0) > 20 * 1024 * 1024) return
-    void Promise.all(
-      files.map(
-        (file) =>
-          new Promise<{ mediaType: string; data: string }>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = () => {
-              const value = String(reader.result ?? "")
-              resolve({ mediaType: file.type, data: value.slice(value.indexOf(",") + 1) })
-            }
-            reader.onerror = () => reject(reader.error)
-            reader.readAsDataURL(file)
-          }),
-      ),
-    ).then((images) => post({ type: "pasteImages", requestId: nextRequestId("req"), images }))
+    if (!canAttach) return
+    if (files.some((file) => !IMAGE_TYPES.has(file.type) || file.size === 0)) return
+    if (files.reduce((size, file) => size + file.size, 0) > MAX_IMAGE_BYTES) return
+    attachImages(files)
+  }
+
+  /** 拖入整个聊天区都算：工作区文件交 Host 校验，系统图片走粘贴通道。 */
+  const dropHandlers = {
+    onDragEnter: (event: DragEvent) => {
+      if (!carriesAttachments(Array.from(event.dataTransfer.types))) return
+      event.preventDefault()
+      setDropNotice(null)
+      setDropping(canAttach)
+    },
+    onDragOver: (event: DragEvent) => {
+      if (!carriesAttachments(Array.from(event.dataTransfer.types))) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = canAttach ? "copy" : "none"
+    },
+    onDragLeave: (event: DragEvent) => {
+      if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return
+      setDropping(false)
+    },
+    onDrop: (event: DragEvent) => {
+      if (!carriesAttachments(Array.from(event.dataTransfer.types))) return
+      event.preventDefault()
+      setDropping(false)
+      if (!canAttach) return
+      const dropped = readDroppedAttachments(event.dataTransfer)
+      if (dropped.kind === "rejected") setDropNotice(dropped.reason)
+      else if (dropped.kind === "uris") post({ type: "dropAttachments", uris: dropped.uris })
+      else if (dropped.kind === "images") attachImages(dropped.files)
+      prompt.current?.focus()
+    },
   }
 
   return (
@@ -302,7 +329,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     {showAccount ? (
       <AccountPage account={account} brandMark={snapshot.brandMark} focusRequest={accountFocus} onBack={() => setAccountOpen(false)} post={post} />
     ) : null}
-    <div className={`app ${themeClass}`} hidden={showAccount} data-codem-ui="shell" data-theme={snapshot.theme} data-phase={snapshot.phase} data-host="shared">
+    <div className={`app ${themeClass}`} hidden={showAccount} data-codem-ui="shell" data-theme={snapshot.theme} data-phase={snapshot.phase} data-host="shared" {...dropHandlers}>
       <header className="sessionHeader">
         <span className="sessionTitle">
           <span className="sessionIcon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: uiIcon("chat") }} />
@@ -358,6 +385,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
         </div>
         <HistoryResume snapshot={snapshot} post={post} />
         <p id="notice" className="notice" role="status" hidden={!snapshot.notice}>{snapshot.notice ?? ""}</p>
+        <p id="dropNotice" className="notice" role="status" hidden={!dropNotice}>{dropNotice ?? ""}</p>
         <DecisionPanel panel={snapshot.pendingPanel} post={post} />
         <RewindPanel panel={snapshot.pendingPanel} post={post} />
         {sessionRequest ? <SessionCommandPanel snapshot={snapshot} request={sessionRequest} close={() => setSessionRequest(null)} post={post} onShell={confirmShell} /> : null}
@@ -366,11 +394,13 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
           id="composer"
           className="composer"
           data-testid="composerMenus"
+          data-dropping={dropping ? "true" : undefined}
           onSubmit={(event) => {
             event.preventDefault()
             submit()
           }}
         >
+          <div className="dropOverlay" aria-hidden="true" hidden={!dropping}>松开以添加附件</div>
           <div id="attachments" className="attachments" aria-label="待发送附件" hidden={inputMode !== "message"}>
             {inputMode === "message" ? <CodeSelectionList items={snapshot.selections} disabled={Boolean(snapshot.pendingPanel)} post={post} /> : null}
             {snapshot.attachments.map((item) => <AttachmentCard key={item.id} item={item} disabled={Boolean(snapshot.pendingPanel)} post={post} />)}

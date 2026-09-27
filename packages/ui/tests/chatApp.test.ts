@@ -189,6 +189,16 @@ describe("conditional entries on first paint", () => {
     for (const [name, visible] of Object.entries(entries)) assert.equal(visible(html), false, name)
   })
 
+  it("keeps the jump button, drop overlay and drop notice hidden on first paint", () => {
+    for (const initial of [initialSnapshot(), { ...initialSnapshot(), account: signedIn, phase: "ready" as const, workspace: "demo", messages: [{ id: "m1", role: "user" as const, text: "你好" }] }]) {
+      const html = renderApp(initial)
+      assert.equal(shown(html, /<button[^>]*id="jumpLatest"[^>]*>/u), false)
+      assert.equal(shown(html, /<div class="dropOverlay"[^>]*>/u), false)
+      assert.equal(shown(html, /<p id="dropNotice"[^>]*>/u), false)
+      assert.doesNotMatch(html, /data-dropping/u)
+    }
+  })
+
   it("shows each entry once the Host reports its condition", () => {
     const ready = { ...initialSnapshot(), account: signedIn, phase: "ready" as const, workspace: "demo", space: "研发空间" }
     assert.equal(entries.retryConnect!(renderApp({ ...ready, phase: "failed", canRetry: true, notice: "连接失败，可重试" })), true)
