@@ -21,6 +21,7 @@ export type ViewAction =
   | PasteImagesAction
   | ComposerSettingAction
   | { type: "pickAttachment"; kind: "file" | "directory" }
+  | { type: "dropAttachments"; uris: readonly string[] }
   | { type: "contextAdded"; id: string; accepted: boolean; value: ComposerDraft }
   | { type: "composerChanged" | "composerRestore"; value: ComposerDraft }
   | { type: "chatFocus"; focused: boolean }
@@ -65,6 +66,7 @@ export function parseViewAction(value: unknown): ViewAction {
   if (record.type === "setTheme" && Object.keys(record).length === 2 && (record.theme === "light" || record.theme === "dark")) return { type: "setTheme", theme: record.theme }
   if (record.type === "setPermission" && Object.keys(record).length === 2) return { type: "setPermission", permission: parseCodemPermissionMode(record.permission) }
   if (record.type === "pickAttachment" && Object.keys(record).length === 2 && (record.kind === "file" || record.kind === "directory")) return { type: "pickAttachment", kind: record.kind }
+  if (record.type === "dropAttachments" && Object.keys(record).length === 2 && Array.isArray(record.uris) && record.uris.length > 0 && record.uris.length <= 20 && record.uris.every(uri => typeof uri === "string" && uri.length <= 4096 && /^file:\/\//i.test(uri) && ![...uri].some(character => character.charCodeAt(0) < 32))) return { type: "dropAttachments", uris: [...record.uris] as string[] }
   if (record.type === "setEffort" && Object.keys(record).length === 2) return { type: "setEffort", effort: parseCodemIntelligence(record.effort) }
   if (record.type === "setSendKey" && Object.keys(record).length === 2 && (record.sendKey === "enter" || record.sendKey === "modEnter" || record.sendKey === "ctrlEnter")) {
     return { type: "setSendKey", sendKey: record.sendKey === "enter" ? "enter" : "ctrlEnter" }

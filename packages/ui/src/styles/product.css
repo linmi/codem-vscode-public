@@ -150,6 +150,8 @@
   backdrop-filter: blur(40px) saturate(150%);
 }
 .composer:focus-within { border-color: var(--vscode-focusBorder, #0169cc); }
+.composer[data-dropping="true"] { border-color: var(--vscode-focusBorder, #0169cc); border-style: dashed; }
+.dropOverlay { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; border-radius: inherit; background: color-mix(in srgb, var(--popover) 88%, transparent); color: var(--ink); font-size: 12px; pointer-events: none; }
 .composer textarea {
   width: 100%;
   display: block;

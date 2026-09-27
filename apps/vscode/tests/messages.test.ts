@@ -69,6 +69,12 @@ it("uses value-bearing composer actions and rejects obsolete menu-opening reques
   for (const value of [{ type: "setWorkMode", workMode: "normal" }, { type: "setPermission", permission: "admin" }, { type: "pickAttachment", kind: "remote" }, { type: "chooseModel", id: "path/to/model" }, { type: "chooseSpace", id: "ok", key: "injected" }]) assert.throws(() => parseViewAction(value))
 })
 
+it("dropped attachments carry only bounded file URIs for the Host to confine", () => {
+  const uris = ["file:///work/src/a.ts", "file:///c%3A/work/b.ts"]
+  assert.deepEqual(parseViewAction({ type: "dropAttachments", uris }), { type: "dropAttachments", uris })
+  for (const value of [{ type: "dropAttachments", uris: [] }, { type: "dropAttachments", uris: ["/work/a.ts"] }, { type: "dropAttachments", uris: ["https://example.com/a"] }, { type: "dropAttachments", uris: ["file:///a\nb"] }, { type: "dropAttachments", uris: Array.from({ length: 21 }, (_, index) => `file:///a${index}`) }, { type: "dropAttachments", uris: ["file:///a"], cwd: "/" }]) assert.throws(() => parseViewAction(value))
+})
+
 it("image paste accepts bounded raster bytes and rejects paths, extra fields and malformed payloads", () => {
   const images = [{ mediaType: "image/png", data: "iVBORw0KGgo=" }]
   const action = { type: "pasteImages", requestId: "paste-1", scope: "[null,null,null]", images }

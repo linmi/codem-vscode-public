@@ -1,6 +1,8 @@
-import { basename, isAbsolute, relative, resolve, sep } from "node:path"
+import { basename, extname, isAbsolute, relative, resolve, sep } from "node:path"
 import { realpath, stat } from "node:fs/promises"
+import { fileURLToPath } from "node:url"
 import type { AppServerFileDiff, AppServerPromptAttachment } from "@codem/app-server"
+import { UserVisibleError } from "../shared/userVisibleError.ts"
 
 export type FileDiffContent = Omit<AppServerFileDiff, "source">
 
@@ -27,6 +29,25 @@ export async function changedFilePath(cwd: string, path: string): Promise<string
   const local = relative(root, target)
   if (!local || local === ".." || local.startsWith(`..${sep}`) || isAbsolute(local) || !(await stat(target)).isFile()) throw new Error("Changed file is outside the workspace or not a file")
   return target
+}
+
+/**
+ * 拖入的地址来自 Webview，不可信。只收连接工作区内（按真实路径，符号链接不能带出去）的文件或文件夹；
+ * 工作区外的文件仍须经“添加附件”的系统选择框由用户确认。
+ */
+export async function droppedAttachment(cwd: string, uri: string): Promise<AppServerPromptAttachment> {
+  const outside = new UserVisibleError("只能拖入当前工作区里的文件或文件夹；其他位置请用“添加附件”选择。")
+  let path: string
+  try { path = fileURLToPath(uri) } catch { throw outside }
+  const root = await realpath(cwd)
+  let target: string
+  try { target = await realpath(path) } catch { throw new UserVisibleError("拖入的文件不存在或无法读取。") }
+  const local = relative(root, target)
+  if (local === ".." || local.startsWith(`..${sep}`) || isAbsolute(local)) throw outside
+  const info = await stat(target)
+  if (info.isDirectory()) return { kind: "directory", path: target }
+  if (!info.isFile()) throw new UserVisibleError("只能拖入普通文件或文件夹。")
+  return { kind: [".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(extname(target).toLowerCase()) ? "image" : "file", path: target }
 }
 
 export async function validateAttachment(attachment: AppServerPromptAttachment): Promise<void> {
