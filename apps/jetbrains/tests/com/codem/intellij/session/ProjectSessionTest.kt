@@ -1862,6 +1862,75 @@ class ProjectSessionTest {
         } finally { session.close().join() }
     }
 
+    @Test
+    fun aQueuedMessageIsSentAsTheNextTurnOnlyAfterACompletedTurn() {
+        val process = ScriptedProcess()
+        val turnIds = AtomicInteger(0)
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, _ ->
+                if (method == "turn/start") JsonValue.obj("turn" to JsonValue.obj("id" to JsonValue.Text("turn-${turnIds.incrementAndGet()}"))) else null
+            })
+            process
+        }
+        fun turnStarts() = process.writes.map { JsonValue.parse(it).asObject() }.filter { it.stringOrNull("method") == "turn/start" }
+            .map { it.required("params").asObject().required("input").asArray().items.first().asObject().requiredString("text", "input") }
+        fun queueAction(text: String, request: String) = parseViewAction(JsonValue.obj(
+            "type" to JsonValue.Text("queueMessage"), "threadId" to JsonValue.Text("thread-1"), "text" to JsonValue.Text(text), "requestId" to JsonValue.Text(request),
+        ))
+        try {
+            session.connect()
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.applyViewAction(queueAction("idle", "req-idle")) }
+            assertEquals(false, session.snapshot().submission?.accepted, "An idle thread refuses to queue")
+            session.send("run", "req-1")
+            session.applyViewAction(queueAction("next one", "req-q1"))
+            session.applyViewAction(queueAction("after that", "req-q2"))
+            assertEquals(true, session.snapshot().submission?.accepted)
+            assertEquals(listOf("next one", "after that"), session.snapshot().messageQueue?.items?.map { it.text })
+            completeTurn(process, "thread-1", "turn-1")
+            awaitCondition { turnStarts() == listOf("run", "next one") }
+            assertEquals(listOf("after that"), session.snapshot().messageQueue?.items?.map { it.text })
+            // A stopped turn pauses the queue: nothing more is sent until the user continues.
+            process.enqueue(encodeJson(JsonValue.obj(
+                "jsonrpc" to JsonValue.Text("2.0"), "method" to JsonValue.Text("turn/completed"),
+                "params" to JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "turn" to JsonValue.obj("id" to JsonValue.Text("turn-2"), "status" to JsonValue.Text("interrupted"))),
+            )))
+            awaitSnapshot(session) { it.messageQueue?.paused == true && it.phase == "ready" }
+            Thread.sleep(100)
+            assertEquals(2, turnStarts().size)
+            session.applyViewAction(ViewAction.ResumeQueue)
+            assertEquals(listOf("run", "next one", "after that"), turnStarts())
+            assertEquals(emptyList<com.codem.intellij.webview.QueuedMessageView>(), session.snapshot().messageQueue?.items)
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun aRefusedQueuedSendReturnsToTheHeadPausedAndANewChatDropsTheQueue() {
+        val process = ScriptedProcess()
+        val refuse = java.util.concurrent.atomic.AtomicBoolean(false)
+        val session = session {
+            startResponder(process, handshakeCapabilities(), shouldFail = { it == "turn/start" && refuse.get() })
+            process
+        }
+        try {
+            session.connect()
+            session.send("run", "req-1")
+            session.queueMessage("thread-1", "queued")
+            refuse.set(true)
+            completeTurn(process, "thread-1", "turn-1")
+            val paused = awaitSnapshot(session) { it.messageQueue?.paused == true }
+            assertEquals(listOf("queued"), paused.messageQueue?.items?.map { it.text })
+            assertTrue(paused.notice != null)
+            refuse.set(false)
+            session.send("again", "req-2")
+            session.queueMessage("thread-1", "kept?")
+            session.stop()
+            completeTurn(process, "thread-1", "turn-1")
+            awaitSnapshot(session) { it.phase == "ready" }
+            session.newChat()
+            assertEquals(emptyList<com.codem.intellij.webview.QueuedMessageView>(), session.snapshot().messageQueue?.items, "A new chat drops the old thread's queue")
+        } finally { session.close().join() }
+    }
+
     /** started → deltas → completed for one side question, as Core streams it. */
     private fun sideQuestionStream(process: ScriptedProcess, threadId: String, id: String, question: String, deltas: List<String>) {
         enqueueNotification(process, "thread/sideQuestion/started", JsonValue.obj(

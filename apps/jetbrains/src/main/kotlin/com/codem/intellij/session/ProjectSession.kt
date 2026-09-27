@@ -164,6 +164,7 @@ class ProjectSession(
     private var theme = "light"
     private var sideQuestionId: String? = null
     private val generations = SideGenerations()
+    private val queue = MessageQueue()
     private var historyMessages = mutableListOf<ChatMessageView>()
     private var turnTimings = mutableListOf<TurnTimingView>()
     private var notice: SessionNotice? = null
@@ -236,6 +237,7 @@ class ProjectSession(
             history = historyList,
             fileSearch = fileSearch,
             sendKey = sendKey,
+            messageQueue = queue.view(threadId),
             diffs = diffs.toList(),
             background = background,
             backgroundTasks = backgroundTasks.views(threadId),
@@ -753,6 +755,63 @@ class ProjectSession(
         }
     }
 
+    /**
+     * Lines up a message for the turn after the running one. The receipt tells the composer whether it may clear; a
+     * composer still showing another thread, an idle thread or a full queue is refused.
+     */
+    fun queueMessage(threadId: String, text: String) {
+        mutate {
+            val phase = turns.current?.phase
+            val running = phase == TurnPhase.Submitting || phase == TurnPhase.Running
+            if (threadId != this.threadId || !running || threadChangeGeneration != null || !queue.add(threadId, text)) {
+                throw CodemError.Conflict("CodeM 无法加入排队：当前没有运行中的任务，或排队已满 20 条。")
+            }
+        }
+    }
+
+    fun editQueuedMessage(id: String, text: String) {
+        mutate { queue.edit(id, text) }
+    }
+
+    fun removeQueuedMessage(id: String) {
+        mutate { queue.remove(id) }
+    }
+
+    /** After a stopped or failed turn the queue waits; only the user sends it on. */
+    fun resumeQueue() {
+        val current = mutate {
+            if (phase != ConnectionPhase.Ready || !idleTurnLocked()) return@mutate null
+            queue.resume()
+            generation.get()
+        } ?: return
+        dispatchQueued(current)
+    }
+
+    /** turn/completed arrives on Core's reader thread, which must never wait for a turn/start reply. */
+    private fun dispatchQueuedLater(currentGeneration: Long) {
+        CompletableFuture.runAsync { dispatchQueued(currentGeneration) }
+    }
+
+    /** Sends the head of the queue as a new turn once the thread is idle; a refused send pauses the queue. */
+    private fun dispatchQueued(currentGeneration: Long) {
+        val (thread, next) = mutate {
+            if (generation.get() != currentGeneration || phase != ConnectionPhase.Ready || core == null) return@mutate null
+            if (!idleTurnLocked() || threadChangeGeneration != null || generations.busy) return@mutate null
+            val thread = threadId ?: return@mutate null
+            queue.next(thread)?.let { thread to it }
+        } ?: return
+        try {
+            sendToCore(next.text, next.id, null, emptyList(), emptyList())
+        } catch (_: Throwable) {
+            mutate {
+                if (threadId == thread) {
+                    queue.restore(thread, next)
+                    notice = SessionNotice(notice?.message ?: "排队消息未能发送，已暂停；可以修改后继续发送。", true)
+                }
+            }
+        }
+    }
+
     fun renameThread(name: String) {
         requireIdleTurn("thread/name/set")
         val (coreProcess, currentThread, currentGeneration) = readyThread()
@@ -1261,6 +1320,10 @@ class ProjectSession(
                 "delete" -> deleteThread()
             }
             is ViewAction.Steer -> submit(action.requestId) { steerTurn(action.text, action.requestId) }
+            is ViewAction.QueueMessage -> submit(action.requestId) { queueMessage(action.threadId, action.text) }
+            is ViewAction.EditQueuedMessage -> editQueuedMessage(action.id, action.text)
+            is ViewAction.RemoveQueuedMessage -> removeQueuedMessage(action.id)
+            ViewAction.ResumeQueue -> resumeQueue()
             is ViewAction.AskSideQuestion -> submit(action.requestId) {
                 val id = startSideQuestion(action.text)
                 mutate { sideQuestionId = id }
@@ -1812,6 +1875,9 @@ class ProjectSession(
                     val revoked = interactions.revokeThread(generation.get(), threadId)
                     commitAssistantLocked()
                     attachments.release(generation.get())
+                    // Only a completed turn carries the queue on; after a stop or failure the user decides.
+                    if (turns.current?.terminalStatus == "completed") dispatchQueuedLater(generation.get())
+                    else queue.pause()
                     return revoked
                 }
             }
@@ -1857,6 +1923,8 @@ class ProjectSession(
                 try {
                     change()
                 } finally {
+                    // Every thread change passes here; the queue never outlives the thread it was typed for.
+                    queue.follow(threadId)
                     snapshotVersion += 1
                 }
             }
