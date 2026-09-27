@@ -21,7 +21,8 @@ export class ChatSurfaces implements vscode.Disposable {
   private ready = false
   private restored = false
   private pendingFocus = false
-  private pendingAccount = false
+  /** One page request waiting for readiness; the latest focus, account or menu request replaces it. */
+  private pendingRequest: "showAccount" | "openPermissionMenu" | null = null
   private readonly restoredWaiters = new Set<(error?: Error) => void>()
   private draft: ComposerDraft | null = null
   private draftRevision = 0
@@ -57,7 +58,7 @@ export class ChatSurfaces implements vscode.Disposable {
     this.post({ type: "composerDraft", value: this.draft, focus: false, pendingRequestId: null })
   }
   async focus(): Promise<void> {
-    this.pendingAccount = false
+    this.pendingRequest = null
     this.pendingFocus = true
     if (this.editor) this.editor.reveal(undefined, false)
     else await vscode.commands.executeCommand("codem.chat.focus")
@@ -69,13 +70,22 @@ export class ChatSurfaces implements vscode.Disposable {
     if (this.editor) this.editor.reveal(undefined, true)
     else if (this.sidebar) this.sidebar.show(true)
     else await vscode.commands.executeCommand("codem.chat.focus")
-    this.pendingAccount = true
-    this.showPendingAccount()
+    this.pendingRequest = "showAccount"
+    this.showPendingRequest()
   }
-  private showPendingAccount(): void {
-    if (!this.ready || !this.pendingAccount) return
-    this.pendingAccount = false; this.pendingFocus = false
-    this.post({ type: "showAccount" })
+  /** Reveals the chat with keyboard focus and asks the page to open its permission menu; composer focus would close it. */
+  async openPermissionMenu(): Promise<void> {
+    this.pendingFocus = false
+    if (this.editor) this.editor.reveal(undefined, false)
+    else await vscode.commands.executeCommand("codem.chat.focus")
+    this.pendingRequest = "openPermissionMenu"
+    this.showPendingRequest()
+  }
+  private showPendingRequest(): void {
+    const type = this.pendingRequest
+    if (!this.ready || !type) return
+    this.pendingRequest = null; this.pendingFocus = false
+    this.post({ type })
   }
   async addContext(text: string): Promise<void> {
     const generation = this.contextGeneration
@@ -124,7 +134,7 @@ export class ChatSurfaces implements vscode.Disposable {
   }
   private synchronize(): void {
     if (this.disposed || !this.ready || !this.active) return
-    this.handlers?.publish(); this.panels.replay(); this.postSettings(); this.showPendingAccount()
+    this.handlers?.publish(); this.panels.replay(); this.postSettings(); this.showPendingRequest()
   }
   private mount(surface: Surface): void {
     const handlers = this.handlers

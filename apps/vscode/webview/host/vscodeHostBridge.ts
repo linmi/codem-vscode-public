@@ -41,6 +41,7 @@ export class VscodeHostBridge {
   private state: Record<string, unknown> = { type: "state" }
   private account: unknown = { status: "checking" }
   private accountRequest = 0
+  private permissionMenuRequest = 0
   private panel: unknown = null
   private selections: SelectionView[] = []
   private submission: { requestId: string; accepted: boolean } | null = null
@@ -111,6 +112,10 @@ export class VscodeHostBridge {
     // 只转达“请打开”的请求；开合与退出后关闭都由界面负责。
     if (record.type === "showAccount") {
       this.accountRequest += 1
+      return { snapshot: this.project() }
+    }
+    if (record.type === "openPermissionMenu") {
+      this.permissionMenuRequest += 1
       return { snapshot: this.project() }
     }
     if (record.type === "state") {
@@ -236,6 +241,7 @@ export class VscodeHostBridge {
       theme: this.theme,
       account: this.account,
       accountRequest: this.accountRequest,
+      permissionMenuRequest: this.permissionMenuRequest,
       pendingPanel: this.panel,
       selections: this.selections,
       submission: this.submission,

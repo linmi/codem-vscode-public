@@ -215,6 +215,33 @@ it("logout cancels context insertion waiting for Webview restoration", async t =
   assert.equal(control.sidebar.messages.at(-1).value.draft, "")
 })
 
+it("opens the permission menu after readiness with keyboard focus, once, and lets a later request replace it", async t => {
+  const { ChatSurfaces, PanelBroker, control } = await fixture(t)
+  const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async () => {}, () => {})
+  t.after(() => surfaces.dispose())
+  const opened = () => control.sidebar.messages.filter((message: { type: string }) => message.type === "openPermissionMenu").length
+  await surfaces.focus()
+  await surfaces.openPermissionMenu(); await surfaces.openPermissionMenu()
+  assert.equal(control.sidebar.messages.length, 0, "Nothing posts before the page is ready")
+  control.sidebar.receive({ type: "ready" })
+  assert.equal(opened(), 1)
+  control.sidebar.receive({ type: "composerRestore", value: { draft: "" } })
+  assert.equal(control.sidebar.messages.at(-1).focus, false, "Focusing the composer would close the menu")
+  control.sidebar.setVisible(false); control.sidebar.setVisible(true)
+  assert.equal(opened(), 1, "Revealing the surface must not reopen a closed menu")
+  await surfaces.openPermissionMenu()
+  assert.equal(opened(), 2)
+  surfaces.openInTab()
+  await surfaces.openPermissionMenu()
+  const editor = control.editors[0]
+  assert.equal(editor.preserveFocus, false, "The menu needs the page to hold keyboard focus")
+  await surfaces.openAccount()
+  editor.receive({ type: "ready" })
+  assert.deepEqual(editor.messages.map((message: { type: string }) => message.type).filter((type: string) => type === "showAccount" || type === "openPermissionMenu"), ["showAccount"], "The latest request replaces a pending menu")
+  await surfaces.openPermissionMenu(); await surfaces.focus()
+  assert.equal(editor.messages.at(-1).type, "focusComposer")
+})
+
 it("opens account after readiness, once, without stealing focus when the draft restores", async t => {
   const { ChatSurfaces, PanelBroker, control } = await fixture(t)
   const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async () => {}, () => surfaces.post({ type: "account", state: { status: "signedIn" } }))

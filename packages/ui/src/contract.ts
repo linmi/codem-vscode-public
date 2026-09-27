@@ -8,7 +8,7 @@ import { catalogKinds, type CatalogKind } from "@codem/protocol"
  * 账户状态由 Host 写入 snapshot.account，动作只有 signIn/signOut/cancelSignIn/refreshAccount。
  * 斜杠目录可来自 snapshot.slashCommands，缺省用方案固定命令；打开菜单不打 Core。
  * 状态所有者：Host 拥有快照、账户、目录；UI 只持有草稿、菜单开合、账户页/斜杠展开、分组折叠。
- * Host 要打开账户页只递增 accountRequest，不持有账户页开合。
+ * Host 要打开账户页只递增 accountRequest，要打开权限菜单只递增 permissionMenuRequest，都不持有开合。
  * 清理：卸载随 React root；忙碌或 workspace/space/thread 切换关闭菜单与斜杠；账户退出关闭资料页。
  * 必须保持：重试/恢复/更早消息只由 visibleControls 决定，首屏按 initialSnapshot 隐藏；不把原始帧/路径/密钥画进 DOM。
  */
@@ -291,6 +291,8 @@ export interface ChatSnapshot {
   account: AccountState
   /** Host 请求打开账户页的序号，每次请求递增。账户页开合只归界面，返回不经过 Host。 */
   accountRequest: number
+  /** Host 请求打开权限菜单的序号，每次请求递增。菜单开合只归界面；忙碌时界面忽略这次请求。 */
+  permissionMenuRequest: number
   brandMark: string | null
   slashCommands: readonly SlashCommand[]
   pendingInteraction: string | null
@@ -379,6 +381,7 @@ export function initialSnapshot(): ChatSnapshot {
     turnTimings: [],
     account: { status: "checking" },
     accountRequest: 0,
+    permissionMenuRequest: 0,
     brandMark: null,
     slashCommands: [],
     pendingInteraction: null,
@@ -1227,6 +1230,7 @@ export function asSnapshot(value: unknown): ChatSnapshot | null {
     turnTimings: normalizeTimings(record.turnTimings ?? base.turnTimings),
     account: normalizeAccount(record.account ?? base.account),
     accountRequest: typeof record.accountRequest === "number" && Number.isSafeInteger(record.accountRequest) && record.accountRequest >= 0 ? record.accountRequest : base.accountRequest,
+    permissionMenuRequest: typeof record.permissionMenuRequest === "number" && Number.isSafeInteger(record.permissionMenuRequest) && record.permissionMenuRequest >= 0 ? record.permissionMenuRequest : base.permissionMenuRequest,
     brandMark: typeof record.brandMark === "string" ? record.brandMark : base.brandMark,
     slashCommands: normalizeSlashCommands(record.slashCommands ?? base.slashCommands),
     pendingInteraction: boundedText(record.pendingInteraction, 100),

@@ -5,8 +5,8 @@ import type { ChatController } from "./chatController.ts"
 import type { ChatSurfaces } from "./chatSurfaces.ts"
 
 export interface ChatCommandTargets {
-  surfaces: Pick<ChatSurfaces, "focus" | "openInTab" | "openInSidebar" | "openAccount">
-  chat: Pick<ChatController, "stop" | "toggleHistory" | "newChat" | "connect">
+  surfaces: Pick<ChatSurfaces, "focus" | "openInTab" | "openInSidebar" | "openAccount" | "openPermissionMenu">
+  chat: Pick<ChatController, "stop" | "toggleHistory" | "newChat" | "connect" | "cycleWorkMode">
   account: Pick<AccountController, "signedIn" | "initialize" | "snapshot" | "login">
   selection: Pick<SelectedCodeState, "clear">
   showOutput(): void
@@ -15,6 +15,8 @@ export interface ChatCommandTargets {
 /**
  * The chat's contributed commands. They reuse the account state already known and read it only while it is
  * still being checked; the account page owns refreshing it. Opening the account never focuses the composer.
+ * Mode commands reuse the composer's own paths: the work mode goes through the Host settings transaction and the
+ * permission command only opens the menu, so choosing full access still asks for confirmation.
  */
 export function registerChatCommands({ surfaces, chat, account, selection, showOutput }: ChatCommandTargets): vscode.Disposable {
   const commands: Record<string, () => unknown> = {
@@ -37,6 +39,8 @@ export function registerChatCommands({ surfaces, chat, account, selection, showO
       }
     },
     "codem.showOutput": () => showOutput(),
+    "codem.cycleAgentMode": async () => { await surfaces.focus(); await chat.cycleWorkMode() },
+    "codem.selectPermissionMode": () => surfaces.openPermissionMenu(),
   }
   return vscode.Disposable.from(...Object.entries(commands).map(([name, run]) => vscode.commands.registerCommand(name, run)))
 }

@@ -12,7 +12,7 @@ CodeM 是基于 App Server 的 VS Code 编程助手，支持聊天、代码上�
 
 本地 VS Code 使用本机平台包；Remote SSH、WSL 或容器工作区需要与远程 Extension Host 平台匹配的包。Windows 包不能用于 Linux 的 WSL Extension Host。
 
-默认快捷键：`Ctrl+Alt+M` 聚焦聊天，`Ctrl+K Ctrl+M` 加入选区；macOS 使用 Cmd。可在 VS Code 设置中调整自动连接、发送键和手动补全。
+默认快捷键：`Ctrl+Alt+M` 聚焦聊天，`Ctrl+K Ctrl+M` 加入选区，聊天内 `Ctrl+.` 切换工作模式，`Ctrl+Alt+A` 选择权限模式；macOS 使用 Cmd。可在 VS Code 设置中调整自动连接、发送键和手动补全。
 
 ## 许可证与来源
 

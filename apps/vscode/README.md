@@ -39,7 +39,7 @@ Host 按 `chat`、`connection`、`sessionHistory`、`resources`、`integrations`
 - Git 源代码管理中的 **生成暂存变更的提交说明**：基于完整暂存差异提炼主要变化，参考最近 8 条提交标题的语言和格式，简单改动只写标题。生成后填入对应仓库输入框，不会执行提交；取消、暂存变化、分支切换和输入框编辑均阻止覆盖。无暂存变更时提示先暂存。设计与真实质量验收见 [提交说明生成](../../docs/commitMessages.md)。
 - 完整且匹配的文本补丁打开原生只读双栏 Diff，标题注明补丁重建。比较行内容，不比较行尾格式；部分、二进制、缺失或不匹配的内容仍明确显示补丁说明。
 
-默认快捷键：`Ctrl+Alt+M` 聚焦聊天、`Ctrl+K Ctrl+M` 加入选区、聊天内 `Ctrl+Alt+N` 新建会话、`Ctrl+Alt+Space` 手动补全；macOS 补全使用 `Cmd+Alt+\`，其余快捷键将 Ctrl 换为 Cmd。可在 VS Code 键盘快捷方式中修改。设置页提供 `codem.autoConnect`、`codem.chat.sendKey`、`codem.completion.enabled` 和 `codem.completion.autoTrigger`；发送键可选 Enter 或 Ctrl/Cmd+Enter，运行时生效。
+默认快捷键：`Ctrl+Alt+M` 聚焦聊天、`Ctrl+K Ctrl+M` 加入选区、聊天内 `Ctrl+Alt+N` 新建会话、聊天内 `Ctrl+.` 切换 Agent / Plan 工作模式、`Ctrl+Alt+A` 打开权限模式菜单、`Ctrl+Alt+Space` 手动补全；macOS 补全使用 `Cmd+Alt+\`，其余快捷键将 Ctrl 换为 Cmd。可在 VS Code 键盘快捷方式中修改。设置页提供 `codem.autoConnect`、`codem.chat.sendKey`、`codem.completion.enabled` 和 `codem.completion.autoTrigger`；发送键可选 Enter 或 Ctrl/Cmd+Enter，运行时生效。
 
 实现边界、取消与验证记录见 [原生集成](../../docs/nativeIntegration.md) 和 [行内补全](../../docs/inlineCompletion.md)。
 

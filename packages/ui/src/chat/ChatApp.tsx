@@ -61,6 +61,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const scroller = useRef<HTMLElement>(null)
   const accountStatus = useRef(initial.account.status)
   const accountRequest = useRef(initial.accountRequest)
+  const permissionMenuRequest = useRef(initial.permissionMenuRequest)
   const [showJump, setShowJump] = useState(false)
   const { busy, turnActive, generating, connected, slashMenu } = phaseFlags(snapshot.phase)
   const idle = sessionIdle(snapshot)
@@ -108,6 +109,16 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     accountRequest.current = snapshot.accountRequest
     setAccountOpen(true)
   }, [snapshot.accountRequest])
+
+  // 权限菜单同样按序号打开；忙碌、未登录时菜单本就不可用，这次请求直接作废，不留到之后补开。
+  useEffect(() => {
+    if (snapshot.permissionMenuRequest === permissionMenuRequest.current) return
+    permissionMenuRequest.current = snapshot.permissionMenuRequest
+    if (!isSignedIn(snapshot.account) || !sessionIdle(snapshot)) return
+    setAccountOpen(false)
+    setSlashOpen(false)
+    setOpenMenu("permission")
+  }, [snapshot])
 
   useEffect(() => {
     if (snapshot.account.status !== "signedIn") setAccountOpen(false)
