@@ -105,4 +105,24 @@ export class Worktrees {
     await this.git(exists ? ["worktree", "add", "--", path, branch] : ["worktree", "add", "-b", branch, "--", path, base], repository, signal)
     return path
   }
+
+  /** Uncommitted and untracked changes in one worktree, as `git status --porcelain` lines. */
+  async changes(worktree: string, signal?: AbortSignal): Promise<string[]> {
+    return (await this.git(["status", "--porcelain", "--untracked-files=normal"], worktree, signal)).split("\n").filter(Boolean)
+  }
+
+  /**
+   * Removes a linked worktree; never the main one. Without `force` git refuses a worktree with changes. The branch
+   * stays unless `deleteBranch`, which uses `git branch -d` and so keeps a branch that is not merged.
+   */
+  async remove(repository: string, entry: WorktreeEntry, options: { force: boolean; deleteBranch: boolean }, signal?: AbortSignal): Promise<{ branchDeleted: boolean; branchError: string | null }> {
+    const worktrees = await this.list(repository, signal)
+    if (worktrees[0]?.path === entry.path) throw new Error("不能删除主工作区。")
+    if (!worktrees.some(current => current.path === entry.path)) throw new Error("该 worktree 已不存在，请刷新后重试。")
+    if (entry.locked) throw new Error("该 worktree 已锁定，请先用 git worktree unlock 解锁。")
+    await this.git(["worktree", "remove", ...(options.force ? ["--force"] : []), "--", entry.path], repository, signal)
+    if (!options.deleteBranch || !entry.branch) return { branchDeleted: false, branchError: null }
+    try { await this.git(["branch", "-d", "--", entry.branch], repository, signal); return { branchDeleted: true, branchError: null } }
+    catch (error) { return { branchDeleted: false, branchError: error instanceof Error ? error.message : String(error) } }
+  }
 }

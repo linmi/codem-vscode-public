@@ -83,3 +83,33 @@ it("checks out an existing branch that no worktree holds, without moving it", as
   await assert.rejects(worktrees.create(root, "other", "main"), /already exists/)
   assert.ok((await stat(join(worktreeLocation(root, "other"), "keep.txt"))).isFile())
 })
+
+it("removes only linked worktrees, needs force for changes and keeps an unmerged branch", async t => {
+  const root = await repository(t)
+  const worktrees = new Worktrees(git)
+  const clean = await worktrees.create(root, "clean", "main")
+  const dirty = await worktrees.create(root, "dirty", "main")
+  const [main, cleanEntry, dirtyEntry] = await worktrees.list(root)
+  await assert.rejects(worktrees.remove(root, main!, { force: true, deleteBranch: false }), /主工作区/)
+
+  // Clean and merged: worktree and branch both go.
+  assert.deepEqual(await worktrees.changes(clean), [])
+  assert.deepEqual(await worktrees.remove(root, cleanEntry!, { force: false, deleteBranch: true }), { branchDeleted: true, branchError: null })
+  await assert.rejects(stat(clean))
+  await assert.rejects(git(["show-ref", "--verify", "refs/heads/clean"], root))
+  await assert.rejects(worktrees.remove(root, cleanEntry!, { force: false, deleteBranch: false }), /已不存在/)
+
+  // Changes are reported; without force git refuses and nothing is lost.
+  await writeFile(join(dirty, "new.txt"), "draft")
+  assert.equal((await worktrees.changes(dirty)).length, 1)
+  await assert.rejects(worktrees.remove(root, dirtyEntry!, { force: false, deleteBranch: false }))
+  assert.ok((await stat(join(dirty, "new.txt"))).isFile())
+
+  // An unmerged branch survives a combined removal and says why.
+  await git(["add", "."], dirty)
+  await git(["commit", "-q", "-m", "work"], dirty)
+  const result = await worktrees.remove(root, dirtyEntry!, { force: false, deleteBranch: true })
+  assert.equal(result.branchDeleted, false)
+  assert.match(result.branchError ?? "", /not fully merged/)
+  assert.ok((await git(["show-ref", "--verify", "refs/heads/dirty"], root)).length > 0)
+})

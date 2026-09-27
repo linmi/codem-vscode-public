@@ -15,7 +15,7 @@ export async function run(): Promise<void> {
   await extension.activate()
   assert.equal(extension.isActive, true)
   const commands = await vscode.commands.getCommands(true)
-  for (const command of ["codem.open", "codem.history", "codem.newChat", "codem.connect", "codem.signIn", "codem.showOutput", "codem.openInTab", "codem.openInSidebar", "codem.addToContext", "codem.explainCode", "codem.fixCode", "codem.improveCode", "codem.terminalAddToContext", "codem.terminalSelectionToContext", "codem.generateCompletion", "codem.generateCommitMessage", "codem.toggleKeepAwake", "codem.newWorktree", "codem.openWorktree", "codem.generateTerminalCommand", "codem.cycleAgentMode", "codem.selectPermissionMode"]) assert.ok(commands.includes(command), command)
+  for (const command of ["codem.open", "codem.history", "codem.newChat", "codem.connect", "codem.signIn", "codem.showOutput", "codem.openInTab", "codem.openInSidebar", "codem.addToContext", "codem.explainCode", "codem.fixCode", "codem.improveCode", "codem.terminalAddToContext", "codem.terminalSelectionToContext", "codem.generateCompletion", "codem.generateCommitMessage", "codem.toggleKeepAwake", "codem.newWorktree", "codem.openWorktree", "codem.closeWorktree", "codem.openPullRequest", "codem.generateTerminalCommand", "codem.cycleAgentMode", "codem.selectPermissionMode"]) assert.ok(commands.includes(command), command)
   await vscode.commands.executeCommand("codem.open")
   await vscode.commands.executeCommand("codem.newChat")
   await vscode.commands.executeCommand("codem.openInTab")

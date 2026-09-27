@@ -165,6 +165,16 @@
         "category": "CodeM"
       },
       {
+        "command": "codem.closeWorktree",
+        "title": "删除 worktree",
+        "category": "CodeM"
+      },
+      {
+        "command": "codem.openPullRequest",
+        "title": "为当前分支打开 PR 页面",
+        "category": "CodeM"
+      },
+      {
         "command": "codem.generateCommitMessage",
         "title": "生成暂存变更的提交说明",
         "category": "CodeM",
