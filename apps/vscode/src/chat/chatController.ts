@@ -33,6 +33,7 @@ import type { SessionHistoryReader, SessionHistorySearcher } from "../sessionHis
 
 import { displayPath } from "../resources/filePresentation.ts"
 import { freezeSnapshot } from "../shared/frozenSnapshot.ts"
+import { MessageQueue } from "./messageQueue.ts"
 
 export type ChatHost = Pick<AppServerHost, "control" | "compactThread" | "rewindThread" | "clearThread" | "steerTurn" | "startSideQuestion" | "cancelSideQuestion" | "runShellCommand" | "listSkills" | "readEnvironmentInfo" | "readConfigSnapshot" | "listHooks" | "listPlugins" | "listPermissionProfiles" | "readCoreSpaceSnapshot" | "readModelProviderCapabilities" | "listLoadedThreadIds" | "listLiveThreadTurns" | "listLiveThreadItems" | "listThreads" | "readThread" | "resumeThread" | "readModes" | "setModes" | "listTools" | "listBackgroundTerminals" | "terminateBackgroundTerminal" | "cleanBackgroundTerminals" | "cancelBackgroundTask" | "onEvent" | "startThread" | "startTurn" | "interruptTurn" | "unsubscribeThread" | "respondToInteraction" | "close">
 export interface ChatSession {
@@ -122,6 +123,7 @@ export class ChatController {
   private state: ChatSnapshot = initialSnapshot()
   private readonly settings: ChatSettings
   private readonly resources = new ConversationResources()
+  private readonly queue = new MessageQueue()
   private readonly liveSnapshot: LiveSnapshotCatalog
   private readonly background: BackgroundTasks
 
@@ -150,7 +152,7 @@ export class ChatController {
     const pending = this.pendingSend?.message
     const messages = pending && !this.state.messages.some(message => message.id === pending.id)
       ? [...this.state.messages, pending] : this.state.messages
-    return freezeSnapshot({ ...this.state, composerCatalog: this.state.phase !== "disconnected" ? this.settings.catalog() : { models: [], spaces: [] }, messages, threadId: this.threadId, history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
+    return freezeSnapshot({ ...this.state, composerCatalog: this.state.phase !== "disconnected" ? this.settings.catalog() : { models: [], spaces: [] }, messages, threadId: this.threadId, messageQueue: this.queue.view(this.threadId), history: this.historyList.snapshot(), conversationSearch: this.conversationSearch.snapshot(), pluginManagement: this.pluginManagement.snapshot() })
   }
 
   /** The current phase without building a snapshot. A call, so an earlier narrowing of `this.state.phase` does not apply. */
@@ -169,7 +171,12 @@ export class ChatController {
     if (local === ".." || local.startsWith(`..${sep}`) || isAbsolute(local)) throw new UserVisibleError("目标不属于当前 CodeM 工作区，请连接对应工作区后重试。")
   }
 
-  publish(): void { if (!this.disposed) this.options.publish(this.snapshot()) }
+  publish(): void {
+    if (this.disposed) return
+    // Every thread change is published; the queue never outlives the thread it was typed for.
+    this.queue.follow(this.threadId)
+    this.options.publish(this.snapshot())
+  }
 
   connect(): Promise<void> {
     if (this.accountReset) return Promise.resolve()
@@ -350,10 +357,15 @@ export class ChatController {
     return threadId
   }
 
-  async send(text: string): Promise<boolean> {
+  /**
+   * `queued` sends text only: attachments and a selected skill were chosen in the composer for
+   * the next typed message, not for a message queued earlier.
+   */
+  async send(text: string, queued = false): Promise<boolean> {
     if (this.disposed || this.pendingSend || !text.trim() || text.length > 32_000) return false
     if (this.state.phase !== "disconnected" && this.state.phase !== "ready") return false
-    const request: { message: ChatMessage & { role: "user" } } = { message: { id: randomUUID(), role: "user", label: "你", text, ...(this.state.attachments.length ? { attachments: this.state.attachments } : {}) } }
+    const attachments = queued ? [] : this.state.attachments
+    const request: { message: ChatMessage & { role: "user" } } = { message: { id: randomUUID(), role: "user", label: "你", text, ...(attachments.length ? { attachments } : {}) } }
     this.pendingSend = request
     const connecting = this.state.phase === "disconnected"
     const generation = this.generation + (connecting ? 1 : 0)
@@ -368,21 +380,21 @@ export class ChatController {
         await this.loadHistoryPage(false)
         if (this.conversationSearch.snapshot().historical || this.state.historyNeedsRefresh || this.pendingSend !== request || this.generation !== generation) return false
       }
-      return await this.sendConnected(request.message)
+      return await this.sendConnected(request.message, !queued)
     } finally {
       if (this.pendingSend === request) { this.pendingSend = null; this.publish() }
     }
   }
 
-  private async sendConnected(message: ChatMessage & { role: "user" }): Promise<boolean> {
+  private async sendConnected(message: ChatMessage & { role: "user" }, composerInputs = true): Promise<boolean> {
     const text = message.text
     if (this.disposed || this.state.phase !== "ready" || !this.session || this.state.sessionTools.busy) return false
     if (!text.trim() || text.length > 32_000) return false
     const session = this.session
     const active: ActiveTurn = { submissionId: message.id, turnId: null, abort: new AbortController(), finalReplyId: null, finalAnswerCalls: new Set(), toolMessageIds: new Map(), requests: new Map(), approvals: Promise.resolve() }
-    const attachmentIds = this.resources.selectedIds()
+    const attachmentIds = composerInputs ? this.resources.selectedIds() : []
     const consumeAttachments = () => {
-      if (this.session !== session || this.disposed) return
+      if (!composerInputs || this.session !== session || this.disposed) return
       for (const id of attachmentIds) this.resources.remove(id)
       this.updateTools({ selectedSkill: null })
       this.update({ attachments: this.state.attachments.filter((item) => !attachmentIds.includes(item.id)) })
@@ -401,12 +413,12 @@ export class ChatController {
     try {
       this.options.assertTrusted()
       // Core accepts localImage independently of native model vision (e.g. describe_image).
-      await this.resources.validateSelection()
+      if (composerInputs) await this.resources.validateSelection()
       const threadId = await this.ensureThread(session)
       this.options.assertTrusted()
-      const attachments = this.resources.selected()
+      const attachments = composerInputs ? this.resources.selected() : []
       this.update({ messages: [...this.state.messages, message] })
-      const skillId = this.state.sessionTools.selectedSkill
+      const skillId = composerInputs ? this.state.sessionTools.selectedSkill : null
       const skillName = skillId === null ? undefined : this.skillNames.get(skillId)
       if (skillId !== null && !skillName) throw new UserVisibleError("技能目录已变化，请重新选择技能。")
       if (skillName && attachments.length) throw new UserVisibleError("技能输入暂不支持附件，请先移除附件。")
@@ -537,6 +549,45 @@ export class ChatController {
         this.update({ notice: "补充指令未能确认，内容已保留；不会自动重发。" })
       }
     } finally { if (this.session === session && this.threadId === threadId) this.updateTools({ busy: null }) }
+  }
+
+  /**
+   * Lines up a message for the turn after the running one. The receipt tells the composer whether
+   * it may clear; a composer still showing another thread is refused rather than left waiting.
+   */
+  queueMessage(threadId: string, text: string, requestId: string): void {
+    const accepted = threadId === this.threadId && !this.disposed && (this.state.phase === "running" || this.state.phase === "sending") && this.queue.add(threadId, text)
+    this.updateTools({ result: { requestId, accepted } })
+  }
+
+  editQueuedMessage(id: string, text: string): void {
+    if (this.queue.edit(id, text)) this.publish()
+  }
+
+  removeQueuedMessage(id: string): void {
+    if (this.queue.remove(id)) this.publish()
+  }
+
+  /** After a stopped or failed turn the queue waits; only the user sends it on. */
+  async resumeQueue(): Promise<void> {
+    if (this.state.phase !== "ready") return
+    this.queue.resume()
+    this.publish()
+    await this.dispatchQueued()
+  }
+
+  /** Sends the head of the queue as a new turn once the thread is idle; a refused send pauses the queue. */
+  private async dispatchQueued(): Promise<void> {
+    if (this.disposed || !this.session || this.active || this.pendingSend || this.state.phase !== "ready" || this.state.backgroundBusy || this.state.sessionTools.busy) return
+    const threadId = this.threadId
+    const next = this.queue.next(threadId)
+    if (!next) return
+    this.publish()
+    const accepted = await this.send(next.text, true)
+    if (!accepted && this.threadId === threadId) {
+      this.queue.restore(threadId, next)
+      this.update({ notice: this.state.notice ?? "排队消息未能发送，已暂停；可以修改后继续发送。" })
+    }
   }
 
   async askSideQuestion(text: string, requestId: string): Promise<void> {
@@ -1237,8 +1288,12 @@ export class ChatController {
       active.abort.abort()
       this.active = null
       const terminalNotice = event.outcome === "failed" ? reload ? "上下文操作失败，请重试或继续发送消息。" : "本轮任务失败，可以继续发送消息。" : null
+      // Only a completed turn carries the queue on; after a stop or failure the user decides.
+      if (event.outcome !== "completed") this.queue.pause()
       this.update({ phase: "ready", notice: terminalNotice, ...(event.outcome === "stopped" ? { messages: [...this.state.messages, stoppedTurnMessage(event.turnId)] } : {}) })
-      if (reload) void this.loadHistoryPage(false, terminalNotice)
+      // A context operation reloads the transcript first, so the queued turn lands after it.
+      const reloaded = reload ? this.loadHistoryPage(false, terminalNotice) : Promise.resolve()
+      if (event.outcome === "completed") void reloaded.then(() => this.dispatchQueued()).catch(error => this.options.report("queue", error))
     }
   }
 

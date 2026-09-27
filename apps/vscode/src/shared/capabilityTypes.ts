@@ -48,7 +48,7 @@ export type CapabilityAction =
   | { type: "cancelLiveSnapshot"; snapshotId: string }
   | { type: "selectSkill"; id: string | null }
   | { type: "manageThread"; operation: ThreadOperation; threadId: string; name: string; requestId: string }
-  | { type: "steer" | "askSideQuestion" | "shellCommand"; threadId: string; text: string; requestId: string }
+  | { type: "steer" | "askSideQuestion" | "shellCommand" | "queueMessage"; threadId: string; text: string; requestId: string }
   | { type: "compactThread" | "rewindThread" | "clearThread"; threadId: string; requestId: string }
   | { type: "cancelSideQuestion" | "addDirectory" }
   | { type: "removeDirectory"; id: string }
@@ -64,7 +64,7 @@ export function parseCapabilityAction(record: Record<string, unknown>): Capabili
   if ((record.type === "cancelSideQuestion" || record.type === "addDirectory") && keys === "type") return record as CapabilityAction
   if (!identifier(record.requestId)) return null
   if (["compactThread", "rewindThread", "clearThread"].includes(String(record.type)) && keys === "requestId,threadId,type" && identifier(record.threadId)) return record as CapabilityAction
-  if (["steer", "askSideQuestion", "shellCommand"].includes(String(record.type)) && keys === "requestId,text,threadId,type" && identifier(record.threadId) && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return record as CapabilityAction
+  if (["steer", "askSideQuestion", "shellCommand", "queueMessage"].includes(String(record.type)) && keys === "requestId,text,threadId,type" && identifier(record.threadId) && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return record as CapabilityAction
   if (record.type === "manageThread" && keys === "name,operation,requestId,threadId,type" && identifier(record.threadId) && ["rename", "fork", "archive", "unarchive", "delete"].includes(String(record.operation)) && typeof record.name === "string" && record.name.length <= 160 && (record.operation === "rename" ? record.name.trim().length > 0 : record.name === "")) return record as CapabilityAction
   return null
 }

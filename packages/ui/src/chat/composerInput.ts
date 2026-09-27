@@ -84,13 +84,20 @@ export function sendOnEnter(sendKey: SendKey, shift: boolean, modified: boolean,
   return sendKey === "modEnter" ? modified : !modified
 }
 
+/** 运行中普通输入进入排队时，输入框与发送按钮的文案。 */
+export const queueInputText: Readonly<Pick<InputModeText, "placeholder" | "submit">> = {
+  placeholder: "输入下一条消息，本轮完成后发送…",
+  submit: "加入排队",
+}
+
 /**
  * 普通输入在当前阶段交给谁。
- * 轮次生成中，新文字是补充指令，不要求先停下后台进程。
+ * 轮次生成中，宿主支持排队时新文字进队列，本轮完成后作为下一轮发送；补充指令改用 /steer。
+ * 宿主不支持排队时仍是补充指令，不要求先停下后台进程。
  * 轮次空闲时才是一条新消息。发送中和停止中先不投递。
  */
-export function composerMessageAction(phase: ChatSnapshot["phase"]): "send" | "steer" | "none" {
-  if (phase === "running") return "steer"
+export function composerMessageAction(phase: ChatSnapshot["phase"], queueable: boolean): "send" | "steer" | "queue" | "none" {
+  if (phase === "running") return queueable ? "queue" : "steer"
   if (phase === "ready" || phase === "disconnected") return "send"
   return "none"
 }

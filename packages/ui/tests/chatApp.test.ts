@@ -222,3 +222,44 @@ describe("conditional entries on first paint", () => {
     assert.equal(views.HistoryPaging({ snapshot: { ...ready, threadId: "thread-1" }, post }), null)
   })
 })
+
+describe("message queue", () => {
+  const running = { ...initialSnapshot(), account: signedIn, phase: "running" as const, threadId: "thread-1", workspace: "demo" }
+  const queue = { items: [{ id: "queued-1", text: "接着补上测试" }, { id: "queued-2", text: "再更新文档" }], paused: false }
+  const sendTag = (html: string) => /<button[^>]*id="send"[^>]*>/u.exec(html)?.[0] ?? ""
+
+  it("keeps the running composer on steer when the Host has no queue", () => {
+    const html = renderApp(running)
+    assert.match(sendTag(html), /\shidden=""/u)
+    assert.doesNotMatch(html, /data-testid="messageQueue"/u)
+  })
+
+  it("offers queueing while a turn runs and lists queued messages with edit and remove", () => {
+    const html = renderApp({ ...running, messageQueue: queue })
+    assert.doesNotMatch(sendTag(html), /\shidden=""/u)
+    assert.match(sendTag(html), /aria-label="加入排队"/u)
+    assert.match(html, /placeholder="输入下一条消息，本轮完成后发送…"/u)
+    assert.match(html, /排队中 2 条/u)
+    assert.match(html, /本轮完成后按顺序发送。/u)
+    for (const index of [1, 2]) {
+      assert.match(html, new RegExp(`aria-label="编辑第 ${index} 条排队消息"`, "u"))
+      assert.match(html, new RegExp(`aria-label="移除第 ${index} 条排队消息"`, "u"))
+    }
+    assert.doesNotMatch(html, />继续发送</u)
+  })
+
+  it("says a paused queue will not send on its own and offers to continue once idle", () => {
+    const paused = { ...queue, paused: true }
+    const idle = renderApp({ ...running, phase: "ready", messageQueue: paused })
+    assert.match(idle, /上一轮已停止或失败，排队消息不会自动发送。/u)
+    const resume = /<button[^>]*>(?:(?!<\/button>).)*继续发送<\/button>/u.exec(idle)?.[0] ?? ""
+    assert.ok(resume, "继续发送 shown")
+    assert.doesNotMatch(resume, /\sdisabled=""/u)
+    const connecting = renderApp({ ...running, phase: "sending", messageQueue: paused })
+    assert.match(/<button[^>]*>(?:(?!<\/button>).)*继续发送<\/button>/u.exec(connecting)?.[0] ?? "", /\sdisabled=""/u)
+  })
+
+  it("shows no queue on first paint before the Host reports one", () => {
+    assert.doesNotMatch(renderApp(initialSnapshot()), /messageQueue/u)
+  })
+})

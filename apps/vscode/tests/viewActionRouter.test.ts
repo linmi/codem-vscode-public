@@ -80,6 +80,15 @@ it("drops thread controls aimed at a thread that is no longer current", async ()
   assert.deepEqual(history.calls, ['chat.manageThread("archive", "thread-0", "", "r7")'], "History operations name any listed thread")
 })
 
+it("routes queue actions and lets the controller refuse a queue aimed at another thread", async () => {
+  const f = fixture({ threadId: "thread-1" })
+  await f.dispatch({ type: "queueMessage", threadId: "thread-0", text: "next", requestId: "r1" })
+  await f.dispatch({ type: "editQueuedMessage", id: "q-1", text: "changed" })
+  await f.dispatch({ type: "removeQueuedMessage", id: "q-1" })
+  await f.dispatch({ type: "resumeQueue" })
+  assert.deepEqual(f.calls, ['chat.queueMessage("thread-0", "next", "r1")', 'chat.editQueuedMessage("q-1", "changed")', 'chat.removeQueuedMessage("q-1")', "chat.resumeQueue()"])
+})
+
 it("answers a failed file search with an empty, retryable result and a failed selection as not accepted", async () => {
   const failed = fixture({ chat: { searchFiles: async () => { throw new Error("/private/path leaked") }, selectFile: async () => { throw new Error("stale handle") } } })
   await failed.dispatch({ type: "searchFiles", query: "main", requestId: "search-1" })

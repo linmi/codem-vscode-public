@@ -21,6 +21,7 @@ type RoutedChat = Pick<ChatController,
   | "showConversationSearch" | "closeConversationSearch" | "searchConversation" | "selectConversationSearchHit"
   | "showHistory" | "closeHistory" | "refreshHistory" | "loadMoreThreads" | "resumeThread" | "loadOlderMessages" | "reloadHistory"
   | "loadCatalog" | "loadMoreLiveSnapshot" | "cancelLiveSnapshot" | "selectSkill"
+  | "queueMessage" | "editQueuedMessage" | "removeQueuedMessage" | "resumeQueue"
   | "steer" | "askSideQuestion" | "cancelSideQuestion" | "shellCommand" | "startControl" | "manageThread"
   | "addDirectory" | "removeDirectory" | "chooseModel" | "chooseSpace" | "refreshSpaces" | "setComposerSetting" | "configure"
   | "searchFiles" | "selectFile" | "pasteImages" | "addAttachments" | "dropAttachments" | "openArtifact" | "loadImage" | "removeAttachment" | "showDiff"
@@ -100,6 +101,11 @@ export class ViewActionRouter {
       case "loadMoreLiveSnapshot": await chat.loadMoreLiveSnapshot(action.snapshotId, action.kind); break
       case "cancelLiveSnapshot": chat.cancelLiveSnapshot(action.snapshotId); break
       case "selectSkill": chat.selectSkill(action.id); break
+      // The controller checks the thread itself so a stale composer still gets its refusal receipt.
+      case "queueMessage": chat.queueMessage(action.threadId, action.text, action.requestId); break
+      case "editQueuedMessage": chat.editQueuedMessage(action.id, action.text); break
+      case "removeQueuedMessage": chat.removeQueuedMessage(action.id); break
+      case "resumeQueue": await chat.resumeQueue(); break
       case "steer": if (current(action.threadId)) await chat.steer(action.text, action.requestId); break
       case "askSideQuestion": if (current(action.threadId)) await chat.askSideQuestion(action.text, action.requestId); break
       case "cancelSideQuestion": await chat.cancelSideQuestion(); break

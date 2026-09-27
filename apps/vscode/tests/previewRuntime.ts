@@ -280,12 +280,33 @@ export function createPreviewRuntime(initial: PreviewSearch) {
       if (turnId) demo.messages = [...demo.messages, stoppedTurnMessage(turnId)]
       demo.turnTimings = demo.turnTimings.map(item => ({ ...item, finishedAt: item.finishedAt ?? Date.now() }))
       demo.phase = "ready"; activePanel = null; demo.notice = null
+      // A stopped turn never sends the queue on its own.
+      if (demo.messageQueue.items.length) demo.messageQueue = { ...demo.messageQueue, paused: true }
     }
     if (action.type === "connect") { demo.phase = "ready"; demo.space = "研发团队"; demo.workspace = "codem-plugin"; demo.model = "Auto"; demo.notice = "已恢复连接（模拟），未启动 Core。" }
     if (action.type === "refreshHistory") { demo.history = { ...demo.history, loading: false, error: null }; demo.notice = "已刷新当前样例的历史列表。" }
     if (action.type === "reloadHistory") { demo.historyNeedsRefresh = false; demo.notice = "已重新加载样例记录。" }
     if (action.type === "moreThreads") { demo.history.hasMore = false; demo.notice = "样例中的历史列表已全部加载。" }
     if (action.type === "cancelSideQuestion" && demo.sessionTools.sideQuestion) { demo.sessionTools.sideQuestion.status = "interrupted"; demo.phase = "ready" }
+    if (action.type === "queueMessage") {
+      const accepted = search.scenario !== "commandFailure" && demo.phase === "running" && action.threadId === demo.threadId
+      if (accepted) demo.messageQueue = { ...demo.messageQueue, items: [...demo.messageQueue.items, { id: crypto.randomUUID(), text: action.text }] }
+      demo.sessionTools.result = { requestId: action.requestId, accepted }
+    }
+    if (action.type === "editQueuedMessage") demo.messageQueue = { ...demo.messageQueue, items: demo.messageQueue.items.map(item => item.id === action.id ? { ...item, text: action.text } : item) }
+    if (action.type === "removeQueuedMessage") {
+      const items = demo.messageQueue.items.filter(item => item.id !== action.id)
+      demo.messageQueue = { items, paused: demo.messageQueue.paused && items.length > 0 }
+    }
+    // The fixture sends the head as a new running turn; no Core or model is involved.
+    if (action.type === "resumeQueue" && demo.phase === "ready" && demo.messageQueue.items.length) {
+      const [head, ...items] = demo.messageQueue.items
+      const turnId = `queued:${head!.id}`
+      demo.messageQueue = { items, paused: false }
+      demo.messages = [...demo.messages, { id: head!.id, turnId, role: "user", label: "你", text: head!.text }]
+      demo.turnTimings = [...demo.turnTimings, { turnId, startedAt: Date.now(), finishedAt: null }]
+      demo.phase = "running"; demo.notice = null
+    }
     if (action.type === "steer" || action.type === "askSideQuestion" || action.type === "shellCommand") {
       const accepted = search.scenario !== "commandFailure"
       demo.sessionTools.result = { requestId: action.requestId, accepted }

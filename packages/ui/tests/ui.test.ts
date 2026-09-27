@@ -53,11 +53,17 @@ describe("@codem/ui host contract", () => {
   })
 
   it("sends a follow-up while a turn is running and does not consult background processes", () => {
-    assert.equal(composerMessageAction("running"), "steer")
-    assert.equal(composerMessageAction("ready"), "send")
-    assert.equal(composerMessageAction("disconnected"), "send")
-    assert.equal(composerMessageAction("sending"), "none")
-    assert.equal(composerMessageAction("stopping"), "none")
+    assert.equal(composerMessageAction("running", false), "steer")
+    for (const queueable of [false, true]) {
+      assert.equal(composerMessageAction("ready", queueable), "send")
+      assert.equal(composerMessageAction("disconnected", queueable), "send")
+      assert.equal(composerMessageAction("sending", queueable), "none")
+      assert.equal(composerMessageAction("stopping", queueable), "none")
+    }
+  })
+
+  it("queues a running follow-up when the host keeps a message queue", () => {
+    assert.equal(composerMessageAction("running", true), "queue")
   })
 
   it("names the mode bar, field, placeholder and send button from one table per input mode", () => {
@@ -373,4 +379,25 @@ it("validates plugin management intents and strips Host-only installation metada
   const snapshot = asSnapshot({ type: "state", pluginManagement: { open: true, status: "ready", loaded: true, entries: [{ id: "opaque-1", name: "sample", version: "1.0", enabled: false, path: "/private/source", key: "sample@market" }], skills: [] } })!
   assert.equal(snapshot.pluginManagement!.entries[0]!.enabled, false)
   assert.doesNotMatch(JSON.stringify(snapshot.pluginManagement), /private|path|sample@market/)
+})
+
+it("validates queue actions and bounds the queue the Host reports", () => {
+  assert.deepEqual(parseUiAction({ type: "queueMessage", threadId: "thread-1", text: "next", requestId: "req-1" }), { type: "queueMessage", threadId: "thread-1", text: "next", requestId: "req-1" })
+  assert.deepEqual(parseUiAction({ type: "editQueuedMessage", id: "queued-1", text: "changed" }), { type: "editQueuedMessage", id: "queued-1", text: "changed" })
+  assert.deepEqual(parseUiAction({ type: "removeQueuedMessage", id: "queued-1" }), { type: "removeQueuedMessage", id: "queued-1" })
+  assert.deepEqual(parseUiAction({ type: "resumeQueue" }), { type: "resumeQueue" })
+  for (const bad of [
+    { type: "queueMessage", text: "next", requestId: "req-1" },
+    { type: "queueMessage", threadId: "thread-1", text: "  ", requestId: "req-1" },
+    { type: "editQueuedMessage", id: "queued-1", text: "" },
+    { type: "editQueuedMessage", id: "../queued", text: "changed" },
+    { type: "resumeQueue", id: "queued-1" },
+  ]) assert.throws(() => parseUiAction(bad), JSON.stringify(bad))
+  assert.equal(asSnapshot({ type: "state" })!.messageQueue, null)
+  const items = Array.from({ length: 25 }, (_, index) => ({ id: `queued-${index}`, text: `message ${index}` }))
+  const queue = asSnapshot({ type: "state", messageQueue: { items: [{ id: "bad id", text: "x" }, { id: "empty", text: " " }, ...items], paused: true } })!.messageQueue!
+  assert.equal(queue.items.length, 20)
+  assert.equal(queue.items[0]!.id, "queued-0")
+  assert.equal(queue.paused, true)
+  assert.equal(asSnapshot({ type: "state", messageQueue: { items: [], paused: true } })!.messageQueue!.paused, false)
 })
