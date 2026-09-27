@@ -62,7 +62,7 @@ export class ViewActionRouter {
     switch (action.type) {
       case "ready": await account.initialize(); account.publish(); await autoConnect.run(); break
       // The surface container settles drafts, context receipts and panel replies itself.
-      case "composerChanged": case "composerRestore": case "contextAdded": case "panelReply": break
+      case "composerChanged": case "composerRestore": case "chatFocus": case "contextAdded": case "panelReply": break
       case "connect": await account.initialize(); if (account.signedIn) await chat.connect(); else account.publish(); break
       case "signOut": await account.logout(() => this.endSession()); break
       case "signIn": await account.login(); break

@@ -76,4 +76,9 @@ const host: CodemUiHost = {
 }
 
 mountCodemUi(root, host)
+// focusedView 在焦点进入侧栏 Webview 内部时不成立；聊天内快捷键改由页面上报的焦点决定。
+const reportFocus = (focused: boolean) => vscode.postMessage({ type: "chatFocus", focused })
+window.addEventListener("focus", () => reportFocus(true))
+window.addEventListener("blur", () => reportFocus(false))
+if (document.hasFocus()) reportFocus(true)
 vscode.postMessage({ type: "composerRestore", value: { draft: vscode.getState()?.draft ?? "" } })

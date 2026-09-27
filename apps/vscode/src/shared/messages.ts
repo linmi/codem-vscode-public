@@ -23,6 +23,7 @@ export type ViewAction =
   | { type: "pickAttachment"; kind: "file" | "directory" }
   | { type: "contextAdded"; id: string; accepted: boolean; value: ComposerDraft }
   | { type: "composerChanged" | "composerRestore"; value: ComposerDraft }
+  | { type: "chatFocus"; focused: boolean }
   | CapabilityAction
   | PanelReply
   | HistoryAction
@@ -59,6 +60,7 @@ export function parseViewAction(value: unknown): ViewAction {
     if (t !== undefined && (!t || typeof t !== "object" || Object.keys(t).length !== 3 || typeof t.scope !== "string" || t.scope.length > 1000 || typeof t.text !== "string" || t.text.length > 32_000 || !["askSideQuestion", "steer", "shellCommand"].includes(t.mode))) throw new Error("Invalid tools draft")
     return { type: record.type, value }
   }
+  if (record.type === "chatFocus" && Object.keys(record).length === 2 && typeof record.focused === "boolean") return { type: "chatFocus", focused: record.focused }
   if (record.type === "setWorkMode" && Object.keys(record).length === 2) return { type: "setWorkMode", workMode: parseWorkMode(record.workMode) }
   if (record.type === "setTheme" && Object.keys(record).length === 2 && (record.theme === "light" || record.theme === "dark")) return { type: "setTheme", theme: record.theme }
   if (record.type === "setPermission" && Object.keys(record).length === 2) return { type: "setPermission", permission: parseCodemPermissionMode(record.permission) }
