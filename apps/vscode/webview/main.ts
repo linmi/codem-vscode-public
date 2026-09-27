@@ -1,12 +1,15 @@
 import { setNonce } from "get-nonce"
 import { mountCodemUi } from "@codem/ui"
-import type { CodemUiHost } from "@codem/ui"
+import type { CodemUiHost, HostDraftCommand } from "@codem/ui"
 import { VscodeHostBridge, vscodeTheme } from "./host/vscodeHostBridge.ts"
+
+/** 页面自己保存的草稿：当前会话的草稿和界面交来的各会话草稿（原样保存，界面负责校验）。 */
+interface SavedDraft { draft?: string; sessions?: unknown }
 
 declare function acquireVsCodeApi(): {
   postMessage(message: Record<string, unknown>): void
-  getState(): { draft?: string } | undefined
-  setState(state: { draft?: string }): void
+  getState(): SavedDraft | undefined
+  setState(state: SavedDraft): void
 }
 
 const vscode = acquireVsCodeApi()
@@ -19,18 +22,18 @@ const bridge = new VscodeHostBridge()
 bridge.setBrand(root.dataset.logo ?? null)
 bridge.setTheme(vscodeTheme(document.body.classList))
 const listeners = new Set<(message: Record<string, unknown>) => void>()
-const draftListeners = new Set<(command: { revision: number; text: string; mode: "message" | "askSideQuestion" | "steer" | "shellCommand"; focus: boolean; pendingRequestId: string | null }) => void>()
-let applyingDraft = false
+const draftListeners = new Set<(command: HostDraftCommand) => void>()
+// 最近一次与 Host 一致的草稿；界面保存的值与之相同就不回发，Host 下发的草稿因此不会被回显。
 let lastPosted = ""
-let lastDraft: { revision: number; text: string; mode: "message" | "askSideQuestion" | "steer" | "shellCommand"; focus: boolean; pendingRequestId: string | null } | null = null
+let lastSessions = JSON.stringify(vscode.getState()?.sessions ?? null)
+let lastDraft: HostDraftCommand | null = null
 
 function emit(update: NonNullable<ReturnType<VscodeHostBridge["receive"]>>): void {
   if (update.draft) {
     lastDraft = update.draft
-    applyingDraft = true
-    for (const listener of draftListeners) listener(update.draft)
-    applyingDraft = false
     lastPosted = update.draft.text
+    if (update.draft.sessions !== undefined) lastSessions = JSON.stringify(update.draft.sessions)
+    for (const listener of draftListeners) listener(update.draft)
   }
   if (update.snapshot) for (const listener of listeners) listener(update.snapshot as unknown as Record<string, unknown>)
   if (update.reply) vscode.postMessage(update.reply)
@@ -63,15 +66,20 @@ const host: CodemUiHost = {
     return () => draftListeners.delete(listener)
   },
   getState() {
-    return { ...bridge.snapshot(), draft: vscode.getState()?.draft ?? "" }
+    const saved = vscode.getState()
+    return { ...bridge.snapshot(), draft: saved?.draft ?? "", sessions: saved?.sessions ?? null }
   },
   setState(state) {
     const text = typeof state.draft === "string" ? state.draft : ""
-    vscode.setState({ draft: text })
+    vscode.setState({ draft: text, sessions: state.sessions })
     bridge.rememberDraft(text)
-    if (applyingDraft || text === lastPosted) return
-    lastPosted = text
-    vscode.postMessage({ type: "composerChanged", value: { draft: text } })
+    // 各会话草稿只在切换会话时变化，这时才随草稿一并交给 Host，平时输入只发当前草稿。
+    const sessions = JSON.stringify(state.sessions ?? null)
+    if (text === lastPosted && sessions === lastSessions) return
+    const value: Record<string, unknown> = { draft: text }
+    if (sessions !== lastSessions) value.sessions = state.sessions ?? null
+    lastPosted = text; lastSessions = sessions
+    vscode.postMessage({ type: "composerChanged", value })
   },
 }
 
@@ -81,4 +89,5 @@ const reportFocus = (focused: boolean) => vscode.postMessage({ type: "chatFocus"
 window.addEventListener("focus", () => reportFocus(true))
 window.addEventListener("blur", () => reportFocus(false))
 if (document.hasFocus()) reportFocus(true)
-vscode.postMessage({ type: "composerRestore", value: { draft: vscode.getState()?.draft ?? "" } })
+const saved = vscode.getState()
+vscode.postMessage({ type: "composerRestore", value: saved?.sessions == null ? { draft: saved?.draft ?? "" } : { draft: saved.draft ?? "", sessions: saved.sessions } })

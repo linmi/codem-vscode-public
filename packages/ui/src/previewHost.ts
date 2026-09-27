@@ -102,6 +102,7 @@ export function createPreviewHost(kind: PreviewHostKind, snapshot: ChatSnapshot,
   const listeners = new Set<(message: Record<string, unknown>) => void>()
   let current = { ...snapshot, theme: snapshot.theme }
   let draft = ""
+  let sessions: unknown = null
   return {
     postAction(action) {
       const parsed = parseUiAction(action)
@@ -118,10 +119,11 @@ export function createPreviewHost(kind: PreviewHostKind, snapshot: ChatSnapshot,
       return () => listeners.delete(listener)
     },
     getState() {
-      return { ...current, draft }
+      return { ...current, draft, sessions }
     },
     setState(state) {
       draft = String(state.draft ?? draft)
+      if (state.sessions !== undefined) sessions = state.sessions
     },
     publish(next) {
       current = asSnapshot(next) ?? next

@@ -9,6 +9,8 @@ interface DraftCommand {
   mode: "message" | "askSideQuestion" | "steer" | "shellCommand"
   focus: boolean
   pendingRequestId: string | null
+  /** Host 交回的各会话草稿，原样转给界面，由界面校验。 */
+  sessions?: unknown
 }
 
 /**
@@ -156,10 +158,11 @@ export class VscodeHostBridge {
       return { snapshot: this.project() }
     }
     if (record.type === "composerDraft") {
-      const value = record.value as { draft?: unknown } | undefined
+      const value = record.value as { draft?: unknown; sessions?: unknown } | undefined
       const text = typeof value?.draft === "string" ? value.draft : ""
       this.draftText = text
-      return { snapshot: this.project(), draft: this.draftCommand(text, "message", record.focus === true, typeof record.pendingRequestId === "string" ? record.pendingRequestId : null) }
+      const draft = this.draftCommand(text, "message", record.focus === true, typeof record.pendingRequestId === "string" ? record.pendingRequestId : null)
+      return { snapshot: this.project(), draft: value && "sessions" in value ? { ...draft, sessions: value.sessions } : draft }
     }
     if (record.type === "appendContext" && typeof record.id === "string" && typeof record.text === "string") {
       try {

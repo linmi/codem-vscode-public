@@ -141,6 +141,15 @@ describe("VS Code host bridge", () => {
     assert.equal(rejected?.draft, undefined)
   })
 
+  it("hands other sessions' drafts back to the page only when the Host sends them", () => {
+    const bridge = new VscodeHostBridge()
+    const sessions = { current: "thread:b", others: { "thread:a": "A" } }
+    assert.deepEqual(bridge.receive({ type: "composerDraft", value: { draft: "B", sessions }, focus: false, pendingRequestId: null })?.draft?.sessions, sessions)
+    assert.equal(bridge.receive({ type: "composerDraft", value: { draft: "", sessions: null }, focus: false, pendingRequestId: null })?.draft?.sessions, null)
+    const plain = bridge.receive({ type: "composerDraft", value: { draft: "B" }, focus: false, pendingRequestId: null })?.draft
+    assert.equal(plain && "sessions" in plain, false, "Without sessions the page keeps its own")
+  })
+
   it("translates selection, paste and send-key actions into the VS Code host contract", () => {
     const bridge = new VscodeHostBridge()
     bridge.receive({

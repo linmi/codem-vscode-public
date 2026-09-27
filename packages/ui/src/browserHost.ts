@@ -13,6 +13,7 @@ export interface BrowserHost extends CodemUiHost {
 }
 
 const draftKey = "codem.draft"
+const sessionsKey = "codem.draftSessions"
 
 /**
  * Page end of the JetBrains bridge. The Host publishes snapshots from one serial owner and stamps each with one
@@ -25,6 +26,8 @@ export function createBrowserHost(post: (message: Record<string, unknown>) => vo
   let appliedVersion = Number.NEGATIVE_INFINITY
   // Tab-scoped draft survives a Webview reload; snapshots never overwrite it.
   let draft = drafts.getItem(draftKey) ?? ""
+  // Other sessions' drafts, stored as the page saved them; ChatApp validates them when it reads them back.
+  let sessions: unknown = readSessions(drafts.getItem(sessionsKey))
 
   return {
     postAction(action) {
@@ -35,13 +38,17 @@ export function createBrowserHost(post: (message: Record<string, unknown>) => vo
       return () => listeners.delete(listener)
     },
     getState() {
-      return { ...persisted, draft }
+      return { ...persisted, draft, sessions }
     },
     setState(state) {
       if (typeof state.draft !== "string") return
       draft = state.draft
       if (draft) drafts.setItem(draftKey, draft)
       else drafts.removeItem(draftKey)
+      if (state.sessions === undefined) return
+      sessions = state.sessions
+      if (sessions) drafts.setItem(sessionsKey, JSON.stringify(sessions))
+      else drafts.removeItem(sessionsKey)
     },
     receive(encoded) {
       const message = JSON.parse(encoded) as Record<string, unknown>
@@ -56,4 +63,9 @@ export function createBrowserHost(post: (message: Record<string, unknown>) => vo
       listeners.forEach((listener) => listener(message))
     },
   }
+}
+
+function readSessions(saved: string | null): unknown {
+  try { return saved ? JSON.parse(saved) as unknown : null }
+  catch { return null }
 }

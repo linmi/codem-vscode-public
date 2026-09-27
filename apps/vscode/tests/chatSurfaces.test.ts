@@ -202,6 +202,26 @@ it("logout clears pending context and saved drafts so surface reload cannot rest
   assert.equal(editor.messages.at(-1).pendingRequestId, null)
 })
 
+it("keeps other sessions' drafts across a surface move and clears them on logout", async t => {
+  const { ChatSurfaces, PanelBroker, control } = await fixture(t)
+  const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async () => {}, () => {})
+  t.after(() => surfaces.dispose())
+  await surfaces.focus(); control.sidebar.receive({ type: "ready" }); control.sidebar.receive({ type: "composerRestore", value: { draft: "" } })
+  assert.equal("sessions" in control.sidebar.messages.at(-1).value, false, "Nothing to hand back before the page reports any")
+  const sessions = { current: "thread:b", others: { "thread:a": "A 的草稿" } }
+  control.sidebar.receive({ type: "composerChanged", value: { draft: "B 的草稿", sessions } })
+  // Ordinary typing carries only the current draft and must not forget the stash.
+  control.sidebar.receive({ type: "composerChanged", value: { draft: "B 的草稿！" } })
+  surfaces.openInTab()
+  const editor = control.editors[0]
+  editor.receive({ type: "ready" }); editor.receive({ type: "composerRestore", value: { draft: "" } })
+  assert.deepEqual(editor.messages.at(-1).value, { draft: "B 的草稿！", sessions })
+  surfaces.resetDraft()
+  assert.deepEqual(editor.messages.at(-1).value, { draft: "", sessions: null })
+  await surfaces.openInSidebar(); control.sidebar.receive({ type: "ready" }); control.sidebar.receive({ type: "composerRestore", value: { draft: "stale", sessions } })
+  assert.deepEqual(control.sidebar.messages.at(-1).value, { draft: "", sessions: null }, "A page saved before logout cannot bring old drafts back")
+})
+
 it("logout cancels context insertion waiting for Webview restoration", async t => {
   const { ChatSurfaces, PanelBroker, control } = await fixture(t)
   const surfaces = serve(new ChatSurfaces({ extensionUri: {} }, new PanelBroker()), async () => {}, () => {})
