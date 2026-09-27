@@ -23,9 +23,10 @@ import { draftRetention } from "./draftRetention.ts"
 import { draftSessionKey, emptySessionDrafts, enterSession, parseSessionDrafts, settleStashedSend, type SessionPendingSend } from "./sessionDrafts.ts"
 import { FileMentions, useFileMentions } from "./FileMentions.tsx"
 import { HistoryButton, HistoryPaging, HistoryPanel, HistoryResume } from "./HistoryPanel.tsx"
-import { composerMessageAction, inputModeText, sendOnEnter } from "./composerInput.ts"
+import { composerMessageAction, inputModeText, queueInputText, sendOnEnter } from "./composerInput.ts"
 import { phaseFlags, sessionIdle } from "./chatPhase.ts"
 import { LoadingState } from "./LoadingState.tsx"
+import { QueuedMessages } from "./messageQueue.tsx"
 import { MessageList } from "./MessageList.tsx"
 import { ResourceTools } from "./resourceTools.tsx"
 import { RewindPanel } from "./rewindPanel.tsx"
@@ -75,8 +76,8 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const permissionMenuRequest = useRef(initial.permissionMenuRequest)
   const { busy, turnActive, generating, connected, slashMenu } = phaseFlags(snapshot.phase)
   const idle = sessionIdle(snapshot)
-  const modeText = inputModeText(inputMode)
-  const messageAction = inputMode === "message" ? composerMessageAction(snapshot.phase) : null
+  const messageAction = inputMode === "message" ? composerMessageAction(snapshot.phase, snapshot.messageQueue !== null) : null
+  const modeText = messageAction === "queue" ? { ...inputModeText(inputMode), ...queueInputText } : inputModeText(inputMode)
   const account = snapshot.account
   const signedIn = isSignedIn(account)
   const slash = inputMode === "message" ? slashQuery(draft) : null
@@ -291,9 +292,9 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
       setPendingSend(pendingOf(id))
       return
     }
-    if (messageAction === "steer") {
+    if (messageAction === "steer" || messageAction === "queue") {
       if (!snapshot.threadId) return
-      if (!tryPost({ type: "steer", threadId: snapshot.threadId, text, requestId: id })) return
+      if (!tryPost({ type: messageAction === "queue" ? "queueMessage" : "steer", threadId: snapshot.threadId, text, requestId: id })) return
       setPendingSend(pendingOf(id))
       return
     }
@@ -448,6 +449,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             {inputMode === "message" ? <CodeSelectionList items={snapshot.selections} disabled={Boolean(snapshot.pendingPanel)} post={post} /> : null}
             {snapshot.attachments.map((item) => <AttachmentCard key={item.id} item={item} disabled={Boolean(snapshot.pendingPanel)} post={post} />)}
           </div>
+          <QueuedMessages queue={snapshot.messageQueue} phase={snapshot.phase} post={post} />
           {inputMode !== "message" ? (
             <div className="composerModeBar" data-testid="inputMode">
               <span>
@@ -514,7 +516,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             </div>
             <div className="composerTrailing">
               <ComposerMenus snapshot={snapshot} enabled={idle} openMenu={openMenu} setOpenMenu={setOpenMenu} post={post} region="trailing" />
-              <button type="submit" className="sendButton" id="send" data-testid="send" hidden={generating && inputMode !== "steer"} aria-label={modeText.submit} title={snapshot.sendKey === "modEnter" ? "发送消息 · Ctrl / Cmd + Enter" : "发送消息 · Enter"} disabled={Boolean(pendingSend) || (slash === null && (Boolean(inputUnavailable(inputMode, snapshot)) || !draft.trim() || snapshot.selections.some((item) => item.error)))} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
+              <button type="submit" className="sendButton" id="send" data-testid="send" hidden={generating && inputMode !== "steer" && messageAction !== "queue"} aria-label={modeText.submit} title={`${messageAction === "queue" ? queueInputText.submit : "发送消息"} · ${snapshot.sendKey === "modEnter" ? "Ctrl / Cmd + Enter" : "Enter"}`} disabled={Boolean(pendingSend) || (slash === null && ((messageAction !== "queue" && Boolean(inputUnavailable(inputMode, snapshot))) || !draft.trim() || snapshot.selections.some((item) => item.error)))} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
               <button type="button" className="stopButton" id="stop" data-testid="stop" hidden={!generating} disabled={snapshot.phase === "stopping"} aria-label="停止生成" title="停止生成" onClick={() => post({ type: "stop" })} dangerouslySetInnerHTML={{ __html: uiIcon("stop") }} />
             </div>
           </div>

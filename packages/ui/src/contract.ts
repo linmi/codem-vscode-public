@@ -200,6 +200,18 @@ export interface PendingPanel {
   confirmLabel: string | null
 }
 
+/** 运行中排队的一条消息；本轮完成后按顺序作为新一轮发送。 */
+export interface QueuedMessageView {
+  id: string
+  text: string
+}
+
+/** 宿主持有的排队消息。paused：上一轮停止或失败，不自动发送，等用户继续。 */
+export interface MessageQueueView {
+  items: readonly QueuedMessageView[]
+  paused: boolean
+}
+
 /** VS Code 用发送回执确认；JetBrains 用与 requestId 相同的用户消息 id。两者都算受理。 */
 export interface SubmissionReceipt {
   requestId: string
@@ -298,6 +310,8 @@ export interface ChatSnapshot {
   pendingInteraction: string | null
   pendingPanel: PendingPanel | null
   submission: SubmissionReceipt | null
+  /** 宿主不支持排队时为 null，运行中输入仍作为补充指令。 */
+  messageQueue: MessageQueueView | null
   canRetry: boolean
   canResume: boolean
   canLoadOlder: boolean
@@ -387,6 +401,7 @@ export function initialSnapshot(): ChatSnapshot {
     pendingInteraction: null,
     pendingPanel: null,
     submission: null,
+    messageQueue: null,
     canRetry: false,
     canResume: false,
     canLoadOlder: false,
@@ -462,6 +477,7 @@ const simpleActions = [
   "showOutput",
   "manageMcp",
   "refreshTools",
+  "resumeQueue",
 ] as const
 
 const handleActions = [
@@ -481,6 +497,7 @@ const handleActions = [
   "removeCodeSelection",
   "revealCodeSelection",
   "pinCodeSelection",
+  "removeQueuedMessage",
 ] as const
 
 const requestIdPattern = /^[a-zA-Z0-9-]{1,100}$/u
@@ -599,7 +616,10 @@ export function parseUiAction(value: unknown): Record<string, unknown> {
       requestId: requestId(record.requestId),
     }
   }
-  if (["steer", "askSideQuestion", "shellCommand"].includes(String(record.type)) && keys.length === 4) {
+  if (record.type === "editQueuedMessage" && keys.length === 3) {
+    return { type: "editQueuedMessage", id: handleId(record.id), text: nonEmptyText(record.text) }
+  }
+  if (["steer", "askSideQuestion", "shellCommand", "queueMessage"].includes(String(record.type)) && keys.length === 4) {
     return {
       type: record.type,
       threadId: threadId(record.threadId),
@@ -1207,6 +1227,24 @@ function normalizeNames(value: unknown): string[] {
   })
 }
 
+/** 与宿主 MessageQueue 的上限一致；超出的条目不显示。 */
+const MAX_QUEUED_MESSAGES = 20
+
+function normalizeMessageQueue(value: unknown): MessageQueueView | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const record = value as { items?: unknown; paused?: unknown }
+  const items = Array.isArray(record.items)
+    ? record.items.flatMap((item) => {
+        if (!item || typeof item !== "object") return []
+        const row = item as { id?: unknown; text?: unknown }
+        if (typeof row.id !== "string" || !handlePattern.test(row.id)) return []
+        if (typeof row.text !== "string" || !row.text.trim() || row.text.length > 32_000) return []
+        return [{ id: row.id, text: row.text }]
+      }).slice(0, MAX_QUEUED_MESSAGES)
+    : []
+  return { items, paused: record.paused === true && items.length > 0 }
+}
+
 function normalizeSubmission(value: unknown): SubmissionReceipt | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const record = value as SubmissionReceipt
@@ -1248,6 +1286,7 @@ export function asSnapshot(value: unknown): ChatSnapshot | null {
     pendingInteraction: boundedText(record.pendingInteraction, 100),
     pendingPanel: normalizePanel(record.pendingPanel),
     submission: normalizeSubmission(record.submission),
+    messageQueue: normalizeMessageQueue(record.messageQueue),
     canRetry: record.canRetry === true,
     canResume: record.canResume === true,
     canLoadOlder: record.canLoadOlder === true,

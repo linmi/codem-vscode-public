@@ -8,8 +8,8 @@ import { parsePanelReply, type PanelReply } from "./panelTypes.ts"
 import { emptyHistoryList, type HistoryAction, type HistoryList } from "./historyTypes.ts"
 
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
-const simpleActions = ["showPluginManagement", "closePluginManagement", "cancelPluginOperation", "installLocalPlugin", "showConversationSearch", "closeConversationSearch", "showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground", "pinSelection"] as const
-const handleActions = ["selectConversationSearchHit", "chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask", "removeCodeSelection", "revealCodeSelection", "pinCodeSelection"] as const
+const simpleActions = ["showPluginManagement", "closePluginManagement", "cancelPluginOperation", "installLocalPlugin", "showConversationSearch", "closeConversationSearch", "showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground", "pinSelection", "resumeQueue"] as const
+const handleActions = ["selectConversationSearchHit", "chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask", "removeCodeSelection", "revealCodeSelection", "pinCodeSelection", "removeQueuedMessage"] as const
 /** Other sessions' unsent drafts, owned by the Webview; the Host keeps the last value only to hand it back after a reload or a surface move. */
 export interface SessionDraftsValue { current: string | null; others: Record<string, string> }
 export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" }; sessions?: SessionDraftsValue | null }
@@ -37,6 +37,7 @@ export type ViewAction =
   | { type: "setTheme"; theme: "light" | "dark" }
   | { type: "setSendKey"; sendKey: "enter" | "ctrlEnter" }
   | { type: "send"; text: string; requestId: string; selectionIds?: readonly string[] }
+  | { type: "editQueuedMessage"; id: string; text: string }
 
 export interface ImageResult { type: "imageResult"; id: string; preview: AttachmentView["preview"] }
 export interface FileSearchResult { type: "fileSearchResult"; requestId: string; files: readonly { id: string; label: string }[]; error: string | null }
@@ -86,6 +87,7 @@ export function parseViewAction(value: unknown): ViewAction {
     if (record.type === "selectFile" && typeof record.id === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.id)) return { type: "selectFile", id: record.id, requestId: record.requestId }
   }
   if (record.type === "send" && (keys.length === 3 && record.selectionIds === undefined || keys.length === 4 && Array.isArray(record.selectionIds) && record.selectionIds.length > 0 && record.selectionIds.length <= MAX_PINNED_CODE_SELECTIONS + 1 && new Set(record.selectionIds).size === record.selectionIds.length && record.selectionIds.every(id => typeof id === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(id))) && typeof record.requestId === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.requestId) && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return { type: "send", text: record.text, requestId: record.requestId, ...(Array.isArray(record.selectionIds) ? { selectionIds: record.selectionIds as string[] } : {}) }
+  if (record.type === "editQueuedMessage" && keys.length === 3 && typeof record.id === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.id) && typeof record.text === "string" && record.text.trim() && record.text.length <= 32_000) return { type: "editQueuedMessage", id: record.id, text: record.text }
   if (record.type === "resumeThread" && keys.length === 2 && typeof record.threadId === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(record.threadId)) return { type: "resumeThread", threadId: record.threadId }
   if (keys.length === 1 && simpleActions.some((type) => type === record.type)) return record as ViewAction
   if (keys.length === 2 && handleActions.some((type) => type === record.type) && typeof record.id === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(record.id)) return record as ViewAction
@@ -113,7 +115,12 @@ interface MessageContent {
 export type ActivityMessage = MessageContent & { role: "reasoning" | "tool"; status: ActivityStatus; summary: string; details?: ToolDetails }
 export type TurnStatusMessage = MessageContent & { role: "turnStatus"; turnId: string; outcome: "stopped" }
 export type ChatMessage = (MessageContent & { role: "user" | "assistant"; attachments?: readonly AttachmentView[] }) | ActivityMessage | TurnStatusMessage
+/** A message typed during a run, sent as the next turn once the run completes. */
+export interface QueuedMessageView { id: string; text: string }
+/** Paused after a stopped or failed turn: nothing is sent until the user resumes. */
+export interface MessageQueueView { items: readonly QueuedMessageView[]; paused: boolean }
 export interface ChatSnapshot {
+  messageQueue: MessageQueueView
   pluginManagement: PluginManagementView
   conversationSearch: ConversationSearchView
   composerCatalog: ComposerCatalog
@@ -143,7 +150,7 @@ export interface ChatSnapshot {
   historyNeedsRefresh: boolean
 }
 export function initialSnapshot(): ChatSnapshot {
-  return { pluginManagement: { open: false, loaded: false, status: "idle", entries: [], skills: [], error: null, notice: null }, conversationSearch: { open: false, status: "idle", query: "", hits: [], truncated: false, error: null, target: null, historical: false }, composerCatalog: { models: [], spaces: [] }, capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
+  return { messageQueue: { items: [], paused: false }, pluginManagement: { open: false, loaded: false, status: "idle", entries: [], skills: [], error: null, notice: null }, conversationSearch: { open: false, status: "idle", query: "", hits: [], truncated: false, error: null, target: null, historical: false }, composerCatalog: { models: [], spaces: [] }, capabilities: emptyCapabilities(), sessionTools: emptySessionTools(), threadId: null, history: emptyHistoryList(), hasOlderMessages: false, historyNeedsRefresh: false, type: "state", phase: "disconnected", workspace: null, space: null, model: null, effort: CODEM_DEFAULT_INTELLIGENCE, permission: "default", workMode: "default", mcpNames: [], tools: [], attachments: [], diffs: [], background: [], backgroundTasks: [], backgroundBusy: false, messages: [], turnTimings: [], notice: null }
 }
 export function isBusy(phase: ChatPhase): boolean {
   return phase !== "ready" && phase !== "disconnected"
