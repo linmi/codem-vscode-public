@@ -50,6 +50,12 @@ async function openWindow(path: string, repository: Repository): Promise<void> {
   await vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(target), { forceNewWindow: true })
 }
 
+/** The built-in Git API rejects with "Failed to execute git" and keeps git's own reason in `stderr`. */
+function failureMessage(error: unknown): string {
+  const stderr = error && typeof error === "object" && "stderr" in error && typeof error.stderr === "string" ? gitErrorMessage(error.stderr) : null
+  return stderr ?? (error instanceof Error ? error.message : "worktree 操作失败。")
+}
+
 function describe(entry: WorktreeEntry): string {
   if (entry.branch) return entry.branch
   return entry.detached ? `分离头指针 ${entry.head?.slice(0, 8) ?? ""}` : basename(entry.path)
@@ -65,7 +71,7 @@ export function registerWorktreeActions(log: (message: string) => void): vscode.
     if (busy) { void vscode.window.showInformationMessage("另一个 worktree 操作仍在进行。"); return }
     busy = true
     try { assertTrusted(); await action() }
-    catch (error) { void vscode.window.showErrorMessage(error instanceof Error ? error.message : "worktree 操作失败。") }
+    catch (error) { void vscode.window.showErrorMessage(failureMessage(error)) }
     finally { busy = false }
   })
 
@@ -164,11 +170,23 @@ export function registerWorktreeActions(log: (message: string) => void): vscode.
     const head = repository.state.HEAD
     const branch = head?.name
     if (!branch) throw new Error("当前不在任何分支上，请先检出分支。")
-    const remoteName = head.upstream?.remote ?? (repository.state.remotes.some(remote => remote.name === "origin") ? "origin" : repository.state.remotes[0]?.name)
-    const remote = repository.state.remotes.find(candidate => candidate.name === remoteName)
-    if (!remoteName || !remote) throw new Error("当前仓库没有远程仓库。")
-    const hosted = hostedRepository(remote.pushUrl ?? remote.fetchUrl ?? "")
-    if (!hosted) throw new Error(`暂只支持 github.com 与 gitlab.com 远程，${remoteName} 不在其中。`)
+    const remotes = repository.state.remotes
+    if (!remotes.length) throw new Error("当前仓库没有远程仓库。")
+    const hostedRemotes = remotes.flatMap(remote => {
+      const hosted = hostedRepository(remote.pushUrl ?? remote.fetchUrl ?? "")
+      return hosted ? [{ name: remote.name, hosted }] : []
+    })
+    const upstream = head.upstream?.remote
+    // The branch's upstream decides; without one, a single hosted remote is used and several are the person's choice.
+    const chosen = upstream !== undefined ? hostedRemotes.find(remote => remote.name === upstream)
+      : hostedRemotes.length > 1 ? (await vscode.window.showQuickPick(
+        [...hostedRemotes].sort((a, b) => Number(b.name === "origin") - Number(a.name === "origin")).map(remote => ({ label: remote.name, description: `${remote.hosted.host}/${remote.hosted.path}`, remote })),
+        { title: `选择要为 ${branch} 打开 PR 的远程仓库` }))?.remote
+      : hostedRemotes[0]
+    if (upstream !== undefined && !chosen) throw new Error(`暂只支持 github.com 与 gitlab.com 远程，${upstream} 不在其中。`)
+    if (!hostedRemotes.length) throw new Error("暂只支持 github.com 与 gitlab.com 远程，当前仓库的远程都不在其中。")
+    if (!chosen) return
+    const { name: remoteName, hosted } = chosen
     const base = (await git(["symbolic-ref", "--short", `refs/remotes/${remoteName}/HEAD`], root).catch(() => "")).trim().replace(`${remoteName}/`, "")
       || ((await git(["show-ref", "--verify", "--quiet", `refs/remotes/${remoteName}/main`], root).then(() => true, () => false)) ? "main" : "master")
     if (branch === base) throw new Error(`当前分支就是默认分支 ${base}，请先切换到功能分支。`)
