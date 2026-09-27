@@ -31,6 +31,7 @@ import { RuntimeDetails } from "./runtimeDetails.tsx"
 import { SessionCommandPanel, type SessionRequest } from "./sessionCommandPanel.tsx"
 import { SlashMenu } from "./SlashMenu.tsx"
 import { TaskProgress } from "./taskProgress.tsx"
+import { useTranscriptScroll } from "./transcriptScroll.ts"
 import { WelcomeView } from "./WelcomeView.tsx"
 import { workingStatus } from "./workingStatus.ts"
 import { commandUnavailable, inputModes, inputUnavailable, slashQuery } from "./slashCommands.ts"
@@ -62,7 +63,6 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const accountStatus = useRef(initial.account.status)
   const accountRequest = useRef(initial.accountRequest)
   const permissionMenuRequest = useRef(initial.permissionMenuRequest)
-  const [showJump, setShowJump] = useState(false)
   const { busy, turnActive, generating, connected, slashMenu } = phaseFlags(snapshot.phase)
   const idle = sessionIdle(snapshot)
   const modeText = inputModeText(inputMode)
@@ -71,6 +71,11 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const signedIn = isSignedIn(account)
   const slash = inputMode === "message" ? slashQuery(draft) : null
   const empty = snapshot.messages.length === 0 && !snapshot.assistantText
+  const transcript = useTranscriptScroll(scroller, {
+    context: `${snapshot.workspace}:${snapshot.space}:${snapshot.threadId}`,
+    revision: snapshot,
+    target: snapshot.conversationSearch?.target ?? null,
+  })
 
   useEffect(() => {
     return host.subscribe((message) => {
@@ -329,11 +334,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
       </header>
       <div className="timelineArea">
         <HistoryPanel snapshot={snapshot} post={post} />
-        <main id="scrollArea" ref={scroller} onScroll={() => {
-          const node = scroller.current
-          if (!node) return
-          setShowJump(node.scrollHeight - node.scrollTop - node.clientHeight >= 70)
-        }}>
+        <main id="scrollArea" ref={scroller} onScroll={transcript.onScroll}>
           <section className="transcriptLoading" id="transcriptLoading" hidden={snapshot.phase !== "loadingHistory"} role="status" aria-live="polite">
             <span className="loadingSpinner" aria-hidden="true" />
             <span id="loadingLabel">正在恢复会话记录…</span>
@@ -347,7 +348,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
             <span id="workingLabel">{activity ? <LoadingState label={activity.label} animate={activity.animate} /> : null}</span>
           </div>
         </main>
-        <button type="button" className="jumpLatest" id="jumpLatest" hidden={!showJump} aria-label="回到最新消息" onClick={() => { if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight }} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
+        <button type="button" className="jumpLatest" id="jumpLatest" hidden={!transcript.showJump} title="回到最新消息" aria-label="回到最新消息" onClick={transcript.jumpToLatest} dangerouslySetInnerHTML={{ __html: uiIcon("arrowUp") }} />
         <div id="taskProgressHost"><TaskProgress snapshot={snapshot} /></div>
       </div>
       <footer>
