@@ -9,6 +9,8 @@ export interface HostDraftCommand {
   mode: "message" | "askSideQuestion" | "steer" | "shellCommand"
   focus: boolean
   pendingRequestId: string | null
+  /** 各会话暂存的草稿，原样交回界面上次保存的值；界面自己校验。只在恢复或清空时携带。 */
+  sessions?: unknown
 }
 
 export interface CodemUiHost {
@@ -16,6 +18,7 @@ export interface CodemUiHost {
   subscribe(listener: (message: Record<string, unknown>) => void): () => void
   subscribeDraft?(listener: (command: HostDraftCommand) => void): () => void
   getState(): Record<string, unknown> | null
+  /** 保存 draft（当前会话的草稿）和 sessions（各会话草稿），重载后由 getState 交回。 */
   setState(state: Record<string, unknown>): void
   /** editor 才有历史、新建和日志；sidebar 与旧版侧栏一致。 */
   surface?: "sidebar" | "editor"

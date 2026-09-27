@@ -48,6 +48,20 @@ describe("JetBrains page bridge", () => {
     assert.equal((host.getState() as Record<string, unknown>).version, 4)
   })
 
+  it("keeps other sessions' drafts across reloads and clears them when told", () => {
+    const storage = memoryStorage()
+    const host = createBrowserHost(() => {}, storage)
+    const sessions = { current: "thread:b", others: { "thread:a": "A" } }
+    host.setState({ draft: "B", sessions })
+    assert.deepEqual(createBrowserHost(() => {}, storage).getState()?.sessions, sessions)
+    host.setState({ draft: "B!" })
+    assert.deepEqual(JSON.parse(storage.values.get("codem.draftSessions")!), sessions, "Saving only the draft keeps the stash")
+    host.setState({ draft: "", sessions: null })
+    assert.equal(storage.values.has("codem.draftSessions"), false)
+    storage.values.set("codem.draftSessions", "{broken")
+    assert.equal(createBrowserHost(() => {}, storage).getState()?.sessions, null)
+  })
+
   it("keeps the unsent draft across snapshots and reloads", () => {
     const storage = memoryStorage({ "codem.draft": "keep me" })
     const host = createBrowserHost(() => {}, storage)

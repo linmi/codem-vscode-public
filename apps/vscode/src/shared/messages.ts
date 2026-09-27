@@ -10,7 +10,9 @@ import { emptyHistoryList, type HistoryAction, type HistoryList } from "./histor
 /** The webview sends intent and opaque handles. Paths, credentials and RPC stay in Host. */
 const simpleActions = ["showPluginManagement", "closePluginManagement", "cancelPluginOperation", "installLocalPlugin", "showConversationSearch", "closeConversationSearch", "showHistory", "closeHistory", "refreshHistory", "moreThreads", "olderMessages", "reloadHistory", "ready", "connect", "signIn", "signOut", "cancelSignIn", "refreshAccount", "newChat", "stop", "showOutput", "refreshSpaces", "manageMcp", "refreshTools", "refreshBackground", "cleanBackground", "pinSelection"] as const
 const handleActions = ["selectConversationSearchHit", "chooseModel", "chooseSpace", "openArtifact", "loadImage", "removeAttachment", "openDiff", "openChangedFile", "openBackgroundLog", "terminateBackground", "cancelBackgroundTask", "removeCodeSelection", "revealCodeSelection", "pinCodeSelection"] as const
-export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" } }
+/** Other sessions' unsent drafts, owned by the Webview; the Host keeps the last value only to hand it back after a reload or a surface move. */
+export interface SessionDraftsValue { current: string | null; others: Record<string, string> }
+export interface ComposerDraft { draft: string; tools?: { scope: string; text: string; mode: "askSideQuestion" | "steer" | "shellCommand" }; sessions?: SessionDraftsValue | null }
 export interface CodeSelectionView { id: string; label: string; path: string; startLine: number; endLine: number; error: string | null }
 export interface CodeSelectionsView { current: CodeSelectionView | null; pinned: readonly CodeSelectionView[] }
 export type EditorMessage = { type: "codeSelection"; value: CodeSelectionsView } | { type: "composerDraft"; value: ComposerDraft; focus: boolean; pendingRequestId: string | null } | { type: "appendContext"; id: string; text: string } | { type: "focusComposer" } | { type: "editorSettings"; sendKey: string }
@@ -56,9 +58,10 @@ export function parseViewAction(value: unknown): ViewAction {
   }
   if (record.type === "composerChanged" || record.type === "composerRestore") {
     const value = record.value as ComposerDraft | undefined
-    if (Object.keys(record).length !== 2 || !value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(key => key !== "draft" && key !== "tools") || typeof value.draft !== "string" || value.draft.length > 32_000) throw new Error("Invalid composer draft")
+    if (Object.keys(record).length !== 2 || !value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(key => key !== "draft" && key !== "tools" && key !== "sessions") || typeof value.draft !== "string" || value.draft.length > 32_000) throw new Error("Invalid composer draft")
     const t = value.tools
     if (t !== undefined && (!t || typeof t !== "object" || Object.keys(t).length !== 3 || typeof t.scope !== "string" || t.scope.length > 1000 || typeof t.text !== "string" || t.text.length > 32_000 || !["askSideQuestion", "steer", "shellCommand"].includes(t.mode))) throw new Error("Invalid tools draft")
+    if (value.sessions !== undefined && value.sessions !== null) parseSessionDrafts(value.sessions)
     return { type: record.type, value }
   }
   if (record.type === "chatFocus" && Object.keys(record).length === 2 && typeof record.focused === "boolean") return { type: "chatFocus", focused: record.focused }
@@ -144,4 +147,15 @@ export function initialSnapshot(): ChatSnapshot {
 }
 export function isBusy(phase: ChatPhase): boolean {
   return phase !== "ready" && phase !== "disconnected"
+}
+
+/** Same bounds the Webview applies: at most 20 stashed sessions, 64000 characters in all, keys naming a thread or the new chat. */
+function parseSessionDrafts(value: unknown): void {
+  const record = value as SessionDraftsValue
+  const key = (name: unknown) => typeof name === "string" && name.length <= 300 && (name === "new" || name.startsWith("thread:"))
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length !== 2 || !(record.current === null || key(record.current))) throw new Error("Invalid session drafts")
+  const others = record.others
+  if (!others || typeof others !== "object" || Array.isArray(others)) throw new Error("Invalid session drafts")
+  const entries = Object.entries(others)
+  if (entries.length > 20 || entries.some(([name, text]) => !key(name) || typeof text !== "string" || !text || text.length > 32_000) || entries.reduce((sum, [, text]) => sum + text.length, 0) > 64_000) throw new Error("Invalid session drafts")
 }

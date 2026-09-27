@@ -19,7 +19,8 @@ import { carriesAttachments, IMAGE_TYPES, MAX_IMAGE_BYTES, readDroppedAttachment
 import { CodeSelectionList } from "./codeSelection.tsx"
 import { ComposerMenus, type MenuName } from "./composerMenus.tsx"
 import { DecisionPanel } from "./decisionPanel.tsx"
-import { draftRetention, type PendingSend } from "./draftRetention.ts"
+import { draftRetention } from "./draftRetention.ts"
+import { draftSessionKey, emptySessionDrafts, enterSession, parseSessionDrafts, settleStashedSend, type SessionPendingSend } from "./sessionDrafts.ts"
 import { FileMentions, useFileMentions } from "./FileMentions.tsx"
 import { HistoryButton, HistoryPaging, HistoryPanel, HistoryResume } from "./HistoryPanel.tsx"
 import { composerMessageAction, inputModeText, sendOnEnter } from "./composerInput.ts"
@@ -56,7 +57,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const [accountFocus, setAccountFocus] = useState(0)
   const [inputMode, setInputMode] = useState<ComposerInputMode>("message")
   const [slashOpen, setSlashOpen] = useState(false)
-  const [pendingSend, setPendingSend] = useState<PendingSend | null>(null)
+  const [pendingSend, setPendingSend] = useState<SessionPendingSend | null>(null)
   const [sessionRequest, setSessionRequest] = useState<SessionRequest | null>(null)
   const prompt = useRef<HTMLTextAreaElement>(null)
   const composer = useRef<HTMLFormElement>(null)
@@ -64,6 +65,12 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   const [dropping, setDropping] = useState(false)
   const [dropNotice, setDropNotice] = useState<string | null>(null)
   const accountStatus = useRef(initial.account.status)
+  // 各会话的草稿只归这里；输入框显示 current 的草稿，宿主只保存这份值供重载和换界面后交回。
+  const sessionDrafts = useRef(parseSessionDrafts(host.getState()?.sessions))
+  const draftRef = useRef(draft)
+  const pendingRef = useRef(pendingSend)
+  draftRef.current = draft
+  pendingRef.current = pendingSend
   const accountRequest = useRef(initial.accountRequest)
   const permissionMenuRequest = useRef(initial.permissionMenuRequest)
   const { busy, turnActive, generating, connected, slashMenu } = phaseFlags(snapshot.phase)
@@ -79,6 +86,9 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
     revision: snapshot,
     target: snapshot.conversationSearch?.target ?? null,
   })
+  const sessionKey = draftSessionKey(snapshot)
+  const sessionKeyRef = useRef(sessionKey)
+  sessionKeyRef.current = sessionKey
 
   useEffect(() => {
     return host.subscribe((message) => {
@@ -90,15 +100,24 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   useEffect(() => {
     if (!host.subscribeDraft) return
     return host.subscribeDraft((command) => {
+      if (command.sessions !== undefined) sessionDrafts.current = parseSessionDrafts(command.sessions)
       setInputMode(command.mode)
-      setDraft(command.text)
-      host.setState({ draft: command.text })
+      saveDraft(command.text)
+      let pending = pendingRef.current
       if (command.pendingRequestId) {
-        setPendingSend({ requestId: command.pendingRequestId, text: command.text })
+        pending = { requestId: command.pendingRequestId, text: command.text, session: sessionDrafts.current.current }
+        setPendingSend(pending)
       }
+      // 宿主交回的草稿可能属于另一个会话（例如换界面前后切过会话），按当前会话再对一次。
+      enterDraftSession(sessionKeyRef.current, pending)
       if (command.focus) prompt.current?.focus()
     })
   }, [host])
+
+  // 切换会话时暂存当前草稿、取出目标会话的草稿；连接中等短暂状态不算切换。
+  useEffect(() => {
+    enterDraftSession(sessionKey, pendingRef.current)
+  }, [sessionKey])
 
   // Host 快照的 theme 写到 html/body，避免 :root 浅色把 IDEA 深色 LAF 盖成白页。
   useEffect(() => {
@@ -154,9 +173,16 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   // 草稿只在宿主确认收下这条消息后才丢弃；没被受理就还回输入框。
   useEffect(() => {
     if (!pendingSend) return
-    const retention = draftRetention(pendingSend, snapshot, draft)
+    const stashed = pendingSend.session !== null && pendingSend.session !== sessionDrafts.current.current
+    const retention = draftRetention(pendingSend, snapshot, stashed ? sessionDrafts.current.others[pendingSend.session!] ?? "" : draft)
     if (retention.kind === "waiting") return
     setPendingSend(null)
+    if (stashed) {
+      // 回执到达前用户已切走：只改发送所在会话暂存的草稿，不动当前输入框。
+      sessionDrafts.current = settleStashedSend(sessionDrafts.current, pendingSend, retention)
+      saveDraft(draft)
+      return
+    }
     if (retention.kind === "restore") saveDraft(retention.text)
     else if (retention.kind === "accepted" && draft === pendingSend.text) saveDraft("")
     if (retention.kind === "accepted") setInputMode("message")
@@ -165,7 +191,10 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
   useEffect(() => {
     const previous = accountStatus.current
     accountStatus.current = snapshot.account.status
-    if (previous === "signedIn" && snapshot.account.status === "signingOut") saveDraft("")
+    if (previous === "signedIn" && snapshot.account.status === "signingOut") {
+      sessionDrafts.current = emptySessionDrafts
+      saveDraft("")
+    }
     if (previous === "signingOut" && snapshot.account.status !== "signingOut" && snapshot.account.status !== "signedIn") {
       document.querySelector<HTMLButtonElement>(".accountLoginContent button")?.focus()
     }
@@ -194,9 +223,23 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
 
   const saveDraft = (text: string) => {
     setDropNotice(null)
+    draftRef.current = text
     setDraft(text)
-    host.setState({ draft: text })
+    host.setState({ draft: text, sessions: sessionDrafts.current })
   }
+
+  /** 输入框进入 key 对应的会话；只读 ref，订阅回调里调用也拿到最新值。 */
+  const enterDraftSession = (key: string | null, pending: SessionPendingSend | null) => {
+    if (key === null) return
+    const entry = enterSession(sessionDrafts.current, draftRef.current, key, pending)
+    if (entry.sessions === sessionDrafts.current) return
+    sessionDrafts.current = entry.sessions
+    if (entry.pending !== pending) setPendingSend(entry.pending)
+    saveDraft(entry.draft)
+  }
+
+  /** 待确认的发送记下它所在的会话，回执晚到时按会话结算。 */
+  const pendingOf = (requestId: string): SessionPendingSend => ({ requestId, text: draft, session: sessionDrafts.current.current })
 
   const mentions = useFileMentions({ draft, enabled: inputMode === "message" && !busy, prompt, fileSearch: snapshot.fileSearch, post, saveDraft })
 
@@ -245,13 +288,13 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
         return
       }
       if (!tryPost({ type: inputMode, threadId: snapshot.threadId, text, requestId: id })) return
-      setPendingSend({ requestId: id, text: draft })
+      setPendingSend(pendingOf(id))
       return
     }
     if (messageAction === "steer") {
       if (!snapshot.threadId) return
       if (!tryPost({ type: "steer", threadId: snapshot.threadId, text, requestId: id })) return
-      setPendingSend({ requestId: id, text: draft })
+      setPendingSend(pendingOf(id))
       return
     }
     if (messageAction !== "send") return
@@ -265,7 +308,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
       })
     ) return
     // 等待明确回执期间保留本地草稿，重载也不丢失。
-    setPendingSend({ requestId: id, text: draft })
+    setPendingSend(pendingOf(id))
   }
 
   const confirmShell = (text: string) => {
@@ -275,7 +318,7 @@ export function ChatApp({ host, initial }: { host: CodemUiHost; initial: ChatSna
       setSessionRequest({ kind: "shell", text })
       return
     }
-    setPendingSend({ requestId: id, text: draft })
+    setPendingSend(pendingOf(id))
     setInputMode("message")
   }
 

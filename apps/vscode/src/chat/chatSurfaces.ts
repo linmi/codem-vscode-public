@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { chatHtml } from "./html.ts"
 import type { PanelBroker } from "../panels/panelBroker.ts"
 import { randomUUID } from "node:crypto"
-import type { ComposerDraft, ViewAction } from "../shared/messages.ts"
+import type { ComposerDraft, SessionDraftsValue, ViewAction } from "../shared/messages.ts"
 import { parseViewAction } from "../shared/messages.ts"
 
 type Surface = vscode.WebviewView | vscode.WebviewPanel
@@ -25,6 +25,8 @@ export class ChatSurfaces implements vscode.Disposable {
   private pendingRequest: "showAccount" | "openPermissionMenu" | null = null
   private readonly restoredWaiters = new Set<(error?: Error) => void>()
   private draft: ComposerDraft | null = null
+  /** Other sessions' drafts as the Webview last saved them; undefined until a surface reports any. Handed back on restore, cleared on sign-out. */
+  private sessions: SessionDraftsValue | null | undefined = undefined
   private draftRevision = 0
   private contextGeneration = 0
   private pendingSend: { id: string; revision: number } | null = null
@@ -56,8 +58,8 @@ export class ChatSurfaces implements vscode.Disposable {
     for (const done of this.restoredWaiters) done(new Error("账户已退出，上下文已取消。"))
     for (const pending of this.contexts.values()) pending.finish(false)
     this.contexts.clear()
-    this.draft = { draft: "" }; this.draftRevision++; this.pendingSend = null; this.pendingFocus = false
-    this.post({ type: "composerDraft", value: this.draft, focus: false, pendingRequestId: null })
+    this.draft = { draft: "" }; this.sessions = null; this.draftRevision++; this.pendingSend = null; this.pendingFocus = false
+    this.post({ type: "composerDraft", value: { ...this.draft, sessions: null }, focus: false, pendingRequestId: null })
   }
   async focus(): Promise<void> {
     this.pendingRequest = null
@@ -175,12 +177,19 @@ export class ChatSurfaces implements vscode.Disposable {
           return
         }
         if (action.type === "chatFocus") { this.setChatFocused(action.focused); return }
-        if (action.type === "composerChanged") { this.draft = action.value; this.draftRevision++; return }
+        if (action.type === "composerChanged") {
+          const { sessions, ...draft } = action.value
+          this.draft = draft; this.draftRevision++
+          if (sessions !== undefined) this.sessions = sessions
+          return
+        }
         if (action.type === "composerRestore") {
-          this.draft ??= action.value
+          const { sessions, ...draft } = action.value
+          this.draft ??= draft
+          if (this.sessions === undefined && sessions !== undefined) this.sessions = sessions
           this.restored = true
           for (const done of this.restoredWaiters) done()
-          this.post({ type: "composerDraft", value: this.draft, focus: this.pendingFocus, pendingRequestId: this.pendingSend?.revision === this.draftRevision ? this.pendingSend.id : null })
+          this.post({ type: "composerDraft", value: this.sessions === undefined ? this.draft : { ...this.draft, sessions: this.sessions }, focus: this.pendingFocus, pendingRequestId: this.pendingSend?.revision === this.draftRevision ? this.pendingSend.id : null })
           for (const [id, pending] of this.contexts) this.post({ type: "appendContext", id, text: pending.text })
           this.pendingFocus = false; return
         }

@@ -58,6 +58,23 @@ it("accepts bounded drafts and rejects arbitrary properties and malformed tool s
   }
 })
 
+it("accepts other sessions' drafts only as bounded thread-keyed text", () => {
+  const sessions = { current: "thread:a", others: { new: "新会话草稿", "thread:b": "B" } }
+  assert.deepEqual(parseViewAction({ type: "composerChanged", value: { draft: "A", sessions } }), { type: "composerChanged", value: { draft: "A", sessions } })
+  assert.deepEqual(parseViewAction({ type: "composerRestore", value: { draft: "", sessions: null } }), { type: "composerRestore", value: { draft: "", sessions: null } })
+  const many = Object.fromEntries(Array.from({ length: 21 }, (_, index) => [`thread:${index}`, "x"]))
+  for (const bad of [
+    { current: "/etc/passwd", others: {} },
+    { current: null, others: { "/tmp/file": "x" } },
+    { current: null, others: { "thread:a": "" } },
+    { current: null, others: { "thread:a": 1 } },
+    { current: null, others: many },
+    { current: null, others: { "thread:a": "x".repeat(32_000), "thread:b": "x".repeat(32_000), "thread:c": "x" } },
+    { current: null, others: {}, path: "/etc" },
+    [],
+  ]) assert.throws(() => parseViewAction({ type: "composerChanged", value: { draft: "", sessions: bad } }), /Invalid session drafts/)
+})
+
 it("accepts only builtin effort values and rejects the obsolete menu request", () => {
   for (const effort of ["low", "medium", "high", "xhigh"]) assert.deepEqual(parseViewAction({ type: "setEffort", effort }), { type: "setEffort", effort })
   for (const value of [{ type: "selectEffort" }, { type: "setEffort" }, { type: "setEffort", effort: "max" }, { type: "setEffort", effort: null }, { type: "setEffort", effort: "high", model: "injected" }]) assert.throws(() => parseViewAction(value))
