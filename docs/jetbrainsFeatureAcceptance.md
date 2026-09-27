@@ -100,3 +100,20 @@
 ## 审批、附件与 Diff 专项验收
 
 详见 [交互验收记录](jetbrainsInteractionAcceptance.md)。2026-09-22 已完成主要真实 IDEA + Core 链路及相应修复；默认 105 项 JetBrains 回归、显式 LiveToolTest/LiveQuestionTest 和修复提交时的全仓检查通过。最终编辑轮次仍有通用 Core 警告与回复未显示，独立 JCEF 刷新未原生实测；完整准出保持有保留项，不将单次工具成功写为全部交互通过。
+
+## Cycle 4：补齐 VS Code 2026-09-27 新增功能
+
+VS Code PR #2–#13 的行为为准，逐项移植到 JetBrains，一项一个 commit。领域逻辑放在无 IDE 依赖的 `session`/`ide` 包并有 fixture 或真实 git 测试；IntelliJ 入口只在 `src/plugin/kotlin`，集中在 Tools > CodeM。
+
+| 功能 | JetBrains 边界 | 无界面验证 | 真实 IDEA |
+| --- | --- | --- | --- |
+| 工作模式、权限模式命令 | `session/modeCommands.kt`；命令经 `ToolWindowHost` 走输入栏同一条事务，权限命令只打开界面菜单。VS Code 默认快捷键与 IDEA 冲突，不绑定 | 领域测试 | 待验收 |
+| 防休眠 | `ide/KeepAwake.kt` 单一抑制进程（macOS caffeinate、Linux systemd-inhibit、Windows PowerShell）；状态栏项仅开启时出现，点击关闭 | 领域测试 | 待验收 |
+| 生成终端命令 | `ide/TerminalCommand.kt` 与 `session/SideGenerations.kt`：借当前连接的旁路提问生成一行，45 秒超时可取消；预览后插入终端，不按回车 | 领域测试 + ProjectSession fixture | 待验收（2026.2 新终端是否仍走经典 widget） |
+| 分会话草稿 | 共享界面按会话保存在浏览器 sessionStorage，JetBrains 无宿主改动 | 共享 UI 测试 | 待验收 |
+| 拖拽附件 | `ide/DroppedAttachments.kt`：仅接受工作区内 `file://`，最多 20 个，先全部校验再附加 | 领域测试 | 待验收（JCEF 是否交付项目视图的 uri-list） |
+| 消息排队 | `session/MessageQueue.kt` 归 ProjectSession；仅 `completed` 终态续发，停止或失败后暂停 | ProjectSession fixture | 待验收 |
+| 并行会话 | `session/ParkedConversations.kt`：新建或切换时运行中的轮次转后台继续，不再 interrupt；其审批留在 InteractionRouter，只显示前台会话的；结束后才 unsubscribe；切回时仍订阅则不再 resume，结束后重读记录。后台有运行中会话时拒绝切换空间；断线清空。压缩/回退等控制轮次仍先停止再新建（Cycle 3 行为） | ProjectSession fixture + 单元测试 | 待验收 |
+| Worktree、PR、从默认分支更新 | `ide/worktrees.kt`、`ide/pullRequest.kt`：git 子进程（登录 Shell 的 PATH、禁止凭据提示），模态进度，同时只一个操作；worktree 一律在新窗口打开 | 真实 git 仓库测试 | 待验收 |
+
+检查：`./gradlew domainTest` 251 项通过，`-Pcodem.plugin :host:compileKotlin` 通过。真实 Core、真实 IDEA 操作与 Plugin Verifier 未执行，留待在用户 Mac 上以已有 IDEA 窗口重载插件验收后更新本表。

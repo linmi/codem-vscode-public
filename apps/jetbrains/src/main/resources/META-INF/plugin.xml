@@ -15,17 +15,64 @@
     <depends>com.intellij.modules.platform</depends>
     <!-- 2026.2 起 JCEF 是独立插件 Web Browser (JCEF)。不声明则点击 Tool Window 会 ClassNotFound JBCefApp。 -->
     <depends>com.intellij.modules.jcef</depends>
+    <!-- 终端命令插入用内置终端；未启用终端插件时只提供复制。 -->
+    <depends optional="true" config-file="codem-terminal.xml">org.jetbrains.plugins.terminal</depends>
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="CodeM"
                     anchor="right"
                     factoryClass="com.codem.intellij.bootstrap.CodemToolWindowFactory"
                     icon="/icons/codem.svg"/>
         <notificationGroup id="CodeM" displayType="BALLOON"/>
+        <statusBarWidgetFactory id="codem.keepAwake"
+                                implementation="com.codem.intellij.ide.KeepAwakeWidgetFactory"
+                                order="first"/>
     </extensions>
     <actions>
         <action id="codem.open"
                 class="com.codem.intellij.bootstrap.OpenCodemAction"
                 text="Open CodeM"
                 description="Open the CodeM tool window"/>
+        <!-- 不设默认快捷键：VS Code 的 Cmd/Ctrl+. 与 Cmd/Ctrl+Alt+A 在 IDEA 默认键位里已分别是折叠选区和加入 VCS。 -->
+        <group id="codem.tools" text="CodeM" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <reference ref="codem.open"/>
+            <action id="codem.cycleAgentMode"
+                    class="com.codem.intellij.bootstrap.CycleWorkModeAction"
+                    text="切换工作模式（Agent / Plan）"
+                    description="在 Agent 与 Plan 之间切换当前会话的工作模式"/>
+            <action id="codem.selectPermissionMode"
+                    class="com.codem.intellij.bootstrap.SelectPermissionModeAction"
+                    text="选择权限模式"
+                    description="打开 CodeM 输入栏的权限菜单"/>
+            <action id="codem.toggleKeepAwake"
+                    class="com.codem.intellij.ide.ToggleKeepAwakeAction"
+                    text="防休眠"
+                    description="阻止系统空闲休眠，直到关闭或退出 IDE；显示器仍可关闭"/>
+            <action id="codem.generateTerminalCommand"
+                    class="com.codem.intellij.ide.GenerateTerminalCommandAction"
+                    text="生成终端命令"
+                    description="描述要做的事，生成一条终端命令；预览后插入终端，不会自动执行"/>
+            <separator/>
+            <action id="codem.newWorktree"
+                    class="com.codem.intellij.ide.NewWorktreeAction"
+                    text="新建 worktree"
+                    description="在主工作区旁新建一个 Git worktree，可在新窗口打开"/>
+            <action id="codem.openWorktree"
+                    class="com.codem.intellij.ide.OpenWorktreeAction"
+                    text="在新窗口打开 worktree"
+                    description="选择这个仓库的另一个 worktree，在新窗口打开"/>
+            <action id="codem.closeWorktree"
+                    class="com.codem.intellij.ide.RemoveWorktreeAction"
+                    text="删除 worktree"
+                    description="在主工作区窗口删除一个 worktree，可同时删除已合并的分支"/>
+            <action id="codem.openPullRequest"
+                    class="com.codem.intellij.ide.OpenPullRequestAction"
+                    text="为当前分支打开 PR 页面"
+                    description="在 GitHub 或 GitLab 打开当前分支的新建 PR/MR 页面；推送需确认"/>
+            <action id="codem.updateFromBase"
+                    class="com.codem.intellij.ide.UpdateFromBaseAction"
+                    text="从默认分支更新当前分支"
+                    description="拉取远程默认分支并合并到当前分支，不变基、不推送"/>
+        </group>
     </actions>
 </idea-plugin>

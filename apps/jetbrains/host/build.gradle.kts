@@ -43,6 +43,8 @@ sourceSets {
 dependencies {
     intellijPlatform {
         intellijIdeaCommunity(ideaVersion.get())
+        // Optional at runtime (codem-terminal.xml): only the terminal command insertion uses it.
+        bundledPlugin("org.jetbrains.plugins.terminal")
     }
 }
 

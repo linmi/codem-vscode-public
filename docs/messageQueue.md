@@ -14,7 +14,7 @@
 - **发送失败**：Core 未受理的队首放回原位并暂停，给出提示，不自动重试。
 - **切换上下文**：新建会话、切换或关闭会话、切换空间、断线和退出登录都会让当前线程变化，队列随之丢弃。
 - **重载**：Webview 重载后从宿主快照恢复列表；扩展宿主重启不保留队列。
-- **不支持的宿主**：快照没有 `messageQueue`（如 JetBrains 当前版本）时，运行中输入仍按补充指令发送。
+- **不支持的宿主**：快照没有 `messageQueue` 时，运行中输入仍按补充指令发送。JetBrains 自 2026-09-27 起由宿主提供同样的队列。
 
 ## 边界与状态
 
@@ -22,6 +22,7 @@
 | --- | --- | --- | --- |
 | 排队条目、是否暂停 | `apps/vscode/src/chat/messageQueue.ts` | 当前 Core 线程，仅内存 | 线程变化时（`ChatController.publish` 调用 `follow`） |
 | 何时发送队首 | `ChatController`（`turn-completed` 分支与 `resumeQueue`） | — | — |
+| JetBrains 排队条目与发送时机 | `apps/jetbrains/.../session/MessageQueue.kt`；`ProjectSession`（`turn/completed` 与 `resumeQueue`） | 当前 Core 线程，仅内存 | 线程变化时（`ProjectSession.mutate` 调用 `follow`） |
 | 正在编辑的文字 | `packages/ui/src/chat/messageQueue.tsx` | 当前组件 | 保存、取消或条目消失 |
 
 排队发送只带文字：附件、代码选区和已选技能属于输入框里下一条手写消息，不会被较早排队的消息带走。界面只收到条目的不透明 id 与文字；新增动作 `queueMessage`、`editQueuedMessage`、`removeQueuedMessage`、`resumeQueue` 由共享契约与宿主各自校验。没有新增 RPC、子进程或缓存；每条排队消息在发送时恰好调用一次 `turn/start`。

@@ -66,7 +66,8 @@ class ProjectSessionTest {
     }
 
     @Test
-    fun newChatStopsRunningTurnBeforeClearingThreadId() {
+    /** A context operation has no conversation to come back to, so a new chat still stops it instead of backgrounding it. */
+    fun newChatStopsARunningContextOperationBeforeClearingThreadId() {
         val process = ScriptedProcess()
         val interrupted = java.util.concurrent.CountDownLatch(1)
         val session = session {
@@ -74,7 +75,8 @@ class ProjectSessionTest {
             process
         }
         session.connect()
-        session.send("hello", "req-1")
+        session.resumeThread("thread-1")
+        session.compactThread()
         assertEquals("thread-1", session.snapshot().threadId)
         val changed = java.util.concurrent.CompletableFuture.runAsync { session.newChat() }
         awaitSnapshot(session) { it.phase == "stopping" }
@@ -82,7 +84,7 @@ class ProjectSessionTest {
         assertTrue(!changed.isDone)
         org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.send("too early", "req-early") }
         assertTrue(interrupted.await(2, java.util.concurrent.TimeUnit.SECONDS))
-        completeTurn(process, "thread-1", "turn-1")
+        completeTurn(process, "thread-1", "turn-control")
         changed.get(5, java.util.concurrent.TimeUnit.SECONDS)
         val methods = process.writes.map { JsonValue.parse(it).asObject() }
             .mapNotNull { (it.fields["method"] as? JsonValue.Text)?.value }
@@ -92,7 +94,7 @@ class ProjectSessionTest {
             .first { (it.fields["method"] as? JsonValue.Text)?.value == "turn/interrupt" }
             .required("params").asObject()
         assertEquals("thread-1", interrupt.required("threadId").asText())
-        assertEquals("turn-1", interrupt.required("turnId").asText())
+        assertEquals("turn-control", interrupt.required("turnId").asText())
         val after = session.snapshot()
         assertEquals(null, after.threadId)
         assertEquals("thread-1", after.resumeThreadId)
@@ -177,11 +179,12 @@ class ProjectSessionTest {
         val session = session { startResponder(process, handshakeCapabilities()); process }
         try {
             session.connect()
-            session.send("hello", "req-timeout")
+            session.resumeThread("thread-1")
+            session.compactThread()
             org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.newChat() }
             assertEquals("thread-1", session.snapshot().threadId)
             assertTrue(process.writes.none { it.contains("thread/unsubscribe") })
-            completeTurn(process, "thread-1", "turn-1")
+            completeTurn(process, "thread-1", "turn-control")
             awaitSnapshot(session) { it.phase == "ready" }
             session.newChat()
             assertEquals(null, session.snapshot().threadId)
@@ -212,7 +215,8 @@ class ProjectSessionTest {
         val process = ScriptedProcess()
         val session = session { startResponder(process, handshakeCapabilities()); process }
         session.connect()
-        session.send("hello", "req-close")
+        session.resumeThread("thread-1")
+        session.compactThread()
         val change = java.util.concurrent.CompletableFuture.runAsync { session.newChat() }
         awaitSnapshot(session) { it.phase == "stopping" }
         session.close().join()
@@ -1774,6 +1778,324 @@ class ProjectSessionTest {
                     ),
                 )
             }
+    }
+
+    @Test
+    fun textGenerationBorrowsTheSideQuestionSlotAndReturnsTheAnswer() {
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, params ->
+                if (method != "thread/sideQuestion/start") return@startResponder null
+                assertEquals("生成一条命令", params.requiredString("question", "side question"))
+                sideQuestionStream(process, "thread-1", "side-1", "生成一条命令", listOf("{\"command\":", "\"ls -la\"}"))
+                JsonValue.obj("sideQuestion" to JsonValue.obj("id" to JsonValue.Text("side-1"), "status" to JsonValue.Text("accepted")))
+            })
+            process
+        }
+        try {
+            session.connect()
+            // A side question the chat asked itself is not the generation's and changes nothing.
+            enqueueNotification(process, "thread/sideQuestion/delta", JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "sideQuestionId" to JsonValue.Text("other"), "delta" to JsonValue.Text("x")))
+            assertEquals("{\"command\":\"ls -la\"}", session.generateText("  生成一条命令 ", { false }))
+            val methods = process.writes.mapNotNull { JsonValue.parse(it).asObject().stringOrNull("method") }
+            assertEquals(listOf("thread/start", "thread/sideQuestion/start"), methods.filter { it.startsWith("thread/") }, "A blank chat gets its first thread")
+            assertTrue("turn/start" !in methods, "Generation never starts an Agent turn")
+            assertEquals("thread-1", session.snapshot().threadId)
+            assertEquals("turn-1", session.send("afterwards", "req-after"), "The slot is released once the answer arrives")
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun cancellingATextGenerationCancelsTheSideQuestionAndBlocksNothingAfterwards() {
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, params ->
+                when (method) {
+                    "thread/sideQuestion/start" -> JsonValue.obj("sideQuestion" to JsonValue.obj("id" to JsonValue.Text("side-1"), "status" to JsonValue.Text("accepted")))
+                    "thread/sideQuestion/cancel" -> {
+                        enqueueNotification(process, "thread/sideQuestion/completed", JsonValue.obj(
+                            "threadId" to JsonValue.Text("thread-1"),
+                            "sideQuestion" to JsonValue.obj("id" to params.required("sideQuestionId"), "status" to JsonValue.Text("interrupted")),
+                        ))
+                        JsonValue.obj("sideQuestionId" to params.required("sideQuestionId"), "status" to JsonValue.Text("cancelled"))
+                    }
+                    else -> null
+                }
+            })
+            process
+        }
+        try {
+            session.connect()
+            val cancel = java.util.concurrent.atomic.AtomicBoolean(false)
+            val running = java.util.concurrent.CompletableFuture.supplyAsync { session.generateText("生成", { cancel.get() }) }
+            awaitCondition { process.writes.any { it.contains("thread/sideQuestion/start") } }
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.send("while generating", "req-busy") }
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.generateText("second", { false }) }
+            cancel.set(true)
+            val failure = org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.ExecutionException::class.java) { running.get(5, java.util.concurrent.TimeUnit.SECONDS) }
+            assertEquals(SideGenerations.CANCELLED, failure.cause?.message)
+            val cancelParams = process.writes.map { JsonValue.parse(it).asObject() }
+                .single { it.stringOrNull("method") == "thread/sideQuestion/cancel" }.required("params").asObject()
+            assertEquals("side-1", cancelParams.requiredString("sideQuestionId", "cancel"))
+            assertEquals("turn-1", session.send("afterwards", "req-after"))
+            // A running turn owns the thread: generation waits for it instead of competing.
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.generateText("during turn", { false }) }
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun aTextGenerationWithoutAnAnswerTimesOutAndCancels() {
+        val process = ScriptedProcess()
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, params ->
+                when (method) {
+                    "thread/sideQuestion/start" -> JsonValue.obj("sideQuestion" to JsonValue.obj("id" to JsonValue.Text("side-9"), "status" to JsonValue.Text("accepted")))
+                    "thread/sideQuestion/cancel" -> JsonValue.obj("sideQuestionId" to params.required("sideQuestionId"), "status" to JsonValue.Text("cancelled"))
+                    else -> null
+                }
+            })
+            process
+        }
+        try {
+            session.connect()
+            val failure = org.junit.jupiter.api.Assertions.assertThrows(CodemError.Cancelled::class.java) {
+                session.generateText("生成", { false }, timeoutMs = 300)
+            }
+            assertEquals(SideGenerations.TIMED_OUT, failure.message)
+            assertTrue(process.writes.any { it.contains("thread/sideQuestion/cancel") })
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun aQueuedMessageIsSentAsTheNextTurnOnlyAfterACompletedTurn() {
+        val process = ScriptedProcess()
+        val turnIds = AtomicInteger(0)
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, _ ->
+                if (method == "turn/start") JsonValue.obj("turn" to JsonValue.obj("id" to JsonValue.Text("turn-${turnIds.incrementAndGet()}"))) else null
+            })
+            process
+        }
+        fun turnStarts() = process.writes.map { JsonValue.parse(it).asObject() }.filter { it.stringOrNull("method") == "turn/start" }
+            .map { it.required("params").asObject().required("input").asArray().items.first().asObject().requiredString("text", "input") }
+        fun queueAction(text: String, request: String) = parseViewAction(JsonValue.obj(
+            "type" to JsonValue.Text("queueMessage"), "threadId" to JsonValue.Text("thread-1"), "text" to JsonValue.Text(text), "requestId" to JsonValue.Text(request),
+        ))
+        try {
+            session.connect()
+            org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.applyViewAction(queueAction("idle", "req-idle")) }
+            assertEquals(false, session.snapshot().submission?.accepted, "An idle thread refuses to queue")
+            session.send("run", "req-1")
+            session.applyViewAction(queueAction("next one", "req-q1"))
+            session.applyViewAction(queueAction("after that", "req-q2"))
+            assertEquals(true, session.snapshot().submission?.accepted)
+            assertEquals(listOf("next one", "after that"), session.snapshot().messageQueue?.items?.map { it.text })
+            completeTurn(process, "thread-1", "turn-1")
+            awaitCondition { turnStarts() == listOf("run", "next one") }
+            assertEquals(listOf("after that"), session.snapshot().messageQueue?.items?.map { it.text })
+            // A stopped turn pauses the queue: nothing more is sent until the user continues.
+            process.enqueue(encodeJson(JsonValue.obj(
+                "jsonrpc" to JsonValue.Text("2.0"), "method" to JsonValue.Text("turn/completed"),
+                "params" to JsonValue.obj("threadId" to JsonValue.Text("thread-1"), "turn" to JsonValue.obj("id" to JsonValue.Text("turn-2"), "status" to JsonValue.Text("interrupted"))),
+            )))
+            awaitSnapshot(session) { it.messageQueue?.paused == true && it.phase == "ready" }
+            Thread.sleep(100)
+            assertEquals(2, turnStarts().size)
+            session.applyViewAction(ViewAction.ResumeQueue)
+            assertEquals(listOf("run", "next one", "after that"), turnStarts())
+            assertEquals(emptyList<com.codem.intellij.webview.QueuedMessageView>(), session.snapshot().messageQueue?.items)
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun aRefusedQueuedSendReturnsToTheHeadPausedAndANewChatDropsTheQueue() {
+        val process = ScriptedProcess()
+        val refuse = java.util.concurrent.atomic.AtomicBoolean(false)
+        val session = session {
+            startResponder(process, handshakeCapabilities(), shouldFail = { it == "turn/start" && refuse.get() })
+            process
+        }
+        try {
+            session.connect()
+            session.send("run", "req-1")
+            session.queueMessage("thread-1", "queued")
+            refuse.set(true)
+            completeTurn(process, "thread-1", "turn-1")
+            val paused = awaitSnapshot(session) { it.messageQueue?.paused == true }
+            assertEquals(listOf("queued"), paused.messageQueue?.items?.map { it.text })
+            assertTrue(paused.notice != null)
+            refuse.set(false)
+            session.send("again", "req-2")
+            session.queueMessage("thread-1", "kept?")
+            session.stop()
+            completeTurn(process, "thread-1", "turn-1")
+            awaitSnapshot(session) { it.phase == "ready" }
+            session.newChat()
+            assertEquals(emptyList<com.codem.intellij.webview.QueuedMessageView>(), session.snapshot().messageQueue?.items, "A new chat drops the old thread's queue")
+        } finally { session.close().join() }
+    }
+
+    /** Switching away no longer unsubscribes a running thread, which made Core interrupt it; its end releases it. */
+    @Test
+    fun aNewChatLeavesTheRunningConversationRunningInTheBackground() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        try {
+            session.connect()
+            session.send("hello", "req-1")
+            session.newChat()
+            val away = session.snapshot()
+            assertEquals(null, away.threadId)
+            assertEquals("ready", away.phase)
+            assertEquals(listOf(com.codem.intellij.webview.LiveSessionView("thread-1", "hello", "running")), away.liveSessions)
+            assertEquals(emptyList<String>(), methods(process).filter { it == "turn/interrupt" || it == "thread/unsubscribe" })
+            completeTurn(process, "thread-1", "turn-1")
+            awaitSnapshot(session) { it.liveSessions.singleOrNull()?.status == "completed" }
+            awaitCondition { methods(process).contains("thread/unsubscribe") }
+            assertEquals("thread-1", unsubscribed(process).single())
+        } finally { session.close().join() }
+    }
+
+    /** A background approval waits for its conversation; switching back takes the live turn without resuming it again. */
+    @Test
+    fun switchingBackShowsTheBackgroundApprovalAndContinuesTheLiveTurn() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        try {
+            session.connect()
+            session.send("edit the file", "req-1")
+            session.newChat()
+            enqueueApproval(process, "thread-1", 7)
+            val waiting = awaitSnapshot(session) { it.liveSessions.singleOrNull()?.status == "awaitingApproval" }
+            assertEquals(null, waiting.pendingPanel, "A background request is not shown over another conversation")
+            assertTrue(process.writes.none { it.contains("\"error\"") }, "The background request is kept, not rejected")
+            assertEquals("thread-1", session.resumeThread("thread-1"))
+            val back = session.snapshot()
+            assertEquals("thread-1", back.threadId)
+            assertEquals("running", back.phase)
+            assertEquals("approval", back.pendingPanel?.kind)
+            assertEquals(emptyList<com.codem.intellij.webview.LiveSessionView>(), back.liveSessions)
+            assertTrue("thread/resume" !in methods(process), "Core refuses to resume a thread this connection still has")
+            session.applyViewAction(ViewAction.PanelReply(back.pendingPanel!!.id, listOf("choice-0"), "", false))
+            completeTurn(process, "thread-1", "turn-1")
+            awaitSnapshot(session) { it.phase == "ready" }
+            assertEquals(emptyList<String>(), unsubscribed(process))
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun twoConversationsRunAtOnceAndSwapPlaces() {
+        val process = ScriptedProcess()
+        val threads = AtomicInteger(0)
+        val turns = AtomicInteger(0)
+        val session = session {
+            startResponder(process, handshakeCapabilities(), results = { method, _ ->
+                when (method) {
+                    "thread/start" -> JsonValue.obj("thread" to JsonValue.obj("id" to JsonValue.Text("thread-${threads.incrementAndGet()}")))
+                    "turn/start" -> JsonValue.obj("turn" to JsonValue.obj("id" to JsonValue.Text("turn-${turns.incrementAndGet()}")))
+                    else -> null
+                }
+            })
+            process
+        }
+        try {
+            session.connect()
+            session.send("first", "req-1")
+            session.newChat()
+            session.send("second", "req-2")
+            val both = session.snapshot()
+            assertEquals("thread-2", both.threadId)
+            assertEquals("running", both.phase)
+            assertEquals(listOf("thread-1" to "running"), both.liveSessions.map { it.id to it.status })
+            session.resumeThread("thread-1")
+            val swapped = session.snapshot()
+            assertEquals("thread-1", swapped.threadId)
+            assertEquals("running", swapped.phase)
+            assertEquals(listOf("thread-2" to "running"), swapped.liveSessions.map { it.id to it.status })
+            assertEquals(emptyList<String>(), methods(process).filter { it == "turn/interrupt" || it == "thread/unsubscribe" || it == "thread/resume" })
+            // The foreground turn ends in the foreground; the background one ends where it is and is released.
+            completeTurn(process, "thread-1", "turn-1")
+            completeTurn(process, "thread-2", "turn-2")
+            awaitSnapshot(session) { it.phase == "ready" && it.liveSessions.singleOrNull()?.status == "completed" }
+            awaitCondition { unsubscribed(process) == listOf("thread-2") }
+        } finally { session.close().join() }
+    }
+
+    /** An ended background conversation was released, so going back resumes it; while one runs, spaces stay put. */
+    @Test
+    fun anEndedBackgroundConversationIsResumedAndARunningOneHoldsTheSpace() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        try {
+            session.connect()
+            session.send("hello", "req-1")
+            session.newChat()
+            val refused = org.junit.jupiter.api.Assertions.assertThrows(CodemError.Conflict::class.java) { session.chooseSpace("other") }
+            assertEquals(ProjectSession.PARKED_RUNNING, refused.message)
+            assertEquals("ready", session.snapshot().phase)
+            completeTurn(process, "thread-1", "turn-1")
+            awaitCondition { unsubscribed(process) == listOf("thread-1") }
+            awaitSnapshot(session) { it.liveSessions.singleOrNull()?.status == "completed" }
+            session.resumeThread("thread-1")
+            val back = session.snapshot()
+            assertEquals("thread-1", back.threadId)
+            assertEquals("ready", back.phase)
+            assertEquals(emptyList<com.codem.intellij.webview.LiveSessionView>(), back.liveSessions)
+            assertTrue("thread/resume" in methods(process))
+        } finally { session.close().join() }
+    }
+
+    @Test
+    fun aLostConnectionForgetsBackgroundConversations() {
+        val process = ScriptedProcess()
+        val session = session { startResponder(process, handshakeCapabilities()); process }
+        try {
+            session.connect()
+            session.send("hello", "req-1")
+            session.newChat()
+            assertEquals(1, session.snapshot().liveSessions.size)
+            process.destroy(true)
+            val failed = awaitSnapshot(session) { it.phase == "failed" }
+            assertEquals(emptyList<com.codem.intellij.webview.LiveSessionView>(), failed.liveSessions)
+        } finally { session.close().join() }
+    }
+
+    private fun methods(process: ScriptedProcess): List<String> =
+        process.writes.mapNotNull { JsonValue.parse(it).asObject().stringOrNull("method") }
+
+    private fun unsubscribed(process: ScriptedProcess): List<String> =
+        process.writes.map { JsonValue.parse(it).asObject() }
+            .filter { it.stringOrNull("method") == "thread/unsubscribe" }
+            .map { it.required("params").asObject().required("threadId").asText() }
+
+    private fun enqueueApproval(process: ScriptedProcess, threadId: String, id: Int) {
+        process.enqueue(encodeJson(JsonValue.obj(
+            "jsonrpc" to JsonValue.Text("2.0"),
+            "id" to JsonValue.NumberValue(id.toDouble(), id.toString()),
+            "method" to JsonValue.Text("item/fileChange/requestApproval"),
+            "params" to JsonValue.obj(
+                "threadId" to JsonValue.Text(threadId),
+                "requestId" to JsonValue.Text("approval-$id"),
+                "options" to JsonValue.ArrayValue(listOf(JsonValue.obj("optionId" to JsonValue.Text("allow"), "label" to JsonValue.Text("Allow")))),
+            ),
+        )))
+    }
+
+    /** started → deltas → completed for one side question, as Core streams it. */
+    private fun sideQuestionStream(process: ScriptedProcess, threadId: String, id: String, question: String, deltas: List<String>) {
+        enqueueNotification(process, "thread/sideQuestion/started", JsonValue.obj(
+            "threadId" to JsonValue.Text(threadId),
+            "sideQuestion" to JsonValue.obj("id" to JsonValue.Text(id), "question" to JsonValue.Text(question), "status" to JsonValue.Text("inProgress")),
+        ))
+        for (delta in deltas) {
+            enqueueNotification(process, "thread/sideQuestion/delta", JsonValue.obj(
+                "threadId" to JsonValue.Text(threadId), "sideQuestionId" to JsonValue.Text(id), "delta" to JsonValue.Text(delta),
+            ))
+        }
+        enqueueNotification(process, "thread/sideQuestion/completed", JsonValue.obj(
+            "threadId" to JsonValue.Text(threadId),
+            "sideQuestion" to JsonValue.obj("id" to JsonValue.Text(id), "status" to JsonValue.Text("completed")),
+        ))
     }
 
     /** 只认推送给界面的快照，不看域内部状态，才能证明界面确实被通知到。 */

@@ -86,13 +86,17 @@ data class ReplyDecision(val reply: CoreReply?, val interruptTurn: Boolean = fal
 class InteractionRouter {
     private val pending = linkedMapOf<String, PendingInteraction>()
 
-    /** Queues an interaction and returns null, or returns the rejection to send. */
-    fun handle(request: RpcRequest, peer: RpcPeer, generation: Long, threadId: String?): CoreReply? {
+    /**
+     * Queues an interaction and returns null, or returns the rejection to send. Requests of the foreground [threadId]
+     * are accepted, and those of a conversation still running in the [background]; the latter wait until it returns.
+     */
+    fun handle(request: RpcRequest, peer: RpcPeer, generation: Long, threadId: String?, background: (String) -> Boolean = { false }): CoreReply? {
         val kind = kindOf(request.method)
             ?: return CoreReply.error(peer, request.id, -32601, "Unsupported client request: ${request.method}")
         return try {
             val parsed = parsePending(request, kind, peer, generation, threadId)
-            if (parsed.threadId != threadId || parsed.requestId in pending) throw CodemError.Validation("CodeM request belongs to another thread or repeats a pending identity")
+            val owned = parsed.threadId == threadId || (parsed.threadId != null && background(parsed.threadId))
+            if (!owned || parsed.requestId in pending) throw CodemError.Validation("CodeM request belongs to another thread or repeats a pending identity")
             pending[parsed.requestId] = parsed
             null
         } catch (_: CodemError) {
@@ -102,7 +106,7 @@ class InteractionRouter {
 
     /** Only cancelling a permission asks the session to interrupt the turn; it sends nothing itself. */
     fun reply(panelId: String, generation: Long, threadId: String?, choiceIds: List<String>, text: String, cancelled: Boolean): ReplyDecision {
-        val current = current()?.takeIf { it.panelId == panelId }
+        val current = current(threadId)?.takeIf { it.panelId == panelId }
             ?: throw CodemError.Conflict("CodeM interaction is no longer current")
         if (current.generation != generation || current.threadId != threadId) {
             throw CodemError.Conflict("CodeM interaction belongs to another session")
@@ -152,7 +156,10 @@ class InteractionRouter {
         }
     }
 
-    fun renewPanel() { current()?.panelId = UUID.randomUUID().toString() }
+    fun renewPanel(threadId: String?) { current(threadId)?.panelId = UUID.randomUUID().toString() }
+
+    /** A background conversation with an open request shows as awaiting approval. */
+    fun hasPending(threadId: String): Boolean = pending.values.any { it.threadId == threadId }
 
     fun revokeThread(generation: Long, threadId: String?): List<CoreReply> =
         pending.values.filter { it.generation == generation && it.threadId == threadId }.map(::retire)
@@ -165,15 +172,16 @@ class InteractionRouter {
         return CoreReply.error(interaction.peer, interaction.id, -32000, "CodeM interaction is no longer active")
     }
 
-    fun current(): PendingInteraction? = pending.values.lastOrNull()
+    /** Only the foreground conversation's requests are shown; a background one keeps its own until it returns. */
+    fun current(threadId: String?): PendingInteraction? = pending.values.lastOrNull { it.threadId == threadId }
 
     private fun displayedChoices(current: PendingInteraction): List<LabeledChoice> =
         if (current.kind == InteractionKind.Question) current.questions[current.questionIndex].optionLabels.map { LabeledChoice(it, it) }
         else current.choices
 
     /** Opaque per-page handles, including Chinese options; raw Core identities never reach the UI. */
-    fun panelView(): com.codem.intellij.webview.PendingPanelView? {
-        val current = current() ?: return null
+    fun panelView(threadId: String?): com.codem.intellij.webview.PendingPanelView? {
+        val current = current(threadId) ?: return null
         val kind = when (current.kind) {
             InteractionKind.Permission -> "approval"
             InteractionKind.Question -> "question"

@@ -23,6 +23,7 @@ sealed class ViewAction {
     data object AddDirectory : ViewAction()
     data object CancelSideQuestion : ViewAction()
     data object PinSelection : ViewAction()
+    data object ResumeQueue : ViewAction()
     data object ShowHistory : ViewAction()
     data object CloseHistory : ViewAction()
     data object RefreshHistory : ViewAction()
@@ -32,6 +33,8 @@ sealed class ViewAction {
     data class SelectFile(val id: String, val requestId: String) : ViewAction()
     data class SetSendKey(val sendKey: String) : ViewAction()
     data class PasteImages(val requestId: String, val images: List<PastedImage>) : ViewAction()
+    /** file: URIs dragged onto the chat; whether each is inside the workspace is decided by the Host. */
+    data class DropAttachments(val uris: List<String>) : ViewAction()
     data class Send(
         val text: String,
         val requestId: String,
@@ -58,6 +61,9 @@ sealed class ViewAction {
     data class LoadCatalog(val kind: String) : ViewAction()
     data class ManageThread(val operation: String, val threadId: String, val name: String, val requestId: String) : ViewAction()
     data class Steer(val threadId: String, val text: String, val requestId: String) : ViewAction()
+    data class QueueMessage(val threadId: String, val text: String, val requestId: String) : ViewAction()
+    data class EditQueuedMessage(val id: String, val text: String) : ViewAction()
+    data class RemoveQueuedMessage(val id: String) : ViewAction()
     data class AskSideQuestion(val threadId: String, val text: String, val requestId: String) : ViewAction()
     data class ShellCommand(val threadId: String, val text: String, val requestId: String) : ViewAction()
     data class CompactThread(val threadId: String, val requestId: String) : ViewAction()
@@ -165,11 +171,21 @@ data class AccountView(
 )
 data class SlashCommandView(val id: String, val label: String, val group: String)
 
+/** A message typed during a run, sent as the next turn once the run completes. */
+data class QueuedMessageView(val id: String, val text: String)
+
+/** Paused after a stopped or failed turn: nothing is sent until the user resumes. */
+data class MessageQueueView(val items: List<QueuedMessageView> = emptyList(), val paused: Boolean = false)
+
+/** A conversation left running (or ended, not yet viewed) after switching away: running, awaitingApproval, completed, stopped or failed. */
+data class LiveSessionView(val id: String, val title: String, val status: String)
+
 data class SubmissionReceiptView(val requestId: String, val accepted: Boolean)
 
 fun ViewAction.submissionRequestId(): String? = when (this) {
     is ViewAction.Send -> requestId
     is ViewAction.Steer -> requestId
+    is ViewAction.QueueMessage -> requestId
     is ViewAction.AskSideQuestion -> requestId
     is ViewAction.ShellCommand -> requestId
     else -> null
@@ -198,6 +214,8 @@ data class ChatSnapshot(
     val account: AccountView = AccountView(),
     /** 请求界面打开账户页的序号；开合归界面，JetBrains 目前不发起请求。 */
     val accountRequest: Long = 0,
+    /** 请求界面打开权限菜单的序号；菜单开合归界面，忙碌或未登录时界面丢弃这次请求。 */
+    val permissionMenuRequest: Long = 0,
     val brandMark: String? = null,
     val slashCommands: List<SlashCommandView> = emptyList(),
     val pendingInteraction: String?,
@@ -217,6 +235,10 @@ data class ChatSnapshot(
     val fileSearch: FileSearchView? = null,
     val sendKey: String = "enter",
     val submission: SubmissionReceiptView? = null,
+    /** 宿主持有的排队消息；首屏为 null，界面据此在运行中改发补充指令。 */
+    val messageQueue: MessageQueueView? = null,
+    /** 切走后仍在后台运行或结束未查看的会话；当前会话不在其中。 */
+    val liveSessions: List<LiveSessionView> = emptyList(),
 )
 
 /** 挂载前的首屏：canRetry/canResume/canLoadOlder 全为 false，界面的 visibleControls 据此隐藏条件入口。 */
@@ -263,6 +285,10 @@ fun parseViewAction(value: JsonValue): ViewAction {
         "addDirectory" -> simple(keys, ViewAction.AddDirectory)
         "cancelSideQuestion" -> simple(keys, ViewAction.CancelSideQuestion)
         "pinSelection" -> simple(keys, ViewAction.PinSelection)
+        "resumeQueue" -> simple(keys, ViewAction.ResumeQueue)
+        "removeQueuedMessage" -> if (keys.size == 2) ViewAction.RemoveQueuedMessage(handleId(obj.required("id").asText())) else reject()
+        "editQueuedMessage" -> if (keys.size == 3) ViewAction.EditQueuedMessage(handleId(obj.required("id").asText()), nonEmpty(obj.required("text").asText())) else reject()
+        "queueMessage" -> if (keys.size == 4) ViewAction.QueueMessage(threadId(obj.required("threadId").asText()), nonEmpty(obj.required("text").asText()), requestId(obj.required("requestId").asText())) else reject()
         "showHistory" -> simple(keys, ViewAction.ShowHistory)
         "closeHistory" -> simple(keys, ViewAction.CloseHistory)
         "refreshHistory" -> simple(keys, ViewAction.RefreshHistory)
@@ -276,6 +302,7 @@ fun parseViewAction(value: JsonValue): ViewAction {
             ViewAction.SetSendKey(key)
         }
         "pasteImages" -> parsePaste(obj)
+        "dropAttachments" -> if (keys.size == 2) ViewAction.DropAttachments(droppedUris(obj.required("uris"))) else reject()
         "send" -> parseSend(obj)
         "panelReply" -> {
             val id = requestId(obj.required("id").asText())
@@ -378,6 +405,7 @@ fun encodeChatSnapshot(snapshot: ChatSnapshot): JsonValue.ObjectValue {
         }),
         "account" to encodeAccount(snapshot.account),
         "accountRequest" to JsonValue.NumberValue(snapshot.accountRequest.toDouble(), snapshot.accountRequest.toString()),
+        "permissionMenuRequest" to JsonValue.NumberValue(snapshot.permissionMenuRequest.toDouble(), snapshot.permissionMenuRequest.toString()),
         "brandMark" to nullableText(snapshot.brandMark),
         "slashCommands" to JsonValue.ArrayValue(snapshot.slashCommands.map {
             JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "group" to JsonValue.Text(it.group))
@@ -458,6 +486,13 @@ fun encodeChatSnapshot(snapshot: ChatSnapshot): JsonValue.ObjectValue {
             )
         } ?: JsonValue.Null),
         "sendKey" to JsonValue.Text(snapshot.sendKey),
+        "messageQueue" to (snapshot.messageQueue?.let { queue ->
+            JsonValue.obj(
+                "items" to JsonValue.ArrayValue(queue.items.map { JsonValue.obj("id" to JsonValue.Text(it.id), "text" to JsonValue.Text(it.text)) }),
+                "paused" to JsonValue.Bool(queue.paused),
+            )
+        } ?: JsonValue.Null),
+        "liveSessions" to JsonValue.ArrayValue(snapshot.liveSessions.map { JsonValue.obj("id" to JsonValue.Text(it.id), "title" to JsonValue.Text(it.title), "status" to JsonValue.Text(it.status)) }),
         "diffs" to JsonValue.ArrayValue(snapshot.diffs.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "added" to JsonValue.NumberValue(it.added.toDouble(), it.added.toString()), "removed" to JsonValue.NumberValue(it.removed.toDouble(), it.removed.toString()), "preview" to JsonValue.Text(it.preview), "available" to JsonValue.Bool(it.available)) }),
         "background" to JsonValue.ArrayValue(snapshot.background.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "inProgress" to JsonValue.Bool(it.inProgress)) }),
         "backgroundTasks" to JsonValue.ArrayValue(snapshot.backgroundTasks.map { JsonValue.obj("id" to JsonValue.Text(it.id), "label" to JsonValue.Text(it.label), "phase" to JsonValue.Text(it.phase)) }),
@@ -533,6 +568,16 @@ private fun parsePaste(obj: JsonValue.ObjectValue): ViewAction.PasteImages {
             PastedImage(media, data)
         },
     )
+}
+
+/** As contract.ts parseDroppedUris: 1–20 file: URIs without control characters. */
+private fun droppedUris(value: JsonValue): List<String> {
+    val items = value.asArray().items.map { it.asText() }
+    if (items.isEmpty() || items.size > 20) reject()
+    for (uri in items) {
+        if (uri.length > 4096 || !uri.startsWith("file://", ignoreCase = true) || uri.any { it.code < 32 }) reject()
+    }
+    return items
 }
 
 private fun parseSend(obj: JsonValue.ObjectValue): ViewAction.Send {
